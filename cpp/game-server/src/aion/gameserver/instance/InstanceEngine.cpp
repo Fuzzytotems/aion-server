@@ -4,7 +4,6 @@
 #include <string>
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
@@ -44,10 +43,6 @@ runtime::Ref<handlers::InstanceHandler> InstanceEngine::getNewInstanceHandler(wo
 	}
 
 	return instanceHandler ? instanceHandler : runtime::Ref<handlers::InstanceHandler>(handlers::GeneralInstanceHandler::create(instance));
-}
-
-void InstanceEngine::addInstanceHandlerClass(const gameserver::handlers::InstanceHandlerEntry& handler) {
-	AION_UNPORTED();
 }
 
 InstanceEngine& InstanceEngine::getInstance() {

@@ -7,10 +7,6 @@
 #include "aion/gameserver/model/GameEngine.h"
 #include "aion/gameserver/world/fwd.h"
 
-namespace aion::gameserver::handlers {
-struct InstanceHandlerEntry;
-} // namespace aion::gameserver::handlers
-
 namespace aion::gameserver::instance {
 
 /**
@@ -18,8 +14,12 @@ namespace aion::gameserver::instance {
  * <p>
  * Engine spine header (docs/design/hub-headers.md §3.5, handlers-and-porting-plan.md §1.6). An Immortal singleton (§11.2). Java's
  * ScriptManager and the `instanceHandlers` map of classes have no member: the instance handler registry (HandlerRegistry.h
- * instanceHandlerEntries(), from the AION_INSTANCE_HANDLER markers) replaces them, so addInstanceHandlerClass takes a registry entry.
- * getNewInstanceHandler returns the new RefCounted handler (Java: the registered class or a GeneralInstanceHandler).
+ * instanceHandlerEntries(), from the AION_INSTANCE_HANDLER markers) replaces them. getNewInstanceHandler returns the new RefCounted handler
+ * (Java: the registered class or a GeneralInstanceHandler).
+ * <p>
+ * Java's addInstanceHandlerClass is omitted (m5f-plan.md D10, the instance chunk's deviations). It has no caller: in Java, the
+ * InstanceHandlerClassListener of the script manager called it to fill the map, once per loaded @InstanceID class. Here the registry is
+ * compiled in, and each marker is its entry.
  *
  * @author ATracer
  */
@@ -33,9 +33,6 @@ public:
 	void init() override;
 
 	runtime::Ref<handlers::InstanceHandler> getNewInstanceHandler(world::WorldMapInstance& instance);
-
-	/** Java: final void addInstanceHandlerClass(Class<? extends InstanceHandler> handler); C++: one registry entry */
-	void addInstanceHandlerClass(const gameserver::handlers::InstanceHandlerEntry& handler);
 
 	static InstanceEngine& getInstance();
 };

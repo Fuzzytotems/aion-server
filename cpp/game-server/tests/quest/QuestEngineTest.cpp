@@ -169,6 +169,33 @@ TEST_F(QuestEngineTest, InitRegistersQuestDropsAndSchedulesTheDailyMessageWithAn
 	EXPECT_TRUE(services::QuestService::getQuestDrop(210001).empty()) << "clear drops the quest drops";
 }
 
+TEST_F(QuestEngineTest, ReloadClearsTheEngineAndInitsItAgainFromTheCurrentData) {
+	// QuestEngine.java:112-116 (P5-06a): reload = scriptManager.shutdown(), clear(), init(). C++ has no script manager (the handlers are
+	// compiled in), so reload is clear() then init(): the drops of the old QUEST_DATA go, the new ones come, the 09:00 message task is
+	// cancelled and scheduled again (one job, not two), and init logs its handler count once more
+	LogCapture capture("com.aionemu.gameserver.questEngine.QuestEngine");
+	QUEST_TEST_SCOPE;
+	QuestEngine::getInstance().init();
+	ASSERT_EQ(services::QuestService::getQuestDrop(210001).size(), 2u);
+	ASSERT_EQ(services::cron::CronService::getInstance().getJobCount(), 1u);
+
+	xml::LoadContext context;
+	dataholders::DataManager::QUEST_DATA.resetForTests();
+	dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(context,
+		R"(<quests><quest id="1005"><quest_drop npc_id="210007" item_id="182200005"/></quest></quests>)"));
+	QuestEngine::getInstance().reload();
+
+	EXPECT_TRUE(services::QuestService::getQuestDrop(210001).empty()) << "clear dropped the old drops";
+	std::vector<const gameserver::model::templates::quest::QuestDrop*> drops = services::QuestService::getQuestDrop(210007);
+	ASSERT_EQ(drops.size(), 1u) << "init read the new QUEST_DATA";
+	EXPECT_EQ(drops[0]->getItemId(), 182200005);
+	EXPECT_EQ(services::cron::CronService::getInstance().getJobCount(), 1u) << "the message task cancelled, then scheduled again";
+	const std::string text = capture.text();
+	const size_t first = text.find("info|Loaded 0 quest handlers.");
+	ASSERT_NE(first, std::string::npos) << text;
+	EXPECT_NE(text.find("info|Loaded 0 quest handlers.", first + 1), std::string::npos) << "init ran again: " << text;
+}
+
 TEST_F(QuestEngineTest, InitRegistersEveryXmlQuestAndRunsTheSpawnAnalysisOnTheLongRunningPool) {
 	// the D3 join (m5d-plan.md I-05): init registers every XML quest (QuestEngine.java:104-105) before it logs the handler count (:106). Since
 	// E-08 the spawn analysis (:107-108) is no partial site: init hands QuestSpawnAnalyzer.run(questHandlers.values(), questNpcs.values(), true)
