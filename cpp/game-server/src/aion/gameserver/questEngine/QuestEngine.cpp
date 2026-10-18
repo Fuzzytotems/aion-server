@@ -37,7 +37,6 @@
 #include "aion/gameserver/questEngine/model/QuestState.h"
 #include "aion/gameserver/questEngine/model/QuestStatus.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -122,8 +121,13 @@ void QuestEngine::init() {
 	addMessageSendingTask();
 }
 
+// Java QuestEngine.java:112-116
 void QuestEngine::reload() {
-	AION_UNPORTED();
+	// Java: scriptManager.shutdown() unloads the quest handler classes init() loaded. C++: they are compiled in (the quest handler registry,
+	// HandlerRegistry.h), so there is no script manager to shut down. clear() drops the old handlers (they are Immortal, RT-11, and stay
+	// unreachable), and init() creates new ones from the registry, as Java's reloaded scripts do
+	clear();
+	init();
 }
 
 void QuestEngine::clear() {
