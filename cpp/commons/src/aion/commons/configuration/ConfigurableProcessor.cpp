@@ -1,6 +1,9 @@
 #include "aion/commons/configuration/ConfigurableProcessor.h"
 
+#include <map>
+#include <mutex>
 #include <regex>
+#include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/StringUtils.h"
@@ -54,6 +57,37 @@ std::set<std::string> ConfigurableProcessor::process(const Properties& propertie
 	for (const Binder& binder : binders)
 		binder(processor);
 	return processor.unusedProperties();
+}
+
+std::vector<ConfigurableProcessor::FieldInfo> ConfigurableProcessor::describe(const Binder& binder) {
+	static const Properties noProperties;
+	std::vector<FieldInfo> fields;
+	ConfigurableProcessor processor(noProperties);
+	processor.describing = &fields;
+	binder(processor);
+	return fields;
+}
+
+namespace {
+
+/** the regular expression fields' source texts, by field address (written by the binds and by FieldInfo::set, read by toJavaString) */
+std::mutex regexSourcesLock;
+std::map<const void*, std::string>& regexSources() {
+	static auto* const sources = new std::map<const void*, std::string>(); // immortal: the config fields are static too
+	return *sources;
+}
+
+} // namespace
+
+void ConfigurableProcessor::rememberRegexSource(const void* field, std::string source) {
+	std::lock_guard<std::mutex> lock(regexSourcesLock);
+	regexSources()[field] = std::move(source);
+}
+
+std::optional<std::string> ConfigurableProcessor::regexSource(const void* field) {
+	std::lock_guard<std::mutex> lock(regexSourcesLock);
+	auto it = regexSources().find(field);
+	return it != regexSources().end() ? std::optional<std::string>(it->second) : std::nullopt;
 }
 
 std::set<std::string> ConfigurableProcessor::unusedProperties() const {
