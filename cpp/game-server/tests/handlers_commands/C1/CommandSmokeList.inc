@@ -110,9 +110,12 @@ namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handl
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory GmList_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Help_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Id_commandFactory; }
+namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Lock_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory NoExp_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Nomorph_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Preview_commandFactory; }
+namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Pvp_commandFactory; }
+namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Questrestart_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Symphony_commandFactory; }
 namespace aion::gameserver::handlers::consolecommands { ::aion::gameserver::handlers::CommandFactory Addquest_commandFactory; }
 namespace aion::gameserver::handlers::consolecommands { ::aion::gameserver::handlers::CommandFactory Addskill_commandFactory; }
@@ -262,9 +265,12 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"playercommands.GmList", &::aion::gameserver::handlers::playercommands::GmList_commandFactory},
 	{"playercommands.Help", &::aion::gameserver::handlers::playercommands::Help_commandFactory},
 	{"playercommands.Id", &::aion::gameserver::handlers::playercommands::Id_commandFactory},
+	{"playercommands.Lock", &::aion::gameserver::handlers::playercommands::Lock_commandFactory},
 	{"playercommands.NoExp", &::aion::gameserver::handlers::playercommands::NoExp_commandFactory},
 	{"playercommands.Nomorph", &::aion::gameserver::handlers::playercommands::Nomorph_commandFactory},
 	{"playercommands.Preview", &::aion::gameserver::handlers::playercommands::Preview_commandFactory},
+	{"playercommands.Pvp", &::aion::gameserver::handlers::playercommands::Pvp_commandFactory},
+	{"playercommands.Questrestart", &::aion::gameserver::handlers::playercommands::Questrestart_commandFactory},
 	{"playercommands.Symphony", &::aion::gameserver::handlers::playercommands::Symphony_commandFactory},
 	{"consolecommands.Addquest", &::aion::gameserver::handlers::consolecommands::Addquest_commandFactory},
 	{"consolecommands.Addskill", &::aion::gameserver::handlers::consolecommands::Addskill_commandFactory},
