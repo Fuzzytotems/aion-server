@@ -5,9 +5,7 @@
 #
 # site|<path below cpp/game-server>|<enclosing function>|<count>|<owner>
 
-site|handlers/aion/gameserver/handlers/admincommands/Reload.cpp|Reload::execute|1|A-D1 (m5d-plan D8: QuestEngine.reload stays unported; //reload quests stays out)
-site|src/aion/gameserver/instance/InstanceEngine.cpp|InstanceEngine::addInstanceHandlerClass|1|m5f-plan D10 (stays: instance handlers register by AION_INSTANCE_HANDLER markers)
-site|src/aion/gameserver/questEngine/QuestEngine.cpp|QuestEngine::reload|1|A-D1 (m5d-plan D8: QuestEngine.reload stays unported; //reload quests stays out)
+site|handlers/aion/gameserver/handlers/admincommands/Reload.cpp|Reload::execute|1|A-D1 (m5d-plan D8: //reload quests stays out, with the reload of static data)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::buyBrokerItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::cancelRegisteredItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::getAveragePrice|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
