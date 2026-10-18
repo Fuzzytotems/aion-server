@@ -29,4 +29,3 @@ opcode|CM_REGISTER_BROKER_ITEM|capital-economy milestone (m5j-plan A-C4, user de
 opcode|CM_BROKER_CANCEL_REGISTERED|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 opcode|CM_BROKER_SETTLE_LIST|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 opcode|CM_BROKER_SETTLE_ACCOUNT|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_CHALLENGE_LIST|M5h (lane B; m5j-plan A-H1: the legion and housing packets)
