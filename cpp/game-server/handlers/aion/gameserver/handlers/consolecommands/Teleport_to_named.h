@@ -24,13 +24,19 @@ public:
 	void info(Player& admin, std::optional<std::string_view> message) override;
 
 private:
-	/** Java: the private static class NpcTemplate (id, name) */
+	/**
+	 * Java: the private static class NpcTemplate (id, name). Its accessors NpcTemplate.getTemplateId() and NpcTemplate.setNpcId(int), its
+	 * afterUnmarshal(Unmarshaller, Object) and NpcData.getData() are not ported: the record's parsed id and the file's records replace them.
+	 */
 	struct NpcTemplate {
 		std::optional<std::string> name; // Java: String name (null when the attribute is missing)
 		int32_t id = 0;
 	};
 
-	/** Java: JAXBUtil.deserialize(xml, NpcData.class).getNpcTemplate(name): the first record whose lower-case name equals the lower-case name */
+	/**
+	 * Java: NpcData.getNpcTemplate(name) on JAXBUtil.deserialize(xml, NpcData.class): the first record whose lower-case name equals the
+	 * lower-case name
+	 */
 	static std::optional<NpcTemplate> getNpcTemplate(std::string_view name);
 };
 
