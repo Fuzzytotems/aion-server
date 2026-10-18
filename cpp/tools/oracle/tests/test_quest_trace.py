@@ -706,16 +706,15 @@ class Q14SliceTest(unittest.TestCase):
 
 	# the Q14 files questgen refuses (docs/deviations/Q14.md, "Not in the tree"): 21 at the landing, 4 since the owner's decisions of
 	# 2026-10-07 (the 15 mentor dailies and pangaea's two joined the slice)
-	REFUSED = {
-		"levinshor/_13744AgentinNeed.java", "levinshor/_23744EffectElyosElimination.java", "tiamat_stronghold/_30721OminousDebrisEnergy.java",
-		"tiamat_stronghold/_30771ImpendingDebrisEnergy.java"}
+	# and none since 2026-10-18, when the last 4 joined the slice as hand ports (lane C; docs/deviations/Q14.md)
+	REFUSED = set()
 
 	def test_the_q14_slice(self):
 		dirs = sorted({rel.split("/")[0] for rel in extract.SLICE_Q14} | {rel.split("/")[0] for rel in self.REFUSED})
 		java = sorted(f"{d}/{f.name}" for d in dirs for f in (extract.QUEST_DIR / d).glob("*.java"))
 		self.assertEqual(len(java), 95)
 		self.assertEqual(sorted(extract.SLICE_Q14), sorted(set(java) - self.REFUSED))
-		self.assertEqual(len(extract.SLICE_Q14), 91)
+		self.assertEqual(len(extract.SLICE_Q14), 95)
 		self.assertEqual(set(extract.SLICE_Q14) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
 		                                              extract.SLICE_Q08 + extract.SLICE_Q01 + extract.SLICE_Q02), set())
 		docs = {}
