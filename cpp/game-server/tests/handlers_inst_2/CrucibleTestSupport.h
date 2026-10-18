@@ -16,7 +16,8 @@
 namespace aion::gameserver::handlers::instance::test {
 
 /** item_templates.xml:896506-896508 and :896518-896520 (the insignia, the worthiness ticket), :875778-875780 (Poppy's snacks),
- * :908897-908903 (the hidden boss's bundle); :896488-896490 (Empyrean Crucible's ticket), :831380-831385 and :831386-831391 (its potions) */
+ * :908897-908903 (the hidden boss's bundle); :896488-896490 (Empyrean Crucible's ticket), :831380-831385 and :831386-831391 (its potions); :834025-834027
+ * (the Illuminary Obelisk's Crystalline Idium Piece) */
 inline constexpr const char* CRUCIBLE_ITEMS_XML = R"x(<item_templates>
 	<item_template id="186000130" name="Crucible Insignia" level="60" cName="coin_arena_01" mask="12414" max_stack_count="50000" item_group="COINS" quality="RARE" price="1" desc="773779">
 		<inventory id="1"/>
@@ -48,6 +49,9 @@ inline constexpr const char* CRUCIBLE_ITEMS_XML = R"x(<item_templates>
 			<skilluse level="1" skillid="9923"/>
 		</actions>
 		<uselimits usedelay="1800000" usedelayid="14"/>
+	</item_template>
+	<item_template id="164000289" name="Crystalline Idium Piece" level="1" cName="idf5_u3_activate01" mask="12352" max_stack_count="100" quality="RARE" price="5" desc="829362" temp_exchange_time="60">
+		<uselimits ownership_worlds="301230000 301370000"/>
 	</item_template>
 </item_templates>)x";
 
