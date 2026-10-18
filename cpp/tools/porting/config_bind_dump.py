@@ -17,7 +17,7 @@ from pathlib import Path
 
 CPP = Path(__file__).resolve().parents[2]
 GOLDEN = CPP / 'game-server/tests/configs/config_binds.golden.txt'
-CALL = re.compile(r'\b(AION_BIND_PATTERN|AION_BIND|processor\.bindNamed|processor\.bindPatternNamed|processor\.bind|p\.bind)\s*\(')
+CALL = re.compile(r'\b(AION_BIND_PATTERN|AION_BIND|processor\.bindNamed|processor\.bindPatternNamed|processor\.bind|p\.bind)\s*(?:<[^>()]*>)?\s*\(')
 ESCAPES = {'n': '\n', 't': '\t', '"': '"', '\\': '\\', "'": "'", 'r': '\r', '0': '\0'}
 
 

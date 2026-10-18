@@ -33,7 +33,7 @@ aion_gs_chunk(P4-01 TARGET aion_gs_configs PHASE 4
 	EXCLUDE "aion/gameserver/configs/ingameshop/**" "aion/gameserver/configs/schedule/**"
 	JAVA "src/com/aionemu/gameserver/configs/**"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/configs/ingameshop/**" "src/com/aionemu/gameserver/configs/schedule/**"
-	DEPENDS aion_gs_runtime aion_commons_configuration
+	DEPENDS aion_gs_runtime aion_gs_geomath aion_commons_configuration
 	TESTS configs)
 
 # P4-02a (runtime lifetime lane): kernel libraries without Java counterparts, bottom-up (see the dependency comment in CMakeLists.txt). It owns

@@ -22,6 +22,7 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Bookmark_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory ChangeRace_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Collide_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Configure_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Coords_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory CustomInstance_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Damage_commandFactory; }
@@ -177,6 +178,7 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Bookmark", &::aion::gameserver::handlers::admincommands::Bookmark_commandFactory},
 	{"admincommands.ChangeRace", &::aion::gameserver::handlers::admincommands::ChangeRace_commandFactory},
 	{"admincommands.Collide", &::aion::gameserver::handlers::admincommands::Collide_commandFactory},
+	{"admincommands.Configure", &::aion::gameserver::handlers::admincommands::Configure_commandFactory},
 	{"admincommands.Coords", &::aion::gameserver::handlers::admincommands::Coords_commandFactory},
 	{"admincommands.CustomInstance", &::aion::gameserver::handlers::admincommands::CustomInstance_commandFactory},
 	{"admincommands.Damage", &::aion::gameserver::handlers::admincommands::Damage_commandFactory},
