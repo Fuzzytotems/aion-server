@@ -62,6 +62,9 @@ None of the scenario gates enters these maps. A handler only runs when a player 
 > - **Gates** for cp4: gs.smoke.startup and gs.scenario.m5f pass (2026-10-16).
 > - **cp5** (2026-10-18, on a5c4826ed): IlluminaryObeliskInstance, InfernalIlluminaryObelisk and the 10 illuminaryObelisk AIs.
 >   IlluminaryObeliskTest.cpp has 14 cases and IlluminaryObeliskAiTest.cpp 14. Mutants: 56 of 56 killed.
+>   Gates: gs.smoke.startup and gs.scenario.m5f pass.
+> - **cp6** (2026-10-18): Padmarashka's Cave, the two Danuar Sanctuaries and their 6 AIs. PadmarashkaDanuarTest.cpp has 16 cases and
+>   PadmarashkaDanuarAiTest.cpp 15. Mutants: 52 of 52 killed. With cp6, the census counts 0 open bodies in I2.
 >
 > **Proposed corrections** (kept as Java; see I2.md):
 > - **J-I2-3**: ShieldGeneratorSouthAI and ShieldGeneratorWestAI shout the east's N_WAVE_01_BEGIN instead of their getGateMsg().
