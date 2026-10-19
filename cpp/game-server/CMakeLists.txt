@@ -338,6 +338,9 @@ if(AION_BUILD_TESTS)
 	aion_set_discovered_test_properties(aion_gs_sm_ak_tests REGEX "^StaticObjectGatherableInfoTest\\." ${gs_realdata})
 	# DAO tests that read game-server/sql/aion_gs.sql (DaoSqlParityTest also reads the Java and C++ DAO sources)
 	aion_set_discovered_test_properties(aion_gs_dao_tests REGEX "^(ServerDataDaoTest|PlayerDaoTest|LegionHouseItemDaoTest|DaoSqlParityTest)\\." ${gs_realdata})
+	# the broker's packet cases need the game server's test database (AION_TEST_GS_DATABASE_URL): label realdata, as #381 labels the database
+	# tests, so that `ctest -LE realdata` runs without a database (docs/design/broker-laneb-plan.md)
+	aion_set_discovered_test_properties(aion_gs_cm_ak_tests REGEX "^(BrokerBrowseTest)\\." PROPERTIES LABELS realdata)
 
 	# Unit tests that need the game server's test database (AION_TEST_GS_DATABASE_URL): label realdata as well, so that
 	# `ctest -LE realdata` runs without a database. The list is every test that fails with an unreachable database (lane C, 2026-10-18):
