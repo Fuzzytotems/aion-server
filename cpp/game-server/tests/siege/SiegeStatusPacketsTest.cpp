@@ -14,12 +14,16 @@
 #include "../playersvc/PlayerEventsTestSupport.h"
 #include "../sm_ak/SmAkTestSupport.h"
 #include "aion/gameserver/configs/main/SiegeConfig.h"
+#include "aion/gameserver/model/siege/ArtifactLocation.h"
+#include "aion/gameserver/model/siege/ArtifactStatus.h"
+#include "aion/gameserver/model/siege/ArtifactStatusInfo.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
 #include "aion/gameserver/model/siege/Influence.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/model/siege/SiegeRace.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.bind.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_ARTIFACT_INFO3.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_FORTRESS_STATUS.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_INFLUENCE_RATIO.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -38,9 +42,9 @@ class SiegeStatusPacketsTest : public PlayerEventsTest {
 protected:
 	using SiegeLocationTemplate = model::templates::siegelocation::SiegeLocationTemplate;
 
-	const SiegeLocationTemplate* bind(int32_t id, int32_t world, int32_t influence) {
+	const SiegeLocationTemplate* bind(int32_t id, int32_t world, int32_t influence, const std::string& type = "FORTRESS") {
 		templates.push_back(xml::bindString<SiegeLocationTemplate>(context, "<siege_location id=\"" + std::to_string(id) +
-			"\" type=\"FORTRESS\" world=\"" + std::to_string(world) + "\" influence=\"" + std::to_string(influence) + "\"/>"));
+			"\" type=\"" + type + "\" world=\"" + std::to_string(world) + "\" influence=\"" + std::to_string(influence) + "\"/>"));
 		return templates.back().get();
 	}
 
@@ -100,6 +104,33 @@ TEST_F(SiegeStatusPacketsTest, InfluenceAndFortressesAreWrittenInJavasOrder) {
 	status.H(4).D(1011).C(1).D(1221).C(0).D(9001).C(1).D(9002).C(0);
 	EXPECT_EQ(dataOf(SM_FORTRESS_STATUS()), status.data);
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+
+// P5-12a: ArtifactStatus's constructor data (ArtifactStatus.java:7-19) and its one reader, SM_ABYSS_ARTIFACT_INFO3.java:26-31
+TEST(ArtifactStatusTest, GetValueIsTheConstructorsId) {
+	using model::siege::ArtifactStatus;
+	EXPECT_EQ(getValue(ArtifactStatus::IDLE), 0);
+	EXPECT_EQ(getValue(ArtifactStatus::ACTIVATION), 1);
+	EXPECT_EQ(getValue(ArtifactStatus::CASTING), 2);
+	EXPECT_EQ(getValue(ArtifactStatus::ACTIVATED), 3);
+}
+
+TEST_F(SiegeStatusPacketsTest, ArtifactInfoWritesEachArtifactsStatusValue) {
+	using model::siege::ArtifactLocation;
+	using model::siege::ArtifactStatus;
+	runtime::Ref<ArtifactLocation> idle = ArtifactLocation::create(bind(1101, 400010000, 0, "ARTIFACT")); // status null: IDLE
+	runtime::Ref<ArtifactLocation> activation = ArtifactLocation::create(bind(1102, 400010000, 0, "ARTIFACT"));
+	activation->setStatus(ArtifactStatus::ACTIVATION);
+	runtime::Ref<ArtifactLocation> casting = ArtifactLocation::create(bind(1103, 400010000, 0, "ARTIFACT"));
+	casting->setStatus(ArtifactStatus::CASTING);
+	runtime::Ref<ArtifactLocation> activated = ArtifactLocation::create(bind(1104, 400010000, 0, "ARTIFACT"));
+	activated->setStatus(ArtifactStatus::ACTIVATED);
+
+	const std::vector<runtime::Ptr<ArtifactLocation>> artifacts{idle, activation, casting, activated};
+	Bytes expected;
+	expected.H(4).D(11011).C(0).D(0).D(11021).C(1).D(0).D(11031).C(2).D(0).D(11041).C(3).D(0);
+	EXPECT_EQ(dataOf(network::aion::serverpackets::SM_ABYSS_ARTIFACT_INFO3(artifacts)), expected.data);
 }
 
 } // namespace

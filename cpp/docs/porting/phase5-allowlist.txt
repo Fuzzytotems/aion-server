@@ -5,10 +5,7 @@
 #
 # site|<path below cpp/game-server>|<enclosing function>|<count>|<owner>
 
-site|handlers/aion/gameserver/handlers/admincommands/Reload.cpp|Reload::execute|1|A-D1 (m5d-plan D8: QuestEngine.reload stays unported; //reload quests stays out)
-site|src/aion/gameserver/instance/InstanceEngine.cpp|InstanceEngine::addInstanceHandlerClass|1|m5f-plan D10 (stays: instance handlers register by AION_INSTANCE_HANDLER markers)
-site|src/aion/gameserver/model/house/HouseRegistry.h|?|1|M5h (lane B; m5j-plan A-H1: P5-11 and the legion services)
-site|src/aion/gameserver/questEngine/QuestEngine.cpp|QuestEngine::reload|1|A-D1 (m5d-plan D8: QuestEngine.reload stays unported; //reload quests stays out)
+site|handlers/aion/gameserver/handlers/admincommands/Reload.cpp|Reload::execute|1|A-D1 (m5d-plan D8: //reload quests stays out, with the reload of static data)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::buyBrokerItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::cancelRegisteredItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::getAveragePrice|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
@@ -32,4 +29,3 @@ opcode|CM_REGISTER_BROKER_ITEM|capital-economy milestone (m5j-plan A-C4, user de
 opcode|CM_BROKER_CANCEL_REGISTERED|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 opcode|CM_BROKER_SETTLE_LIST|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 opcode|CM_BROKER_SETTLE_ACCOUNT|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_CHALLENGE_LIST|M5h (lane B; m5j-plan A-H1: the legion and housing packets)

@@ -12,16 +12,17 @@ namespace aion::gameserver::model::house {
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). Java `record PlayerScript(int id, byte[] compressedBytes, int uncompressedSize)`:
  * RefCounted (fieldmap K4, `PlayerScripts.scripts`), created with create(). The byte array is stored as it is (null for an empty script).
- * LUA_SANDBOX_FIX: Java's static initializer compresses the fix script with CompressUtil (zlib), which has no C++ port yet; the constant stays
- * null until it does (a static initializer must not reach AION_UNPORTED, hub-headers.md §2).
+ * LUA_SANDBOX_FIX: Java's static initializer, PlayerScript.java:14-37, compresses the fix script with CompressUtil. The C++ constant is a
+ * never-released Ref, as IgnoreProperties' are (hub-headers.md §11.1, header request geo-2). Its Ref is never destroyed, so no release
+ * reaches the Reclaimer during static destruction.
  *
  * @author Rolandas, Neon, Sykra
  */
 class PlayerScript : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
 public:
-	/** mitigates https://appsec.space/posts/aion-housing-exploit/ (null until CompressUtil is ported, see the class comment) */
-	static const runtime::Ref<PlayerScript> LUA_SANDBOX_FIX;
+	/** mitigates https://appsec.space/posts/aion-housing-exploit/ (a never-released Ref, see the class comment) */
+	static const runtime::Ref<PlayerScript>& LUA_SANDBOX_FIX;
 
 private:
 	const int32_t id_;
