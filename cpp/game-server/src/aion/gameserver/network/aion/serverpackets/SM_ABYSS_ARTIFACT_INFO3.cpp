@@ -1,7 +1,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_ARTIFACT_INFO3.h"
 
 #include "aion/gameserver/model/siege/ArtifactLocation.h"
-#include "aion/gameserver/model/siege/ArtifactStatus.h"
+#include "aion/gameserver/model/siege/ArtifactStatusInfo.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/services/SiegeService.h"
 
@@ -22,7 +22,7 @@ void SM_ABYSS_ARTIFACT_INFO3::writeImpl(AionConnection* con) {
 	for (const runtime::Ref<model::siege::ArtifactLocation>& artifact : locations) {
 		runtime::Ptr<model::siege::ArtifactLocation> location = artifact; // Java: null elements throw NullPointerException
 		writeD(location->getLocationId() * 10 + 1);
-		writeC(static_cast<int32_t>(location->getStatus())); // Java: ArtifactStatus.getValue() equals the ordinal (IDLE 0 .. ACTIVATED 3)
+		writeC(getValue(location->getStatus()));
 		writeD(0);
 	}
 }
