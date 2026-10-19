@@ -340,7 +340,7 @@ if(AION_BUILD_TESTS)
 	aion_set_discovered_test_properties(aion_gs_dao_tests REGEX "^(ServerDataDaoTest|PlayerDaoTest|LegionHouseItemDaoTest|DaoSqlParityTest)\\." ${gs_realdata})
 	# the broker's packet cases need the game server's test database (AION_TEST_GS_DATABASE_URL): label realdata, as #381 labels the database
 	# tests, so that `ctest -LE realdata` runs without a database (docs/design/broker-laneb-plan.md)
-	aion_set_discovered_test_properties(aion_gs_cm_ak_tests REGEX "^(BrokerBrowseTest|BrokerCancelTest)\\." PROPERTIES LABELS realdata)
+	aion_set_discovered_test_properties(aion_gs_cm_ak_tests REGEX "^(BrokerBrowseTest|BrokerCancelTest|BrokerBuyTest)\\." PROPERTIES LABELS realdata)
 	aion_set_discovered_test_properties(aion_gs_cm_lz_tests REGEX "^(BrokerRegisterTest)\\." PROPERTIES LABELS realdata)
 
 	# Unit tests that need the game server's test database (AION_TEST_GS_DATABASE_URL): label realdata as well, so that

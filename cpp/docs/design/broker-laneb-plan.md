@@ -40,3 +40,5 @@ lock with the test database's environment.
   J-P5-09b-1 (the average price's division by zero) is recorded in P5-09b.md and not applied.
 - **cp2** (2026-10-18): `registerItem`, `cancelRegisteredItem`, `CM_REGISTER_BROKER_ITEM` and `CM_BROKER_CANCEL_REGISTERED`.
   `BrokerRegisterPacketTest.cpp` (cm_lz) has 11 cases and `BrokerCancelPacketTest.cpp` (cm_ak) 5. `BrokerOpSaveTask` takes nullable items.
+- **cp3** (2026-10-18): `buyBrokerItem` (and `putToSettled`, ported before, reached for the first time) and `CM_BUY_BROKER_ITEM`.
+  `BrokerBuyPacketTest.cpp` has 10 cases. J-P5-09b-2 (an unsplittable offer bought whole for fewer pieces' price) is recorded and not applied.

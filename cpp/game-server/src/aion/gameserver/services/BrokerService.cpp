@@ -1,3 +1,4 @@
+#include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/model/broker/BrokerMessagesInfo.h"
 #include "aion/gameserver/model/items/storage/StorageTypeInfo.h"
@@ -9,9 +10,12 @@
 #include "aion/gameserver/services/BrokerService.h"
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <optional>
 #include <string>
+
+#include <fmt/format.h>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
@@ -34,6 +38,7 @@
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/item/ItemFactory.h"
 #include "aion/gameserver/services/item/ItemPacketService.h"
+#include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/services/trade/PricesService.h"
 #include "aion/gameserver/taskmanager/AbstractFIFOPeriodicTaskManager.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -45,6 +50,28 @@ namespace aion::gameserver::services {
 static const auto log = commons::logging::LoggerFactory::getLogger("EXCHANGE_LOG");
 
 namespace {
+
+/** Java: LoggerFactory.getLogger(BrokerService.class), the logger of buyBrokerItem's warning (the class's own log is EXCHANGE_LOG) */
+const commons::logging::Logger& serviceLog() {
+	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.BrokerService"));
+	return *logger;
+}
+
+/** Java: String.valueOf(Timestamp), as BannedMacManager.cpp has it - "yyyy-mm-dd hh:mm:ss.f..." in the default time zone, "null" for null */
+std::string timestampString(const std::optional<commons::database::Timestamp>& timestamp) {
+	if (!timestamp)
+		return "null";
+	const std::chrono::zoned_time<std::chrono::milliseconds> local(std::chrono::current_zone(), *timestamp);
+	const std::chrono::local_time<std::chrono::milliseconds> time = local.get_local_time();
+	const auto day = std::chrono::floor<std::chrono::days>(time);
+	const std::chrono::year_month_day ymd(day);
+	const std::chrono::hh_mm_ss<std::chrono::milliseconds> hms(time - day);
+	std::string millis = fmt::format("{:03}", hms.subseconds().count());
+	while (millis.size() > 1 && millis.back() == '0')
+		millis.pop_back();
+	return fmt::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{}", static_cast<int>(ymd.year()), static_cast<unsigned>(ymd.month()),
+		static_cast<unsigned>(ymd.day()), hms.hours().count(), hms.minutes().count(), hms.seconds().count(), millis);
+}
 
 using BrokerItemList = runtime::RcArrayList<runtime::Ref<model::gameobjects::BrokerItem>>;
 
@@ -327,8 +354,92 @@ runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::BrokerItem>
 	}
 }
 
+// Java BrokerService.java:222-298
 void BrokerService::buyBrokerItem(model::gameobjects::player::Player& player, int32_t itemUniqueId, int64_t itemCount) {
-	AION_UNPORTED();
+
+	model::Race playerRace = player.getRace();
+
+	if (!restrictions::PlayerRestrictions::canTrade(runtime::Ptr<model::gameobjects::player::Player>(player)))
+		return;
+
+	SYNCHRONIZED(*this) {
+		auto* raceBrokerItems = getRaceBrokerItems(playerRace);
+		if (raceBrokerItems == nullptr) // Java: NullPointerException on get
+			throw runtime::NullPointerException("No broker for race of player " + player.getName());
+		runtime::Ref<model::gameobjects::BrokerItem> buyingItem = runtime::Ref<model::gameobjects::BrokerItem>(raceBrokerItems->get(itemUniqueId));
+		if (!buyingItem)
+			return; // TODO: Message "this item has already been bought, refresh page please."
+
+		if (buyingItem->getSellerId() == player.getObjectId()) {
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_VENDOR_CAN_NOT_BUY_MY_REGISTER_ITEM());
+			return;
+		}
+
+		if (buyingItem->isSold() || buyingItem->isCanceled()) {
+			serviceLog().warn(
+				"Player {} tried to buy the following item[id={}, objId={}, sellerId={}, sellerName={}, sold={}, canceled={}, settled={}, expireTime={}] which is already sold or canceled",
+				player.getName(), buyingItem->getItemId(), buyingItem->getItemUniqueId(), buyingItem->getSellerId(),
+				services::player::PlayerService::getPlayerName(buyingItem->getSellerId()).value_or("null"), buyingItem->isSold(), buyingItem->isCanceled(),
+				buyingItem->isSettled(), timestampString(buyingItem->getExpireTime()));
+			utils::PacketSendUtility::sendMessage(player, "Sorry, but this item already sold");
+			return;
+		}
+
+		runtime::Ref<model::gameobjects::Item> item = runtime::Ref<model::gameobjects::Item>(buyingItem->getItem());
+		int64_t price = static_cast<int64_t>(static_cast<uint64_t>(buyingItem->getPrice()) * static_cast<uint64_t>(itemCount)); // Java long product wraps
+		if (player.getInventory().isFull(item->getItemTemplate()->getExtraInventoryId())) {
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_FULL_INVENTORY());
+			return;
+		}
+
+		if (player.getInventory().getKinah() < price)
+			return;
+
+		if (buyingItem->getItemCount() > itemCount && buyingItem->isSplittingAvailable()) {
+			buyingItem->decreaseItemCount(itemCount);
+			buyingItem->setPersistentState(model::gameobjects::Persistable::PersistentState::UPDATE_REQUIRED);
+			// storing old broker item with rest items to sell
+			runtime::Ref<BrokerOpSaveTask> bost =
+				BrokerOpSaveTask::create(*buyingItem, buyingItem->getItem(), player.getInventory().getKinahItem(), player.getObjectId());
+			saveManager->add(*bost);
+			// creating new broker item which will be settled
+			runtime::Ref<model::gameobjects::BrokerItem> soldItem = model::gameobjects::BrokerItem::create(*services::item::ItemFactory::newItem(buyingItem->getItemId(), itemCount),
+				buyingItem->getPrice(), buyingItem->getSellerId(), buyingItem->isSplittingAvailable(), buyingItem->getItemBrokerRace());
+			buyingItem = soldItem;
+			item = runtime::Ref<model::gameobjects::Item>(buyingItem->getItem());
+			runtime::Ref<BrokerOpSaveTask> bost2 =
+				BrokerOpSaveTask::create(*buyingItem, buyingItem->getItem(), player.getInventory().getKinahItem(), player.getObjectId());
+			saveManager->add(*bost2);
+		} else {
+			raceBrokerItems->remove(itemUniqueId);
+		}
+
+		putToSettled(playerRace, *buyingItem, true);
+
+		getPlayerCache(player)->removeFromCache(*buyingItem);
+
+		player.getInventory().decreaseKinah(price);
+		// unpack
+		if (item->getPackCount() > 0) {
+			item->setPackCount(item->getPackCount() * -1);
+		}
+		runtime::Ptr<model::gameobjects::Item> boughtItem = player.getInventory().add(*item, services::item::ItemPacketService_ItemAddType::BROKER_BUY);
+
+		if (configs::main::LoggingConfig::LOG_BROKER_EXCHANGE.load()) {
+			if (!boughtItem) // Java: NullPointerException on boughtItem.getItemId()
+				throw runtime::NullPointerException("The bought broker item was not added to the inventory");
+			log.info("Player: " + player.getName() + " bought item " + std::to_string(boughtItem->getItemId()) + " [" + boughtItem->getItemName() +
+				"] (count: " + std::to_string(itemCount) + ") from player: " +
+				services::player::PlayerService::getPlayerName(buyingItem->getSellerId()).value_or("null") + " (total price: " + std::to_string(price) + ")");
+		}
+
+		// create save task
+		runtime::Ref<BrokerOpSaveTask> bost = BrokerOpSaveTask::create(*buyingItem, boughtItem, player.getInventory().getKinahItem(), player.getObjectId());
+		saveManager->add(*bost);
+	}
+	showRequestedItems(player, getPlayerCache(player)->getBrokerMaskCache(), getPlayerCache(player)->getBrokerSortTypeCache(), getPlayerCache(player)->getBrokerStartPageCache(),
+		getPlayerCache(player)->getSearchItemList());
+
 }
 
 void BrokerService::putToSettled(model::Race race, model::gameobjects::BrokerItem& brokerItem, bool isSold) {
