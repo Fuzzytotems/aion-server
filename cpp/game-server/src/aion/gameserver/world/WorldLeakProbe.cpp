@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <exception>
 #include <optional>
+#include <source_location>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
@@ -17,6 +19,7 @@
 #include "aion/gameserver/dataholders/SiegeLocationData.h"
 #include "aion/gameserver/dataholders/WalkerData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/model/base/Base.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
@@ -27,12 +30,14 @@
 #include "aion/gameserver/model/templates/walker/WalkerTemplate.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
 #include "aion/gameserver/model/templates/zone/ZoneTemplate.h"
+#include "aion/gameserver/runtime/sched/ExecutorBackend.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/spawnengine/ClusteredNpc.h"
 #include "aion/gameserver/spawnengine/InstanceWalkerFormations.h"
 #include "aion/gameserver/spawnengine/WalkerFormationsCache.h"
 #include "aion/gameserver/spawnengine/WalkerGroup.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/MapRegion.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMap.h"
@@ -47,12 +52,13 @@ namespace aion::gameserver::world {
 const char* const WorldLeakProbe::SEARCHED =
 	"World.allObjects; the target and known list of every world object; the aggro list, casting skill and effects of every creature; "
 	"Player.postman; House.spawns; worldMapObjects, worldMapNpcs and the object and zone maps of every region of every instance of every world "
-	"map; the WalkerGroup of the npc's route and of its own Npc.walkerGroup (WalkerGroup.members); SiegeLocation.creatures";
+	"map; the WalkerGroup of the npc's route and of its own Npc.walkerGroup (WalkerGroup.members); SiegeLocation.creatures; Base.flag and "
+	"Base.assaulter of every Base a pending task pins (a stopped Base too)";
 
 const char* const WorldLeakProbe::NOT_SEARCHED =
 	"InstanceWalkerFormations.groupedSpawnObjects, formationVariants and walkerVariants, MoveTaskManager.movingCreatures, "
-	"PlayerMoveTaskManager.movingPlayers, TemporarySpawnEngine.spawnedObjects, Town.spawnedNpcs, Base.flag and assaulter and the npcs of a "
-	"WorldRaid (private in the port, header request m5b3-leak-h03); the other fields of world objects (e.g. SummonedObject.creator, "
+	"PlayerMoveTaskManager.movingPlayers, TemporarySpawnEngine.spawnedObjects, Town.spawnedNpcs and the npcs of a WorldRaid (private in the "
+	"port, header request m5b3-leak-h03, granted only for Base); the flag and assaulters of a Base no pending task pins; the other fields of world objects (e.g. SummonedObject.creator, "
 	"Player.summon, Player.kisk); objects outside the world (another removed or leaked object, a walker respawn that cacheWalkerCandidate "
 	"cached and never spawned); the ObserveController observers of every creature (what an observer captures cannot be searched by identity); "
 	"pending tasks (the census names those that pin the object); the other service singletons";
@@ -288,6 +294,53 @@ void findInSiegeLocations(std::vector<Target>& targets) {
 	}
 }
 
+/**
+ * Base.flag and Base.assaulter of every Base a pending task pins (header request m5b3-leak-h03). The Base is found through the task, not through
+ * BaseService.activeBases: a Base that a capture stopped has left that map, but its last assault task still pins it (Base.java:134-136
+ * schedules it after the capture) until it fires and returns at isStopped - for the assault delay, and the Base keeps its flag and assaulters
+ * all that time, as Java's does. The holder line names the Base, whether it is stopped, and the tasks that pin it.
+ */
+void findInPinnedBases(std::vector<Target>& targets) {
+	runtime::ExecutorBackend* backend = utils::ThreadPoolManager::installedBackend();
+	if (backend == nullptr)
+		return;
+	std::vector<std::pair<const model::base::Base*, std::vector<std::string>>> bases; // each Base once, with the call sites of its pins
+	for (const runtime::FutureRef& task : backend->pendingTasks()) {
+		if (!task)
+			continue;
+		for (const runtime::RefCounted* owner : task->pinnedOwners()) {
+			const auto* base = dynamic_cast<const model::base::Base*>(owner);
+			if (base == nullptr)
+				continue;
+			const std::source_location& where = task->getTaskInfo().where;
+			std::string site = std::string(where.file_name()) + ":" + std::to_string(where.line());
+			auto it = std::ranges::find_if(bases, [base](const auto& entry) { return entry.first == base; });
+			if (it == bases.end())
+				bases.emplace_back(base, std::vector<std::string>{std::move(site)});
+			else
+				it->second.push_back(std::move(site));
+		}
+	}
+	for (const auto& [base, sites] : bases) {
+		std::string pins;
+		for (const std::string& site : sites)
+			pins += (pins.empty() ? "" : ", ") + site;
+		const WorldLeakProbe::BaseView view = WorldLeakProbe::viewOf(*base);
+		const std::string name = std::string(view.stopped ? "the stopped Base " : "the Base ") + std::to_string(view.id) +
+			", pinned by the pending task(s) " + pins;
+		const runtime::Ptr<Npc>& flag = view.flag;
+		const std::vector<runtime::Ptr<Npc>>& assaulters = view.assaulters;
+		for (Target& target : targets) {
+			if (flag.get() == target.object)
+				target.holders->push_back("Base.flag of " + name);
+			for (const runtime::Ptr<Npc>& npc : assaulters) {
+				if (npc.get() == target.object)
+					target.holders->push_back("Base.assaulter of " + name);
+			}
+		}
+	}
+}
+
 /** runs one search step, noting a step that failed as a holder line of its targets instead of losing the other steps */
 template <class F>
 void guarded(const char* step, std::span<Target> targets, F&& search) {
@@ -319,7 +372,18 @@ std::vector<std::vector<std::string>> WorldLeakProbe::findHolders(std::span<Visi
 	for (Target& target : targets)
 		guarded("the walker groups", std::span<Target>(&target, 1), [&target] { findInWalkerGroups(target); });
 	guarded("the siege locations", targets, [&targets] { findInSiegeLocations(targets); });
+	guarded("the bases pinned by pending tasks", targets, [&targets] { findInPinnedBases(targets); });
 	return holders;
+}
+
+WorldLeakProbe::BaseView WorldLeakProbe::viewOf(const model::base::Base& base) {
+	BaseView view;
+	view.id = base.id;
+	view.stopped = base.isStopped_.get();
+	view.flag = base.flag.get();
+	for (const auto& npc : base.assaulter.snapshot())
+		view.assaulters.emplace_back(npc);
+	return view;
 }
 
 std::vector<std::string> WorldLeakProbe::findHolders(VisibleObject& object) {

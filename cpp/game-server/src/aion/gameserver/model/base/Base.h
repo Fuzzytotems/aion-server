@@ -16,6 +16,10 @@
 #include "aion/gameserver/network/aion/serverpackets/fwd.h"
 #include "aion/gameserver/spawnengine/fwd.h"
 
+namespace aion::gameserver::world {
+class WorldLeakProbe;
+} // namespace aion::gameserver::world
+
 namespace aion::gameserver::model::base {
 
 /**
@@ -26,6 +30,9 @@ namespace aion::gameserver::model::base {
  */
 class Base : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
+	// header request m5b3-leak-h03 (granted for Base, 2026-10-19): the leak probe reads flag and assaulter by identity, read only
+	friend class ::aion::gameserver::world::WorldLeakProbe;
+
 private:
 	const runtime::Ref<BaseLocation> bLoc;
 	const int32_t id;
