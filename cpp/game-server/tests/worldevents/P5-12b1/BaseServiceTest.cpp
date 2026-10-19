@@ -50,13 +50,17 @@ class BaseServiceTest : public PlayerEventsTest {
 protected:
 	void SetUp() override {
 		PlayerEventsTest::SetUp();
-		// BaseService reads BASE_DATA once, in its constructor: published once for the whole executable
+		// BaseService reads BASE_DATA once, in its constructor: published once for the whole executable, unless another case of this process
+		// (BaseCaptureLifetimeTest) published its own table first - then this case skips (ctest runs it alone)
 		static const bool published = [] {
+			if (dataholders::DataManager::BASE_DATA)
+				return false;
 			static xml::LoadContext context;
 			dataholders::DataManager::BASE_DATA.publish(xml::bindString<dataholders::BaseData>(context, BASE_LOCATIONS_XML));
 			return true;
 		}();
-		static_cast<void>(published);
+		if (!published)
+			GTEST_SKIP() << "another case of this process published its base locations (run the case on its own)";
 	}
 };
 
