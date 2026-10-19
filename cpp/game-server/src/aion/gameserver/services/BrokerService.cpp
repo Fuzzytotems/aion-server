@@ -34,7 +34,6 @@
 #include "aion/gameserver/model/items/storage/Storage.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_BROKER_SERVICE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/item/ItemFactory.h"
 #include "aion/gameserver/services/item/ItemPacketService.h"
@@ -43,6 +42,8 @@
 #include "aion/gameserver/taskmanager/AbstractFIFOPeriodicTaskManager.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/collections/DynamicServerPacketBodySplitList.h"
+#include "aion/gameserver/utils/collections/ListPart.h"
 #include "aion/gameserver/world/World.h"
 
 namespace aion::gameserver::services {
@@ -663,8 +664,33 @@ void BrokerService::cancelRegisteredItem(model::gameobjects::player::Player& pla
 	showRegisteredItems(player);
 }
 
+// Java BrokerService.java:487-497
 void BrokerService::showSettledItems(model::gameobjects::player::Player& player, int32_t startPageIndex) {
-	AION_UNPORTED();
+	int32_t itemsPerPage = 9;
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> settledItems = getSettledItemsForPlayer(player.getRace(), player.getObjectId());
+	// Java: settledItems.subList(itemsPerPage * startPageIndex, settledItems.size()) - ArrayList.subList throws IllegalArgumentException when the
+	// start is past the end
+	const int32_t fromIndex = static_cast<int32_t>(static_cast<uint32_t>(itemsPerPage) * static_cast<uint32_t>(startPageIndex));
+	const int32_t size = static_cast<int32_t>(settledItems.size());
+	if (fromIndex < 0)
+		throw runtime::IndexOutOfBoundsException("fromIndex = " + std::to_string(fromIndex));
+	if (fromIndex > size)
+		throw runtime::IllegalArgumentException("fromIndex(" + std::to_string(fromIndex) + ") > toIndex(" + std::to_string(size) + ")");
+	std::vector<runtime::Ref<model::gameobjects::BrokerItem>> itemsToSend;
+	for (int32_t i = fromIndex; i < size; i++)
+		itemsToSend.emplace_back(settledItems[static_cast<size_t>(i)]);
+	utils::collections::DynamicServerPacketBodySplitList<model::gameobjects::BrokerItem> itemSplitList(std::move(itemsToSend), true,
+		network::aion::serverpackets::SM_BROKER_SERVICE::SETTLED_ITEMS_STATIC_BODY_SIZE,
+		network::aion::serverpackets::SM_BROKER_SERVICE::SETTLED_ITEMS_DYNAMIC_BODY_PART_SIZE_CALCULATOR);
+	auto parts = itemSplitList.iterator();
+	utils::collections::ListPart<model::gameobjects::BrokerItem>& pagesToSend = parts.next(); // client only supports one packet worth of pages
+	int32_t lastFullPageIndex = pagesToSend.isLast() || pagesToSend.size() <= itemsPerPage ? pagesToSend.size()
+																							: pagesToSend.size() - pagesToSend.size() % itemsPerPage;
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> pageItems = pagesToSend.borrowed();
+	// incomplete pages create gaps, so we trim sent items to full pages
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> firstFullPages(pageItems.begin(), pageItems.begin() + lastFullPageIndex);
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(firstFullPages, static_cast<int32_t>(settledItems.size()),
+		startPageIndex, extractEarnedKinahForSoldItems(settledItems)));
 }
 
 std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> BrokerService::getSettledItemsForPlayer(model::Race playerRace, int32_t playerId) {
@@ -698,8 +724,77 @@ int64_t BrokerService::getEarnedKinahFromSoldItems(model::Race playerRace, int32
 	return extractEarnedKinahForSoldItems(getSettledItemsForPlayer(playerRace, playerId));
 }
 
+// Java BrokerService.java:520-582
 void BrokerService::settleAccount(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	model::Race playerRace = player.getRace();
+	auto* brokerSettledItems = getRaceBrokerSettledItems(playerRace);
+	if (brokerSettledItems == nullptr) // Java: NullPointerException on values()
+		throw runtime::NullPointerException("No broker for race of player " + player.getName());
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> collectedItems;
+	int32_t playerId = player.getObjectId();
+	int64_t kinahCollect = 0;
+	bool itemsLeft = false;
+
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : brokerSettledItems->values()) {
+		if (item->getSellerId() == playerId)
+			collectedItems.push_back(item);
+	}
+
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : collectedItems) {
+		if (item->isSold()) {
+			bool result = false;
+			switch (playerRace) {
+				case model::Race::ASMODIANS:
+					result = static_cast<bool>(asmodianSettledItems.remove(item->getItemUniqueId()));
+					break;
+				case model::Race::ELYOS:
+					result = static_cast<bool>(elyosSettledItems.remove(item->getItemUniqueId()));
+					break;
+				default:
+					break;
+			}
+
+			if (result) {
+				item->setPersistentState(model::gameobjects::Persistable::PersistentState::DELETED);
+				saveManager->add(*BrokerOpSaveTask::create(*item));
+				// Java long arithmetic wraps
+				kinahCollect = static_cast<int64_t>(static_cast<uint64_t>(kinahCollect) +
+					static_cast<uint64_t>(item->getPrice()) * static_cast<uint64_t>(item->getItemCount()));
+			}
+		} else {
+			if (item->getItem()) {
+				runtime::Ptr<model::gameobjects::Item> resultItem = player.getInventory().add(*item->getItem());
+				if (resultItem) {
+					bool result = false;
+					switch (playerRace) {
+						case model::Race::ASMODIANS:
+							result = static_cast<bool>(asmodianSettledItems.remove(item->getItemUniqueId()));
+							break;
+						case model::Race::ELYOS:
+							result = static_cast<bool>(elyosSettledItems.remove(item->getItemUniqueId()));
+							break;
+						default:
+							break;
+					}
+					if (result) {
+						item->setPersistentState(model::gameobjects::Persistable::PersistentState::DELETED);
+						saveManager->add(*BrokerOpSaveTask::create(*item));
+					}
+				} else
+					itemsLeft = true;
+
+			} else
+				log.warn("Broker settled item missed. ObjID: " + std::to_string(item->getItemUniqueId()));
+		}
+	}
+
+	player.getInventory().increaseKinah(kinahCollect);
+
+	showSettledItems(player, 0);
+
+	if (!itemsLeft)
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(false, int64_t{0}));
+
 }
 
 void BrokerService::checkExpiredItems() {

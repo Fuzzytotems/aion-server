@@ -42,3 +42,6 @@ lock with the test database's environment.
   `BrokerRegisterPacketTest.cpp` (cm_lz) has 11 cases and `BrokerCancelPacketTest.cpp` (cm_ak) 5. `BrokerOpSaveTask` takes nullable items.
 - **cp3** (2026-10-18): `buyBrokerItem` (and `putToSettled`, ported before, reached for the first time) and `CM_BUY_BROKER_ITEM`.
   `BrokerBuyPacketTest.cpp` has 10 cases. J-P5-09b-2 (an unsplittable offer bought whole for fewer pieces' price) is recorded and not applied.
+- **cp4** (2026-10-18): `showSettledItems`, `settleAccount`, `CM_BROKER_SETTLE_LIST` and `CM_BROKER_SETTLE_ACCOUNT`.
+  `BrokerSettlePacketsTest.cpp` has 8 cases. With cp4, `BrokerService` has no `AION_UNPORTED` site left, and the broker's allow-list rows
+  (11 sites, 9 opcodes) are gone.
