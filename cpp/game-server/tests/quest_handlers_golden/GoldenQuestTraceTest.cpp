@@ -3250,6 +3250,12 @@ public:
 		events.push_back("onLeaveZoneEvent " + zoneName->name());
 		return false;
 	}
+	// lane C (2026-10-18, levinshor 13744/23744): QuestEngine.java registerOnKillInZone, per zone; the hook gets no zone, so the test's
+	// `firing` text names it
+	bool onKillInZoneEvent(QuestEnv&) override {
+		events.push_back("onKillInZoneEvent " + firing);
+		return false;
+	}
 	bool onPassFlyingRingEvent(QuestEnv&, std::string_view flyingRing) override {
 		events.push_back("onPassFlyingRingEvent " + std::string(flyingRing));
 		return false;
@@ -3293,7 +3299,7 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 	// as the Java register() adds it and in no other npc's list, and every other registration routes exactly the engine events it names. A
 	// can-act registration also comes from the first kill, talk, aggro or distance registration of the quest at an npc (QuestNpc.java:59-95),
 	// and registerCanAct keeps only an npc whose template's AI is quest_use_item (QuestEngine.java registerCanAct)
-	std::set<std::string> zones, leaveZones, rings, bonusTypes;
+	std::set<std::string> zones, leaveZones, killZones, rings, bonusTypes;
 	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems, killWorlds, skills, failCraftItems, equipItems;
 	auto usesQuestItemAi = [](int32_t npcId) {
 		const gameserver::model::templates::npc::NpcTemplate* template_ = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
@@ -3310,6 +3316,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				leaveZones.insert(reg["args"][0].get<std::string>());
 			else if (kind == "registerOnKillInWorld")
 				killWorlds.insert(reg["args"][0].get<int32_t>());
+			else if (kind == "registerOnKillInZone")
+				killZones.insert(unquoted(reg["args"][0].get<std::string>()));
 			else if (kind == "registerOnPassFlyingRings")
 				rings.insert(unquoted(reg["args"][0].get<std::string>()));
 			else if (kind == "registerQuestSkill")
@@ -3434,6 +3442,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				expectedEvents.push_back("onKillInWorldEvent " + std::to_string(reg["args"][0].get<int32_t>()));
 			else if (call == "registerOnLeaveZone")
 				expectedEvents.push_back("onLeaveZoneEvent " + reg["args"][0].get<std::string>());
+			else if (call == "registerOnKillInZone")
+				expectedEvents.push_back("onKillInZoneEvent " + unquoted(reg["args"][0].get<std::string>()));
 			else if (call == "registerOnPassFlyingRings")
 				expectedEvents.push_back("onPassFlyingRingEvent " + unquoted(reg["args"][0].get<std::string>()));
 			else if (call == "registerQuestSkill")
@@ -3511,6 +3521,10 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		for (int32_t worldId : killWorlds) {
 			RoutingSpy::firing = std::to_string(worldId);
 			QuestEngine::getInstance().onKillInWorld(*QuestEnv::create(nullptr, player, 0), worldId);
+		}
+		for (const std::string& zone : killZones) {
+			RoutingSpy::firing = zone;
+			QuestEngine::getInstance().onKillInZone(*QuestEnv::create(nullptr, player, 0), zone);
 		}
 		RoutingSpy::firing.clear();
 		for (const std::string& zone : leaveZones)

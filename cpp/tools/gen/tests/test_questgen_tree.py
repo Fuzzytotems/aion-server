@@ -485,6 +485,16 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q13.values()), 87)
+        # the phase 6 leftovers' hand ports (lane C, 2026-10-18; docs/deviations/Q12.md and Q14.md): in the tree, without questgen's banner,
+        # and still refused by questgen
+        for directory, klass in (('event_quests', '_80016EventSockHop'), ('event_quests', '_80018EventSockItToEm'),
+                                 ('levinshor', '_13744AgentinNeed'), ('levinshor', '_23744EffectElyosElimination'),
+                                 ('tiamat_stronghold', '_30721OminousDebrisEnergy'), ('tiamat_stronghold', '_30771ImpendingDebrisEnergy')):
+            with self.subTest(file=f'{directory}/{klass}'):
+                hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
+                self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
+                self.assertIn('Hand-ported from', hand_port)
+                self.assertNotIn((directory, klass), found)
         for directory, classes in Q11.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

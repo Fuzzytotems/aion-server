@@ -817,9 +817,11 @@
 	X(kromedes_trial, _28604RecoveringRotan, 28604) \
 	X(levinshor, _13704FonasQuickFix, 13704) \
 	X(levinshor, _13708ProximityProtect, 13708) \
+	X(levinshor, _13744AgentinNeed, 13744) \
 	X(levinshor, _13745EljersRequest, 13745) \
 	X(levinshor, _23704LoudNoises, 23704) \
 	X(levinshor, _23708SoundtheAlarm, 23708) \
+	X(levinshor, _23744EffectElyosElimination, 23744) \
 	X(levinshor, _23745NoMoreinLevinshor, 23745) \
 	X(linkgate_foundry, _16940DiarySecrets, 16940) \
 	X(linkgate_foundry, _26940RaidtheLinkgateFoundry, 26940) \
@@ -1042,12 +1044,14 @@
 	X(tiamat_stronghold, _30708SuramaTheBetrayer, 30708) \
 	X(tiamat_stronghold, _30709SoulSearching, 30709) \
 	X(tiamat_stronghold, _30710TheGreatRelease, 30710) \
+	X(tiamat_stronghold, _30721OminousDebrisEnergy, 30721) \
 	X(tiamat_stronghold, _30722CheckTheGate, 30722) \
 	X(tiamat_stronghold, _30750AttackOnTiamatStronghold, 30750) \
 	X(tiamat_stronghold, _30751DeathToTheDragonLord, 30751) \
 	X(tiamat_stronghold, _30758SuramaTheBitter, 30758) \
 	X(tiamat_stronghold, _30759CountingStatues, 30759) \
 	X(tiamat_stronghold, _30760PetrifiedHeroOfTheAsmodians, 30760) \
+	X(tiamat_stronghold, _30771ImpendingDebrisEnergy, 30771) \
 	X(tiamat_stronghold, _30772InvestigateTheGate, 30772) \
 	X(udas_temple, _30003SecretOfTheUdasTemple, 30003) \
 	X(udas_temple, _30005HealMeKillMe, 30005) \
