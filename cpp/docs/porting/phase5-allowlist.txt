@@ -5,12 +5,10 @@
 #
 # site|<path below cpp/game-server>|<enclosing function>|<count>|<owner>
 
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::buyBrokerItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::settleAccount|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::showSettledItems|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 
 # opcode|<CM_ class>|<owner>
 
-opcode|CM_BUY_BROKER_ITEM|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 opcode|CM_BROKER_SETTLE_LIST|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 opcode|CM_BROKER_SETTLE_ACCOUNT|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
