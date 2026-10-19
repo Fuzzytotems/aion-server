@@ -464,7 +464,8 @@ class CommittedTree(unittest.TestCase):
         # 24026"): in the tree, without questgen's banner, and still refused by questgen
         # and _1354 (lane C, 2026-10-14: a hand port without a correction, questgen refuses its String[] field and getLifeStats)
         for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide'),
-                                 ('eltnen', '_1354PraticalAerobatics')):
+                                 ('eltnen', '_1354PraticalAerobatics'), ('event_quests', '_80030EventAnUnwelcomeGaze'),
+                                 ('event_quests', '_80033EventAvertingTheGaze'), ('eltnen', '_14026ALoneDefense')):
             with self.subTest(file=f'{directory}/{klass}'):
                 hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
                 self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
