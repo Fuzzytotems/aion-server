@@ -1,20 +1,25 @@
 #include "aion/gameserver/services/BrokerService.h"
 
+#include <algorithm>
+#include <limits>
 #include <optional>
 #include <string>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/dao/BrokerDAO.h"
 #include "aion/gameserver/dao/InventoryDAO.h"
 #include "aion/gameserver/dao/ItemStoneListDAO.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/broker/BrokerItemMaskInfo.h"
 #include "aion/gameserver/model/broker/BrokerPlayerCache.h"
 #include "aion/gameserver/model/broker/BrokerRace.h"
 #include "aion/gameserver/model/gameobjects/BrokerItem.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_BROKER_SERVICE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -27,6 +32,29 @@
 namespace aion::gameserver::services {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("EXCHANGE_LOG");
+
+namespace {
+
+using BrokerItemList = runtime::RcArrayList<runtime::Ref<model::gameobjects::BrokerItem>>;
+
+/** Java: a List<BrokerItem> of the elements of a collection (Collection.stream().toList(), new ArrayList<>(values())) */
+template <class Range>
+std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> toPtrs(const Range& items) {
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> result;
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : items)
+		result.push_back(item);
+	return result;
+}
+
+/** C++ only: the list object BrokerPlayerCache keeps (Java keeps the List itself; the cache only reads and replaces it) */
+runtime::Ref<BrokerItemList> toList(const std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>& items) {
+	runtime::Ref<BrokerItemList> list = BrokerItemList::create(AION_LOCK_CLASS(BrokerPlayerCache::brokerListCache));
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : items)
+		list->add(runtime::Ref<model::gameobjects::BrokerItem>(item));
+	return list;
+}
+
+} // namespace
 
 
 // Defined here (hub-headers.md §9.3): only BrokerService bodies use it, and its base header
@@ -142,20 +170,126 @@ void BrokerService::initBrokerService() {
 		" settled items.");
 }
 
-void BrokerService::showRequestedItems(model::gameobjects::player::Player& player, int32_t clientMask, int8_t sortType, int32_t startPage, const std::vector<int32_t>& itemList) {
-	AION_UNPORTED();
+// Java BrokerService.java:97-142
+void BrokerService::showRequestedItems(model::gameobjects::player::Player& player, int32_t clientMask, int8_t sortType, int32_t startPage,
+	runtime::Ptr<runtime::RcArrayList<int32_t>> itemList) {
+	std::optional<std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>> searchItems; // Java: null where getItemsByMask returns null
+	int32_t playerBrokerMaskCache = getPlayerMask(player);
+	model::broker::BrokerItemMask brokerMaskById = model::broker::getBrokerMaskById(clientMask);
+	bool isChildrenMask = model::broker::isChildrenMask(brokerMaskById, playerBrokerMaskCache);
+	if (itemList && clientMask == 0) {
+		auto* brokerItems = getRaceBrokerItems(player.getRace());
+		if (brokerItems == nullptr)
+			return;
+		searchItems = toPtrs(brokerItems->values());
+	} else if (clientMask != 0 && (getFilteredItems(player).empty() || !isChildrenMask)) {
+		searchItems = getItemsByMask(player, clientMask, false);
+	} else if (isChildrenMask) {
+		searchItems = getItemsByMask(player, clientMask, true);
+	} else
+		searchItems = getFilteredItems(player);
+
+	if (!searchItems)
+		return;
+
+	getPlayerCache(player)->setBrokerSortTypeCache(sortType);
+	getPlayerCache(player)->setBrokerStartPageCache(startPage);
+
+	if (itemList) {
+		std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> itemsFound;
+		for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : *searchItems) {
+			if (itemList->contains(item->getItemId()))
+				itemsFound.push_back(item);
+		}
+		getPlayerCache(player)->setSearchItemsList(itemList);
+		getPlayerCache(player)->setBrokerListCache(toList(itemsFound));
+		searchItems = std::move(itemsFound);
+	} else
+		getPlayerCache(player)->setSearchItemsList(nullptr);
+
+	int32_t totalSearchItemsCount = static_cast<int32_t>(searchItems->size());
+	searchItems = getRequestedPage(*searchItems, startPage, sortType);
+
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& bi : *searchItems) {
+		if (bi->getAveragePrice() == 0) {
+			bi->setAveragePrice(getAveragePrice(player.getRace(), bi->getItemId()));
+		}
+	}
+
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(*searchItems, totalSearchItemsCount, startPage));
 }
 
+// Java BrokerService.java:144-160
 int64_t BrokerService::getAveragePrice(model::Race race, int32_t itemId) {
-	AION_UNPORTED();
+	auto* brokerItems = getRaceBrokerItems(race);
+	if (brokerItems == nullptr)
+		return 0;
+
+	int64_t average = 0, sum = 0;
+	int32_t counter = 0;
+
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : brokerItems->values()) {
+		if (itemId == item->getItemId()) {
+			sum = static_cast<int64_t>(static_cast<uint64_t>(sum) + static_cast<uint64_t>(item->getPrice())); // Java long arithmetic wraps
+			counter++;
+		}
+	}
+	if (counter == 0) // Java: long / int 0 throws ArithmeticException
+		throw commons::utils::ArithmeticException("/ by zero");
+	average = sum / counter;
+	return average;
 }
 
-std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> BrokerService::getItemsByMask(model::gameobjects::player::Player& player, int32_t clientMask, bool cached) {
-	AION_UNPORTED();
+// Java BrokerService.java:162-194
+std::optional<std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>> BrokerService::getItemsByMask(model::gameobjects::player::Player& player,
+	int32_t clientMask, bool cached) {
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> searchItems;
+
+	model::broker::BrokerItemMask brokerMask = model::broker::getBrokerMaskById(clientMask);
+
+	if (cached) {
+		for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : getFilteredItems(player)) {
+			if (!item || !item->getItem())
+				continue;
+
+			if (model::broker::isMatches(brokerMask, *item->getItem())) {
+				searchItems.push_back(item);
+			}
+		}
+	} else {
+		auto* brokerItems = getRaceBrokerItems(player.getRace());
+		if (brokerItems == nullptr)
+			return std::nullopt;
+		for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : brokerItems->values()) {
+			if (!item || !item->getItem())
+				continue;
+
+			if (model::broker::isMatches(brokerMask, *item->getItem())) {
+				searchItems.push_back(item);
+			}
+		}
+	}
+
+	getPlayerCache(player)->setBrokerListCache(toList(searchItems));
+	getPlayerCache(player)->setBrokerMaskCache(clientMask);
+
+	return searchItems;
 }
 
-std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> BrokerService::getRequestedPage(const std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>& brokerItems, int32_t startPage, int8_t sortType) {
-	AION_UNPORTED();
+// Java BrokerService.java:196-198: brokerItems.stream().sorted(comparator).skip(startPage * 9L).limit(36).toList(); Stream.sorted is stable
+std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> BrokerService::getRequestedPage(
+	const std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>& brokerItems, int32_t startPage, int8_t sortType) {
+	const model::gameobjects::BrokerItem::Comparator comparator = model::gameobjects::BrokerItem::getComparatoryByType(sortType);
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> sorted = brokerItems;
+	std::stable_sort(sorted.begin(), sorted.end(),
+		[&comparator](const runtime::Ptr<model::gameobjects::BrokerItem>& a, const runtime::Ptr<model::gameobjects::BrokerItem>& b) {
+			return comparator(a, b) < 0;
+		});
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> page;
+	const int64_t skip = startPage * 9LL;
+	for (int64_t i = skip; i < static_cast<int64_t>(sorted.size()) && page.size() < 36; i++)
+		page.push_back(sorted[static_cast<size_t>(i)]);
+	return page;
 }
 
 runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::BrokerItem>>* BrokerService::getRaceBrokerItems(model::Race race) {
@@ -230,12 +364,43 @@ void BrokerService::registerItem(model::gameobjects::player::Player& player, int
 	AION_UNPORTED();
 }
 
+// Java BrokerService.java:422-433
 void BrokerService::showSellWindow(model::gameobjects::player::Player& player, int32_t itemUniqueId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::Item> itemToRegister = player.getInventory().getItemByObjId(itemUniqueId);
+	if (!itemToRegister)
+		return;
+	auto* brokerItems = getRaceBrokerItems(player.getRace());
+	if (brokerItems == nullptr) // Java: NullPointerException on values()
+		throw runtime::NullPointerException("No broker for race of player " + player.getName());
+	// Java: the LongSummaryStatistics of the prices of the offers of the same item id; without one, min is Long.MAX_VALUE and max Long.MIN_VALUE
+	int64_t min = std::numeric_limits<int64_t>::max();
+	int64_t max = std::numeric_limits<int64_t>::min();
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : brokerItems->values()) {
+		if (itemToRegister->getItemId() == item->getItemId()) {
+			min = std::min(min, item->getPrice());
+			max = std::max(max, item->getPrice());
+		}
+	}
+	int64_t lowestPrice = min == std::numeric_limits<int64_t>::max() ? 0 : min;
+	int64_t highestPrice = max == std::numeric_limits<int64_t>::min() ? 0 : max;
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(int8_t{0}, itemUniqueId, lowestPrice, highestPrice));
 }
 
+// Java BrokerService.java:435-447
 void BrokerService::showRegisteredItems(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	auto* brokerItems = getRaceBrokerItems(player.getRace());
+	if (brokerItems == nullptr) // Java: NullPointerException on values()
+		throw runtime::NullPointerException("No broker for race of player " + player.getName());
+
+	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> registeredItems;
+	int32_t playerId = player.getObjectId();
+
+	for (const runtime::Ptr<model::gameobjects::BrokerItem>& item : brokerItems->values()) {
+		if (item && item->getItem() && playerId == item->getSellerId())
+			registeredItems.push_back(item);
+	}
+
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(registeredItems));
 }
 
 bool BrokerService::hasRegisteredItems(model::gameobjects::player::Player& player) {
