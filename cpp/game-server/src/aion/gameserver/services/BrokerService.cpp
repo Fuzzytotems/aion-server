@@ -1,3 +1,11 @@
+#include "aion/gameserver/controllers/ControllerSupport.h"
+#include "aion/gameserver/model/broker/BrokerMessagesInfo.h"
+#include "aion/gameserver/model/items/storage/StorageTypeInfo.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_DELETE_ITEM.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/restrictions/PlayerRestrictions.h"
+#include "aion/gameserver/services/AdminService.h"
 #include "aion/gameserver/services/BrokerService.h"
 
 #include <algorithm>
@@ -24,6 +32,9 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/gameserver/services/item/ItemFactory.h"
+#include "aion/gameserver/services/item/ItemPacketService.h"
+#include "aion/gameserver/services/trade/PricesService.h"
 #include "aion/gameserver/taskmanager/AbstractFIFOPeriodicTaskManager.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
@@ -91,11 +102,13 @@ BrokerService& BrokerService::getInstance() {
 	return instance;
 }
 
-BrokerService::BrokerOpSaveTask::BrokerOpSaveTask(model::gameobjects::BrokerItem& value, model::gameobjects::Item& itemValue, model::gameobjects::Item& kinahItemValue, int32_t playerIdValue)
+BrokerService::BrokerOpSaveTask::BrokerOpSaveTask(model::gameobjects::BrokerItem& value, runtime::Ptr<model::gameobjects::Item> itemValue,
+	runtime::Ptr<model::gameobjects::Item> kinahItemValue, int32_t playerIdValue)
 	: brokerItem(value), item(itemValue), kinahItem(kinahItemValue), playerId(playerIdValue) {
 }
 
-runtime::Ref<BrokerService::BrokerOpSaveTask> BrokerService::BrokerOpSaveTask::create(model::gameobjects::BrokerItem& value, model::gameobjects::Item& itemValue, model::gameobjects::Item& kinahItemValue, int32_t playerIdValue) {
+runtime::Ref<BrokerService::BrokerOpSaveTask> BrokerService::BrokerOpSaveTask::create(model::gameobjects::BrokerItem& value,
+	runtime::Ptr<model::gameobjects::Item> itemValue, runtime::Ptr<model::gameobjects::Item> kinahItemValue, int32_t playerIdValue) {
 	return runtime::makeRef<BrokerService::BrokerOpSaveTask>(value, itemValue, kinahItemValue, playerIdValue);
 }
 
@@ -360,8 +373,101 @@ int32_t BrokerService::getRegisteredItemsCount(model::gameobjects::player::Playe
 	return c;
 }
 
-void BrokerService::registerItem(model::gameobjects::player::Player& player, int32_t itemUniqueId, int64_t value, int64_t price, bool splittingAvailable) {
-	AION_UNPORTED();
+// Java BrokerService.java:335-420
+void BrokerService::registerItem(model::gameobjects::player::Player& player, int32_t itemUniqueId, int64_t count, int64_t price, bool splittingAvailable) {
+	runtime::Ptr<model::gameobjects::Item> itemToRegister = player.getInventory().getItemByObjId(itemUniqueId);
+	model::Race playerRace = player.getRace();
+
+	if (!itemToRegister || count > itemToRegister->getItemCount())
+		return;
+
+	if (!restrictions::PlayerRestrictions::canTrade(runtime::Ptr<model::gameobjects::player::Player>(player))) {
+		return;
+	}
+
+	if (price <= 0 || count <= 0)
+		return;
+
+	if ((count > 1 && price / count > 999'999'999) || price > 99'999'999'999LL) { // retail price limits
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_LIMITED_VENDOR_CANT_OVER_GOLD());
+		return;
+	}
+
+	// Check Trade Hack
+	if (itemToRegister->getPackCount() <= 0 && !itemToRegister->isTradeable())
+		return;
+
+	if (!AdminService::getInstance().canOperate(player, nullptr, *itemToRegister, "broker"))
+		return;
+
+	model::broker::BrokerRace brRace;
+
+	if (playerRace == model::Race::ASMODIANS)
+		brRace = model::broker::BrokerRace::ASMODIAN;
+	else if (playerRace == model::Race::ELYOS)
+		brRace = model::broker::BrokerRace::ELYOS;
+	else
+		return;
+
+	int32_t registeredItemsCount = getRegisteredItemsCount(player);
+	int64_t registrationCommition = 0;
+	// Java: (long) (price * count * 0.04f) - the long product (wrapping), converted to float, times the float, cast back with Java's saturation
+	const int64_t total = static_cast<int64_t>(static_cast<uint64_t>(price) * static_cast<uint64_t>(count));
+	if (registeredItemsCount > 14) {
+		utils::PacketSendUtility::sendPacket(player,
+			network::aion::serverpackets::SM_BROKER_SERVICE(model::broker::getId(model::broker::BrokerMessages::NO_SPACE_AVAIABLE)));
+		return;
+	} else if (registeredItemsCount > 9) // round down in order to match client prices
+		registrationCommition = controllers::detail::toLong(static_cast<float>(total) * 0.04f);
+	else
+		registrationCommition = controllers::detail::toLong(static_cast<float>(total) * 0.02f);
+
+	if (registrationCommition < 10)
+		registrationCommition = 10;
+	else
+		registrationCommition = services::trade::PricesService::getPriceForService(registrationCommition, player.getRace());
+
+	if (player.getInventory().getKinah() < registrationCommition) {
+		utils::PacketSendUtility::sendPacket(player,
+			network::aion::serverpackets::SM_BROKER_SERVICE(model::broker::getId(model::broker::BrokerMessages::NO_ENOUGHT_KINAH)));
+		return;
+	}
+	if (!itemToRegister->getItemTemplate()->isStackable())
+		splittingAvailable = false;
+
+	player.getInventory().decreaseKinah(registrationCommition);
+	runtime::Ref<model::gameobjects::Item> registered; // Java: the itemToRegister variable, reassigned to the new stack
+	if (itemToRegister->getItemTemplate()->isStackable() && count < itemToRegister->getItemCount()) {
+		int32_t itemId = itemToRegister->getItemId();
+		player.getInventory().decreaseItemCount(*itemToRegister, count);
+		registered = services::item::ItemFactory::newItem(itemId, count);
+	} else {
+		registered = runtime::Ref<model::gameobjects::Item>(itemToRegister);
+		player.getInventory().remove(*registered);
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_DELETE_ITEM(registered->getObjectId()));
+	}
+
+	registered->setItemLocation(model::items::storage::getId(model::items::storage::StorageType::BROKER));
+
+	runtime::Ref<model::gameobjects::BrokerItem> newBrokerItem =
+		model::gameobjects::BrokerItem::create(*registered, price, player.getObjectId(), splittingAvailable, brRace);
+
+	switch (brRace) {
+		case model::broker::BrokerRace::ASMODIAN:
+			asmodianBrokerItems.put(newBrokerItem->getItemUniqueId(), newBrokerItem);
+			break;
+
+		case model::broker::BrokerRace::ELYOS:
+			elyosBrokerItems.put(newBrokerItem->getItemUniqueId(), newBrokerItem);
+			break;
+
+		default:
+			break;
+	}
+
+	saveManager->add(*BrokerOpSaveTask::create(*newBrokerItem, registered, player.getInventory().getKinahItem(), player.getObjectId()));
+
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(*newBrokerItem, 0, registeredItemsCount));
 }
 
 // Java BrokerService.java:422-433
@@ -415,8 +521,35 @@ bool BrokerService::hasRegisteredItems(model::gameobjects::player::Player& playe
 	return false;
 }
 
+// Java BrokerService.java:459-485
 void BrokerService::cancelRegisteredItem(model::gameobjects::player::Player& player, int32_t brokerItemId) {
-	AION_UNPORTED();
+	auto* brokerItems = getRaceBrokerItems(player.getRace());
+	if (brokerItems == nullptr) // Java: NullPointerException on get
+		throw runtime::NullPointerException("No broker for race of player " + player.getName());
+	runtime::Ptr<model::gameobjects::BrokerItem> brokerItem = brokerItems->get(brokerItemId);
+
+	if (!restrictions::PlayerRestrictions::canTrade(runtime::Ptr<model::gameobjects::player::Player>(player))) {
+		return;
+	}
+	if (brokerItem) {
+		if (brokerItem->getSellerId() != player.getObjectId()) {
+			log.info("[AUDIT] Player: {} tried to get item from broker that he doesn't own", player.getName());
+			return;
+		}
+		if (player.getInventory().isFull(brokerItem->getItem()->getItemTemplate()->getExtraInventoryId())) {
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_EXCHANGE_FULL_INVENTORY());
+			return;
+		}
+		SYNCHRONIZED(*this) {
+			player.getInventory().add(*brokerItem->getItem(), services::item::ItemPacketService_ItemAddType::BROKER_RETURN);
+			brokerItem->setPersistentState(model::gameobjects::Persistable::PersistentState::DELETED);
+			saveManager->add(*BrokerOpSaveTask::create(*brokerItem));
+			brokerItem->setIsCanceled(true);
+			brokerItems->remove(brokerItemId);
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(int8_t{0}, brokerItemId));
+		}
+	}
+	showRegisteredItems(player);
 }
 
 void BrokerService::showSettledItems(model::gameobjects::player::Player& player, int32_t startPageIndex) {
