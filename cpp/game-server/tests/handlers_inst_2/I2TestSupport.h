@@ -9,6 +9,11 @@ namespace aion::gameserver::handlers::instance {
 // the marker factories of the handlers under test (AION_INSTANCE_HANDLER defines them in the handler library)
 ::aion::gameserver::handlers::InstanceFactory StonespearReachInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory DarkPoetaInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory IlluminaryObeliskInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory InfernalIlluminaryObelisk_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory PadmarashkasCaveInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory DanuarSanctuaryInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory SeizedDanuarSanctuaryInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -23,15 +28,25 @@ inline constexpr int32_t STONESPEAR_REACH = 301500000;
 inline constexpr int32_t CRUCIBLE_CHALLENGE = 300320000;
 inline constexpr int32_t EMPYREAN_CRUCIBLE = 300300000;
 inline constexpr int32_t DARK_POETA = 300040000;
+inline constexpr int32_t ILLUMINARY_OBELISK = 301230000;
+inline constexpr int32_t INFERNAL_ILLUMINARY_OBELISK = 301370000;
+inline constexpr int32_t PADMARASHKAS_CAVE = 320150000;
+inline constexpr int32_t DANUAR_SANCTUARY = 301380000;
+inline constexpr int32_t SEIZED_DANUAR_SANCTUARY = 301140000;
 using crucible::CrucibleChallengeInstance_instanceFactory;
 using crucible::EmpyreanCrucibleInstance_instanceFactory;
 
-/** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60, 59, 32) */
+/** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60, 59, 32, 94, 107, 138, 108, 88) */
 inline constexpr const char* I2_MAPS_XML = R"x(<world_maps>
 	<map id="301500000" cName="IDLegion" name="Stonespear Reach" name_id="404646" instance="true" water_level="90" death_level="0" world_size="512" drop_type="NONE" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="300320000" cName="IDArena_Solo" name="Crucible Challenge" name_id="401841" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300300000" cName="IDArena" name="Empyrean Crucible" name_id="401828" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300040000" cName="IDLF1" name="Dark Poeta" name_id="401172" instance="true" water_level="100" death_level="0" world_type="ABYSS" world_size="1536" drop_type="ABYSS_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="301230000" cName="IDLDF5_Under_03" name="Illuminary Obelisk" name_id="404057" instance="true" water_level="16" death_level="235" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301370000" cName="IDLDF5_Under_03_H" name="Infernal Illuminary Obelisk" name_id="404404" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="320150000" cName="IDDramata_01" name="Padmarashka's Cave" name_id="402100" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="301380000" cName="IDLDF5_Under_02_E" name="Danuar Sanctuary" name_id="404447" instance="true" water_level="16" death_level="0" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301140000" cName="IDLDF5_Under_02" name="Seized Danuar Sanctuary" name_id="403794" instance="true" water_level="16" death_level="0" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {
@@ -84,6 +99,24 @@ inline const std::vector<int32_t>& darkPoetaNpcs() {
 	return ids;
 }
 
+/** The Illuminary Obelisks' npc ids (the handlers' and the illuminaryObelisk AIs'), less the ones listed above */
+inline const std::vector<int32_t>& obeliskNpcs() {
+	static const std::vector<int32_t> ids{233720, 233721, 233722, 233723, 233724, 233725, 233726, 233727, 233728, 233729, 233730, 233731,
+		233732, 233733, 233734, 233735, 233736, 233737, 233738, 233739, 233740, 233857, 233880, 233881, 233882, 233883, 234682, 234683, 234684,
+		234685, 234686, 234687, 234688, 234689, 234720, 234721, 234722, 234723, 234724, 234725, 234726, 234727, 234728, 234729, 234730, 234731,
+		234732, 234733, 234734, 234738, 702009, 702014, 702015, 702016, 702017, 702216, 702218, 702219, 702220, 702221, 702222, 702223, 702224,
+		702225, 702226, 702227, 702228, 702229, 730886, 730905, 802048, 802049};
+	return ids;
+}
+
+/** Padmarashka's Cave's and the Danuar Sanctuaries' npc ids (their handlers' and AIs'), less the ones listed above */
+inline const std::vector<int32_t>& padmarashkaDanuarNpcs() {
+	static const std::vector<int32_t> ids{218670, 218671, 218673, 218674, 218675, 218676, 218756, 233085, 233087, 233126, 233127, 233128,
+		233129, 233130, 233131, 233187, 233189, 233447, 233448, 235619, 235620, 235621, 235624, 235625, 235626, 282140, 282613, 282614, 282616,
+		282620, 282712, 282715, 282716, 282792, 282793, 282794, 282795, 282796, 701871, 701872, 701873, 701876, 730863, 730866};
+	return ids;
+}
+
 /** The npc ids the I2 handlers spawn or kill */
 inline const std::vector<int32_t>& handlerNpcIds() {
 	static const std::vector<int32_t> ids = [] {
@@ -95,6 +128,9 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		all.insert(all.end(), empyreanCrucibleNpcs().begin(), empyreanCrucibleNpcs().end());
 		all.insert(all.end(), {205337, 205343, 205344, 282363, 282364, 282366, 282367, 282368, 282373, 282378}); // the empyreanCrucible AIs' own
 		all.insert(all.end(), darkPoetaNpcs().begin(), darkPoetaNpcs().end());
+		all.insert(all.end(), obeliskNpcs().begin(), obeliskNpcs().end());
+		all.insert(all.end(), {702010, 702011, 702012}); // the generators (the obelisk AI cases place them)
+		all.insert(all.end(), padmarashkaDanuarNpcs().begin(), padmarashkaDanuarNpcs().end());
 		return all;
 	}();
 	return ids;
