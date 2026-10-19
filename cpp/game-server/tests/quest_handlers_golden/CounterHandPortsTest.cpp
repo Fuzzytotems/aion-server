@@ -26,6 +26,9 @@
 
 // clang-format off
 #include "aion/gameserver/handlers/quest/eltnen/_1354PraticalAerobatics.cpp"
+#include "aion/gameserver/handlers/quest/eltnen/_14026ALoneDefense.cpp"
+#include "aion/gameserver/handlers/quest/event_quests/_80030EventAnUnwelcomeGaze.cpp"
+#include "aion/gameserver/handlers/quest/event_quests/_80033EventAvertingTheGaze.cpp"
 #include "aion/gameserver/handlers/quest/eltnen/_1367MabangtahsFeast.cpp"
 #include "aion/gameserver/handlers/quest/morheim/_24026AHandfromEachSide.cpp"
 // clang-format on
@@ -49,6 +52,10 @@ constexpr int32_t KARGATE = 204432;
 constexpr int32_t BALAUR[] = {213575, 280818};
 constexpr int32_t AEROBATICS = 1354;
 constexpr int32_t ERACUS = 203983;
+constexpr int32_t UNWELCOME_GAZE = 80030;
+constexpr int32_t AVERTING_THE_GAZE = 80033;
+constexpr int32_t CHARM_CARD = 188051133;
+constexpr int32_t LONE_DEFENSE = 14026;
 
 std::string printedRow(const pugi::xml_node& node) {
 	std::ostringstream out;
@@ -72,11 +79,12 @@ const CounterData& counterData() {
 			throw std::runtime_error("cannot read quest_data.xml");
 		for (pugi::xml_node quest : quests.document_element().children("quest")) {
 			int32_t id = quest.attribute("id").as_int();
-			if (id == FEAST || id == DEFENCE || id == AEROBATICS)
+			if (id == FEAST || id == DEFENCE || id == AEROBATICS || id == UNWELCOME_GAZE || id == AVERTING_THE_GAZE || id == LONE_DEFENSE)
 				d.questsXml += printedRow(quest);
 		}
 		d.questsXml = "<quests>" + d.questsXml + "</quests>";
-		std::set<int32_t> npcIds{MABANGTAH, KARGATE, 204301, 204403, BALAUR[0], BALAUR[1], ERACUS};
+		std::set<int32_t> npcIds{MABANGTAH, KARGATE, 204301, 204403, BALAUR[0], BALAUR[1], ERACUS, 799766, 799781, 203901, 204020, 204044,
+			211628, 211630};
 		pugi::xml_document npcs;
 		if (!npcs.load_file((STATIC_DATA / "npcs/npc_templates.xml").c_str()))
 			throw std::runtime_error("cannot read npc_templates.xml");
@@ -130,6 +138,9 @@ protected:
 		auto aerobatics = ::aion::gameserver::handlers::quest::eltnen::_1354PraticalAerobatics_questFactory();
 		aerobaticsHandler = aerobatics.get();
 		QuestEngine::getInstance().addQuestHandler(std::move(aerobatics));
+		QuestEngine::getInstance().addQuestHandler(::aion::gameserver::handlers::quest::event_quests::_80030EventAnUnwelcomeGaze_questFactory());
+		QuestEngine::getInstance().addQuestHandler(::aion::gameserver::handlers::quest::event_quests::_80033EventAvertingTheGaze_questFactory());
+		QuestEngine::getInstance().addQuestHandler(::aion::gameserver::handlers::quest::eltnen::_14026ALoneDefense_questFactory());
 	}
 
 	Quester* quester(Race race, int32_t level) {
@@ -224,7 +235,7 @@ TEST_F(CounterHandPortsTest, TheDefenceRegistrationsAreTheJavaOnes) {
 	for (int32_t npc : {204301, 204403, KARGATE})
 		EXPECT_EQ(QuestEngine::getInstance().getQuestNpc(npc)->getOnTalkEvent().snapshot(), std::vector<int32_t>{DEFENCE}) << npc;
 	for (int32_t mob : BALAUR)
-		EXPECT_EQ(QuestEngine::getInstance().getQuestNpc(mob)->getOnKillEvent().snapshot(), std::vector<int32_t>{DEFENCE}) << mob;
+		EXPECT_TRUE(QuestEngine::getInstance().getQuestNpc(mob)->getOnKillEvent().contains(DEFENCE)) << mob; // 213575 is 14026's too
 }
 
 TEST_F(CounterHandPortsTest, EachDefenderCountsHisOwnBalaur) {
@@ -289,6 +300,29 @@ TEST_F(CounterHandPortsTest, TheAerobaticsDialogStartsTheTimerAndItsEndResetsThe
 	envs.push_back(QuestEnv::create(nullptr, q->player(), AEROBATICS, 0));
 	EXPECT_TRUE(aerobaticsHandler->onQuestTimerEndEvent(*envs.back())) << ":68-77";
 	EXPECT_EQ(stateOf(*q, AEROBATICS)->getQuestVarById(0), 0);
+}
+
+// --- event_quests/_80030EventAnUnwelcomeGaze, _80033EventAvertingTheGaze (hand ports, no correction; lane C, 2026-10-15) ---------------
+// The charm card's scheduled check needs the event service's active events and a ten second task: the registrations are checked here
+
+TEST_F(CounterHandPortsTest, TheGazeRegistrationsAreTheJavaOnes) {
+	// _80030EventAnUnwelcomeGaze.java:28-32, _80033EventAvertingTheGaze.java:28-32
+	for (const auto& [quest, npc] : {std::pair{UNWELCOME_GAZE, 799766}, std::pair{AVERTING_THE_GAZE, 799781}}) {
+		EXPECT_TRUE(QuestEngine::getInstance().getQuestNpc(npc)->getOnQuestStart().contains(quest)) << quest;
+		EXPECT_TRUE(QuestEngine::getInstance().getQuestNpc(npc)->getOnTalkEvent().contains(quest)) << quest;
+	}
+	EXPECT_TRUE(QuestEngine::getInstance().isRegisteredQuestItem(CHARM_CARD));
+}
+
+// --- eltnen/_14026ALoneDefense (hand port, no correction; lane C, 2026-10-15) ---------------------------------------------------------
+// The kill path spawns a mob and walks it to Kargate's helper (spawn data, a map with known lists): the registrations are checked here
+
+TEST_F(CounterHandPortsTest, TheLoneDefenseRegistrationsAreTheJavaOnes) {
+	// _14026ALoneDefense.java:38-51: the four talk npcs (700141 an object) and the three mobs' kills
+	for (int32_t npc : {203901, 204020, 204044, 700141})
+		EXPECT_TRUE(QuestEngine::getInstance().getQuestNpc(npc)->getOnTalkEvent().contains(LONE_DEFENSE)) << npc;
+	for (int32_t mob : {211628, 211630, 213575})
+		EXPECT_TRUE(QuestEngine::getInstance().getQuestNpc(mob)->getOnKillEvent().contains(LONE_DEFENSE)) << mob;
 }
 
 } // namespace
