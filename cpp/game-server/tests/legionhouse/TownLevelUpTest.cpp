@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 
 #include <gtest/gtest.h>
@@ -42,8 +43,13 @@ constexpr const char* TOWN_SPAWNS = R"(<town_spawns_data><spawn_map map_id="7000
 class TownLevelUpTest : public TeamTest {
 protected:
 	void SetUp() override {
-		// before TeamTest publishes Poeta alone (publishPoetaWorldDataOnce publishes only when nothing is): the same Poeta row and the two
-		// housing worlds, whose geo maps GeoService.updateTown (the constructor and increaseLevel) reads
+		// the same Poeta row and the two housing worlds, whose geo maps GeoService.updateTown (the constructor and increaseLevel) reads, in
+		// place of the process-wide Poeta holder for this test only. publishPoetaWorldDataOnce publishes that holder once per process, when
+		// nothing is published: calling it first makes it publish here if no earlier test did, so the holder TearDown puts back is the one
+		// every later fixture expects (whichever order the tests run in)
+		items::publishPoetaWorldDataOnce();
+		previousWorldMaps = dataholders::DataManager::WORLD_MAPS_DATA.get();
+		dataholders::DataManager::WORLD_MAPS_DATA.resetForTests();
 		worldMaps.emplace(dataholders::DataManager::WORLD_MAPS_DATA,
 			lh::bindXml<dataholders::WorldMapsData>(
 				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
@@ -66,6 +72,10 @@ protected:
 		townSpawns.reset();
 		TeamTest::TearDown();
 		worldMaps.reset(); // after the map instance of TeamTest that reads the Poeta template
+		// published holders are immortal (HolderRef::publish releases them), so the previous one is published again as it was
+		if (previousWorldMaps != nullptr)
+			dataholders::DataManager::WORLD_MAPS_DATA.publish(
+				std::unique_ptr<dataholders::WorldMapsData>(const_cast<dataholders::WorldMapsData*>(previousWorldMaps)));
 	}
 
 	/** an online player of `race` in the World (World.forEachPlayer lists him) */
@@ -91,6 +101,7 @@ protected:
 
 	std::optional<lh::PublishedHolder<dataholders::TownSpawnsData>> townSpawns;
 	std::optional<lh::PublishedHolder<dataholders::WorldMapsData>> worldMaps;
+	const dataholders::WorldMapsData* previousWorldMaps = nullptr; // the holder SetUp replaced, published again by TearDown
 	std::vector<Member*> stored;
 	Member* elyos = nullptr;
 	Member* asmodian = nullptr;
