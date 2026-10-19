@@ -44,6 +44,7 @@ Q10 = {
         '_2289RampagingMosbears', '_2290GrokensEscape', '_24011FunnyFloatingFungus', '_24012AnOminousCrop', '_24014StompOutThePlot',
         '_24015TotemPlowed', '_24016AStrangeNewThread', '_24112NoLaissezFaireForLepharists'),
     'pandaemonium': (
+        '_4212MissingSidrunerk',
         '_2911SongOfBlessing', '_2917ArekedilsHeritage', '_2953DeliveringSupplyRequest', '_29004VeldinaCall', '_29048SeriphimTeachings', '_4973MarraWorry',
         '_2912FollowtheRibbon', '_2913AChainofDebt', '_2914ATokenofLostLove', '_2916ManInTheLongBlackRobe', '_2918DeepMaternalLove',
         '_2919BookOfOblivion', '_2920ElementaryMyDearDaeva', '_2921LoveAtFirstSight', '_2922FascinatingGift', '_2925AHeartfeltConfession',
@@ -131,6 +132,7 @@ Q11 = {
         '_2990MakingTheDaevanionWeapon', '_2993AnotherBeginning', '_2994ANewChoice', '_80291DurableDaevanionWeapon',
         '_80295DurableDaevanionWeapon',),
     'sanctum': (
+        '_3212TheMissingCubeCraftsman',
         '_1929ASliverofDarkness',
         '_19004PeriklessInsight', '_1900RingImbuedAether', '_1901KrallicPotion', '_19047JustBetweenMeAndFasimedes',
         '_19048AndreasTeachings', '_1908UlaguruSpeaks', '_1909ASongOfPraise', '_1917ALingeringMystery', '_1918AnAxForNamus',
@@ -167,6 +169,8 @@ Q05 = {
 # Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
 Q09 = {
     'morheim': (
+        '_2394ADyingWish',
+        '_2333ARibbitOutOfWater',
         '_2303DaevaWheresMyHerb', '_2307IrresistibleSoup', '_2316VivisBook', '_2321SpyTheSpiritsLetter', '_2324TheSpiritsNotebook',
         '_2332MeatyTreats', '_2343AncientGinseng', '_2345OrashunerkSpecialOrder', '_2367APrizedPossession', '_2392BeautifulFeather',
         '_2393TheLoveOfAFather', '_24020AegirsOrders', '_24021GhostsintheDesert', '_24022SneakBehindtheIceClaw', '_24023ABlazingRescue',
@@ -231,6 +235,8 @@ Q12 = {
 # Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
 Q04 = {
     'beluslan': (
+        '_2634TheDraupnirRedemption',
+        '_24053TheMaulingoftheMau',
         '_16909AMarkofDistinction', '_24050NeritasOrders', '_24051InvesetigatetheDisappearance', '_24052AFrozenCity',
         '_24054CrisisinBeluslan', '_2501FallingFragments', '_2505LetCookingExpertsCook', '_2512FoodforRemotePlaces',
         '_2513TheStrangeCottage', '_2514TheRedManeReport', '_2515LeanorsErrand', '_2523GrassfortheGraveRobbers', '_2533BeritrasCurse',
@@ -439,7 +445,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 41))
+        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 42))
         for directory, classes in Q08.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -482,7 +488,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q11.values()), 73)
+        self.assertEqual(sum(len(classes) for classes in Q11.values()), 74)
         for directory, classes in Q05.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -492,7 +498,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q09.values()), 51)
+        self.assertEqual(sum(len(classes) for classes in Q09.values()), 53)
         for directory, classes in Q07.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -507,7 +513,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q04.values()), 67)
+        self.assertEqual(sum(len(classes) for classes in Q04.values()), 69)
         for directory, classes in Q06.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

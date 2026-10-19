@@ -2,16 +2,14 @@
 // the files the table names; the hand ports and held-back files of the directory are not generated (docs/deviations/Q10.md).
 
 // clang-format off
-#include "aion/gameserver/handlers/quest/pandaemonium/_2911SongOfBlessing.cpp"
-#include "aion/gameserver/handlers/quest/pandaemonium/_2917ArekedilsHeritage.cpp"
-#include "aion/gameserver/handlers/quest/pandaemonium/_2953DeliveringSupplyRequest.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_29004VeldinaCall.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_29048SeriphimTeachings.cpp"
-#include "aion/gameserver/handlers/quest/pandaemonium/_4973MarraWorry.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_2911SongOfBlessing.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2912FollowtheRibbon.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2913AChainofDebt.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2914ATokenofLostLove.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2916ManInTheLongBlackRobe.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_2917ArekedilsHeritage.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2918DeepMaternalLove.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2919BookOfOblivion.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2920ElementaryMyDearDaeva.cpp"
@@ -23,6 +21,7 @@
 #include "aion/gameserver/handlers/quest/pandaemonium/_2938SecretLibraryAccess.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2948HuronsLetter.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2952WinningVindachinerksFavor.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_2953DeliveringSupplyRequest.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2954DeliveringOdellaJuice.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2957FlowersForTheBanquet.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2958LastMinuteWorries.cpp"
@@ -31,6 +30,7 @@
 #include "aion/gameserver/handlers/quest/pandaemonium/_2965AncientWeapons.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2985AnExpertsReward.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4210MissingHaorunerk.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_4212MissingSidrunerk.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4905InterviewingTheVeterans.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4906TalesOfHeroes.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4920MakingTheActivatedSurkana.cpp"
@@ -41,6 +41,7 @@
 #include "aion/gameserver/handlers/quest/pandaemonium/_4970TheFashionistas.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4971ProjectRunway.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4972JudgeNot.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_4973MarraWorry.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4974TheSecretOfHisSuccess.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_4976ASettlerAmbition.cpp"
 // clang-format on
