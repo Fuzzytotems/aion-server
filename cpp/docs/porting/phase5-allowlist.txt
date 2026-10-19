@@ -5,26 +5,6 @@
 #
 # site|<path below cpp/game-server>|<enclosing function>|<count>|<owner>
 
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::buyBrokerItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::cancelRegisteredItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::getAveragePrice|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::getItemsByMask|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::getRequestedPage|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::registerItem|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::settleAccount|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::showRegisteredItems|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::showRequestedItems|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::showSellWindow|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-site|src/aion/gameserver/services/BrokerService.cpp|BrokerService::showSettledItems|1|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
 
 # opcode|<CM_ class>|<owner>
 
-opcode|CM_BROKER_SELL_WINDOW|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BROKER_LIST|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BROKER_SEARCH|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BROKER_REGISTERED|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BUY_BROKER_ITEM|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_REGISTER_BROKER_ITEM|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BROKER_CANCEL_REGISTERED|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BROKER_SETTLE_LIST|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
-opcode|CM_BROKER_SETTLE_ACCOUNT|capital-economy milestone (m5j-plan A-C4, user decision m5c-plan D2)
