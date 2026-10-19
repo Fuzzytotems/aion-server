@@ -204,6 +204,7 @@ TEST_F(IronWallAiTest, TheBossJumpsToARandomTargetAfter21165) {
 	publishSkills({21165, 21166});
 	runtime::Ptr<Npc> boss = place(231304, 226.0f, 300.0f);
 	IronWallProbe& ai = install(*boss);
+	ai.thinks = false; // no think attacks (and may kill) the test's player, which would empty both npcs' aggro lists
 	ai.onEndUseSkill(dataholders::DataManager::SKILL_DATA->getSkillTemplate(21165), 1);
 	executor().advance(std::chrono::seconds(2));
 	EXPECT_NEAR(boss->getX(), 226.0f, 0.5f) << "no target";
