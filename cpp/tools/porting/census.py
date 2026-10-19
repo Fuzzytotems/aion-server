@@ -3040,7 +3040,7 @@ LIVE_CHECKS = [
 ]
 # (Java file, type path, expected initializer statuses in order)
 LIVE_INITIALIZERS = [
-    ('model/house/PlayerScript.java', 'PlayerScript', ['partial']),        # `null until CompressUtil is ported`
+    ('model/house/PlayerScript.java', 'PlayerScript', ['ported']),         # LUA_SANDBOX_FIX's initializer is ported (P5 leftovers cp5, #376)
     ('model/ChatType.java', 'ChatType', ['ported']),                      # the ChatTypeInfo.h lookup replaces the map
     ('model/team/common/events/TeamCommand.java', 'TeamCommand', ['ported']),       # TeamCommandInfo.h's lookup replaces the map (M5g)
 ]
