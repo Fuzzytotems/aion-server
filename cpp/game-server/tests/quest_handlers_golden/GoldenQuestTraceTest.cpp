@@ -117,6 +117,7 @@
 #include "aion/gameserver/services/craft/CraftSkillUpdateService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/BrokerService.h"
+#include "aion/gameserver/world/zone/ZoneService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
@@ -2879,7 +2880,7 @@ public:
 				if (flip == Flip::THROW_AFTER_STEP)
 					throw runtime::NullPointerException("the negative control's flip");
 				if (flip == Flip::UNPORTED) {
-					services::BrokerService::getInstance().showRegisteredItems(*player); // parked (owner's D2): stays AION_UNPORTED
+					world::zone::ZoneService::getInstance().saveMaterialZones(); // the write-back of static data: stays AION_UNPORTED (static-data.md §3.6)
 					return true;
 				}
 				return flip != Flip::RETURN;
