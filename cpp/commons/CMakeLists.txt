@@ -47,4 +47,6 @@ add_library(aion::commons ALIAS aion_commons)
 aion_add_tests(aion_commons_core_tests "${COMMONS_TESTS}/core" DEPENDS aion_commons_core)
 aion_add_tests(aion_commons_configuration_tests "${COMMONS_TESTS}/configuration" DEPENDS aion_commons_configuration)
 aion_add_tests(aion_commons_database_tests "${COMMONS_TESTS}/database" DEPENDS aion_commons_database)
+# DatabaseIntegrationTest needs the test database (AION_TEST_DATABASE_URL): label realdata, so that `ctest -LE realdata` runs without one
+aion_set_discovered_test_properties(aion_commons_database_tests REGEX "^DatabaseIntegrationTest\\." PROPERTIES LABELS realdata)
 aion_add_tests(aion_commons_network_tests "${COMMONS_TESTS}/network" DEPENDS aion_commons_network)
