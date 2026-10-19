@@ -24,13 +24,19 @@ public:
 	void info(Player& admin, std::optional<std::string_view> message) override;
 
 private:
-	/** Java: the private static class SkillTemplate (int id, name) */
+	/**
+	 * Java: the private static class SkillTemplate (int id, name). Its accessor SkillTemplate.getSkillId() and SkillData.getData() are
+	 * not ported: the record's fields and the file's records replace them.
+	 */
 	struct SkillTemplate {
 		std::optional<std::string> name; // Java: String name (null when the attribute is missing)
 		int32_t id = 0;
 	};
 
-	/** Java: JAXBUtil.deserialize(xml, SkillData.class).getSkillTemplate(name): the first record whose lower-case name equals the lower-case name */
+	/**
+	 * Java: SkillData.getSkillTemplate(name) on JAXBUtil.deserialize(xml, SkillData.class): the first record whose lower-case name equals the
+	 * lower-case name
+	 */
 	static std::optional<SkillTemplate> getSkillTemplate(std::string_view name);
 };
 

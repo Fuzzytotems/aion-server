@@ -5,13 +5,17 @@
 #include <functional>
 #include <initializer_list>
 #include <map>
+#include <memory>
 #include <optional>
+#include <regex>
 #include <ranges>
 #include <set>
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "aion/commons/configuration/ConfigValue.h"
 #include "aion/commons/configuration/Properties.h"
@@ -99,12 +103,16 @@ public:
 	/** Java: {@code @Property(key = key)} without defaultValue. If the key is missing, the field keeps its current value. */
 	template <transformers::Transformable T>
 	void bind(std::string_view key, T& field) {
+		if (describing != nullptr)
+			return describeUnnamed(key, std::nullopt, false);
 		bind(key, field, Property::DEFAULT_VALUE);
 	}
 
 	/** Java: {@code @Property(key = key, defaultValue = defaultValue)}. The default value is parsed like a property value. */
 	template <transformers::Transformable T>
 	void bind(std::string_view key, T& field, std::string_view defaultValue) {
+		if (describing != nullptr)
+			return describeUnnamed(key, defaultValue, false);
 		if (std::optional<T> value = parseValue<T>(key, defaultValue))
 			field = std::move(*value);
 	}
@@ -112,12 +120,16 @@ public:
 	/** Like bind(key, field) for a field that is rebound while other threads read it (see ConfigValue). */
 	template <transformers::Transformable T>
 	void bind(std::string_view key, ConfigValue<T>& field) {
+		if (describing != nullptr)
+			return describeUnnamed(key, std::nullopt, false);
 		bind(key, field, Property::DEFAULT_VALUE);
 	}
 
 	/** Like bind(key, field, defaultValue) for a field that is rebound while other threads read it: stores a new snapshot (see ConfigValue). */
 	template <transformers::Transformable T>
 	void bind(std::string_view key, ConfigValue<T>& field, std::string_view defaultValue) {
+		if (describing != nullptr)
+			return describeUnnamed(key, defaultValue, false);
 		if (std::optional<T> value = parseValue<T>(key, defaultValue))
 			field.set(std::move(*value));
 	}
@@ -125,12 +137,16 @@ public:
 	/** Like bind(key, field) for a scalar field that is rebound while other threads read it. */
 	template <transformers::Transformable T>
 	void bind(std::string_view key, std::atomic<T>& field) {
+		if (describing != nullptr)
+			return describeUnnamed(key, std::nullopt, false);
 		bind(key, field, Property::DEFAULT_VALUE);
 	}
 
 	/** Like bind(key, field, defaultValue) for a scalar field that is rebound while other threads read it: stores the new value atomically. */
 	template <transformers::Transformable T>
 	void bind(std::string_view key, std::atomic<T>& field, std::string_view defaultValue) {
+		if (describing != nullptr)
+			return describeUnnamed(key, defaultValue, false);
 		if (std::optional<T> value = parseValue<T>(key, defaultValue))
 			field.store(*value);
 	}
@@ -147,14 +163,111 @@ public:
 	 */
 	template <transformers::TransformableMap Map>
 	void bindPattern(std::string_view keyPattern, Map& field) {
+		if (describing != nullptr)
+			return describeUnnamed(keyPattern, std::nullopt, true);
 		field = parseMap<Map>(keyPattern);
 	}
 
 	/** Like bindPattern(keyPattern, field) for a map that is rebound while other threads read it: stores a new snapshot (see ConfigValue). */
 	template <transformers::TransformableMap Map>
 	void bindPattern(std::string_view keyPattern, ConfigValue<Map>& field) {
+		if (describing != nullptr)
+			return describeUnnamed(keyPattern, std::nullopt, true);
 		field.set(parseMap<Map>(keyPattern));
 	}
+
+	// ---------------------------------------------------------------------------------------------------------------------------------------
+	// C++ addition: named binds and introspection (//configure, handlers-and-porting-plan.md §1.10). Java's //configure reads and writes the
+	// config classes' static fields by reflection; here a bind names its field, and describe() runs a binder in introspection mode.
+	// ---------------------------------------------------------------------------------------------------------------------------------------
+
+	/** One bind as describe() reports it. */
+	struct FieldInfo {
+		/** the field's name (Java: Field.getName()); empty for a bind without a name (a local, e.g. CommonsConfig's script compiler flag) */
+		std::string fieldName;
+		/** the property key, or the key pattern of a bindPattern */
+		std::string key;
+		/** the default value of the bind, std::nullopt for none */
+		std::optional<std::string> defaultValue;
+		bool isPattern = false;
+		/** the current value as Java's String.valueOf / Arrays.toString print it (empty for a bind without a name) */
+		std::function<std::string()> toJavaString;
+		/**
+		 * Transforms a value and stores it (Java: field.set(null, ConfigurableProcessor.transform(value, field))). Empty when the field cannot
+		 * change at runtime: a plain field (no std::atomic, no ConfigValue: storing into it while other threads read it is a data race) or a
+		 * pattern map (setMap).
+		 *
+		 * @throws TransformationException see transform
+		 */
+		std::function<void(std::string_view)> set;
+		/** Pattern maps only: transforms the (key, value) pairs and stores the map (Java: ConfigurableProcessor.transform(Map, Field)). */
+		std::function<void(const std::map<std::string, std::string>&)> setMap;
+	};
+
+	/** Runs the binder in introspection mode: no field is read from properties or changed. @return its binds in order */
+	static std::vector<FieldInfo> describe(const Binder& binder);
+
+	/** bind(key, field) naming the field; Formatter::format(value) gives toJavaString (Java's string conversion of the value) */
+	template <class Formatter, transformers::Transformable T>
+	void bindNamed(std::string_view fieldName, std::string_view key, T& field) {
+		bindNamedImpl<Formatter>(fieldName, key, std::nullopt, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamed(std::string_view fieldName, std::string_view key, T& field, std::string_view defaultValue) {
+		bindNamedImpl<Formatter>(fieldName, key, defaultValue, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamed(std::string_view fieldName, std::string_view key, ConfigValue<T>& field) {
+		bindNamedImpl<Formatter>(fieldName, key, std::nullopt, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamed(std::string_view fieldName, std::string_view key, ConfigValue<T>& field, std::string_view defaultValue) {
+		bindNamedImpl<Formatter>(fieldName, key, defaultValue, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamed(std::string_view fieldName, std::string_view key, std::atomic<T>& field) {
+		bindNamedImpl<Formatter>(fieldName, key, std::nullopt, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamed(std::string_view fieldName, std::string_view key, std::atomic<T>& field, std::string_view defaultValue) {
+		bindNamedImpl<Formatter>(fieldName, key, defaultValue, field);
+	}
+
+	/** bindPattern(keyPattern, field) naming the field */
+	template <class Formatter, transformers::TransformableMap Map>
+	void bindPatternNamed(std::string_view fieldName, std::string_view keyPattern, Map& field) {
+		if (describing != nullptr) {
+			describing->push_back(FieldInfo{std::string(fieldName), std::string(keyPattern), std::nullopt, true,
+				[&field] { return Formatter::format(field); }, {}, {}}); // a plain map: no setMap (see FieldInfo::set)
+			return;
+		}
+		bindPattern(keyPattern, field);
+	}
+
+	template <class Formatter, transformers::TransformableMap Map>
+	void bindPatternNamed(std::string_view fieldName, std::string_view keyPattern, ConfigValue<Map>& field) {
+		if (describing != nullptr) {
+			describing->push_back(FieldInfo{std::string(fieldName), std::string(keyPattern), std::nullopt, true,
+				[&field] {
+					std::shared_ptr<const Map> value = field.get();
+					return value ? Formatter::format(*value) : std::string("null");
+				},
+				{}, [&field](const std::map<std::string, std::string>& values) { field.set(transformMap<Map>(values)); }});
+			return;
+		}
+		bindPattern(keyPattern, field);
+	}
+
+	/**
+	 * The source text a regular expression field was last bound or set from (Java: Pattern.pattern(); std::regex keeps no source), or
+	 * std::nullopt if it was never bound by a named bind.
+	 */
+	static std::optional<std::string> regexSource(const void* field);
 
 	/** @return the names of all properties (including defaults) that were not used by the bindings so far */
 	std::set<std::string> unusedProperties() const;
@@ -181,6 +294,118 @@ public:
 	}
 
 private:
+	/** describe()'s sink: binds record their FieldInfo here instead of binding while it is set */
+	std::vector<FieldInfo>* describing = nullptr;
+
+	template <class T>
+	static constexpr bool isRegex = std::is_same_v<T, std::regex> || std::is_same_v<T, std::wregex> ||
+		std::is_same_v<T, std::optional<std::regex>> || std::is_same_v<T, std::optional<std::wregex>>;
+
+	static void rememberRegexSource(const void* field, std::string source);
+
+	/** a regular expression field's toJavaString: its remembered source, "null" for an empty optional */
+	template <class T>
+	static std::string regexJavaString(const void* field, const T& value) {
+		if constexpr (std::is_same_v<T, std::optional<std::regex>> || std::is_same_v<T, std::optional<std::wregex>>) {
+			if (!value.has_value())
+				return "null";
+		}
+		return regexSource(field).value_or("null");
+	}
+
+	/** a regular expression bind: bind's resolution and transformation, remembering the source text the value came from */
+	template <transformers::Transformable T, class Store>
+	void bindRegex(std::string_view key, std::optional<std::string_view> defaultValue, const void* field, Store store) {
+		std::string value = getValue(key, defaultValue.value_or(Property::DEFAULT_VALUE));
+		if (value == Property::DEFAULT_VALUE) {
+			logUnmodified(key);
+			return;
+		}
+		std::optional<T> parsed;
+		try {
+			parsed.emplace(transformers::transform<T>(value));
+		} catch (...) {
+			throw TransformationException("Error modifying field for property " + std::string(key), std::current_exception());
+		}
+		store(std::move(*parsed));
+		rememberRegexSource(field, std::move(value));
+	}
+
+	static std::optional<std::string> toOptional(std::optional<std::string_view> value) {
+		return value.has_value() ? std::optional<std::string>(std::string(*value)) : std::nullopt;
+	}
+
+	/** a plain field: describe() reads it but cannot store into it (FieldInfo::set) */
+	template <class Formatter, transformers::Transformable T>
+	void bindNamedImpl(std::string_view fieldName, std::string_view key, std::optional<std::string_view> defaultValue, T& field) {
+		if (describing != nullptr) {
+			describing->push_back(FieldInfo{std::string(fieldName), std::string(key), toOptional(defaultValue), false,
+				[&field] {
+					if constexpr (isRegex<T>)
+						return regexJavaString(&field, field);
+					else
+						return Formatter::format(field);
+				},
+				{}, {}});
+			return;
+		}
+		if constexpr (isRegex<T>)
+			bindRegex<T>(key, defaultValue, &field, [&field](T value) { field = std::move(value); });
+		else if (defaultValue.has_value())
+			bind(key, field, *defaultValue);
+		else
+			bind(key, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamedImpl(std::string_view fieldName, std::string_view key, std::optional<std::string_view> defaultValue, ConfigValue<T>& field) {
+		if (describing != nullptr) {
+			describing->push_back(FieldInfo{std::string(fieldName), std::string(key), toOptional(defaultValue), false,
+				[&field] {
+					std::shared_ptr<const T> value = field.get();
+					if (!value)
+						return std::string("null");
+					if constexpr (isRegex<T>)
+						return regexJavaString(&field, *value);
+					else
+						return Formatter::format(*value);
+				},
+				[&field](std::string_view value) {
+					T transformed = transform<T>(value);
+					if constexpr (isRegex<T>)
+						rememberRegexSource(&field, std::string(value));
+					field.set(std::move(transformed));
+				},
+				{}});
+			return;
+		}
+		if constexpr (isRegex<T>)
+			bindRegex<T>(key, defaultValue, &field, [&field](T value) { field.set(std::move(value)); });
+		else if (defaultValue.has_value())
+			bind(key, field, *defaultValue);
+		else
+			bind(key, field);
+	}
+
+	template <class Formatter, transformers::Transformable T>
+	void bindNamedImpl(std::string_view fieldName, std::string_view key, std::optional<std::string_view> defaultValue, std::atomic<T>& field) {
+		if (describing != nullptr) {
+			describing->push_back(FieldInfo{std::string(fieldName), std::string(key), toOptional(defaultValue), false,
+				[&field] { return Formatter::format(field.load()); },
+				[&field](std::string_view value) { field.store(transform<T>(value)); }, {}});
+			return;
+		}
+		if (defaultValue.has_value())
+			bind(key, field, *defaultValue);
+		else
+			bind(key, field);
+	}
+
+	/** a bind without a name in introspection mode: recorded without accessors, the field (perhaps a local) is not touched */
+	void describeUnnamed(std::string_view key, std::optional<std::string_view> defaultValue, bool isPattern) {
+		describing->push_back(FieldInfo{"", std::string(key), toOptional(defaultValue), isPattern, {}, {}, {}});
+	}
+
 	/** @return the transformed value, or std::nullopt if the field must keep its current value (Property::DEFAULT_VALUE) */
 	template <transformers::Transformable T>
 	std::optional<T> parseValue(std::string_view key, std::string_view defaultValue) {
