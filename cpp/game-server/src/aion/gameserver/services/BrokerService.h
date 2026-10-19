@@ -42,9 +42,12 @@ public:
 		const runtime::Ref<model::gameobjects::Item> kinahItem; // null for BrokerOpSaveTask(brokerItem)
 		const int32_t playerId;
 	protected:
-		BrokerOpSaveTask(model::gameobjects::BrokerItem& brokerItem, model::gameobjects::Item& item, model::gameobjects::Item& kinahItem, int32_t playerId);
+		BrokerOpSaveTask(model::gameobjects::BrokerItem& brokerItem, runtime::Ptr<model::gameobjects::Item> item, runtime::Ptr<model::gameobjects::Item> kinahItem,
+			int32_t playerId);
 	public:
-		static runtime::Ref<BrokerService::BrokerOpSaveTask> create(model::gameobjects::BrokerItem& value, model::gameobjects::Item& itemValue, model::gameobjects::Item& kinahItemValue, int32_t playerIdValue);
+		/** Java's item and kinahItem may be null (run() checks both): the kinah item of an inventory without kinah, a bought item Java adds as null */
+		static runtime::Ref<BrokerService::BrokerOpSaveTask> create(model::gameobjects::BrokerItem& value, runtime::Ptr<model::gameobjects::Item> itemValue,
+			runtime::Ptr<model::gameobjects::Item> kinahItemValue, int32_t playerIdValue);
 	protected:
 		explicit BrokerOpSaveTask(model::gameobjects::BrokerItem& brokerItem);
 	public:

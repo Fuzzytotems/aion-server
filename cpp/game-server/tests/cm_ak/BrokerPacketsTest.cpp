@@ -107,9 +107,9 @@ TEST(BrokerReadTest, TheBodiesAreReadAsJavaReadsThem) {
 TEST_F(BrokerBrowseTest, AListShowsTheRacesOffersOfTheMaskWithTheirAveragePrice) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_POTION));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_POTION));
 
 	// BrokerService.java:107-108: a mask and an empty cache - getItemsByMask over the Elyos offers; the Asmodian potion is not among them.
 	// getAveragePrice (:144-160): (30 + 50 + 20) / 3 = 33 for every potion of the race, the Asmodian one not counted
@@ -125,57 +125,57 @@ TEST_F(BrokerBrowseTest, AListShowsTheRacesOffersOfTheMaskWithTheirAveragePrice)
 TEST_F(BrokerBrowseTest, ThePriceSortsBothWaysAndAParentMaskTakesItsChildren) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_DESC, 0, MASK_CONSUMABLES));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_DESC, 0, MASK_CONSUMABLES));
 	SearchedItems page = searched();
 	EXPECT_EQ(page.total, 4) << "CONSUMABLES: the potions (1620) and the juice (1600), not the sword";
 	EXPECT_EQ(page.ids(), (std::vector<int32_t>{POTIONS_50, POTIONS_30, JUICE, POTIONS_20})) << "price descending: 50, 30, 25, 20";
 	EXPECT_EQ(page.offers[2].averagePrice, 25) << "the juice is the only one of its item";
 
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_WEAPON));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_WEAPON));
 	EXPECT_EQ(searched().ids(), (std::vector<int32_t>{OWN_SWORD})) << "WEAPON (1000..1021): the holder's own offer is listed too";
 }
 
 TEST_F(BrokerBrowseTest, AChildMaskFiltersTheCachedListAndAnotherMaskReadsTheOffersAgain) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 
 	// a search under CONSUMABLES for the potion's id: getItemsByMask(CONSUMABLES) caches the mask (:190-191), then the item list narrows the
 	// cached list to the three potions (:120-128)
-	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE, searchBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_CONSUMABLES, {MINOR_LIFE_POTION}));
+	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE, searchBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_CONSUMABLES, {MINOR_LIFE_POTION}));
 	EXPECT_EQ(searched().ids(), (std::vector<int32_t>{POTIONS_20, POTIONS_30, POTIONS_50}));
 
 	// FOOD is a child of the cached CONSUMABLES (:101, :109-110): the cached list - three potions - is filtered, and no juice is in it
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_FOOD));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_FOOD));
 	SearchedItems food = searched();
 	EXPECT_EQ(food.total, 0);
 	EXPECT_TRUE(food.offers.empty()) << "the cached list, not the offers";
 
 	// the cache is now empty (getItemsByMask cached the empty result), so the next mask reads the offers again (:107-108)
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_FOOD));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_FOOD));
 	EXPECT_EQ(searched().ids(), (std::vector<int32_t>{JUICE}));
 
 	// WEAPON is no child of FOOD: the offers again, whatever the cache holds
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_WEAPON));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_WEAPON));
 	EXPECT_EQ(searched().ids(), (std::vector<int32_t>{OWN_SWORD}));
 }
 
 TEST_F(BrokerBrowseTest, MaskZeroWithoutASearchListsTheCachedList) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_FOOD));
+	targetBroker();
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_FOOD));
 	ASSERT_EQ(searched().ids(), (std::vector<int32_t>{JUICE}));
 
 	// mask 0 and no item list (:111-112): getFilteredItems, the last list - the juice - shown again under the new sort and page
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_DESC, 0, 0));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_DESC, 0, 0));
 	EXPECT_EQ(searched().ids(), (std::vector<int32_t>{JUICE}));
 }
 
@@ -183,7 +183,7 @@ TEST_F(BrokerBrowseTest, APageSkipsNineOffersPerPageAndShowsAtMostThirtySix) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	for (int32_t i = 0; i < 50; i++)
 		offer(9200 + i, MINOR_LIFE_POTION, 1, 100 + i, SELLER_ID); // prices 100..149, so price ascending is id order
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 	const auto ids = [](int32_t from, int32_t n) {
 		std::vector<int32_t> result;
 		for (int32_t i = 0; i < n; i++)
@@ -191,27 +191,27 @@ TEST_F(BrokerBrowseTest, APageSkipsNineOffersPerPageAndShowsAtMostThirtySix) {
 		return result;
 	};
 
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 0, MASK_POTION));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 0, MASK_POTION));
 	SearchedItems first = searched();
 	EXPECT_EQ(first.total, 50) << "the count of the whole list";
 	EXPECT_EQ(first.ids(), ids(9200, 36)) << "limit(36)";
 
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 2, MASK_POTION));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 2, MASK_POTION));
 	SearchedItems third = searched();
 	EXPECT_EQ(third.startPage, 2);
 	EXPECT_EQ(third.ids(), ids(9218, 32)) << "skip(2 * 9)";
 
 	clearSent();
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), SORT_PRICE_ASC, 6, MASK_POTION));
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), SORT_PRICE_ASC, 6, MASK_POTION));
 	EXPECT_TRUE(searched().offers.empty()) << "skip(54) of 50";
 }
 
 TEST_F(BrokerBrowseTest, AnUnknownSortTypeThrowsJavasIllegalArgumentException) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
-	EXPECT_THROW(readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId(), 8, 0, MASK_POTION)),
+	targetBroker();
+	EXPECT_THROW(readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId(), 8, 0, MASK_POTION)),
 		runtime::IllegalArgumentException)
 		<< "BrokerItem.getComparatoryByType (BrokerItem.java:360-361)";
 	EXPECT_TRUE(brokerPackets().empty());
@@ -220,11 +220,11 @@ TEST_F(BrokerBrowseTest, AnUnknownSortTypeThrowsJavasIllegalArgumentException) {
 TEST_F(BrokerBrowseTest, WithoutTheBrokerTargetedTheListIsAuditedAndNotSent) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 	network::test::LogCapture capture({"AUDIT_LOG"});
-	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker.getObjectId() + 1, SORT_PRICE_ASC, 0, MASK_POTION));
-	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE, searchBody(broker.getObjectId() + 1, SORT_PRICE_ASC, 0, 0, {MINOR_LIFE_POTION}));
-	readAndRun<CM_BROKER_REGISTERED>(CM_BROKER_REGISTERED_OPCODE, PacketWriter().D(broker.getObjectId() + 1).data);
+	readAndRun<CM_BROKER_LIST>(CM_BROKER_LIST_OPCODE, listBody(broker->getObjectId() + 1, SORT_PRICE_ASC, 0, MASK_POTION));
+	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE, searchBody(broker->getObjectId() + 1, SORT_PRICE_ASC, 0, 0, {MINOR_LIFE_POTION}));
+	readAndRun<CM_BROKER_REGISTERED>(CM_BROKER_REGISTERED_OPCODE, PacketWriter().D(broker->getObjectId() + 1).data);
 	EXPECT_TRUE(brokerPackets().empty());
 	EXPECT_TRUE(capture.contains("tried to browse for broker items without targeting a broker")) << capture.dump();
 	EXPECT_TRUE(capture.contains("tried to search for items in broker without targeting a broker")) << capture.dump();
@@ -236,17 +236,17 @@ TEST_F(BrokerBrowseTest, WithoutTheBrokerTargetedTheListIsAuditedAndNotSent) {
 TEST_F(BrokerBrowseTest, ASearchWithoutAMaskTakesTheRacesOffersOfTheListedItems) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 
 	// mask 0 and an item list (:102-106): every Elyos offer, then those of the listed item ids
 	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE,
-		searchBody(broker.getObjectId(), SORT_PRICE_DESC, 0, 0, {MERCENARYS_FRUIT_JUICE, TRAINING_SWORD}));
+		searchBody(broker->getObjectId(), SORT_PRICE_DESC, 0, 0, {MERCENARYS_FRUIT_JUICE, TRAINING_SWORD}));
 	SearchedItems page = searched();
 	EXPECT_EQ(page.total, 2);
 	EXPECT_EQ(page.ids(), (std::vector<int32_t>{OWN_SWORD, JUICE}));
 
 	clearSent();
-	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE, searchBody(broker.getObjectId(), SORT_PRICE_ASC, 0, 0, {LESSER_ANCIENT_KINAH}));
+	readAndRun<CM_BROKER_SEARCH>(CM_BROKER_SEARCH_OPCODE, searchBody(broker->getObjectId(), SORT_PRICE_ASC, 0, 0, {LESSER_ANCIENT_KINAH}));
 	EXPECT_TRUE(searched().offers.empty()) << "nothing of that item";
 }
 
@@ -284,9 +284,9 @@ TEST_F(BrokerBrowseTest, TheRegisteredListHoldsThePlayersOwnOffers) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
 	offer(9110, MINOR_LIFE_POTION, 1, 5, HOLDER_ID);
-	model::gameobjects::Npc& broker = targetBroker();
+	targetBroker();
 
-	readAndRun<CM_BROKER_REGISTERED>(CM_BROKER_REGISTERED_OPCODE, PacketWriter().D(broker.getObjectId()).data);
+	readAndRun<CM_BROKER_REGISTERED>(CM_BROKER_REGISTERED_OPCODE, PacketWriter().D(broker->getObjectId()).data);
 	std::vector<std::vector<uint8_t>> packets = brokerPackets();
 	ASSERT_EQ(packets.size(), 1u);
 	std::vector<int32_t> ids = decodeRegisteredItems(packets.front());

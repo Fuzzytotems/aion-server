@@ -16,6 +16,8 @@
 
 #include "MailPacketTestSupport.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <format>
 #include <optional>
@@ -23,6 +25,7 @@
 #include <string_view>
 #include <vector>
 
+#include "aion/gameserver/network/aion/clientpackets/CM_BROKER_REGISTERED.h"
 #include "aion/gameserver/network/aion/iteminfo/EnchantInfoBlobEntry.h"
 #include "aion/gameserver/services/BrokerService.h"
 
@@ -191,6 +194,30 @@ protected:
 			objectId, itemId, count, price, race, expireTime, sellerId, splitting ? 1 : 0));
 	}
 
+	/**
+	 * An item of the holder's cube, in memory as InventoryDAO loads it and as its inventory row (the broker row's item_pointer is a foreign key,
+	 * and the save task updates a loaded item's row)
+	 */
+	Item& owned(int32_t objId, int32_t itemId, int64_t count) {
+		maildb::execute(std::format("INSERT INTO inventory (item_unique_id, item_id, item_count, item_owner, item_location) VALUES ({}, {}, {}, {}, 0)",
+			objId, itemId, count, HOLDER_ID));
+		return stored(objId, itemId, count);
+	}
+
+	/** The broker's save manager runs every DELAY_BROKER_SAVE (6 s, BrokerService.java:51) */
+	void saved() { executor->advance(std::chrono::milliseconds(6000)); }
+
+	/** The ids of the holder's own offers, as CM_BROKER_REGISTERED lists them (sorted) */
+	std::vector<int32_t> ownOffers() {
+		clearSent();
+		readAndRun<CM_BROKER_REGISTERED>(CM_BROKER_REGISTERED_OPCODE, PacketWriter().D(broker->getObjectId()).data);
+		std::vector<std::vector<uint8_t>> packets = brokerPackets();
+		EXPECT_EQ(packets.size(), 1u);
+		std::vector<int32_t> ids = packets.empty() ? std::vector<int32_t>{} : decodeRegisteredItems(packets.front());
+		std::sort(ids.begin(), ids.end());
+		return ids;
+	}
+
 	/** The trade broker spawned beside the holder and his target (the selection's own packets are cleared) */
 	model::gameobjects::Npc& targetBroker(float x = 102.0f) {
 		runtime::Ref<model::templates::spawns::SpawnGroup> group = model::templates::spawns::SpawnGroup::create(210010000, TRADE_BROKER, 0, nullptr);
@@ -206,8 +233,12 @@ protected:
 		npcs.push_back(npc);
 		player().setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(*npc));
 		clearSent();
+		broker = npc.get();
 		return *npc;
 	}
+
+	/** the broker of targetBroker() */
+	model::gameobjects::Npc* broker = nullptr;
 
 	/** The SM_BROKER_SERVICE packets sent since the last clearSent */
 	std::vector<std::vector<uint8_t>> brokerPackets() { return packetsOf(sent(), SM_BROKER_SERVICE_OPCODE); }
