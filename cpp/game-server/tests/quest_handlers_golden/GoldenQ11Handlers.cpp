@@ -63,6 +63,7 @@
 #include "aion/gameserver/handlers/quest/sanctum/_1964ASouvenirForNoris.cpp"
 #include "aion/gameserver/handlers/quest/sanctum/_1987ABiggerWarehouse.cpp"
 #include "aion/gameserver/handlers/quest/sanctum/_3210RescueHaorunerk.cpp"
+#include "aion/gameserver/handlers/quest/sanctum/_3212TheMissingCubeCraftsman.cpp"
 #include "aion/gameserver/handlers/quest/sanctum/_3908ToMastertheDragon.cpp"
 #include "aion/gameserver/handlers/quest/sanctum/_3913ASecretSummons.cpp"
 #include "aion/gameserver/handlers/quest/sanctum/_3920TheSecretOfSurkana.cpp"

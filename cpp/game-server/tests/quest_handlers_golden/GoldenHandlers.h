@@ -468,6 +468,7 @@
 	X(beluslan, _24050NeritasOrders, 24050) \
 	X(beluslan, _24051InvesetigatetheDisappearance, 24051) \
 	X(beluslan, _24052AFrozenCity, 24052) \
+	X(beluslan, _24053TheMaulingoftheMau, 24053) \
 	X(beluslan, _24054CrisisinBeluslan, 24054) \
 	X(beluslan, _2501FallingFragments, 2501) \
 	X(beluslan, _2505LetCookingExpertsCook, 2505) \
@@ -488,6 +489,7 @@
 	X(beluslan, _2620SummoningPhagrasul, 2620) \
 	X(beluslan, _2630TheDutifulSpy, 2630) \
 	X(beluslan, _2633DestroyingBalaurWeapons, 2633) \
+	X(beluslan, _2634TheDraupnirRedemption, 2634) \
 	X(beluslan, _2641PowwowWiththeMau, 2641) \
 	X(beluslan, _2646TheInscrutableStranger, 2646) \
 	X(beluslan, _2651SpyAFriendsWhereabouts, 2651) \
@@ -840,11 +842,13 @@
 	X(morheim, _2321SpyTheSpiritsLetter, 2321) \
 	X(morheim, _2324TheSpiritsNotebook, 2324) \
 	X(morheim, _2332MeatyTreats, 2332) \
+	X(morheim, _2333ARibbitOutOfWater, 2333) \
 	X(morheim, _2343AncientGinseng, 2343) \
 	X(morheim, _2345OrashunerkSpecialOrder, 2345) \
 	X(morheim, _2367APrizedPossession, 2367) \
 	X(morheim, _2392BeautifulFeather, 2392) \
 	X(morheim, _2393TheLoveOfAFather, 2393) \
+	X(morheim, _2394ADyingWish, 2394) \
 	X(morheim, _24020AegirsOrders, 24020) \
 	X(morheim, _24021GhostsintheDesert, 24021) \
 	X(morheim, _24022SneakBehindtheIceClaw, 24022) \
@@ -893,6 +897,7 @@
 	X(oriel, _18832ImaginingAQuietLife, 18832) \
 	X(oriel, _18847Housewarming, 18847) \
 	X(oriel, _50009TisTheSeason, 50009) \
+	X(pandaemonium, _4212MissingSidrunerk, 4212) \
 	X(pangaea, _14220NewZoneNewRules, 14220) \
 	X(pangaea, _24220WelcometoPanesterra, 24220) \
 	X(pernon, _28802BeItEverSoHumble, 28802) \
@@ -939,6 +944,7 @@
 	X(sanctum, _1964ASouvenirForNoris, 1964) \
 	X(sanctum, _1987ABiggerWarehouse, 1987) \
 	X(sanctum, _3210RescueHaorunerk, 3210) \
+	X(sanctum, _3212TheMissingCubeCraftsman, 3212) \
 	X(sanctum, _3908ToMastertheDragon, 3908) \
 	X(sanctum, _3913ASecretSummons, 3913) \
 	X(sanctum, _3920TheSecretOfSurkana, 3920) \
