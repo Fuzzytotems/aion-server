@@ -1,0 +1,448 @@
+AIConfig	bind	MOVE_DEBUG	gameserver.ai.move.debug	true
+AIConfig	bind	EVENT_DEBUG	gameserver.ai.event.debug	false
+AIConfig	bind	ONCREATE_DEBUG	gameserver.ai.oncreate.debug	false
+AIConfig	bind	ACTIVE_NPC_MOVEMENT	gameserver.npcmovement.enable	true
+AIConfig	bind	MINIMIMUM_DELAY	gameserver.npcmovement.delay.minimum	3
+AIConfig	bind	MAXIMUM_DELAY	gameserver.npcmovement.delay.maximum	15
+AIConfig	bind	SHOUTS_ENABLE	gameserver.npcshouts.enable	false
+AIConfig	bind	HANDLER_DIRECTORY	gameserver.ai.handler_directory	./data/handlers/ai
+AIConfig	bind	MISSING_AI_HANDLERS	gameserver.dev.missing_ai_handlers	fail
+AdminConfig	bind	NAME_TAGS	gameserver.administration.customtags	%s, »JDev«%s, »Dev«%s, »JEM«%s, »EM«%s, »JGM«%s, »GM«%s, »SGM«%s, »Admin«%s
+AdminConfig	bind	UNRESTRICTED_ITEMTRADE	gameserver.administration.unrestricted_itemtrade	1
+AdminConfig	bind	GM_PANEL	gameserver.administration.gm_panel	2
+AdminConfig	bind	GM_SKILLS	gameserver.administration.gm_skills	8
+AdminConfig	bind	FREE_FLIGHT	gameserver.administration.flight.free_fly	1
+AdminConfig	bind	UNLIMITED_FLIGHT_TIME	gameserver.administration.flight.unlimited_time	1
+AdminConfig	bind	AUTO_RES	gameserver.administration.auto_res	1
+AdminConfig	bind	VIEW_PLAYER_DETAILS	gameserver.administration.view_player_details	5
+AdminConfig	bind	INSTANCE_ENTER_ALL	gameserver.administration.instance.enter_all	2
+AdminConfig	bind	INSTANCE_OPEN_DOORS	gameserver.administration.instance.open_doors	6
+AdminConfig	bind	INSTANCE_DOOR_INFO	gameserver.administration.instance.door_info	9
+AdminConfig	bind	HOUSE_ENTER_ALL	gameserver.administration.house.enter_all	9
+AdminConfig	bind	HOUSE_SHOW_ADDRESS	gameserver.administration.house.show_address	9
+AdminConfig	bind	DIALOG_INFO	gameserver.administration.dialog_info	9
+AdminConfig	bind	ENCHANT_INFO	gameserver.administration.enchant_info	9
+AdminConfig	bind	ZONE_INFO	gameserver.administration.zone_info	9
+AdminConfig	bind	AUDIT_INFO	gameserver.administration.audit_info	9
+AdminConfig	bind	CMD_QUEST_ADV_PARAMS	gameserver.administration.command.quest.advanced_parameters	9
+AdminConfig	bind	LOGIN_EXECUTE_COMMANDS	gameserver.administration.login.execute_commands	//invis, //invul, //enemy none, //see
+AdminConfig	bind	REVISION_INFO_ON_LOGIN	gameserver.administration.login.print_revision	9
+AdminConfig	bind	ANNOUNCE_LEVELS	gameserver.administration.login.announce_levels	*
+AdminConfig	bind	ANNOUNCE_LOGIN_TO_ALL_PLAYERS	gameserver.administration.login.announce_to_all_players	true
+AdminConfig	bind	ANNOUNCE_LOGOUT_TO_ALL_PLAYERS	gameserver.administration.logout.announce_to_all_players	true
+AutoGroupConfig	bind	AUTO_GROUP_ENABLE	gameserver.autogroup.enable	true
+AutoGroupConfig	bind	START_TIME_ENABLE	gameserver.startTime.enable	true
+AutoGroupConfig	bind	DREDGION_REGISTRATION_PERIOD	gameserver.dredgion.registration_period	60
+AutoGroupConfig	bind	DREDGION_TIMES	gameserver.dredgion.time	"0 0 0,12,20 ? * *"
+AutoGroupConfig	bind	KAMAR_BATTLEFIELD_REGISTRATION_PERIOD	gameserver.kamar_battlefield.registration_period	60
+AutoGroupConfig	bind	KAMAR_BATTLEFIELD_TIMES	gameserver.kamar_battlefield.time	"0 0 0,20 ? * MON,WED,SAT"
+AutoGroupConfig	bind	ENGULFED_OPHIDAN_BRIDGE_REGISTRATION_PERIOD	gameserver.engulfed_ophidan_bridge.registration_period	60
+AutoGroupConfig	bind	ENGULFED_OPHIDAN_BRIDGE_TIMES	gameserver.engulfed_ophidan_bridge.time	"0 0 12,19 ? * *"
+AutoGroupConfig	bind	IRON_WALL_WARFRONT_REGISTRATION_PERIOD	gameserver.iron_wall_warfront.registration_period	60
+AutoGroupConfig	bind	IRON_WALL_WARFRONT_TIMES	gameserver.iron_wall_warfront.time	"0 0 0,12 ? * SUN"
+AutoGroupConfig	bind	IDGEL_DOME_REGISTRATION_PERIOD	gameserver.idgel_dome.registration_period	60
+AutoGroupConfig	bind	IDGEL_DOME_TIMES	gameserver.idgel_dome.time	0 0 23 ? * *
+AutoGroupConfig	bind	ANNOUNCE_BATTLEGROUND_REGISTRATIONS	gameserver.autogroup.announce_battleground_registrations	false
+CleaningConfig	bind	CLEANING_ENABLE	gameserver.cleaning.enable	false
+CleaningConfig	bind	MIN_ACCOUNT_INACTIVITY_DAYS	gameserver.cleaning.min_account_inactivity	365
+CleaningConfig	bind	MAX_DELETABLE_CHAR_LEVEL	gameserver.cleaning.max_level	25
+CommandsConfig	pattern	ACCESS_LEVELS	^[a-zA-Z0-9_]+$	-
+CommandsConfig	bind	HANDLER_DIRECTORIES	gameserver.commands.handler_directories	./data/handlers/admincommands, ./data/handlers/playercommands, ./data/handlers/consolecommands
+CommonsConfig	bind	RUNNABLESTATS_ENABLE	commons.runnablestats.enable	false
+CommonsConfig	bind	scriptCompilerCaching	commons.script_compiler.caching.enable	true
+CraftConfig	bind	DELETE_EXCESS_CRAFT_ENABLE	gameserver.craft.skills.delete.excess.enable	false
+CraftConfig	bind	MAX_EXPERT_CRAFTING_SKILLS	gameserver.craft.max.expert.skills	2
+CraftConfig	bind	MAX_MASTER_CRAFTING_SKILLS	gameserver.craft.max.master.skills	1
+CraftConfig	bind	DISABLE_AETHER_AND_ESSENCE_TAPPING_CAP	gameserver.craft.disable.tapping.cap	false
+CraftConfig	bind	MAX_CRAFT_FAILURE_CHANCE	gameserver.craft.fail.chance	33
+CraftConfig	bind	MAX_GATHER_FAILURE_CHANCE	gameserver.gather.fail.chance	33
+CustomConfig	bind	CHALLENGE_TASKS_ENABLED	gameserver.challenge.tasks.enabled	false
+CustomConfig	bind	ENABLE_ENCHANT_ANNOUNCE	gameserver.enchant.announce.enable	true
+CustomConfig	bind	SPEAKING_BETWEEN_FACTIONS	gameserver.chat.factions.enable	false
+CustomConfig	bind	LEVEL_TO_WHISPER	gameserver.chat.whisper.level	10
+CustomConfig	bind	BROKER_REGISTRATION_EXPIRATION_DAYS	gameserver.broker.registration_expiration_days	8
+CustomConfig	bind	FACTIONS_SEARCH_MODE	gameserver.search.factions.mode	false
+CustomConfig	bind	SEARCH_GM_LIST	gameserver.search.gm.list	false
+CustomConfig	bind	LEVEL_TO_SEARCH	gameserver.search.player.level	10
+CustomConfig	bind	ENABLE_CROSS_FACTION_BINDING	gameserver.cross.faction.binding	false
+CustomConfig	bind	ENABLE_SIMPLE_2NDCLASS	gameserver.simple.secondclass.enable	false
+CustomConfig	bind	SKILL_CHAIN_DISABLE_TRIGGERRATE	gameserver.skill.chain.disable_triggerrate	false
+CustomConfig	bind	BASE_FLYTIME	gameserver.base.flytime	60
+CustomConfig	bind	FRIENDLIST_GM_RESTRICT	gameserver.friendlist.gm_restrict	false
+CustomConfig	bind	FRIENDLIST_SIZE	gameserver.friendlist.size	90
+CustomConfig	bind	BASIC_QUEST_SIZE_LIMIT	gameserver.basic.questsize.limit	40
+CustomConfig	bind	CUBE_EXPANSION_LIMIT	gameserver.cube.expansion_limit	11
+CustomConfig	bind	NPC_CUBE_EXPANDS_SIZE_LIMIT	gameserver.npcexpands.limit	5
+CustomConfig	bind	ENABLE_KINAH_CAP	gameserver.enable.kinah.cap	false
+CustomConfig	bind	KINAH_CAP_VALUE	gameserver.kinah.cap.value	999999999
+CustomConfig	bind	ENABLE_AP_CAP	gameserver.enable.ap.cap	false
+CustomConfig	bind	AP_CAP_VALUE	gameserver.ap.cap.value	1000000
+CustomConfig	bind	MENTOR_GROUP_AP	gameserver.noap.mentor.group	false
+CustomConfig	bind	FACTION_USE_PRICE	gameserver.faction.price	10000
+CustomConfig	bind	FACTION_CMD_CHANNEL	gameserver.faction.cmdchannel	true
+CustomConfig	bind	FACTION_CHAT_CHANNEL	gameserver.faction.chatchannels	false
+CustomConfig	bind	PVP_DAY_DURATION	gameserver.pvp.dayduration	86400000
+CustomConfig	bind	MAX_DAILY_PVP_KILLS	gameserver.pvp.maxkills	5
+CustomConfig	bind	ENABLE_KILL_REWARD	gameserver.kill.reward.enable	false
+CustomConfig	bind	KEEP_BUFFS_IN_COLISEUM	gameserver.coliseum.keep_buffs	false
+CustomConfig	bind	ENABLE_KISK_RESTRICTION	gameserver.kisk.restriction.enable	true
+CustomConfig	bind	RIFT_ENABLED	gameserver.rift.enable	true
+CustomConfig	bind	RIFT_DURATION	gameserver.rift.duration	1
+CustomConfig	bind	VORTEX_ENABLED	gameserver.vortex.enable	true
+CustomConfig	bind	VORTEX_BRUSTHONIN_SCHEDULE	gameserver.vortex.brusthonin.schedule	0 0 16 ? * SAT
+CustomConfig	bind	VORTEX_THEOBOMOS_SCHEDULE	gameserver.vortex.theobomos.schedule	0 0 16 ? * SUN
+CustomConfig	bind	VORTEX_DURATION	gameserver.vortex.duration	1
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED	gameserver.cp.enable	true
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_WORLDS	gameserver.cp.worlds	210020000,210040000,210050000,210070000,220020000,220040000,220070000,220080000
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_LEVEL_DIFF	gameserver.cp.level.diff	5
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_KILLS_DECREASE_INTERVAL	gameserver.cp.kills.decrease_interval_minutes	10
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_KILLS_DECREASE_COUNT	gameserver.cp.kills.decrease_count	1
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_KILLS_RANK1	gameserver.cp.kills.rank1	1
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_KILLS_RANK2	gameserver.cp.kills.rank2	10
+CustomConfig	bind	CONQUEROR_AND_PROTECTOR_KILLS_RANK3	gameserver.cp.kills.rank3	20
+CustomConfig	bind	LIMITS_ENABLED	gameserver.limits.enable	true
+CustomConfig	bind	LIMITS_ENABLE_DYNAMIC_CAP	gameserver.limits.enable_dynamic_cap	false
+CustomConfig	bind	LIMITS_UPDATE	gameserver.limits.update	0 0 0 ? * *
+CustomConfig	bind	ABYSSXFORM_LOGOUT	gameserver.abyssxform.afterlogout	false
+CustomConfig	bind	ENABLE_RIDE_RESTRICTION	gameserver.ride.restriction.enable	true
+CustomConfig	bind	SELLING_APITEMS_ENABLED	gameserver.selling.apitems.enabled	true
+CustomConfig	bind	CHARACTER_DELETION_TIME_MINUTES	character.deletion.time.minutes	5
+CustomConfig	bind	IGNORE_POTIONS_AT_FULL_HEALTH	gameserver.items.ignore_potions_at_full_health	false
+CustomConfig	bind	CANCEL_ITEM_USE_ON_TARGET_CHANGE	gameserver.items.cancel_use_on_target_change	true
+CustomConfig	bind	ENABLE_STARTER_KIT	gameserver.custom.starter_kit.enable	false
+CustomConfig	bind	PVP_MAP_ENABLED	gameserver.pvpmap.enable	false
+CustomConfig	bind	PVP_MAP_AP_MULTIPLIER	gameserver.pvpmap.apmultiplier	2
+CustomConfig	bind	PVP_MAP_PVE_AP_MULTIPLIER	gameserver.pvpmap.pve.apmultiplier	1
+CustomConfig	bind	PVP_MAP_RANDOM_BOSS_BASE_RATE	gameserver.pvpmap.random_boss.rate	40
+CustomConfig	bind	PVP_MAP_RANDOM_BOSS_SCHEDULE	gameserver.pvpmap.random_boss.time	0 30 14,18,21 ? * *
+CustomConfig	bind	GODSTONE_ACTIVATION_RATE	gameserver.rates.godstone.activation.rate	1.0
+CustomConfig	bind	GODSTONE_EVALUATION_COOLDOWN_MILLIS	gameserver.rates.godstone.evaluation.cooldown_millis	750
+CustomConfig	bind	COUNT_SUMMON_EFFECTS_FOR_CUMULATIVE_RESIST	gameserver.pvp.cumulative_resist.count_summon_effects	false
+DatabaseConfig	bind	DATABASE_URL	database.url	-
+DatabaseConfig	bind	DATABASE_USER	database.user	-
+DatabaseConfig	bind	DATABASE_PASSWORD	database.password	-
+DatabaseConfig	bind	DATABASE_CONNECTIONS_MAX	database.connectionpool.connections.max	5
+DatabaseConfig	bind	DATABASE_TIMEOUT	database.connectionpool.timeout	5000
+DatabaseConfig	bind	DATABASE_SOCKET_TIMEOUT	database.socket_timeout	-
+DropConfig	bind	MIN_ANNOUNCE_QUALITY	gameserver.drop.announce_quality	-
+DropConfig	bind	DISABLE_RANGE_CHECK_MAPS	gameserver.drop.disable_range_check_maps	-
+EventsConfig	bind	DISABLED_EVENTS	gameserver.event.service.disabled_events	-
+EventsConfig	bind	ENABLE_EVENT_ARCADE	gameserver.event.arcade.enable	false
+EventsConfig	bind	ARCADE_RESUME_TOKEN	gameserver.event.arcade.resume_token	3
+EventsConfig	bind	ENABLE_WORLDRAID	gameserver.worldraid.enable	true
+EventsConfig	bind	WORLDRAID_ENABLE_SPAWNMSG	gameserver.worldraid.use_spawn_msg	true
+EventsConfig	bind	ENABLE_HEADHUNTING	gameserver.event.headhunting.enable	false
+EventsConfig	bind	HEADHUNTING_MAPS	gameserver.event.headhunting.maps	
+EventsConfig	bind	HEADHUNTING_CONSOLATION_PRIZE_KILLS	gameserver.event.headhunting.consolation_prize_kills	50
+EventsConfig	bind	ENABLE_ADVENT_CALENDAR	gameserver.event.advent_calendar.enable	false
+FallDamageConfig	bind	FALL_DAMAGE_PERCENTAGE	gameserver.falldamage.percentage	1.0
+FallDamageConfig	bind	MINIMUM_DISTANCE_DAMAGE	gameserver.falldamage.distance.minimum	10
+FallDamageConfig	bind	MAXIMUM_DISTANCE_DAMAGE	gameserver.falldamage.distance.maximum	50
+FallDamageConfig	bind	MAXIMUM_DISTANCE_MIDAIR	gameserver.falldamage.distance.midair	200
+GSConfig	bind	SERVER_COUNTRY_CODE	gameserver.country.code	99
+GSConfig	bind	PLAYER_MAX_LEVEL	gameserver.players.max.level	65
+GSConfig	bind	TIME_ZONE_ID	gameserver.timezone	-
+GSConfig	bind	ENABLE_CHAT_SERVER	gameserver.chatserver.enable	false
+GSConfig	bind	CHAT_SERVER_MIN_LEVEL	gameserver.chatserver.min_level	10
+GSConfig	bind	CHARACTER_CREATION_MODE	gameserver.character.creation.mode	0
+GSConfig	bind	CHARACTER_LIMIT_COUNT	gameserver.character.limit.count	8
+GSConfig	bind	CHARACTER_FACTION_LIMITATION_MODE	gameserver.character.faction.limitation.mode	0
+GSConfig	bind	ENABLE_RATIO_LIMITATION	gameserver.ratio.limitation.enable	false
+GSConfig	bind	RATIO_MIN_VALUE	gameserver.ratio.min.value	60
+GSConfig	bind	RATIO_MIN_REQUIRED_LEVEL	gameserver.ratio.min.required.level	10
+GSConfig	bind	RATIO_MIN_CHARACTERS_COUNT	gameserver.ratio.min.characters_count	50
+GSConfig	bind	RATIO_HIGH_PLAYER_COUNT_DISABLING	gameserver.ratio.high_player_count.disabling	500
+GSConfig	bind	CHARACTER_REENTRY_TIME	gameserver.character.reentry.time	20
+GSConfig	bind	MIN_SKILL_CAST_INTERVAL_MILLIS	gameserver.min_skill_cast_interval_millis	350
+GSConfig	bind	ITEM_WRAP_LIMIT	gameserver.item_wrap_limit	0
+GSConfig	bind	ENABLE_WEB_REWARDS	gameserver.web_rewards.enable	false
+GSConfig	bind	ANALYZE_QUESTHANDLERS	gameserver.analysis.quest_handlers	true
+GSConfig	bind	QUEST_HANDLER_DIRECTORY	gameserver.quest.handler_directory	./data/handlers/quest
+GeoDataConfig	bind	GEO_ENABLE	gameserver.geodata.enable	true
+GeoDataConfig	bind	CANSEE_ENABLE	gameserver.geodata.cansee.enable	true
+GeoDataConfig	bind	FEAR_ENABLE	gameserver.geodata.fear.enable	true
+GeoDataConfig	bind	GEO_NPC_MOVE	gameserver.geodata.npc.move	true
+GeoDataConfig	bind	GEO_MATERIALS_ENABLE	gameserver.geodata.materials.enable	true
+GeoDataConfig	bind	GEO_MATERIALS_SHOWDETAILS	gameserver.geodata.materials.showdetails	false
+GeoDataConfig	bind	GEO_SHIELDS_ENABLE	gameserver.geodata.shields.enable	true
+GroupConfig	bind	GROUP_REMOVE_TIME	gameserver.playergroup.removetime	600
+GroupConfig	bind	GROUP_MAX_DISTANCE	gameserver.playergroup.maxdistance	100
+GroupConfig	bind	GROUP_INVITEOTHERFACTION	gameserver.group.inviteotherfaction	false
+GroupConfig	bind	ALLIANCE_REMOVE_TIME	gameserver.playeralliance.removetime	600
+GroupConfig	bind	ALLIANCE_INVITEOTHERFACTION	gameserver.playeralliance.inviteotherfaction	false
+GroupConfig	bind	FORM_INSTANCE_GROUP_ANYWHERE	gameserver.instance_group.form_anywhere	false
+HTMLConfig	bind	ENABLE_HTML_WELCOME	gameserver.html.welcome.enable	false
+HTMLConfig	bind	ENABLE_GUIDES	gameserver.html.guides.enable	false
+HTMLConfig	bind	HTML_ROOT	gameserver.html.root	./data/static_data/HTML/
+HTMLConfig	bind	HTML_CACHE_FILE	gameserver.html.cache.file	./cache/html.cache
+HTMLConfig	bind	HTML_ENCODING	gameserver.html.encoding	UTF-8
+HousingConfig	bind	VISIBILITY_DISTANCE	gameserver.housing.visibility.distance	200
+HousingConfig	bind	ENABLE_HOUSE_AUCTIONS	gameserver.housing.auction.enable	true
+HousingConfig	bind	ENABLE_HOUSE_PAY	gameserver.housing.pay.enable	true
+HousingConfig	bind	HOUSE_AUCTION_END_TIME	gameserver.housing.auction.end_time	0 0 12 ? * SUN
+HousingConfig	bind	HOUSE_AUCTION_REGISTER_DAYS	gameserver.housing.auction.register_days	1, 5
+HousingConfig	bind	HOUSE_MAINTENANCE_TIME	gameserver.housing.maintain.time	0 0 0 ? * MON
+HousingConfig	bind	HOUSE_MIN_BID	gameserver.housing.auction.default_bid.house	0
+HousingConfig	bind	MANSION_MIN_BID	gameserver.housing.auction.default_bid.mansion	0
+HousingConfig	bind	ESTATE_MIN_BID	gameserver.housing.auction.default_bid.estate	0
+HousingConfig	bind	PALACE_MIN_BID	gameserver.housing.auction.default_bid.palace	0
+HousingConfig	bind	HOUSE_MIN_BID_LEVEL	gameserver.housing.auction.bidding.min_level.house	0
+HousingConfig	bind	MANSION_MIN_BID_LEVEL	gameserver.housing.auction.bidding.min_level.mansion	0
+HousingConfig	bind	ESTATE_MIN_BID_LEVEL	gameserver.housing.auction.bidding.min_level.estate	0
+HousingConfig	bind	PALACE_MIN_BID_LEVEL	gameserver.housing.auction.bidding.min_level.palace	0
+HousingConfig	bind	AUCTION_REGISTRATION_FEE_PERCENT	gameserver.housing.auction.registration_fee	0.3
+HousingConfig	bind	AUCTION_SALES_COMMISION_PERCENT	gameserver.housing.auction.sales_commission	0.1
+HousingConfig	bind	AUCTION_GRACE_END_REFUND_PERCENT	gameserver.housing.auction.grace_end_refund	0.5
+HousingConfig	bind	AUCTION_BID_STEP_LIMIT	gameserver.housing.auction.steplimit	100
+HousingConfig	bind	AUCTION_AUTO_FILL_TIME	gameserver.housing.auction.auto_fill.time	0 0 0 ? * MON
+HousingConfig	pattern	AUCTION_AUTO_FILL_LIMITS	^gameserver\\.housing\\.auction\\.auto_fill\\.limit\\.(.+)	-
+InstanceConfig	bind	INSTANCE_COOLDOWN_RATE	gameserver.instance.cooldown_rate	1
+InstanceConfig	bind	INSTANCE_COOLDOWN_RATE_EXCLUDED_MAPS	gameserver.instance.cooldown_rate.excluded_maps	
+InstanceConfig	bind	INSTANCE_DESTROY_DELAY_SECONDS	gameserver.instance.destroy_delay_seconds	600
+InstanceConfig	bind	SOLO_INSTANCE_DESTROY_DELAY_SECONDS	gameserver.instance.solo.destroy_delay_seconds	600
+InstanceConfig	bind	INSTANCE_DUEL_ENABLE	gameserver.instance.duel.enable	true
+InstanceConfig	bind	INSTANCE_SCALING_ENABLE	gameserver.instance.scaling.enable	false
+InstanceConfig	bind	INSTANCE_SCALING_MAX_LEVEL_DIFF	gameserver.instance.scaling.max_level_diff	5
+InstanceConfig	bind	INSTANCE_SCALING_NPC_MIN_RATING	gameserver.instance.scaling.npc_min_rating	ELITE
+InstanceConfig	bind	INSTANCE_SCALING_HP_SCALE_FACTOR	gameserver.instance.scaling.hp_scale_factor	0.75
+InstanceConfig	bind	INSTANCE_SCALING_HP_FLOOR	gameserver.instance.scaling.hp_floor	0.5
+InstanceConfig	bind	INSTANCE_SCALING_DMG_SCALE_FACTOR	gameserver.instance.scaling.dmg_scale_factor	0.5
+InstanceConfig	bind	INSTANCE_SCALING_DMG_FLOOR	gameserver.instance.scaling.dmg_floor	0.75
+InstanceConfig	bind	INSTANCE_SCALING_EXCLUDED_MAPS	gameserver.instance.scaling.excluded_maps	
+InstanceConfig	bind	HANDLER_DIRECTORY	gameserver.instance.handler_directory	./data/handlers/instance
+LegionConfig	bind	LEGION_NAME_PATTERN	gameserver.legion.pattern	[a-zA-Z ]{2,32}
+LegionConfig	bind	SELF_INTRO_PATTERN	gameserver.legion.selfintropattern	.{1,32}
+LegionConfig	bind	NICKNAME_PATTERN	gameserver.legion.nicknamepattern	.{1,10}
+LegionConfig	bind	LEGION_DISBAND_TIME	gameserver.legion.disbandtime	86400
+LegionConfig	bind	LEGION_CREATE_REQUIRED_KINAH	gameserver.legion.creationrequiredkinah	10000
+LegionConfig	bind	LEGION_EMBLEM_REQUIRED_KINAH	gameserver.legion.emblemrequiredkinah	800000
+LegionConfig	bind	LEGION_LEVEL2_REQUIRED_KINAH	gameserver.legion.level2requiredkinah	100000
+LegionConfig	bind	LEGION_LEVEL3_REQUIRED_KINAH	gameserver.legion.level3requiredkinah	1000000
+LegionConfig	bind	LEGION_LEVEL4_REQUIRED_KINAH	gameserver.legion.level4requiredkinah	5000000
+LegionConfig	bind	LEGION_LEVEL5_REQUIRED_KINAH	gameserver.legion.level5requiredkinah	25000000
+LegionConfig	bind	LEGION_LEVEL6_REQUIRED_KINAH	gameserver.legion.level6requiredkinah	50000000
+LegionConfig	bind	LEGION_LEVEL7_REQUIRED_KINAH	gameserver.legion.level7requiredkinah	75000000
+LegionConfig	bind	LEGION_LEVEL8_REQUIRED_KINAH	gameserver.legion.level8requiredkinah	100000000
+LegionConfig	bind	LEGION_LEVEL2_REQUIRED_MEMBERS	gameserver.legion.level2requiredmembers	10
+LegionConfig	bind	LEGION_LEVEL3_REQUIRED_MEMBERS	gameserver.legion.level3requiredmembers	20
+LegionConfig	bind	LEGION_LEVEL4_REQUIRED_MEMBERS	gameserver.legion.level4requiredmembers	30
+LegionConfig	bind	LEGION_LEVEL5_REQUIRED_MEMBERS	gameserver.legion.level5requiredmembers	40
+LegionConfig	bind	LEGION_LEVEL6_REQUIRED_MEMBERS	gameserver.legion.level6requiredmembers	50
+LegionConfig	bind	LEGION_LEVEL7_REQUIRED_MEMBERS	gameserver.legion.level7requiredmembers	60
+LegionConfig	bind	LEGION_LEVEL8_REQUIRED_MEMBERS	gameserver.legion.level8requiredmembers	70
+LegionConfig	bind	LEGION_LEVEL2_REQUIRED_CONTRIBUTION	gameserver.legion.level2requiredcontribution	0
+LegionConfig	bind	LEGION_LEVEL3_REQUIRED_CONTRIBUTION	gameserver.legion.level3requiredcontribution	20000
+LegionConfig	bind	LEGION_LEVEL4_REQUIRED_CONTRIBUTION	gameserver.legion.level4requiredcontribution	100000
+LegionConfig	bind	LEGION_LEVEL5_REQUIRED_CONTRIBUTION	gameserver.legion.level5requiredcontribution	500000
+LegionConfig	bind	LEGION_LEVEL6_REQUIRED_CONTRIBUTION	gameserver.legion.level6requiredcontribution	2500000
+LegionConfig	bind	LEGION_LEVEL7_REQUIRED_CONTRIBUTION	gameserver.legion.level7requiredcontribution	12500000
+LegionConfig	bind	LEGION_LEVEL8_REQUIRED_CONTRIBUTION	gameserver.legion.level8requiredcontribution	62500000
+LegionConfig	bind	LEGION_LEVEL1_MAX_MEMBERS	gameserver.legion.level1maxmembers	30
+LegionConfig	bind	LEGION_LEVEL2_MAX_MEMBERS	gameserver.legion.level2maxmembers	60
+LegionConfig	bind	LEGION_LEVEL3_MAX_MEMBERS	gameserver.legion.level3maxmembers	90
+LegionConfig	bind	LEGION_LEVEL4_MAX_MEMBERS	gameserver.legion.level4maxmembers	120
+LegionConfig	bind	LEGION_LEVEL5_MAX_MEMBERS	gameserver.legion.level5maxmembers	150
+LegionConfig	bind	LEGION_LEVEL6_MAX_MEMBERS	gameserver.legion.level6maxmembers	180
+LegionConfig	bind	LEGION_LEVEL7_MAX_MEMBERS	gameserver.legion.level7maxmembers	210
+LegionConfig	bind	LEGION_LEVEL8_MAX_MEMBERS	gameserver.legion.level8maxmembers	240
+LegionConfig	bind	LEGION_WAREHOUSE	gameserver.legion.warehouse	true
+LegionConfig	bind	LEGION_INVITEOTHERFACTION	gameserver.legion.inviteotherfaction	false
+LegionConfig	bind	ENABLE_GUILD_TASK_REQ	gameserver.legion.task.requirement.enable	true
+LegionConfig	bind	REQUIRE_KEY_FOR_STONESPEAR_REACH	gameserver.legion.require_key_for_stonespear_reach	true
+LegionConfig	bind	STONESPEAR_REACH_MIN_POINTS_FOR_TERRITORY	gameserver.legion.stonespear_reach_min_points	0
+LoggingConfig	bind	LOG_AUDIT	gameserver.log.audit	true
+LoggingConfig	bind	LOG_CRAFT	gameserver.log.craft	true
+LoggingConfig	bind	LOG_GMAUDIT	gameserver.log.gmaudit	true
+LoggingConfig	bind	LOG_GENERAL_CHATS	gameserver.log.chats.general	true
+LoggingConfig	bind	LOG_PRIVATE_CHATS	gameserver.log.chats.private	false
+LoggingConfig	bind	LOG_ITEM	gameserver.log.item	true
+LoggingConfig	bind	LOG_KILL	gameserver.log.kill	false
+LoggingConfig	bind	LOG_PL	gameserver.log.pl	false
+LoggingConfig	bind	LOG_MAIL	gameserver.log.mail	false
+LoggingConfig	bind	LOG_PLAYER_EXCHANGE	gameserver.log.player.exchange	false
+LoggingConfig	bind	LOG_BROKER_EXCHANGE	gameserver.log.broker.exchange	false
+LoggingConfig	bind	LOG_SIEGE	gameserver.log.siege	false
+LoggingConfig	bind	LOG_SYSMAIL	gameserver.log.sysmail	false
+LoggingConfig	bind	LOG_HOUSE_AUCTION	gameserver.log.auction	true
+LoggingConfig	bind	LOG_TAMPERING	gameserver.log.tampering	false
+MembershipConfig	bind	MEMBERSHIP_TYPES	gameserver.membership.types	Premium
+MembershipConfig	bind	GATHERING_ALLOW_ON_MOUNT	gameserver.membership.gathering.allow_on_mount	10
+MembershipConfig	bind	INSTANCES_TITLE_REQ	gameserver.instances.title.requirement	10
+MembershipConfig	bind	INSTANCES_RACE_REQ	gameserver.instances.race.requirement	10
+MembershipConfig	bind	INSTANCES_LEVEL_REQ	gameserver.instances.level.requirement	10
+MembershipConfig	bind	INSTANCES_GROUP_REQ	gameserver.instances.group.requirement	10
+MembershipConfig	bind	INSTANCES_QUEST_REQ	gameserver.instances.quest.requirement	10
+MembershipConfig	bind	INSTANCES_COOLDOWN	gameserver.instances.cooldown	10
+MembershipConfig	bind	EMOTIONS_ALL	gameserver.emotions.all	10
+MembershipConfig	bind	STIGMA_SLOT_QUEST	gameserver.quest.stigma.slot	10
+MembershipConfig	bind	DISABLE_SOULSICKNESS	gameserver.soulsickness.disable	10
+MembershipConfig	bind	STIGMA_AUTOLEARN	gameserver.autolearn.stigma	10
+MembershipConfig	bind	QUEST_LIMIT_DISABLED	gameserver.quest.limit.disable	10
+MembershipConfig	bind	CHARACTER_ADDITIONAL_ENABLE	gameserver.character.additional.enable	10
+MembershipConfig	bind	CHARACTER_ADDITIONAL_COUNT	gameserver.character.additional.count	8
+NameConfig	bind	ALLOW_CUSTOM_NAMES	gameserver.name.allow.custom	false
+NameConfig	bind	CHAR_NAME_PATTERN	gameserver.name.character_pattern	[a-zA-Z]{2,16}
+NameConfig	bind	PET_NAME_PATTERN	gameserver.name.pet_pattern	[a-zA-Z]{2,16}
+NameConfig	bind	FORBIDDEN_SEQUENCE_PATTERN	gameserver.name.forbidden_sequences_pattern	-
+NameConfig	bind	FORBIDDEN_WORDS	gameserver.name.forbidden_words	-
+NameConfig	bind	RESERVE_OLD_NAME_DAYS	gameserver.name.reserve_old_name_days	30
+NetworkConfig	bind	CLIENT_CONNECT_ADDRESS	gameserver.network.client.connect_address	0.0.0.0:7777
+NetworkConfig	bind	CLIENT_SOCKET_ADDRESS	gameserver.network.client.socket_address	0.0.0.0:7777
+NetworkConfig	bind	LOGIN_ADDRESS	gameserver.network.login.address	localhost:9014
+NetworkConfig	bind	CHAT_ADDRESS	gameserver.network.chat.address	localhost:9021
+NetworkConfig	bind	CHAT_PASSWORD	gameserver.network.chat.password	
+NetworkConfig	bind	GAMESERVER_ID	gameserver.network.login.gsid	1
+NetworkConfig	bind	LOGIN_PASSWORD	gameserver.network.login.password	
+NetworkConfig	bind	MIN_ACCESS_LEVEL	gameserver.network.login.min_accesslevel	0
+NetworkConfig	bind	MAX_ONLINE_PLAYERS	gameserver.network.login.max_players	100
+NetworkConfig	bind	NIO_READ_WRITE_THREADS	gameserver.network.nio.threads	1
+NetworkConfig	bind	NIO_READ_WRITE_THREADS_UNSAFE_ALLOW	gameserver.network.nio.threads.unsafe.allow	false
+NetworkConfig	bind	PACKET_PROCESSOR_MIN_THREADS	gameserver.network.packet.processor.threads.min	4
+NetworkConfig	bind	PACKET_PROCESSOR_MAX_THREADS	gameserver.network.packet.processor.threads.max	4
+NetworkConfig	bind	PACKET_PROCESSOR_THREAD_KILL_THRESHOLD	gameserver.network.packet.processor.threshold.kill	3
+NetworkConfig	bind	PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD	gameserver.network.packet.processor.threshold.spawn	50
+NetworkConfig	bind	LOG_UNKNOWN_PACKETS	gameserver.network.logging.unknown_packets	false
+NetworkConfig	bind	LOG_IGNORED_PACKETS	gameserver.network.logging.ignored_packets	false
+NetworkConfig	bind	TRACE_CLIENT_PACKETS	gameserver.network.trace.client_packets	
+NetworkConfig	bind	TRACE_SERVER_PACKETS	gameserver.network.trace.server_packets	
+NetworkConfig	bind	DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS	gameserver.network.diag.instant_item_reply_hold_ms	0
+NetworkConfig	bind	ENABLE_FLOOD_CONNECTIONS	gameserver.network.flood.connections	false
+NetworkConfig	bind	Flood_Tick	gameserver.network.flood.tick	1000
+NetworkConfig	bind	Flood_SWARN	gameserver.network.flood.short.warn	10
+NetworkConfig	bind	Flood_SReject	gameserver.network.flood.short.reject	20
+NetworkConfig	bind	Flood_STick	gameserver.network.flood.short.tick	10
+NetworkConfig	bind	Flood_LWARN	gameserver.network.flood.long.warn	30
+NetworkConfig	bind	Flood_LReject	gameserver.network.flood.long.reject	60
+NetworkConfig	bind	Flood_LTick	gameserver.network.flood.long.tick	60
+PeriodicSaveConfig	bind	PLAYER_GENERAL	gameserver.periodicsave.player.general	900
+PeriodicSaveConfig	bind	PLAYER_ITEMS	gameserver.periodicsave.player.items	900
+PeriodicSaveConfig	bind	LEGION_ITEMS	gameserver.periodicsave.legion.items	1200
+PeriodicSaveConfig	bind	PLAYER_PETS	gameserver.periodicsave.player.pets	10
+PffConfig	bind	PFF_MODE	gameserver.network.pff.mode	1
+PffConfig	pattern	THRESHOLD_MILLIS_BY_PACKET_OPCODE	^gameserver\\.network\\.pff\\.packet\\.(0[xX][0-9a-fA-F]+)$	-
+PlayerTransferConfig	bind	MAX_KINAH	ptransfer.max.kinah	0
+PlayerTransferConfig	bind	BIND_ELYOS	ptransfer.bindpoint.elyos	210010000 1212.9423 1044.8516 140.75568 32
+PlayerTransferConfig	bind	BIND_ASMO	ptransfer.bindpoint.asmo	220010000 571.0388 2787.3420 299.8750 32
+PlayerTransferConfig	bind	ALLOW_EMOTIONS	ptransfer.allow.emotions	true
+PlayerTransferConfig	bind	ALLOW_MOTIONS	ptransfer.allow.motions	true
+PlayerTransferConfig	bind	ALLOW_MACRO	ptransfer.allow.macro	true
+PlayerTransferConfig	bind	ALLOW_NPCFACTIONS	ptransfer.allow.npcfactions	true
+PlayerTransferConfig	bind	ALLOW_PETS	ptransfer.allow.pets	true
+PlayerTransferConfig	bind	ALLOW_RECIPES	ptransfer.allow.recipes	true
+PlayerTransferConfig	bind	ALLOW_SKILLS	ptransfer.allow.skills	true
+PlayerTransferConfig	bind	ALLOW_TITLES	ptransfer.allow.titles	true
+PlayerTransferConfig	bind	ALLOW_QUESTS	ptransfer.allow.quests	true
+PlayerTransferConfig	bind	ALLOW_INV	ptransfer.allow.inventory	true
+PlayerTransferConfig	bind	ALLOW_WAREHOUSE	ptransfer.allow.warehouse	true
+PlayerTransferConfig	bind	ALLOW_STIGMA	ptransfer.allow.stigma	true
+PlayerTransferConfig	bind	BLOCK_SAMENAME	ptransfer.block.samename	false
+PlayerTransferConfig	bind	REUSE_HOURS	ptransfer.retransfer.hours	0
+PlayerTransferConfig	bind	REMOVE_SKILL_LIST	ptransfer.remove.skills.list	*
+PricesConfig	bind	DEFAULT_PRICES	gameserver.prices.default.prices	100
+PricesConfig	bind	DEFAULT_MODIFIER	gameserver.prices.default.modifier	100
+PricesConfig	bind	DEFAULT_TAXES	gameserver.prices.default.taxes	100
+PricesConfig	bind	VENDOR_BUY_MODIFIER	gameserver.prices.vendor.buymod	100
+PricesConfig	bind	VENDOR_SELL_MODIFIER	gameserver.prices.vendor.sellmod	20
+PunishmentConfig	bind	PUNISHMENT_ENABLE	gameserver.punishment.enable	false
+PunishmentConfig	bind	PUNISHMENT_TYPE	gameserver.punishment.type	1
+PunishmentConfig	bind	PUNISHMENT_TIME	gameserver.punishment.time	1440
+RankingConfig	bind	TOP_RANKING_UPDATE_RULE	gameserver.topranking.updaterule	0 0 0 ? * *
+RankingConfig	bind	TOP_RANKING_DAILY_GP_LOSS_TIME	gameserver.topranking.daily.gploss.time	0 0 12 ? * *
+RankingConfig	bind	RANKING_LIST_LEGION_LIMIT	gameserver.topranking.legion_limit	50
+RankingConfig	bind	TOP_RANKING_MAX_OFFLINE_DAYS	gameserver.topranking.max.offline.days	0
+RankingConfig	bind	XFORM_MIN_RANK	gameserver.topranking.xform.min_rank	STAR5_OFFICER
+RankingConfig	pattern	TOP_RANKING_QUOTA	^gameserver\\.topranking\\.quota\\.(.+)	-
+RankingConfig	pattern	TOP_RANKING_GP_LOSS	^gameserver\\.topranking\\.gp_loss\\.(.+)	-
+RatesConfig	bind	CRAFT_CRIT_CHANCES	gameserver.rates.crafting.crit_chances	15.0, 30.0
+RatesConfig	bind	CRAFT_COMBO_CHANCES	gameserver.rates.crafting.combo_crit_chances	25.0, 50.0
+RatesConfig	bind	MANASTONE_CHANCES	gameserver.rates.manastone_chances	75.0, 75.0
+RatesConfig	bind	ENCHANTMENT_STONE_BASE_CHANCES	gameserver.rates.enchantment_stone.base_chances	65.0, 65.0
+RatesConfig	bind	ENCHANTMENT_STONE_AMPLIFIED_CHANCES	gameserver.rates.enchantment_stone.amplified_chances	61.0, 61.0
+RatesConfig	bind	TEMPERING_CHANCES	gameserver.rates.tampering_chances	65.0, 65.0
+RatesConfig	bind	XP_SOLO_RATES	gameserver.rates.xp.solo	1.0, 2.0
+RatesConfig	bind	XP_GROUP_RATES	gameserver.rates.xp.group	1.0, 2.0
+RatesConfig	bind	XP_QUEST_RATES	gameserver.rates.xp.quest	1.0, 2.0
+RatesConfig	bind	XP_GATHERING_RATES	gameserver.rates.xp.gathering	1.0, 2.0
+RatesConfig	bind	XP_CRAFTING_RATES	gameserver.rates.xp.crafting	1.0, 2.0
+RatesConfig	bind	XP_PVP_RATES	gameserver.rates.xp.pvp	1.0, 2.0
+RatesConfig	bind	SKILL_XP_GATHERING_RATES	gameserver.rates.skill_xp.gathering	1.0, 2.0
+RatesConfig	bind	SKILL_XP_CRAFTING_RATES	gameserver.rates.skill_xp.crafting	1.0, 2.0
+RatesConfig	bind	AP_PVP_RATES	gameserver.rates.ap.pvp.gain	1.0, 2.0
+RatesConfig	bind	AP_PVP_LOSS_RATES	gameserver.rates.ap.pvp.loss	1.0, 1.0
+RatesConfig	bind	AP_PVE_RATES	gameserver.rates.ap.pve	1.0, 2.0
+RatesConfig	bind	AP_QUEST_RATES	gameserver.rates.ap.quest	1.0, 2.0
+RatesConfig	bind	AP_DREDGION_RATES	gameserver.rates.ap.dredgion	1.0, 2.0
+RatesConfig	bind	GP_RATES	gameserver.rates.gp.gain	1.0, 2.0
+RatesConfig	bind	DP_PVE_RATES	gameserver.rates.dp.pve	1.0, 2.0
+RatesConfig	bind	DP_PVP_RATES	gameserver.rates.dp.pvp	1.0, 2.0
+RatesConfig	bind	QUEST_KINAH_RATES	gameserver.rates.kinah.quest	1.0, 2.0
+RatesConfig	bind	DROP_RATES	gameserver.rates.drop	1.0, 2.0
+RatesConfig	bind	GATHERING_COUNT_RATES	gameserver.rates.gathering.count	1.0, 2.0
+RatesConfig	bind	PVP_ARENA_DISCIPLINE_REWARD_RATES	gameserver.rates.pvparena.discipline	1.0, 2.0
+RatesConfig	bind	PVP_ARENA_CHAOS_REWARD_RATES	gameserver.rates.pvparena.chaos	1.0, 2.0
+RatesConfig	bind	PVP_ARENA_HARMONY_REWARD_RATES	gameserver.rates.pvparena.harmony	1.0, 2.0
+RatesConfig	bind	PVP_ARENA_GLORY_REWARD_RATES	gameserver.rates.pvparena.glory	1.0, 2.0
+RatesConfig	bind	SELL_LIMIT_RATES	gameserver.rates.sell_limit	1.0, 2.0
+RuntimeConfig	bind	RECLAIM_PERIOD_MILLIS	gameserver.runtime.reclaim_period_ms	20
+RuntimeConfig	bind	BACKLOG_DUMP_OBJECTS	gameserver.runtime.backlog_dump_objects	1000000
+RuntimeConfig	bind	ZOMBIE_BREAK_MINUTES	gameserver.runtime.zombie_break_minutes	30
+RuntimeConfig	bind	LEAK_CENSUS_MINUTES	gameserver.debug.leak_census_minutes	10
+RuntimeConfig	bind	IDFACTORY_WRAP_AT	gameserver.idfactory.wrap_at	134217728
+RuntimeConfig	bind	IDFACTORY_RELEASE_DELAY_SECONDS	gameserver.idfactory.release_delay	300
+RuntimeConfig	bind	WATCHDOG_STALL_SECONDS	gameserver.watchdog.stall_seconds	60
+RuntimeConfig	bind	WATCHDOG_RESTART_ON_DEADLOCK	gameserver.watchdog.restart_on_deadlock	false
+RuntimeConfig	bind	SCHEDULER_COALESCE_AFTER	gameserver.scheduler.coalesce_after	10
+RuntimeConfig	bind	DEBUG_SINGLE_EXECUTOR	gameserver.debug.single_executor	false
+RuntimeConfig	bind	DEBUG_SERIAL_MOVEMENT	gameserver.debug.serial_movement	false
+SecurityConfig	bind	AION_BIN_CHECK	gameserver.security.aion.bin.check	false
+SecurityConfig	bind	TELEPORTATION	gameserver.security.antihack.teleportation	false
+SecurityConfig	bind	SPEEDHACK	gameserver.security.antihack.speedhack	false
+SecurityConfig	bind	SPEEDHACK_COUNTER	gameserver.security.antihack.speedhack.counter	1
+SecurityConfig	bind	ABNORMAL	gameserver.security.antihack.abnormal	false
+SecurityConfig	bind	ABNORMAL_COUNTER	gameserver.security.antihack.abnormal.counter	1
+SecurityConfig	bind	PUNISH	gameserver.security.antihack.punish	0
+SecurityConfig	bind	CHECK_ANIMATIONS	gameserver.security.check_animations	true
+SecurityConfig	bind	CAPTCHA_ENABLE	gameserver.security.captcha.enable	false
+SecurityConfig	bind	CAPTCHA_APPEAR	gameserver.security.captcha.appear	OD
+SecurityConfig	bind	CAPTCHA_APPEAR_RATE	gameserver.security.captcha.appear.rate	5
+SecurityConfig	bind	CAPTCHA_EXTRACTION_BAN_TIME	gameserver.security.captcha.extraction.ban.time	3000
+SecurityConfig	bind	CAPTCHA_EXTRACTION_BAN_ADD_TIME	gameserver.security.captcha.extraction.ban.add.time	600
+SecurityConfig	bind	CAPTCHA_BONUS_FP_TIME	gameserver.security.captcha.bonus.fp.time	5
+SecurityConfig	bind	PASSKEY_ENABLE	gameserver.security.passkey.enable	false
+SecurityConfig	bind	PASSKEY_WRONG_MAXCOUNT	gameserver.security.passkey.wrong.maxcount	5
+SecurityConfig	bind	PINGCHECK_KICK	gameserver.security.pingcheck.kick	true
+SecurityConfig	bind	FLOOD_DELAY	gameserver.security.flood.delay	1
+SecurityConfig	bind	FLOOD_MSG	gameserver.security.flood.msg	6
+SecurityConfig	bind	ENABLE_FLYPATH_VALIDATOR	gameserver.security.validation.flypath	false
+SecurityConfig	bind	SURVEY_DELAY	gameserver.security.survey.delay.minute	20
+SecurityConfig	bind	MULTI_CLIENTING_RESTRICTION_MODE	gameserver.security.multi_clienting.restriction_mode	NONE
+SecurityConfig	bind	MULTI_CLIENTING_IGNORED_MAC_ADDRESSES	gameserver.security.multi_clienting.ignored_mac_addresses	
+SecurityConfig	bind	MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES	gameserver.security.multi_clienting.faction_switch_cooldown_minutes	20
+SecurityConfig	bind	HDD_SERIAL_LOCK_ENABLE	gameserver.security.hdd_serial_lock.enable	false
+SecurityConfig	bind	HDD_SERIAL_LOCK_UNLOCKED_ACCOUNTS	gameserver.security.hdd_serial_lock.auto_lock	false
+ShutdownConfig	bind	DELAY	gameserver.shutdown.delay	120
+ShutdownConfig	bind	RESTART_SCHEDULE	gameserver.shutdown.restart_schedule	-
+SiegeConfig	bind	SIEGE_ENABLED	gameserver.siege.enable	true
+SiegeConfig	bind	BALAUR_AUTO_ASSAULT	gameserver.siege.assault.enable	false
+SiegeConfig	bind	BALAUR_ASSAULT_RATE	gameserver.siege.assault.rate	1
+SiegeConfig	bind	MOLTENUS_SPAWN_SCHEDULE	gameserver.moltenus.time	0 0 22 ? * SUN
+SiegeConfig	bind	FORTRESS_PROTECTOR_HEALTH_MULTIPLIER	gameserver.siege.health.multiplier.fortress	1
+SiegeConfig	bind	ARTIFACT_PROTECTOR_HEALTH_MULTIPLIER	gameserver.siege.health.multiplier.artifact	1
+SiegeConfig	bind	BASE_PROTECTOR_HEALTH_MULTIPLIER	gameserver.siege.health.multiplier.base	1
+SiegeConfig	bind	SIEGE_DIFFICULTY_MULTIPLIER	gameserver.siege.difficulty.multiplier	1
+SiegeConfig	bind	PANESTERRA_MAX_PLAYERS_PER_TEAM	gameserver.siege.panesterra.maxplayers	100
+SiegeConfig	bind	AHSERION_MAX_PLAYERS_PER_TEAM	gameserver.siege.panesterra.ahserion.maxplayers	100
+SiegeConfig	bind	AHSERION_START_SCHEDULE	gameserver.siege.panesterra.ahserion.time	0 50 18 ? * SUN
+SiegeConfig	bind	LEGION_GP_CAP_PER_MEMBER	gameserver.siege.legion.gp.cap_per_member	200
+SiegeConfig	bind	DOOR_REPAIR_HEAL_PERCENT	gameserver.siege.door.repair.heal.percent	0.01
+SiegeConfig	bind	SIEGE_REWARD_BALAUR_VICTORY	gameserver.siege.reward.balaur.victory	false
+SiegeConfig	bind	IGNORE_STAFF_ON_LOCATION_CLEAR	gameserver.siege.ignore_staff_on_location_clear	false
+ThreadConfig	bind	BASE_THREAD_POOL_SIZE	gameserver.thread.base_pool_size	0
+ThreadConfig	bind	SCHEDULED_THREAD_POOL_SIZE	gameserver.thread.scheduled_pool_size	0
+ThreadConfig	bind	MAXIMUM_RUNTIME_IN_MILLISEC_WITHOUT_WARNING	gameserver.thread.runtime	5000
+ThreadConfig	bind	USE_PRIORITIES	gameserver.thread.usepriority	false
+WorldConfig	bind	WORLD_REGION_SIZE	gameserver.world.region.size	128
+WorldConfig	bind	WORLD_MAX_TWINS_USUAL	gameserver.world.max.twincount.usual	1
+WorldConfig	bind	WORLD_MAX_TWINS_BEGINNER	gameserver.world.max.twincount.beginner	-1
+WorldConfig	bind	WORLD_EMULATE_FASTTRACK	gameserver.world.emulate.fasttrack	true
+WorldConfig	bind	ZONE_HANDLER_DIRECTORY	gameserver.world.zone_handler_directory	./data/handlers/zone
