@@ -207,3 +207,27 @@ One instance per checkpoint, smallest first, stacked from origin/C++ (a branch l
 > covers I4): the effects (the summon crystal, the seals, Beritra's buffs and authority, the waves' 21874, the pulse waves), the walks and their
 > ends (the defenders', the executor's and the door destroyers' arrivals; no walker rows), and the teleports (Beritra's portal, the exit and the
 > revive). Census I4: 330 -> 156 open bodies (left: Dragon Lord's Refuge).
+> **Progress:** P6I-13 cp1 done (chunk I4): DragonLordsRefugeInstance and AnguishedDragonLordsRefugeInstance (it extends the first; its private
+> endInstance and handlePhaseProgress shadow the base's like Java's). Java's List<Integer> despawn exceptions are initializer lists;
+> Rnd.get(respawnLocations) picks from a snapshot. Tests: DragonLordsRefugeTest (12 cases: the handler, the portals and spiritualists, the countdown
+> and its cancel, the phases' messages, Calindi's, the dragon's, the weakened Tiamat's and the incarnations' deaths, the lord's early death, the
+> dialogue, the first race) and AnguishedRefugeTest (6). Mutation proof 47 of 47 after two strengthened cases (an Asmodian first entry for the
+> race's lord, an npc's detection before the player's) and a re-anchored mutant. **Java bugs, ported (proposed corrections):** J-P6I13-1:
+> AnguishedDragonLordsRefugeInstance.onDie (the first lord's early death) makes 283163-283166 - the normal refuge's spiritualists - cast 20983
+> instead of the anguished incarnations 236278-236281; proposed: loop over 236278-236281. J-P6I13-2: its weakened Tiamat's (236277) death spares
+> 219490, 219493 and 219362 - the normal refuge's ids - instead of 856022, 856025 and 236277, so its own last-phase lords and Tiamat are deleted;
+> proposed: the anguished ids. Retest (no gate covers I4): the teleports (the four portals, the inner portals 730633-730636, the 730625 entry with
+> Tiamat turned peaceful, the exits and the revive), the npcs' casts (Tiamat's 20919 and 20918, Kahrun's 20597, the 20983 howl) and the skills'
+> effects (the incarnations' 20979-20982 on Tiamat, the spiritualists' 20993-20996, the effects' start and end messages). Census I4: 156 -> 131 open
+> bodies (left: the 20 dragonLordsRefuge AIs).
+> **Progress:** P6I-13 cp2 done (chunk I4 complete): the dragonLordsRefuge AIs (20). TiamatWeakenedDragonAI's non-final protected fields (the HM
+> form replaces hpPhases in its constructor) are fieldmap's Field<Ref<HpPhases>>, Field<Ref<Rc<AtomicBoolean>>> and
+> Field<Ref<RcArrayList<FutureRef>>>; Java's List<Integer>.remove(int) is ArrayList::removeAt (remove would take the value: a unit test caught it
+> before the commit); Rnd.get(players) on an empty list sets a null target, as AIActions.targetCreature(ai, null) does. Tests:
+> DragonLordsRefugeAiTest (21 cases: the factories, the answers, the dust, Tiamat's forms, Kahrun's orb, Calindi's summons and victories, the
+> atrocities, the skill helpers, the crushers, the incarnations' summons, the lords and the drakan, the weakened Tiamat's adds and creations, the
+> anguished Tiamat's tornado spots). Mutation proof 61 of 61 after strengthened cases (the Surkanas one at a time, a moved player for the blaze, the
+> tornadoes' distances on a seeded draw) and two re-anchored mutants. No Java bug found in the AIs; the summons' handleDespawned cancels Java's null
+> task when they never spawned (an NPE in Java too). Retest (no gate covers I4): the casts and their effects (Tiamat's buffs and warning, the
+> atrocities' fields, the summons' skills, the Surkanas' reflect), the walks to a random player and the queued skills' use, the HM atrocity's angle
+> choice. Census I4: 131 -> 0 open bodies; I4 is complete.
