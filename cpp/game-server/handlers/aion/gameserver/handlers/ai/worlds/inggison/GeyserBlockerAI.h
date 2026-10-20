@@ -9,7 +9,8 @@ namespace aion::gameserver::handlers::ai::worlds::inggison {
 /**
  * The AI of the mobs blocking Inggison's geysers ("geyserblocker"): a geyser (700545) it sees within 5 m is deleted and its static id kept;
  * the mob's death spawns the geyser again with that static id at the mob's spawn point and tells the players within 30 m
- * (STR_MSG_WINDBOX_TRIGGER_ON_INFO).
+ * (STR_MSG_WINDBOX_TRIGGER_ON_INFO). **Correction of the Java code (owner's decision 2026-10-19, both branches; was J-A1C-1):** the geyser's
+ * delete is a task that runs after the known list's update, not inside it under the known list's lock as in Java.
  * <p>
  * Java: data/handlers/ai/worlds/inggison/GeyserBlockerAI.java, @AIName("geyserblocker") (the marker is in the .cpp).
  *
