@@ -26,7 +26,12 @@
 #include "aion/commons/utils/ByteBuffer.h"
 #include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/configs/main/PunishmentConfig.h"
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
+#include "aion/gameserver/custom/pvpmap/PvpMapService.h"
+#include "aion/gameserver/dataholders/WorldMapsData.bind.h"
+#include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_REMOVE_ALTERED_STATE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -253,6 +258,38 @@ TEST_F(RemoveAlteredStateRunTest, ADebuffStaysAndTheAttemptIsAudited) {
 	EXPECT_TRUE((*client)->sentBytes().empty());
 }
 
+/**
+ * PlayerController.java:250-254 (onEnterWorld): on a map with except_buff, a player who is not on the PvP map loses his effects;
+ * PvpMapService.isOnPvPMap is false here (no PvP map instance exists). P4-last cp4 calls PvpMapService directly instead of the stand-in
+ * standins::pvpMapServiceIsOnPvPMap. A map without except_buff keeps them.
+ */
+TEST_F(RemoveAlteredStateRunTest, EnteringAnExceptBuffMapOffThePvpMapRemovesTheEffects) {
+	putOnThePlayer(BUFF_SKILL);
+	actor.player->getController().onEnterWorld();
+	EXPECT_NE(actor.player->getEffectController()->findBySkillId(BUFF_SKILL), nullptr) << "Poeta has no except_buff";
+
+	xml::LoadContext mapContext;
+	std::unique_ptr<dataholders::WorldMapsData> maps = xml::bindString<dataholders::WorldMapsData>(mapContext,
+		R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+		R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL" except_buff="true"/></world_maps>)");
+	runtime::Ref<world::WorldMap> exceptBuffMap = world::WorldMap::create(maps->getTemplate(et::POETA));
+	runtime::Ref<world::WorldMapInstance> exceptBuffInstance = world::WorldMap2DInstance::create(*exceptBuffMap, 1, 0, 0, [](world::WorldMapInstance& instance) {
+		return runtime::Ref<::aion::gameserver::instance::handlers::InstanceHandler>(
+			::aion::gameserver::instance::handlers::GeneralInstanceHandler::create(instance));
+	});
+	actor.player->setPosition(
+		world::WorldPosition::create(et::POETA, 500.0f, 500.0f, 100.0f, int8_t{0}, exceptBuffInstance->getRegion(500, 500, 100)));
+	actor.player->getPosition()->setIsSpawned(true);
+	ASSERT_TRUE(actor.player->getPosition()->getWorldMapInstance()->getParent()->isExceptBuff());
+	ASSERT_FALSE(custom::pvpmap::PvpMapService::getInstance().isOnPvPMap(*actor.player));
+
+	actor.player->getController().onEnterWorld();
+	EXPECT_EQ(actor.player->getEffectController()->findBySkillId(BUFF_SKILL), nullptr) << "removeAllEffects";
+	EXPECT_EQ(journal, (et::Journal{"buff.end"}));
+
+	actor.player->setPosition(world::WorldPosition::create(et::POETA, 500.0f, 500.0f, 100.0f, int8_t{0}, mapInstance->getRegion(500, 500, 100)));
+	actor.player->getPosition()->setIsSpawned(true);
+}
 } // namespace
 } // namespace testing
 } // namespace aion::gameserver::network::aion::clientpackets
