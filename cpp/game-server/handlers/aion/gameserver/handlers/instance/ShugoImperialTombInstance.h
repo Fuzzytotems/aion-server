@@ -16,9 +16,9 @@ namespace aion::gameserver::handlers::instance {
  * (stage 3) the Imperial Shrine, the chests and the exit portals. A destroyed monument ends the run (the disappointed admirer; the third also
  * the shrine, chests and portals). Entering players get the stage's transformation 1 s later; leaving sends them to the instance's exit.
  * <p>
- * Java: data/handlers/instance/ShugoImperialTombInstance.java. **Java bug, ported (proposed correction J-I6-3):** despawnNpcs lists 291512 and
- * 291513 for 219512 (Krall Lookout Commander) and 219513 (Swift Krall Graverobber), so a destroyed monument leaves those two standing; proposed:
- * the ids 219512 and 219513.
+ * Java: data/handlers/instance/ShugoImperialTombInstance.java. **Correction of the Java code (owner's decision 2026-10-19, both branches; was
+ * J-I6-3):** despawnNpcs lists 219512 (Krall Lookout Commander) and 219513 (Swift Krall Graverobber); Java listed 291512 and 291513, so a
+ * destroyed monument left those two standing.
  *
  * @author Ritsu, Estrayl
  */
