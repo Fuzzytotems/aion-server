@@ -576,7 +576,8 @@ void StonespearReachInstance::startStage4_2() { // minute 17 - 18
 	}, 60000);
 }
 
-// Java StonespearReachInstance.java:558-596
+// Java StonespearReachInstance.java:558-596. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I2-2): the
+// second wave's 855835 at point 1 comes at 9000 ms, as its neighbours; Java wrote 90000, a minute after its wave
 void StonespearReachInstance::startStage4_3() { // minute 18 - 19
 	addTask([this] {
 		// 1,5k + 1k + 9,6k = 12,1k
@@ -593,7 +594,7 @@ void StonespearReachInstance::startStage4_3() { // minute 18 - 19
 		spawnAtPointsTask(7000, 855835, 7);
 
 		spawnAtPointsTask(9000, 855836, 0);
-		spawnAtPointsTask(90000, 855835, 1); // Java: 90000 (the neighbours' pattern says 9000; ported as written)
+		spawnAtPointsTask(9000, 855835, 1); // the correction (was J-I2-2): Java's 90000
 		spawnAtPointsTask(11000, 855836, 2);
 		spawnAtPointsTask(11000, 855835, 3);
 		spawnAtPointsTask(13000, 855836, 4);
