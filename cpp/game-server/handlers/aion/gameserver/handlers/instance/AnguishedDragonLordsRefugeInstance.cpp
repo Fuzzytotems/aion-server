@@ -196,7 +196,9 @@ void AnguishedDragonLordsRefugeInstance::onDie(Npc& npc) {
 			if (incarnationKills.get() == 4) // in rare cases the empyrean lord dies while the instance have to wait for progress
 				return;
 			sendMsg(SM_SYSTEM_MESSAGE::STR_MSG_IDTIAMAT_TIAMAT_DEADLYHOWLING());
-			for (int32_t i = 283163; i <= 283166; i++) { // Java bug (J-P6I13-1): the normal refuge's spiritualists
+			// the correction of 2026-10-19 (was J-P6I13-1): the anguished incarnations; Java looped over 283163-283166, the normal refuge's
+			// spiritualists
+			for (int32_t i = 236278; i <= 236281; i++) {
 				runtime::Ptr<Npc> incarnation = getNpc(i);
 				if (incarnation != nullptr)
 					AIActions::useSkill(incarnation->getAi(), 20983);

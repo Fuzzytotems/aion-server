@@ -101,5 +101,13 @@ Java (OrissanAI.java:132-136) calls `super.handleDespawned()` in handleDied, so 
 C++: `super.handleDied()`. Test: `DrakenspireAiTest.OrissansDeathIsADeath` (the DIED state, no target). Mutation proof 1 of 1 (Java's
 handleDespawned).
 
+### The Anguished Refuge's early first-lord death makes its incarnations howl (owner's decision 2026-10-19, both branches; was J-P6I13-1)
+
+Java (AnguishedDragonLordsRefugeInstance.java:160-171) makes 283163-283166, the normal refuge's spiritualists, cast 20983 when the
+empyrean lord dies early, instead of the anguished incarnations 236278-236281.
+
+C++: the loop over 236278-236281. Test:
+`AnguishedRefugeTest.TheAnguishedLordsEarlyDeath` (the four incarnations cast, a 283163 does not). Mutation proof 1 of 1 (Java's ids).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
