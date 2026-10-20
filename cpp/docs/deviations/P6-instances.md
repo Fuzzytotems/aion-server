@@ -52,6 +52,14 @@ Graverobber), so a destroyed monument left those two standing.
 C++: the ids 219512 and 219513. Test:
 `ShugoImperialTombTest.ADestroyedMonumentEndsTheStage` (both are taken away). Mutation proof 1 of 1 (Java's ids).
 
+### Terath's handleBackHome clears the Aetheric Field it deletes (owner's decision 2026-10-19, both branches; was J-I6-4)
+
+Java (BrigadeGeneralTerathAI.java:156-168) deletes the Aetheric Field but keeps the reference, so the next fight spawned no field and
+did not close door 706 again.
+
+C++: the reference is cleared after the delete. Test: `TiamatTest.TerathsGravityEvent` (the next fight
+brings a new field). Mutation proof 1 of 1 (the reference kept).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
