@@ -422,15 +422,16 @@ TEST_F(IlluminaryObeliskAiTest, TheOtherGenerators) {
 	EXPECT_EQ(count(702221) + count(702224) + count(702227), 0u);
 }
 
-/** :53-56 (J-I2-3, kept): the west and south generators shout the east's wave message, not their own */
-TEST_F(IlluminaryObeliskAiTest, TheWestAndSouthShoutTheEastsWave) {
+/** ShieldGenerator{West,South}AI.java:42-46 with the correction of 2026-10-19 (was J-I2-3): the west and south generators shout their own
+ * wave message (N_WAVE_02_BEGIN, N_WAVE_03_BEGIN), not the east's N_WAVE_01_BEGIN */
+TEST_F(IlluminaryObeliskAiTest, TheWestAndSouthShoutTheirOwnWave) {
 	open();
 	services::item::ItemService::addItem(player(), 164000289, 2);
 	install<GeneratorProbe<ais::ShieldGeneratorWestAI>>(*place(702010)).onDialogSelect(player(), model::DialogAction::SETPRO1, 0, 0);
 	install<GeneratorProbe<ais::ShieldGeneratorSouthAI>>(*place(702011, 2.0f)).onDialogSelect(player(), model::DialogAction::SETPRO1, 0, 0);
-	EXPECT_EQ(said(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_01_BEGIN()), 2);
-	EXPECT_EQ(said(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_02_BEGIN()), 0);
-	EXPECT_EQ(said(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_03_BEGIN()), 0);
+	EXPECT_EQ(said(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_01_BEGIN()), 0) << "the east's (Java: both shouted it)";
+	EXPECT_EQ(said(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_02_BEGIN()), 1) << "the west's";
+	EXPECT_EQ(said(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_03_BEGIN()), 1) << "the south's";
 }
 
 } // namespace
