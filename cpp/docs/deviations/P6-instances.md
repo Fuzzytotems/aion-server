@@ -36,6 +36,14 @@ C++: `room` counts up only for a player not yet in playerAndRoom. Test:
 `ShugoEmperorsVaultTest.AReturningPlayerKeepsHisRoomWithoutTakingTheNext` (two visitors, one return, then the third new player keeps
 the third room: no closing dialog). Mutation proof 1 of 1 (the room counted up for a returning player).
 
+### RuthlessJabaraki's phases are its switch's 95, 80, 65, 50, 35 and 20 % (owner's decision 2026-10-19, both branches; was J-I6-2)
+
+Java (RuthlessJabaraki.java:27-41) builds HpPhases(96, 80, 60, 45, 40, 35) but switches on 95, 80, 65, 50, 35 and 20, so only the 80 %
+and 35 % phases called adds.
+
+C++: HpPhases(95, 80, 65, 50, 35, 20), one wave a phase. Test: `ShugoEmperorsVaultTest.JabarakisWaves`
+(all six waves). Mutation proof 1 of 1 (Java's phases).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's

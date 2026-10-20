@@ -13,14 +13,15 @@ namespace aion::gameserver::handlers::ai::instance::theShugoEmperorsVault {
  * corners, which take his most hated player as theirs; his death deletes him; back home his phases start over.
  * <p>
  * Java: data/handlers/ai/instance/theShugoEmperorsVault/RuthlessJabaraki.java, @AIName("ruthless_jabaraki") (the marker is in the .cpp).
- * **Java bug, ported (proposed correction J-I6-2):** the phases are 96, 80, 60, 45, 40 and 35 % but handleHpPhase switches on 95, 80, 65, 50, 35
- * and 20, so only the 80 % (wave 1) and 35 % (wave 4) phases call adds; proposed: the HpPhases of the switch, 95, 80, 65, 50, 35, 20.
+ * **Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I6-2):** the phases are the switch's 95, 80, 65, 50, 35 and
+ * 20 %; Java's HpPhases were 96, 80, 60, 45, 40 and 35, so only the 80 % (wave 1) and 35 % (wave 4) phases called adds.
  *
  * @author Yeats
  */
 class RuthlessJabaraki : public IDSweep_Bosses, public gameserver::ai::HpPhases::PhaseHandler {
 private:
-	const runtime::Ref<gameserver::ai::HpPhases> hpPhases = gameserver::ai::HpPhases::create(96, {80, 60, 45, 40, 35}); // Java: = new HpPhases(96, 80, 60, 45, 40, 35)
+	// the correction of 2026-10-19 (was J-I6-2); Java: = new HpPhases(96, 80, 60, 45, 40, 35)
+	const runtime::Ref<gameserver::ai::HpPhases> hpPhases = gameserver::ai::HpPhases::create(95, {80, 65, 50, 35, 20});
 	/** Java: private List<Npc> spawnedAdds = new ArrayList<>() */
 	runtime::ArrayList<runtime::Ref<Npc>> spawnedAdds{AION_LOCK_CLASS(RuthlessJabaraki::spawnedAdds)};
 
