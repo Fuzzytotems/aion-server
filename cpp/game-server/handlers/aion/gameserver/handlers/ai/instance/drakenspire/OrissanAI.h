@@ -10,8 +10,8 @@ namespace aion::gameserver::handlers::ai::instance::drakenspire {
 
 /**
  * The AI of Orissan ("orissan"): his crystal summons alternate - icing crystals that he attacks behind a sanctuary, then frigid
- * crystals and his blast - 30 s apart. **Java bug, ported (proposed correction J-P6I12-1):** handleDied calls super.handleDespawned()
- * instead of super.handleDied(), so his death skips NpcAI's death handling.
+ * crystals and his blast - 30 s apart. **Correction of the Java code (owner's decision 2026-10-19, both branches; was J-P6I12-1):**
+ * handleDied calls super.handleDied(); Java called super.handleDespawned(), so his death skipped NpcAI's death handling.
  * <p>
  * Java: data/handlers/ai/instance/drakenspire/OrissanAI.java, @AIName("orissan") (the marker is in the .cpp).
  *
