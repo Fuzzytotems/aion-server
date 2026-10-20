@@ -25,7 +25,8 @@ namespace aion::gameserver::handlers::instance::abyss {
  * <p>
  * Java: data/handlers/instance/abyss/AbstractInnerUpperAbyssInstance.java (abstract: not registered). C++: the chest reduction task's
  * lambda
- * is pinned to the handler; chestLocations is a Field, as spawnChests sets it null.
+ * is pinned to the handler; chestLocations is a Field. **Correction of the Java code (owner's decision 2026-10-19, both branches; was
+ * J-P6I4-1):** spawnChests keeps chestLocations; Java cleared it and set it null, so the second boss death of a keep threw.
  *
  * @author Estrayl
  */

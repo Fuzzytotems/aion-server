@@ -77,6 +77,14 @@ no eye spoke.
 C++: the switch on 283177-283180. Test: `TiamatRestAiTest.TheEyesSpeakWithTheHandlersIds` (each eye's message 2 s after
 its spawn; the 4.0 id says nothing). Mutation proof 1 of 1 (Java's ids).
 
+### spawnChests keeps the chest locations (owner's decision 2026-10-19, both branches; was J-P6I4-1)
+
+Java (AbstractInnerUpperAbyssInstance.java:164-180) clears chestLocations and sets it null at the end of spawnChests, and a keep's two boss
+ids both call it (e.g. KrotanBarracks `case 233632, 233633`), so the second boss death threw a NullPointerException.
+
+C++: the owner's choice is to keep the list: spawnChests no longer clears it, and the second boss death brings the chests again. Test:
+`AbyssKeepTest.TheBossesDeathBringsTheChests` (22 chests and 2 bonus chests after both deaths). Mutation proof 1 of 1 (Java's clear and null).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
