@@ -216,6 +216,11 @@ protected:
 
 	bool sentText(const std::string& text) { return wasSent(centerMessage(text)); }
 
+	/** C++-dev only: a DPS report line in the chat log (PacketSendUtility.sendMessage: GOLDEN_YELLOW) */
+	bool sentReport(const std::string& text) {
+		return wasSent(cptest::serialized(SM_MESSAGE(0, "", text, model::ChatType::GOLDEN_YELLOW), client->con()));
+	}
+
 	static std::vector<runtime::Ptr<model::gameobjects::Npc>> npcs(world::WorldMapInstance& instance, int32_t npcId) {
 		return instance.getNpcs({npcId});
 	}
@@ -274,6 +279,8 @@ TEST_F(RoahCustomInstanceHandlerTest, TheRingStartsTheRunAndADeathEndsIt) {
 	EXPECT_TRUE(handler.onDie(*actor.player, *actor.player));
 	EXPECT_TRUE(sentText("You shall not pass!"));
 	EXPECT_TRUE(sentText("Your rank has been decreased to " + custom::instance::getRankDescription(0) + "."));
+	EXPECT_FALSE(handler.getDpsReport().isArtifactDestroyed());
+	EXPECT_TRUE(sentReport(handler.getDpsReport().failureReport("you died"))) << "C++-dev: the failure report, time spent only";
 	EXPECT_TRUE(npcs(*instance, 234029).empty()) << "deleteAliveNpcs";
 	std::optional<custom::instance::CustomInstanceRank> stored = dao::CustomInstanceDAO::loadPlayerRankObject(actor.player->getObjectId());
 	ASSERT_TRUE(stored);
@@ -297,6 +304,8 @@ TEST_F(RoahCustomInstanceHandlerTest, TheArtifactThenTheBoss) {
 	(*client)->clearSent();
 	handler.onDie(*artifact);
 	EXPECT_TRUE(sentText("You feel a shadowy presence from the throne room."));
+	ASSERT_TRUE(handler.getDpsReport().isArtifactDestroyed());
+	EXPECT_TRUE(sentReport(handler.getDpsReport().artifactMessage())) << "C++-dev: the artifact phase in the chat log";
 	const bool male = actor.player->getCommonData()->getGender() == model::Gender::MALE;
 	std::vector<runtime::Ptr<model::gameobjects::Npc>> bosses = npcs(*instance, male ? 231918 : 231717);
 	ASSERT_EQ(bosses.size(), 1u) << "an Elyos warrior's boss";
@@ -305,6 +314,9 @@ TEST_F(RoahCustomInstanceHandlerTest, TheArtifactThenTheBoss) {
 	handler.onDie(*bosses[0]);
 	EXPECT_TRUE(sentText("Your rank has been increased to " + custom::instance::getRankDescription(1)
 		+ ". Stay steadfast for tougher challenges and higher rewards!"));
+	EXPECT_TRUE(handler.getDpsReport().isBossKilled());
+	EXPECT_TRUE(sentReport(handler.getDpsReport().successReport(custom::instance::getRankDescription(0), custom::instance::getRankDescription(1))))
+		<< "C++-dev: the success report";
 	std::optional<custom::instance::CustomInstanceRank> stored = dao::CustomInstanceDAO::loadPlayerRankObject(actor.player->getObjectId());
 	ASSERT_TRUE(stored);
 	EXPECT_EQ(stored->getRank(), 1);

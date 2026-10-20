@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -10,6 +12,7 @@
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/runtime/sched/Future.h"
+#include "aion/gameserver/custom/instance/RoahDpsReport.h"
 #include "aion/gameserver/custom/instance/fwd.h"
 #include "aion/gameserver/custom/instance/neuralnetwork/fwd.h"
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
@@ -59,6 +62,9 @@ private:
 	runtime::Field<runtime::FutureRef> trashMobSpawnTask{};
 	runtime::Field<runtime::FutureRef> bulkyMobSpawnTask{};
 	runtime::Field<runtime::FutureRef> dominatorMobSpawnTask{};
+	// C++-dev only, not in Java: the DPS report (docs/deviations/P5-13.md, "C++-dev only: the Eternal Challenge DPS report"), a part; the wall
+	// clock, as startTime
+	const std::unique_ptr<RoahDpsReport> dpsReport;
 protected:
 	explicit RoahCustomInstanceHandler(world::WorldMapInstance& instance);
 public:
@@ -71,6 +77,8 @@ public:
 	bool onPassFlyingRing(gameserver::model::gameobjects::player::Player& player, std::string_view flyingRing) override;
 	void onDie(gameserver::model::gameobjects::Npc& npc) override;
 	void onEnterInstance(gameserver::model::gameobjects::player::Player& player) override;
+	/** C++-dev only, not in Java: a run left before its end gets its failure report */
+	void onLeaveInstance(gameserver::model::gameobjects::player::Player& player) override;
 private:
 	bool checkForPrebuffOnEntry(gameserver::model::gameobjects::player::Player& player);
 	void setAverageDpsByPlayerClass(gameserver::model::PlayerClass playerClass);
@@ -78,6 +86,10 @@ private:
 	int32_t getRewardCoinAmount(int32_t rank);
 	void adaptNPC(gameserver::model::gameobjects::Npc& npc, int32_t rank);
 	void setResult(bool success);
+	/** C++-dev only: setResult with the reason a failed run gives in the DPS report */
+	void setResult(bool success, std::string_view failureReason);
+	/** C++-dev only: sends a DPS report line to the player's chat log (GOLDEN_YELLOW), when he is in the instance */
+	void sendReport(const std::string& text);
 	void cancelAllTasks();
 	void spawnUnlockableNpcs(gameserver::model::gameobjects::player::Player& player);
 	int32_t getElapsedTimeMillis();
@@ -88,6 +100,8 @@ public:
 	runtime::Ptr<neuralnetwork::PlayerModel> getPlayerModel() const { return this->model.get(); }
 	/** Java: the list itself (null before the player entered) */
 	runtime::Ptr<runtime::RcArrayList<int32_t>> getSkillSet() const { return this->skillSet.get(); }
+	/** C++-dev only: the DPS report (tests) */
+	const RoahDpsReport& getDpsReport() const { return *dpsReport; }
 	bool allowSelfReviveBySkill() override;
 	bool allowSelfReviveByItem() override;
 	bool allowInstanceRevive() override;
