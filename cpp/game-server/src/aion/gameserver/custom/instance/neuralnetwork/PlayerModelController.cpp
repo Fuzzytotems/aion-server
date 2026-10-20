@@ -6,6 +6,7 @@
 #include "aion/gameserver/custom/instance/neuralnetwork/DataSet.h"
 #include "aion/gameserver/custom/instance/neuralnetwork/PlayerModel.h"
 #include "aion/gameserver/custom/instance/neuralnetwork/PlayerModelEntry.h"
+#include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 
 namespace aion::gameserver::custom::instance::neuralnetwork {
@@ -32,8 +33,16 @@ runtime::Ref<PlayerModel> PlayerModelController::trainModelForPlayer(int32_t pla
 		static_cast<int32_t>(dataSets[0]->getTargets().size()), 1, std::nullopt, std::nullopt);
 
 	// train
-	utils::ThreadPoolManager::getInstance().executeLongRunning({model.get()}, [model, dataSets] { model->train(dataSets, TRAINING_EPOCHS); });
+	utils::ThreadPoolManager::getInstance().executeLongRunning({model.get()}, [model, dataSets] { runTraining(model, dataSets, TRAINING_EPOCHS); });
 	return model;
+}
+
+// C++ (not in Java): Java's model.train(dataSets, TRAINING_EPOCHS) of the long-running task, with quiescent points between training epochs
+void PlayerModelController::runTraining(runtime::Ref<PlayerModel> model, const std::vector<runtime::Ref<DataSet>>& dataSets, int32_t epochs) {
+	// the frames above hold only Refs: the model (this parameter) and the data sets (the task's captures); train holds no borrow across epochs
+	runtime::QuiescentScope quiescent;
+	runtime::QuiescentOptIn optIn(PlayerModel::TRAINING_QUIESCENCE);
+	model->train(dataSets, epochs);
 }
 
 // Java PlayerModelController.java:43-49

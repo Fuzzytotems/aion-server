@@ -8,6 +8,7 @@
 #include "aion/gameserver/custom/instance/neuralnetwork/DataSet.h"
 #include "aion/gameserver/custom/instance/neuralnetwork/PlayerModelLink.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/lifetime/TaskScope.h"
 
 namespace aion::gameserver::custom::instance::neuralnetwork {
 
@@ -54,6 +55,9 @@ void PlayerModel::train(const std::vector<runtime::Ref<DataSet>>& dataSets, int3
 	int64_t startTime = commons::utils::currentTimeMillis();
 	isReady.set(false);
 	for (int32_t i = 0; i < numEpochs; i++) {
+		// C++: under PlayerModelController::runTraining, release the reclaimer epoch between training epochs; no borrow lives across them
+		if (runtime::QuiescentOptIn::active(TRAINING_QUIESCENCE))
+			runtime::quiescentPoint(); // quiescent-safe: train's frame holds the data sets as Refs and the model through its caller's Ref
 		for (const runtime::Ref<DataSet>& dataSet : dataSets) {
 			processInput(dataSet->getValues());
 			valideToOutput(dataSet->getTargets());
