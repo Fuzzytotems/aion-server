@@ -3,6 +3,12 @@
 The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
 then this file wins over a plan's "until the user answers" default.
 
+## 2026-10-19
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| Java correction J-P5-09b-1: BrokerService.getAveragePrice divides by zero for an item the race has no offer of (lane B) | **Correct it, on both branches (C++ and 4.8)** | The average is 0 (docs/deviations/P5-09b.md) |
+
 ## 2026-10-13
 
 | Decision | Answer | What it changes |
