@@ -94,3 +94,4 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > **Progress:** I6 census at the tip: 435 of 435 named Java bodies ported, 0 open. The census found two I6-3 gaps, fixed on the tip:
 > TheShugoEmperorsVault.leaveInstance (the instance exit, left to a gate like the other exits) was missing, and ShugoMorpher's morph() now
 > cites Java's handleUseItemFinish so the census sees the rename.
+> **Progress (2026-10-19):** J-I6-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.

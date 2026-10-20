@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/ai/AIState.h"
@@ -28,6 +29,7 @@
 #include "aion/gameserver/handlers/ai/instance/theShugoEmperorsVault/WatchmanHokuruki.h"
 #include "aion/gameserver/handlers/instance/TheShugoEmperorsVault.h"
 #include "aion/gameserver/model/DialogAction.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/model/instance/instancescore/NormalScore.h"
 #include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
@@ -323,6 +325,36 @@ TEST_F(ShugoEmperorsVaultTest, TheGuideAndTheKeeper) {
 	auto& keeperAi = install<sv::VaultKeeper>(*keeper);
 	EXPECT_TRUE(keeperAi.onDialogSelect(player(), model::DialogAction::SETPRO2, 0, 0));
 	EXPECT_EQ(countSent(serialized(SM_DIALOG_WINDOW(keeper->getObjectId(), 0))), 0);
+}
+
+/** VaultKeeper.java:37-61 with the correction of 2026-10-19 (was J-I6-1): a returning player keeps his room without counting up, so after
+ * two new players and one return the third new player still gets the third room (Java: the rooms ran out and his dialog closed). The
+ * teleports do not move anyone in the unit fixture: the closing dialog (all three rooms given) is what the player sees */
+TEST_F(ShugoEmperorsVaultTest, AReturningPlayerKeepsHisRoomWithoutTakingTheNext) {
+	runtime::Ptr<Npc> keeper = place(900300, 546.0f, 311.0f, 400.4f);
+	auto& ai = install<sv::VaultKeeper>(*keeper);
+	world::World& world = world::World::getInstance();
+	std::vector<cptest::PlayerFixture> visitors;
+	for (int32_t i = 0; i < 2; i++) {
+		visitors.push_back(cptest::makePlayer(430091 + i, 9491 + i, "Visitor" + std::to_string(i)));
+		world.storeObject(*visitors.back().player);
+		ASSERT_TRUE(world.setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(*visitors.back().player), vault->getMapId(),
+			vault->getInstanceId(), 546.0f, 309.0f - static_cast<float>(i), 400.4f, int8_t{0}));
+		world.spawn(runtime::Ptr<model::gameobjects::VisibleObject>(*visitors.back().player));
+	}
+	const std::vector<uint8_t> closed = serialized(SM_DIALOG_WINDOW(keeper->getObjectId(), 0));
+	EXPECT_TRUE(ai.onDialogSelect(*visitors[0].player, model::DialogAction::SETPRO1, 0, 0)) << "the first room";
+	EXPECT_TRUE(ai.onDialogSelect(*visitors[0].player, model::DialogAction::SETPRO1, 0, 0)) << "back to his room";
+	EXPECT_TRUE(ai.onDialogSelect(*visitors[1].player, model::DialogAction::SETPRO1, 0, 0)) << "the second room";
+	EXPECT_TRUE(ai.onDialogSelect(player(), model::DialogAction::SETPRO1, 0, 0));
+	EXPECT_EQ(countSent(closed), 0) << "the third room is still his (Java: room 4 - the dialog closes)";
+	EXPECT_TRUE(ai.onDialogSelect(player(), model::DialogAction::SETPRO1, 0, 0));
+	EXPECT_EQ(countSent(closed), 0) << "back to his room";
+	for (cptest::PlayerFixture& visitor : visitors) {
+		if (visitor.player->isSpawned())
+			world.despawn(*visitor.player);
+		world.removeObject(*visitor.player);
+	}
 }
 
 /** ShugoMorpher.java:36-101: attacks do nothing and no damage; no loot or rewards */

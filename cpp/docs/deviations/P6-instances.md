@@ -27,6 +27,15 @@ C++: the switch only sets the points; `updatePoints` runs, then `onStop(true)` f
 20,000 calls `onStop(false)` in updatePoints; a second stop would give the rewards twice). Test: `PvpTest.KamarsEnds` expects 4550 Elyos points
 after the death. Mutation proof 2 of 2 (the stop before the points; the stop removed).
 
+### VaultKeeper counts a room up only for a new player (owner's decision 2026-10-19, both branches; was J-I6-1)
+
+Java (VaultKeeper.java:37-61) counts `room` up in every branch, also for a player coming back to his room, so he takes the next room
+away from the next new player and the rooms run out early.
+
+C++: `room` counts up only for a player not yet in playerAndRoom. Test:
+`ShugoEmperorsVaultTest.AReturningPlayerKeepsHisRoomWithoutTakingTheNext` (two visitors, one return, then the third new player keeps
+the third room: no closing dialog). Mutation proof 1 of 1 (the room counted up for a returning player).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
