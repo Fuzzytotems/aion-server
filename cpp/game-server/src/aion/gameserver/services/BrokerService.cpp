@@ -386,6 +386,11 @@ void BrokerService::buyBrokerItem(model::gameobjects::player::Player& player, in
 			return;
 		}
 
+		// correction J-P5-09b-2 (owner's decision 2026-10-19): an offer that cannot be split is bought whole or not at all. Java goes on and its
+		// else branch below hands over the whole stack for the price of the requested pieces
+		if (itemCount != buyingItem->getItemCount() && !buyingItem->isSplittingAvailable())
+			return;
+
 		runtime::Ref<model::gameobjects::Item> item = runtime::Ref<model::gameobjects::Item>(buyingItem->getItem());
 		int64_t price = static_cast<int64_t>(static_cast<uint64_t>(buyingItem->getPrice()) * static_cast<uint64_t>(itemCount)); // Java long product wraps
 		if (player.getInventory().isFull(item->getItemTemplate()->getExtraInventoryId())) {

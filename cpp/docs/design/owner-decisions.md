@@ -8,6 +8,7 @@ then this file wins over a plan's "until the user answers" default.
 | Decision | Answer | What it changes |
 |---|---|---|
 | Java correction J-P5-09b-1: BrokerService.getAveragePrice divides by zero for an item the race has no offer of (lane B) | **Correct it, on both branches (C++ and 4.8)** | The average is 0 (docs/deviations/P5-09b.md) |
+| Java correction J-P5-09b-2: BrokerService.buyBrokerItem hands over a whole unsplittable offer for the price of fewer pieces (lane B) | **Correct it, on both branches (C++ and 4.8)** | A count other than the offer's is refused for an offer that cannot be split (docs/deviations/P5-09b.md) |
 
 ## 2026-10-13
 
