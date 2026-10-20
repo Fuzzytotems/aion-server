@@ -13,9 +13,9 @@ namespace aion::gameserver::handlers::ai::instance::theShugoEmperorsVault {
  * treasure rooms, the next room for each new player (a player keeps his room), and closes the dialog once all three are given.
  * <p>
  * Java: data/handlers/ai/instance/theShugoEmperorsVault/VaultKeeper.java, @AIName("IDSweep_Treasure_Room") (the marker is in the .cpp). Java's
- * synchronized checkEntryConditions is the monitor member. **Java bug, ported (proposed correction J-I6-1):** a player coming back to his room
- * also counts up `room` (room++ in every branch), so a returning player takes the next room away from the next new player; proposed: count up
- * only for a player not yet in playerAndRoom.
+ * synchronized checkEntryConditions is the monitor member. **Correction of the Java code (owner's decision 2026-10-19, both branches; was
+ * J-I6-1):** `room` counts up only for a player not yet in playerAndRoom; Java counted it up in every branch (room++), so a player coming back
+ * to his room took the next room away from the next new player.
  *
  * @author Yeats
  */
