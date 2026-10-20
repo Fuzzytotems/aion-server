@@ -1,5 +1,6 @@
 #include "aion/gameserver/world/zone/ZoneService.h"
 
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <span>
@@ -38,7 +39,6 @@
 #include "aion/gameserver/model/templates/zone/ZoneTemplate.h"
 #include "aion/gameserver/model/vortex/VortexLocation.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/ShieldService.h"
 #include "aion/gameserver/world/zone/FlyZoneInstance.h"
@@ -229,11 +229,25 @@ runtime::Ref<InvasionZoneInstance> ZoneService::validateZone(ZoneInfo& area) {
 	return nullptr;
 }
 
+// Java ZoneService.java:175-192 (GameServer has its call commented out: a tool for whoever regenerates the material zones)
 void ZoneService::saveMaterialZones() {
-	// Java: collects the zone templates of every map whose area has a collidable handler, sorts them by map id and writes them with
-	// `new ZoneData().saveData()` (JAXB marshalling with the XSD). Not ported: write-back of static data comes after the load path
-	// (static-data.md §3.6 item 4), and GameServer does not call it.
-	AION_UNPORTED();
+	std::vector<const model::templates::zone::ZoneTemplate*> templates;
+	for (const model::templates::world::WorldMapTemplate* map : *dataholders::DataManager::WORLD_MAPS_DATA) {
+		runtime::Ptr<ZoneInfoList> areas = zoneByMapIdMap.get(map->getMapId());
+		if (!areas)
+			continue;
+		for (runtime::Ptr<ZoneInfo> zone : *areas) {
+			if (collidableHandlers.containsKey(zone->getArea()->getZoneName())) {
+				templates.push_back(zone->getZoneTemplate());
+			}
+		}
+	}
+	// Java: List.sort is stable
+	std::stable_sort(templates.begin(), templates.end(),
+		[](const model::templates::zone::ZoneTemplate* a, const model::templates::zone::ZoneTemplate* b) { return a->getMapid() < b->getMapid(); });
+
+	// Java: ZoneData zoneData = new ZoneData(); zoneData.zoneList = templates; zoneData.saveData();
+	dataholders::ZoneData::saveData(templates);
 }
 
 void ZoneService::createMaterialZoneTemplate(geoEngine::scene::Spatial& geometry, int32_t worldId, const ZoneName* zoneName) {
