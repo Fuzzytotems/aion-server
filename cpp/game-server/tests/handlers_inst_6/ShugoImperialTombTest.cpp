@@ -183,19 +183,21 @@ TEST_F(ShugoImperialTombTest, TheBossesRewardTheirStages) {
 	EXPECT_EQ(count(219506), 0u);
 }
 
-/** ShugoImperialTombInstance.java:121-137, 1321-1328: a destroyed monument stops the waves and takes the attackers away (but 219512 and 219513:
- * Java bug J-I6-3) */
+/** ShugoImperialTombInstance.java:121-137, 1321-1328: a destroyed monument stops the waves and takes the attackers away, 219512 and 219513
+ * too since the correction of 2026-10-19 (was J-I6-3) */
 TEST_F(ShugoImperialTombTest, ADestroyedMonumentEndsTheStage) {
 	stageList(StageList::START_STAGE_1_PHASE_1);
 	executor().advance(std::chrono::seconds(2));
 	ASSERT_EQ(count(219508), 1u);
 	runtime::Ptr<Npc> commander = place(219512);
+	runtime::Ptr<Npc> graverobber = place(219513);
 	runtime::Ptr<Npc> looter = place(219510);
 	tomb->getInstanceHandler()->onDie(*npcs(*tomb, 831130)[0]);
 	EXPECT_EQ(count(831306), 1u) << "the Crown Prince's Disappointed Admirer";
 	EXPECT_EQ(count(219508), 0u);
 	EXPECT_FALSE(looter->isSpawned());
-	EXPECT_TRUE(commander->isSpawned()) << "Java's despawn list reads 291512 for 219512";
+	EXPECT_FALSE(commander->isSpawned()) << "219512 (Java's list read 291512)";
+	EXPECT_FALSE(graverobber->isSpawned()) << "219513 (Java's list read 291513)";
 	executor().advance(std::chrono::seconds(60));
 	EXPECT_EQ(count(219508), 0u) << "the waves stopped";
 	dies(831305);

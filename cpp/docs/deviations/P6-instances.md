@@ -44,6 +44,14 @@ and 35 % phases called adds.
 C++: HpPhases(95, 80, 65, 50, 35, 20), one wave a phase. Test: `ShugoEmperorsVaultTest.JabarakisWaves`
 (all six waves). Mutation proof 1 of 1 (Java's phases).
 
+### ShugoImperialTombInstance's despawnNpcs takes 219512 and 219513 (owner's decision 2026-10-19, both branches; was J-I6-3)
+
+Java (ShugoImperialTombInstance.java:1321-1324) lists 291512 and 291513 for 219512 (Krall Lookout Commander) and 219513 (Swift Krall
+Graverobber), so a destroyed monument left those two standing.
+
+C++: the ids 219512 and 219513. Test:
+`ShugoImperialTombTest.ADestroyedMonumentEndsTheStage` (both are taken away). Mutation proof 1 of 1 (Java's ids).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
