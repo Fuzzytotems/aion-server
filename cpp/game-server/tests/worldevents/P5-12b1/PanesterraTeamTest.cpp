@@ -70,15 +70,19 @@ TEST_F(PanesterraTeamTest, MembersAreAddedOnceAndCounted) {
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(PanesterraTeamTest, RemovingAMemberTakesItsIdAsAnIndexAsJavaDoes) {
-	// PanesterraTeam.java:107-110: teamMembers.remove(playerId) with an int is List.remove(int index)
+TEST_F(PanesterraTeamTest, RemovingAMemberRemovesItsId) {
+	// PanesterraTeam.java:107-110, corrected (owner's decision 2026-10-19): Java's remove(int) took the id as an index; the C++ removes the id
 	runtime::Ref<PanesterraTeam> team = PanesterraTeam::create(PanesterraFaction::IVY_TEMPLE);
-	team->addTeamMemberIfAbsent(0);
+	team->addTeamMemberIfAbsent(2);
 	team->addTeamMemberIfAbsent(101);
-	EXPECT_THROW(team->removeTeamMember(101), runtime::IndexOutOfBoundsException) << "index 101 of a list of 2";
-	team->removeTeamMember(0); // index 0 holds the id 0: the only id that works
+	team->addTeamMemberIfAbsent(102);
+	team->removeTeamMember(2); // an id that is also an index: Java's remove(int) took 102, the element at index 2
+	EXPECT_EQ(team->getMemberCount(), 2);
+	EXPECT_FALSE(team->isTeamMember(2));
+	EXPECT_TRUE(team->isTeamMember(102));
+	team->removeTeamMember(101); // Java: IndexOutOfBoundsException, index 101 of a list of 2
 	EXPECT_EQ(team->getMemberCount(), 1);
-	EXPECT_TRUE(team->isTeamMember(101));
+	EXPECT_TRUE(team->isTeamMember(102));
 }
 
 TEST_F(PanesterraTeamTest, AFactionWithoutAStartPositionCannotBeMovedThere) {

@@ -260,7 +260,7 @@ void BrokerService::showRequestedItems(model::gameobjects::player::Player& playe
 	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BROKER_SERVICE(*searchItems, totalSearchItemsCount, startPage));
 }
 
-// Java BrokerService.java:144-160
+// Java BrokerService.java:144-160, with J-P5-09b-1 applied (owner's decision 2026-10-19): no offer of the item gives 0
 int64_t BrokerService::getAveragePrice(model::Race race, int32_t itemId) {
 	auto* brokerItems = getRaceBrokerItems(race);
 	if (brokerItems == nullptr)
@@ -275,8 +275,8 @@ int64_t BrokerService::getAveragePrice(model::Race race, int32_t itemId) {
 			counter++;
 		}
 	}
-	if (counter == 0) // Java: long / int 0 throws ArithmeticException
-		throw commons::utils::ArithmeticException("/ by zero");
+	if (counter == 0) // correction J-P5-09b-1: Java's sum / counter throws ArithmeticException here
+		return 0;
 	average = sum / counter;
 	return average;
 }
@@ -385,6 +385,11 @@ void BrokerService::buyBrokerItem(model::gameobjects::player::Player& player, in
 			utils::PacketSendUtility::sendMessage(player, "Sorry, but this item already sold");
 			return;
 		}
+
+		// correction J-P5-09b-2 (owner's decision 2026-10-19): an offer that cannot be split is bought whole or not at all. Java goes on and its
+		// else branch below hands over the whole stack for the price of the requested pieces
+		if (itemCount != buyingItem->getItemCount() && !buyingItem->isSplittingAvailable())
+			return;
 
 		runtime::Ref<model::gameobjects::Item> item = runtime::Ref<model::gameobjects::Item>(buyingItem->getItem());
 		int64_t price = static_cast<int64_t>(static_cast<uint64_t>(buyingItem->getPrice()) * static_cast<uint64_t>(itemCount)); // Java long product wraps
