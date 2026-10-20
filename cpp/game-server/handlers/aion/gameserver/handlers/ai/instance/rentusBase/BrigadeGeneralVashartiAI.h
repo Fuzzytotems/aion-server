@@ -17,8 +17,9 @@ namespace aion::gameserver::handlers::ai::instance::rentusBase {
 /**
  * The AI of Brigade General Vasharti in the Rentus Bases ("brigade_general_vasharti"): the first attack closes door 70 and starts the 10
  * minute enrage and her flame shield buffs (the two shield spheres); each HP phase sends her to the middle for the Sea of Fire, whose
- * strength follows her health; back home, despawned or dead she clears her spawns. **Java bug, ported:** onEffectEnd's switch reads
- * her own npc id (getNpcId()), not the visited npc's, so the fire effects are never deleted there.
+ * strength follows her health; back home, despawned or dead she clears her spawns. **Correction of the Java code (owner's decision
+ * 2026-10-19, both branches; was J-P6I7-1):** the end of the Sea of Fire deletes the fire effects (283010-283012) she knows; Java's switch read
+ * her own npc id (getNpcId()), not the visited npc's, so they were never deleted there.
  * <p>
  * Java: data/handlers/ai/instance/rentusBase/BrigadeGeneralVashartiAI.java, @AIName("brigade_general_vasharti") (the marker is in the .cpp).
  *

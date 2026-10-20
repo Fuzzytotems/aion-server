@@ -13,8 +13,10 @@ namespace aion::gameserver::handlers::ai::worlds::heiron {
  * The AI of Bollvig in Heiron ("bollvig"): his spawn deletes 204655. At 75 and 50 % HP he casts Sleep of Death (17861) and calls two 280802
  * and two 280803 10 m around (1001, 2828), at 25 % he goes straight on: between 50 and 25 % Nerve Absorption (18034) with a 280804 after
  * 10 s, at 25 % or less Blood Cell Destruction (18037); 31 s later Charming Attraction (17899), 5 s later Curse of Soul (18025) and the round
- * again above 25 %, Mortal Cutting (18027) and Charming Attraction again 11 s later at 25 % or less. Back home, despawned or dead he cancels
- * a task, and despawned or dead he deletes his summons and spawns 204655 again when neither it nor a living 212314 is there.
+ * again above 25 %, Mortal Cutting (18027) and Charming Attraction again 11 s later at 25 % or less. A phase, back home, despawned or dead he
+ * cancels his tasks, and despawned or dead he deletes his summons and spawns 204655 again when neither it nor a living 212314 is there.
+ * **Correction of the Java code (owner's decision 2026-10-19, both branches; was J-A1C-2):** cancelTask cancels every task that is not done;
+ * Java's else-if chain cancelled only the first.
  * <p>
  * Java: data/handlers/ai/worlds/heiron/BollvigAI.java, @AIName("bollvig") (the marker is in the .cpp).
  *

@@ -18,6 +18,7 @@
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
 #include "aion/gameserver/handlers/instance/AnguishedDragonLordsRefugeInstance.h"
+#include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/handlers/instance/DragonLordsRefugeInstance.h"
 #include "aion/gameserver/model/RaceInfo.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
@@ -312,29 +313,39 @@ TEST_F(AnguishedRefugeTest, TheAnguishedSpiritualistsGo) {
 	EXPECT_TRUE(dies(283164)->isSpawned()) << "the normal refuge's spiritualist stays";
 }
 
-/** Anguished :140-148 (J-P6I13-2, ported): the weakened Tiamat's death spares the normal refuge's 219490, not its own 856022 */
-TEST_F(AnguishedRefugeTest, TheAnguishedEndSparesTheNormalIds) {
+/** Anguished :140-148 with the correction of 2026-10-19 (was J-P6I13-2): the weakened Tiamat's death spares its own last-phase lords (856022,
+ * 856025) and Tiamat (236277), not the normal refuge's ids */
+TEST_F(AnguishedRefugeTest, TheAnguishedEndSparesItsOwnIds) {
 	handler().onEnterInstance(player());
 	runtime::Ptr<Npc> normalLord = at(219490);
 	runtime::Ptr<Npc> ownLord = at(856022);
+	runtime::Ptr<Npc> otherOwnLord = at(856025);
 	runtime::Ptr<Npc> tiamat = at(236277);
 	handler().onDie(*tiamat);
-	EXPECT_TRUE(normalLord->isSpawned());
-	EXPECT_FALSE(ownLord->isSpawned());
-	EXPECT_FALSE(tiamat->isSpawned());
+	EXPECT_FALSE(normalLord->isSpawned()) << "the normal refuge's id (Java: spared)";
+	EXPECT_TRUE(ownLord->isSpawned());
+	EXPECT_TRUE(otherOwnLord->isSpawned());
+	EXPECT_TRUE(tiamat->isSpawned());
 	EXPECT_EQ(count({702729}), 1u);
 	EXPECT_EQ(count({701542}), 0u);
 	EXPECT_EQ(count({833482}), 1u);
 }
 
-/** Anguished :160-171 (J-P6I13-1, ported): the first lord's early death ends the refuge 7 s later; its incarnations do not cast (the normal
- * refuge's spiritualists would) */
+/** Anguished :160-171 with the correction of 2026-10-19 (was J-P6I13-1): the first lord's early death makes its incarnations (236278-236281)
+ * howl (20983), not the normal refuge's spiritualists (283163-283166), and ends the refuge 7 s later */
 TEST_F(AnguishedRefugeTest, TheAnguishedLordsEarlyDeath) {
 	publishSkills({20983});
 	withAi(236276);
+	std::vector<runtime::Ptr<Npc>> incarnations;
+	for (int32_t id = 236278; id <= 236281; ++id)
+		incarnations.push_back(withAi(id));
+	runtime::Ptr<Npc> spiritualist = withAi(283163);
 	runtime::Ptr<Npc> other = at(900200);
 	dies(856023);
 	EXPECT_EQ(sent(SM_SYSTEM_MESSAGE::STR_MSG_IDTIAMAT_TIAMAT_DEADLYHOWLING()), 1);
+	for (const runtime::Ptr<Npc>& incarnation : incarnations)
+		EXPECT_NE(incarnation->getGameStats()->getLastSkillTime(), 0) << incarnation->getNpcId() << " howls";
+	EXPECT_EQ(spiritualist->getGameStats()->getLastSkillTime(), 0) << "the normal refuge's spiritualist does not (Java: it did)";
 	executor().advance(std::chrono::milliseconds(6999));
 	EXPECT_TRUE(other->isSpawned());
 	executor().advance(std::chrono::milliseconds(1));
