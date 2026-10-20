@@ -15,11 +15,11 @@ void StonespearAggressiveNpcAI::handleSpawned() {
 	findGuardianStone();
 }
 
-// Java StonespearAggressiveNpcAI.java:34-48. java-bug (ported as is, a proposed correction in deviations/P6-I2.md): the list has six of the
-// eight guardian stones - the Elyos stage-3 stone 855809 and the Asmodian stage-4 stone 856469 are missing, so those stages' attackers find
-// no stone (StonespearReachInstance.spawnGuardianStone)
+// Java StonespearAggressiveNpcAI.java:34-48. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I2-1): the list
+// has all eight guardian stones; Java's missed the Elyos stage-3 stone 855809 and the Asmodian stage-4 stone 856469, so those stages'
+// attackers found no stone (StonespearReachInstance.spawnGuardianStone)
 void StonespearAggressiveNpcAI::findGuardianStone() {
-	for (int32_t id : {855763, 855832, 855786, 856466, 856467, 856468})
+	for (int32_t id : {855763, 855832, 855786, 855809, 856466, 856467, 856468, 856469}) // the correction (was J-I2-1)
 		guardIds.add(id); // Java: Collections.addAll(guardIds, ...)
 	runtime::Ptr<Creature> target = nullptr;
 	for (int32_t npcId : guardIds.snapshot()) {
