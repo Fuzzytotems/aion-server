@@ -117,12 +117,13 @@ void BrigadeGeneralVashartiAI::onEndUseSkill(const SkillTemplate* skillTemplate,
 
 }
 
-// Java BrigadeGeneralVashartiAI.java:132-148 (Java's switch reads the owner's npc id: ported as is; AggroList.addHate(null) does nothing)
+// Java BrigadeGeneralVashartiAI.java:132-148 (AggroList.addHate(null) does nothing). Correction of the Java code (owner's decision
+// 2026-10-19, both branches; was J-P6I7-1): the switch reads the visited npc's id; Java read Vasharti's own, so the Sea of Fire stayed
 void BrigadeGeneralVashartiAI::onEffectEnd(runtime::Ptr<Effect> effect) {
 	if (effect != nullptr && effect->getSkillId() == 20534 && isInFlameShowerEvent.compareAndSet(true, false)) {
 		cancelTasks({seaOfFireSpawnTask.get()});
-		getKnownList().forEachNpc([this](Npc& n) {
-			switch (getNpcId()) {
+		getKnownList().forEachNpc([](Npc& n) {
+			switch (n.getNpcId()) { // the correction (was J-P6I7-1)
 				case 283010:
 				case 283011:
 				case 283012:
