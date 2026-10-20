@@ -14,6 +14,8 @@
 #include "aion/gameserver/dataholders/QuestsData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
+#include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/custom/instance/CustomInstanceService.h"
 #include "aion/gameserver/custom/instance/RoahCustomInstanceHandler.h"
@@ -22,13 +24,16 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/ChatType.h"
 #include "aion/gameserver/model/Gender.h"
+#include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUEST_ACTION.h"
 #include "aion/gameserver/services/instance/InstanceService.h"
+#include "aion/gameserver/skillengine/model/HopType.h"
 #include "aion/gameserver/services/teleport/TeleportService.h"
 #include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/knownlist/KnownList.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -36,10 +41,30 @@
 namespace aion::gameserver::instance::test {
 namespace {
 
+/** Exposes the protected KnownList::addPair, so two objects know each other without moving into sight (AttackSeamTest's KnownListPairing) */
+struct KnownListPairing : world::knownlist::KnownList {
+	static bool pair(model::gameobjects::VisibleObject& a, model::gameobjects::VisibleObject& b) { return addPair(a, b); }
+};
+
 using custom::instance::RoahCustomInstanceHandler;
 using network::aion::serverpackets::SM_MESSAGE;
 using network::aion::serverpackets::SM_QUEST_ACTION;
 using services::instance::InstanceService;
+
+/** tribe/tribe_relations.xml, verbatim: AGGRESSIVESINGLEMONSTER :29-31, LDF4A_CALYDON :1615-1618, MONSTER :2170-2173 (C++-dev's total DPS) */
+constexpr std::string_view ROAH_TRIBE_ROWS = R"x(
+    <tribe name="AGGRESSIVESINGLEMONSTER" base="MONSTER">
+        <aggro>PC PC_DARK</aggro>
+    </tribe>
+    <tribe name="LDF4A_CALYDON" base="MONSTER">
+        <aggro>PC GENERAL GUARD PC_DARK GENERAL_DARK GUARD_DARK</aggro>
+        <support>LDF4A_CALYDON</support>
+    </tribe>
+    <tribe name="MONSTER">
+        <hostile>YUN_GUARD</hostile>
+        <friend>POLYMORPHPARROT USEALL_TELEPORTER_LI USEALL_TELEPORTER_DA</friend>
+    </tribe>
+</tribe_relations>)x";
 
 /** npc_templates.xml:455037-455041, :174709-174712, :371721-371730, :152105-152121, :149463-149478 */
 constexpr std::string_view ROAH_NPC_ROWS = R"x(
@@ -165,6 +190,11 @@ protected:
 		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(npcContext, ROAH_SKILL_ROWS));
 		dataholders::DataManager::NPC_DATA.resetForTests();
 		dataholders::DataManager::NPC_DATA.publish(xml::bindString<dataholders::NpcData>(npcContext, npcs));
+		// C++-dev's total DPS reads the npcs' aggro lists; AggroList.isAware asks the tribes of the stone, the protectors and the bosses
+		std::string tribes = tribeRelationsXml();
+		tribes.replace(tribes.rfind("</tribe_relations>"), std::string_view("</tribe_relations>").size(), ROAH_TRIBE_ROWS);
+		dataholders::DataManager::TRIBE_RELATIONS_DATA.resetForTests(); // the base fixture's holder; its TearDown resets this one
+		dataholders::DataManager::TRIBE_RELATIONS_DATA.publish(xml::bindString<dataholders::TribeRelationsData>(npcContext, tribes));
 		if (!dataholders::DataManager::QUEST_DATA) { // the npcs' deaths and deletions ask the quest engine: one row (quest_data.xml:65-67)
 			dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(npcContext, R"x(<quests>
 	<quest id="1006" name="Ascension" nameId="1102006" quest_zone="Ascension Quests" minlevel_permitted="9" max_repeat_count="1" cannot_share="true" cannot_giveup="true" race_permitted="ELYOS" category="MISSION">
@@ -221,6 +251,13 @@ protected:
 		return wasSent(cptest::serialized(SM_MESSAGE(0, "", text, model::ChatType::GOLDEN_YELLOW), client->con()));
 	}
 
+	/** C++-dev only: the player hits the npc (AggroList.addDamage, as CreatureController.onAttack records it) */
+	void hit(model::gameobjects::Npc& npc, int32_t damage) {
+		KnownListPairing::pair(npc, *actor.player); // AggroList.isAware reads the known list; this unit test moves nobody into sight
+		npc.getAggroList().addDamage(*actor.player, damage, true, skillengine::model::HopType::DAMAGE);
+		ASSERT_TRUE(npc.getAggroList().isHating(*actor.player)) << npc.getNpcId() << " recorded no damage";
+	}
+
 	static std::vector<runtime::Ptr<model::gameobjects::Npc>> npcs(world::WorldMapInstance& instance, int32_t npcId) {
 		return instance.getNpcs({npcId});
 	}
@@ -275,9 +312,12 @@ TEST_F(RoahCustomInstanceHandlerTest, TheRingStartsTheRunAndADeathEndsIt) {
 	EXPECT_EQ(bulkies[0]->getLifeStats()->getMaxHp(), 10 * 4000);
 	EXPECT_TRUE(sentText("A tough protector has appeared!"));
 
+	hit(*artifacts[0], 1000); // C++-dev: the stone and the bulky protector, both alive at the death, count for the total
+	hit(*bulkies[0], 2000);
 	(*client)->clearSent();
 	EXPECT_TRUE(handler.onDie(*actor.player, *actor.player));
 	EXPECT_TRUE(sentText("You shall not pass!"));
+	EXPECT_EQ(handler.getDpsReport().getArtifactPhaseDamage(), 3000) << "C++-dev: the living npcs' damage, counted before their deletion";
 	EXPECT_TRUE(sentText("Your rank has been decreased to " + custom::instance::getRankDescription(0) + "."));
 	EXPECT_FALSE(handler.getDpsReport().isArtifactDestroyed());
 	EXPECT_TRUE(sentReport(handler.getDpsReport().failureReport("you died"))) << "C++-dev: the failure report, time spent only";
@@ -300,9 +340,18 @@ TEST_F(RoahCustomInstanceHandlerTest, TheArtifactThenTheBoss) {
 	const int64_t started = commons::utils::currentTimeMillis();
 	handler.onPassFlyingRing(*actor.player, "ROAH_WING_1");
 	runtime::Ptr<model::gameobjects::Npc> artifact = npcs(*instance, 234029).at(0);
-	executor().advance(std::chrono::milliseconds(10000));
+	executor().advance(std::chrono::milliseconds(80000)); // C++-dev: the first bulky protector, killed
+	runtime::Ptr<model::gameobjects::Npc> firstBulky = npcs(*instance, 282757).at(0);
+	hit(*firstBulky, 5000);
+	handler.onDie(*firstBulky);
+	EXPECT_EQ(handler.getDpsReport().getArtifactPhaseDamage(), 5000) << "C++-dev: a killed add counts at its death";
+	executor().advance(std::chrono::milliseconds(60000)); // the second one, alive when the stone dies
+	runtime::Ptr<model::gameobjects::Npc> secondBulky = npcs(*instance, 282757).at(0);
+	hit(*secondBulky, 3000);
+	hit(*artifact, 300 * 4000);
 	(*client)->clearSent();
 	handler.onDie(*artifact);
+	EXPECT_EQ(handler.getDpsReport().getArtifactPhaseDamage(), 5000 + 3000 + 300 * 4000) << "C++-dev: the stone, the killed add, the living add";
 	EXPECT_TRUE(sentText("You feel a shadowy presence from the throne room."));
 	ASSERT_TRUE(handler.getDpsReport().isArtifactDestroyed());
 	EXPECT_TRUE(sentReport(handler.getDpsReport().artifactMessage())) << "C++-dev: the artifact phase in the chat log";
@@ -310,8 +359,11 @@ TEST_F(RoahCustomInstanceHandlerTest, TheArtifactThenTheBoss) {
 	std::vector<runtime::Ptr<model::gameobjects::Npc>> bosses = npcs(*instance, male ? 231918 : 231717);
 	ASSERT_EQ(bosses.size(), 1u) << "an Elyos warrior's boss";
 
+	hit(*bosses[0], 1234); // C++-dev: the boss phase
 	(*client)->clearSent();
 	handler.onDie(*bosses[0]);
+	EXPECT_EQ(handler.getDpsReport().getBossPhaseDamage(), 1234);
+	EXPECT_EQ(handler.getDpsReport().getArtifactPhaseDamage(), 5000 + 3000 + 300 * 4000) << "the stone's phase is closed";
 	EXPECT_TRUE(sentText("Your rank has been increased to " + custom::instance::getRankDescription(1)
 		+ ". Stay steadfast for tougher challenges and higher rewards!"));
 	EXPECT_TRUE(handler.getDpsReport().isBossKilled());
