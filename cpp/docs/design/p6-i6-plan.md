@@ -97,3 +97,4 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > **Progress (2026-10-19):** J-I6-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
 > **Progress (2026-10-19):** J-I6-2 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
 > **Progress (2026-10-19):** J-I6-3 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-I6-4 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
