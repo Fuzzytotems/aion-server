@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "aion/gameserver/ai/AIState.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/ai/poll/AIQuestion.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
@@ -323,6 +324,35 @@ TEST_F(RentusTest, VashartisShieldSpheres) {
 	EXPECT_EQ(count({283001}), 1u);
 	ai.handleDied();
 	EXPECT_EQ(count({283000, 283001}), 0u);
+}
+
+/** BrigadeGeneralVashartiAI.java:104-157 with the correction of 2026-10-19 (was J-P6I7-1): at the middle of her forced walk she casts the Sea
+ * of Fire's start (20533) and then the Sea of Fire (20534); its end deletes the fire effects 283010-283012 she knows, no other npc */
+/** Vasharti without thinking: with no target her FIGHT state would send her home, whose clearSpawns deletes the fire effects too */
+struct StillVasharti : Probe<ais::BrigadeGeneralVashartiAI> {
+	using Probe::Probe;
+	bool canThink() override { return false; }
+};
+
+TEST_F(RentusTest, TheEndOfTheSeaOfFireTakesTheFire) {
+	publishSkills({20533, 20534});
+	runtime::Ptr<Npc> vasharti = place(900200, 188.17f, 414.06f);
+	auto& ai = install<StillVasharti>(*vasharti);
+	std::vector<runtime::Ptr<Npc>> fires{place(283010, 186.0f, 414.0f), place(283011, 190.0f, 414.0f), place(283012, 188.0f, 416.0f)};
+	runtime::Ptr<Npc> bystander = place(900300, 188.0f, 412.0f);
+	for (const runtime::Ptr<Npc>& npc : fires)
+		InstanceKnownListPairing::pair(*vasharti, *npc);
+	InstanceKnownListPairing::pair(*vasharti, *bystander);
+	ai.setStateIfNot(gameserver::ai::AIState::FORCED_WALKING);
+	ai.isDestinationReached(); // the middle: the Sea of Fire event starts (20533); its own answer is the base class's (the walk's end)
+	for (const runtime::Ptr<Npc>& npc : fires)
+		ASSERT_TRUE(npc->isSpawned()) << npc->getNpcId() << " before the end of the Sea of Fire";
+	ai.onEffectEnd(skillengine::model::Effect::create(*vasharti, runtime::Ptr<model::gameobjects::Creature>(vasharti),
+		dataholders::DataManager::SKILL_DATA->getSkillTemplate(20534), 1)); // the end of the Sea of Fire
+	for (const runtime::Ptr<Npc>& npc : fires)
+		EXPECT_FALSE(npc->isSpawned()) << npc->getNpcId() << " (Java: kept)";
+	EXPECT_TRUE(bystander->isSpawned());
+	ai.handleDied();
 }
 
 /** CaptainXastaAI.java:180-188: the first form's death brings the second and takes the helpers */

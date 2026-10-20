@@ -85,7 +85,13 @@ ids both call it (e.g. KrotanBarracks `case 233632, 233633`), so the second boss
 C++: the owner's choice is to keep the list: spawnChests no longer clears it, and the second boss death brings the chests again. Test:
 `AbyssKeepTest.TheBossesDeathBringsTheChests` (22 chests and 2 bonus chests after both deaths). Mutation proof 1 of 1 (Java's clear and null).
 
+### Vasharti's Sea of Fire ends with its fire effects deleted (owner's decision 2026-10-19, both branches; was J-P6I7-1)
+
+Java (BrigadeGeneralVashartiAI.java:132-148) switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
+(`n.getNpcId()`), so the Sea of Fire effects 283010-283012 were never deleted there.
+
+C++: the switch on `n.getNpcId()`. Test: `RentusTest.TheEndOfTheSeaOfFireTakesTheFire` (the three fire effects she knows are deleted, another
+npc stays). Mutation proof 1 of 1 (Java's `getNpcId()`).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
-- **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
-  (`n.getNpcId()`), so the Sea of Fire effects 283010-283012 are never deleted there. Proposed: switch on `n.getNpcId()`.
