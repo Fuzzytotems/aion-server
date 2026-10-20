@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <tuple>
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/ai/AIState.h"
@@ -256,24 +257,25 @@ TEST_F(ShugoEmperorsVaultTest, TheIntruders) {
 	EXPECT_FALSE(late->isSpawned());
 }
 
-/** RuthlessJabaraki.java:31-128: of his phases only 80 % (four Peons) and 35 % (twelve Scouts) call adds (Java bug J-I6-2); his death deletes
- * him */
+/** RuthlessJabaraki.java:31-128 with the correction of 2026-10-19 (was J-I6-2): each phase of the switch calls its wave, one an attack - 95 % and
+ * 80 % four Peons each (235631), 65 % eight Scouts (235630), 50 % eight 235629, 35 % twelve Scouts, 20 % twelve Peons; his death deletes him */
 TEST_F(ShugoEmperorsVaultTest, JabarakisWaves) {
 	runtime::Ptr<Npc> jabaraki = place(235660, 548.0f, 312.0f, 400.4f); // near the player: a far target sends him home
 	auto& ai = install<Probe<sv::RuthlessJabaraki>>(*jabaraki);
 	InstanceKnownListPairing::pair(*jabaraki, player());
 	jabaraki->getAggroList().addDamage(player(), 1, true, std::nullopt);
-	jabaraki->getLifeStats()->setCurrentHpPercent(95);
+	jabaraki->getLifeStats()->setCurrentHpPercent(96);
 	ai.handleAttack(runtime::Ptr<Creature>(player()));
 	EXPECT_EQ(count(235631), 0u) << "96 % calls nothing";
-	jabaraki->getLifeStats()->setCurrentHpPercent(79);
-	ai.handleAttack(runtime::Ptr<Creature>(player()));
-	EXPECT_EQ(count(235631), 4u);
-	jabaraki->getLifeStats()->setCurrentHpPercent(34);
-	for (int32_t phase = 0; phase < 4; phase++)
+	const std::tuple<int32_t, size_t, size_t, size_t> waves[] = {
+		{95, 4, 0, 0}, {80, 8, 0, 0}, {65, 8, 8, 0}, {50, 8, 8, 8}, {35, 8, 20, 8}, {20, 20, 20, 8}};
+	for (const auto& [hp, peons, scouts, third] : waves) {
+		jabaraki->getLifeStats()->setCurrentHpPercent(hp);
 		ai.handleAttack(runtime::Ptr<Creature>(player()));
-	EXPECT_EQ(count(235630), 12u);
-	EXPECT_EQ(count(235629), 0u);
+		EXPECT_EQ(count(235631), peons) << hp << " %";
+		EXPECT_EQ(count(235630), scouts) << hp << " %";
+		EXPECT_EQ(count(235629), third) << hp << " %";
+	}
 	ai.handleDied();
 	EXPECT_FALSE(jabaraki->isSpawned());
 }

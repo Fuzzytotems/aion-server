@@ -95,3 +95,4 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > TheShugoEmperorsVault.leaveInstance (the instance exit, left to a gate like the other exits) was missing, and ShugoMorpher's morph() now
 > cites Java's handleUseItemFinish so the census sees the rename.
 > **Progress (2026-10-19):** J-I6-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-I6-2 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
