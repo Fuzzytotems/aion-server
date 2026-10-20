@@ -68,3 +68,4 @@ None of the scenario gates enters these maps. A handler only runs when a player 
 >
 > **Proposed corrections** (kept as Java; see I2.md):
 > - **J-I2-3**: ShieldGeneratorSouthAI and ShieldGeneratorWestAI shout the east's N_WAVE_01_BEGIN instead of their getGateMsg().
+> **Progress (2026-10-19):** J-I2-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/I2.md.
