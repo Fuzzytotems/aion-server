@@ -157,11 +157,11 @@ bool PanesterraTeam::isTeamMember(int32_t playerId) {
 	return teamMembers.contains(playerId);
 }
 
-// Java PanesterraTeam.java:107-110. Java bug kept: teamMembers.remove(playerId) with an int is List.remove(int index), so a member's object id
-// is taken as an index - an IndexOutOfBoundsException for any real id (proposed correction: remove(Integer.valueOf(playerId)), P5-12b.md)
+// Java PanesterraTeam.java:107-110, corrected (owner's decision 2026-10-19, P5-12b.md): Java's teamMembers.remove(playerId) with an int is
+// List.remove(int index), which takes a member's object id as an index; the C++ removes the id, Java's remove(Integer.valueOf(playerId))
 void PanesterraTeam::removeTeamMember(int32_t playerId) {
 	if (teamMembers.contains(playerId))
-		teamMembers.removeAt(playerId);
+		teamMembers.remove(playerId);
 }
 
 // Java PanesterraTeam.java:124-126

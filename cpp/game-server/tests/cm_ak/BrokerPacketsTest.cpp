@@ -122,6 +122,14 @@ TEST_F(BrokerBrowseTest, AListShowsTheRacesOffersOfTheMaskWithTheirAveragePrice)
 	EXPECT_EQ(page.offers[2], (SentOffer{POTIONS_50, MINOR_LIFE_POTION, 250, 33, 5, "Seller"}));
 }
 
+/** J-P5-09b-1 (owner's decision 2026-10-19, applied): an item the race has no offer of averages 0, where Java divides by zero */
+TEST_F(BrokerBrowseTest, AnItemWithoutOffersOfTheRaceAveragesZero) {
+	BROKER_PACKET_REQUIRE_DATABASE();
+	loadOffers();
+	EXPECT_EQ(services::BrokerService::getInstance().getAveragePrice(model::Race::ELYOS, MINOR_LIFE_POTION), 33) << "(30 + 50 + 20) / 3";
+	EXPECT_EQ(services::BrokerService::getInstance().getAveragePrice(model::Race::ELYOS, 100000001), 0) << "no offer of the item";
+}
+
 TEST_F(BrokerBrowseTest, ThePriceSortsBothWaysAndAParentMaskTakesItsChildren) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	loadOffers();
