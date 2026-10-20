@@ -89,7 +89,8 @@ void BollvigAI::skillThree() {
 	}, 5000));
 }
 
-// Java BollvigAI.java:102-111. Java bug, ported (J-A1C-2): the else-if chain cancels only the first task that is not done.
+// Java BollvigAI.java:102-111. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-A1C-2): every task that is not
+// done is cancelled; Java's else-if chain cancelled only the first, so a round's Charming Attraction outlived a new phase or a return home
 void BollvigAI::cancelTask() {
 	runtime::FutureRef first = firstTask.get();
 	runtime::FutureRef second = secondTask.get();
@@ -97,11 +98,11 @@ void BollvigAI::cancelTask() {
 	runtime::FutureRef last = lastTask.get();
 	if (first != nullptr && !first->isDone())
 		first->cancel(true);
-	else if (second != nullptr && !second->isDone())
+	if (second != nullptr && !second->isDone())
 		second->cancel(true);
-	else if (third != nullptr && !third->isDone())
+	if (third != nullptr && !third->isDone())
 		third->cancel(true);
-	else if (last != nullptr && !last->isDone())
+	if (last != nullptr && !last->isDone())
 		last->cancel(true);
 }
 
