@@ -2090,7 +2090,8 @@ def enum_ctor(jt, ms, scopes, fileset, jf, index):
     companion (<Enum>Info.h/.cpp, a free function matched), explicit enumerator values, or a table struct in the enum's files; 'standIn'
     when its methods are stand-ins in other chunks and none is undeclared (the data sits in the stand-ins); else 'undeclared' (kind
     enumData: the data is nowhere in C++)"""
-    info = any(f.endswith(('Info.h', 'Info.cpp')) for f in jf.cpp_files)
+    # the companion of a nested enum is Outer_InnerInfo.h (fileset names it), not one of the Java file's own files
+    info = any(f.endswith(('Info.h', 'Info.cpp')) for f in jf.cpp_files) or any(f.endswith('Info.h') and f in index.files for f in fileset)
     explicit = any(index.scopes[s].explicit for s in scopes if s in index.scopes)
     stand = any(m.via == 'standIn' for m in jt.methods) and not any(m.status == 'undeclared' for m in jt.methods)
     table = bool(scopes) and bool(table_fields(index, fileset, scopes, jt.path[-1]))

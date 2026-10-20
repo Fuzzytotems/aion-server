@@ -5,7 +5,6 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::dataholders {
 
@@ -34,10 +33,6 @@ int32_t NpcSkillData::size() const {
 const NpcSkillTemplates* NpcSkillData::getNpcSkillList(int32_t id) const {
 	auto it = npcSkillData.find(id);
 	return it != npcSkillData.end() ? it->second : nullptr;
-}
-
-void NpcSkillData::setNpcSkillTemplates(std::vector<NpcSkillTemplates> /*template_*/) {
-	AION_UNPORTED(); // //reload of static data is deferred (design D3): a published holder is immutable
 }
 
 const std::vector<const NpcSkillTemplates*>& NpcSkillData::getAllNpcSkillTemplates() const {
