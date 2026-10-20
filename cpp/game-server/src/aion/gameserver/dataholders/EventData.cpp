@@ -2,7 +2,6 @@
 
 #include "aion/gameserver/dataholders/SpawnsData.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::dataholders {
 
@@ -16,10 +15,6 @@ void EventData::afterUnmarshal(xml::LoadContext& ctx, const xml::XmlParent& /*pa
 
 int32_t EventData::size() const {
 	return static_cast<int32_t>(events.size());
-}
-
-void EventData::setEvents(std::vector<model::templates::event::EventTemplate> /*events*/) {
-	AION_UNPORTED(); // //reload of static data is deferred (design D3): a published holder is immutable
 }
 
 void EventData::addAllNpcIdsToSet(std::unordered_set<int32_t>& npcIds) const {

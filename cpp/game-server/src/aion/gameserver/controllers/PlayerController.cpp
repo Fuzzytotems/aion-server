@@ -20,7 +20,6 @@
 #include "aion/gameserver/configs/main/HTMLConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
 #include "aion/gameserver/configs/main/SecurityConfig.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/controllers/FlyController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
@@ -28,6 +27,7 @@
 #include "aion/gameserver/controllers/attack/AttackUtil.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
+#include "aion/gameserver/custom/pvpmap/PvpMapService.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
@@ -343,7 +343,7 @@ void PlayerController::onEnterFlyArea() {
 void PlayerController::onEnterWorld() {
 	Player& player = getOwner();
 	if (player.getPosition()->getWorldMapInstance()->getParent()->isExceptBuff()) {
-		if (!standins::pvpMapServiceIsOnPvPMap(player))
+		if (!custom::pvpmap::PvpMapService::getInstance().isOnPvPMap(player))
 			player.getEffectController()->removeAllEffects();
 	}
 

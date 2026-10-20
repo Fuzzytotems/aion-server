@@ -2,7 +2,7 @@
 
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/event/AIEventType.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
+#include "aion/gameserver/ai/follow/FollowStartService.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/movement/SummonMoveController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
@@ -55,7 +55,7 @@ void SiegeWeaponController::guardMode() {
 	getOwner().setTarget(getMaster());
 	getOwner().getAi().onCreatureEvent(AIEventType::FOLLOW_ME, *getMaster());
 	getOwner().getMoveController()->moveToTargetObject();
-	getMaster()->getController().addTask(TaskId::SUMMON_FOLLOW, standins::followStartServiceNewFollowingToTargetCheckTask(getOwner(), *getMaster()));
+	getMaster()->getController().addTask(TaskId::SUMMON_FOLLOW, ai::follow::FollowStartService::newFollowingToTargetCheckTask(getOwner(), *getMaster()));
 }
 
 void SiegeWeaponController::attackMode(int32_t targetObjId) {
@@ -68,7 +68,7 @@ void SiegeWeaponController::attackMode(int32_t targetObjId) {
 		getOwner().setTarget(target);
 		getOwner().getAi().onCreatureEvent(AIEventType::FOLLOW_ME, *target);
 		getOwner().getMoveController()->moveToTargetObject();
-		getMaster()->getController().addTask(TaskId::SUMMON_FOLLOW, standins::followStartServiceNewFollowingToTargetCheckTask(getOwner(), *target));
+		getMaster()->getController().addTask(TaskId::SUMMON_FOLLOW, ai::follow::FollowStartService::newFollowingToTargetCheckTask(getOwner(), *target));
 	}
 }
 
