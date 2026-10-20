@@ -9,7 +9,6 @@
 #include "aion/gameserver/ai/event/AIEventType.h"
 #include "aion/gameserver/ai/handler/ShoutEventHandler.h"
 #include "aion/gameserver/ai/poll/AIQuestion.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
@@ -17,6 +16,7 @@
 #include "aion/gameserver/controllers/attack/DamageList.h"
 #include "aion/gameserver/controllers/attack/TeamDamageList.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/custom/pvpmap/PvpMapHandler.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
@@ -259,7 +259,7 @@ void NpcController::doReward() {
 				rewardAp *= percentage;
 				rewardAp *= apMultiplier;
 
-				bool shouldNotifyQuestEngine = !standins::isPvpMapHandler(*instanceHandler); // do not include pvp map
+				bool shouldNotifyQuestEngine = !runtime::as<custom::pvpmap::PvpMapHandler>(instanceHandler); // do not include pvp map
 				if (shouldNotifyQuestEngine) {
 					Ref<questEngine::model::QuestEnv> env = questEngine::model::QuestEnv::create(getOwner(), *player, 0);
 					questEngine::QuestEngine::getInstance().onKill(*env);

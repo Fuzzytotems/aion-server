@@ -3241,7 +3241,9 @@ def live_checks(check):
     check('live SM_SYSTEM_MESSAGE bodies not ported', sum(1 for jt in (sm.types if sm else ()) for m in jt.methods
                                                           if m.status != 'ported'), 0)
     kinds = {where.split(' ', 1)[1]: kind for _, where, kind, _ in ms.helper_list()}
-    for name, kind in (('standins::followStartServiceNewFollowingToTargetCheckTask', 'stale'),
+    for name, kind in (
+                       # P4-last cp4 (2026-10-19) rewired SiegeWeaponController to FollowStartService: the stale helper
+                       # standins::followStartServiceNewFollowingToTargetCheckTask is gone; the synthetic checks still cover the 'stale' kind
                        # M5g (2026-10-05) ported the team stand-ins and the last inherited accessors (PlayerGroup's, PlayerAlliance's,
                        # League's): no 'standIn' or 'inherited' helper is left in the tree; the synthetic checks still cover both kinds
                        # M5j stage 4 CP3 (2026-10-13) ported the score writers' constructors: the taken helper <anon>::unportedScoreBase

@@ -33,9 +33,11 @@ namespace aion::gameserver::controllers::standins {
 // first of them live (a Poeta monster aggroes the gate's character and swings, so `CreatureController::attackTarget` reaches the physical half).
 // The plan scheduled them for stage 2 on the reasoning that "none of these is reachable before its owner lands"; that reasoning held for the
 // owners and not for the caller. Each stand-in left below now names the milestone that deletes it.
-
-/** Java: FollowStartService.newFollowingToTargetCheckTask(follower, leading) */
-runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameobjects::Summon& follower, model::gameobjects::Creature& leading);
+//
+// P4-last cp4 (2026-10-19; the coordinator approved this header edit, as R-01's removal of riftEnumData):
+// `followStartServiceNewFollowingToTargetCheckTask` is gone too - `FollowStartService::newFollowingToTargetCheckTask` is ported
+// (ai/follow/FollowStartService.h), and SiegeWeaponController's guardMode and attackMode call it the way Java writes them. No stand-in of this
+// section is left.
 
 // --------------------------------------------------------------------------------------------------------------- P5-02 (aion_gs_skills)
 
@@ -57,12 +59,8 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
 
 // ---------------------------------------------------------------------------------------------------------------- P5-14 (aion_gs_app)
 
-/**
- * Java: GameServer.updateRatio(race, i). No longer a stand-in: GameServer.h exists and this forwards to it. It stays only for its one caller
- * outside P4-11b, AccountService.cpp:66 (P5-00).
- * TODO(change-request): the P5-00 owner calls `GameServer::updateRatio` directly, then this declaration and its body go.
- */
-void gameServerUpdateRatio(model::Race race, int32_t i);
+// P4-last cp4 (2026-10-19): `gameServerUpdateRatio` is gone - AccountService.removeDeletedCharacters calls `GameServer::updateRatio` the way
+// Java writes it.
 
 // ---------------------------------------------------------------------------------------------------------- P5-12b (aion_gs_worldevents)
 
@@ -74,13 +72,8 @@ void gameServerUpdateRatio(model::Race race, int32_t i);
 // m5b-2 stage 1 (m5b2-plan.md P-04, first half): `playerRestrictionsCanUseSkill` is gone - `PlayerRestrictions::canUseSkill` is ported (P-01),
 // so `PlayerController::useSkill` calls it the way `attackTarget` calls `canAttack`. `CM_CASTSPELL` exists now (P-02) and is the caller.
 
-/** Java: PvpMapService.getInstance().isOnPvPMap(creature) */
-bool pvpMapServiceIsOnPvPMap(model::gameobjects::Creature& creature);
-
-/**
- * Java: `instanceHandler instanceof PvpMapHandler`. Not unported: the check compares the simple class name of the dynamic type (the only Java
- * class of that name), so it works before PvpMapHandler.h exists.
- */
-bool isPvpMapHandler(instance::handlers::InstanceHandler& instanceHandler);
+// P4-last cp4 (2026-10-19): `pvpMapServiceIsOnPvPMap` and `isPvpMapHandler` are gone - PvpMapService and PvpMapHandler are ported (D12), so
+// PlayerController.onEnterWorld calls `PvpMapService::isOnPvPMap` and NpcController.doReward tests `instanceof PvpMapHandler` (a cast) the way
+// Java writes them. No stand-in is left in this file.
 
 } // namespace aion::gameserver::controllers::standins

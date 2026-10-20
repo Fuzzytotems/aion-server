@@ -8,6 +8,8 @@
 
 #include "SliceDbTest.h"
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/GameServer.h"
+#include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/dao/PlayerAppearanceDAO.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/account/Account.h"
@@ -129,5 +131,25 @@ TEST_F(AccountServiceTest, RemovingTheLastCharacterReloadsTheEmptiedAccountWareh
 	EXPECT_NE(&account->getAccountWarehouse(), warehouseBefore) << "InventoryDAO.deleteAccountWH, then a new warehouse";
 }
 
+/**
+ * AccountService.java:60-65: with the ratio limitation on, deleting the account's last character of a race counts one off that race's
+ * GameServer ratio. P4-last cp4 calls GameServer::updateRatio directly instead of the stand-in standins::gameServerUpdateRatio.
+ */
+TEST_F(AccountServiceTest, RemovingTheLastCharacterOfARaceUpdatesTheRatio) {
+	const bool savedEnabled = configs::main::GSConfig::ENABLE_RATIO_LIMITATION.exchange(true);
+	const int32_t savedLevel = configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL.exchange(0);
+	insertCharacter(1051, "Ratio", 13, "ASMODIANS");
+	execute("UPDATE players SET deletion_date = '2001-01-01 00:00:00' WHERE id = 1051");
+	insertCharacter(1052, "Staying", 13);
+	Ref<Account> account = AccountService::loadAccount(13);
+	GameServer::updateRatio(model::Race::ASMODIANS, 1);
+	const int32_t before = GameServer::getCountFor(model::Race::ASMODIANS);
+	const int32_t elyosBefore = GameServer::getCountFor(model::Race::ELYOS);
+	SLICE_SKIP_IF_UNPORTED(AccountService::removeDeletedCharacters(*account));
+	EXPECT_EQ(GameServer::getCountFor(model::Race::ASMODIANS), before - 1) << "the account has no Asmodian left";
+	EXPECT_EQ(GameServer::getCountFor(model::Race::ELYOS), elyosBefore);
+	configs::main::GSConfig::ENABLE_RATIO_LIMITATION.store(savedEnabled);
+	configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL.store(savedLevel);
+}
 } // namespace
 } // namespace aion::gameserver::loginslice::test

@@ -20,6 +20,7 @@
 #include "aion/gameserver/ai/poll/AIQuestion.h"
 #include "aion/gameserver/configs/main/SiegeConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
@@ -510,6 +511,38 @@ TEST_F(SiegeA1AiTest, ASiegeWeaponFollowsOnRequest) {
 	EXPECT_EQ(ai.getState(), AIState::IDLE);
 	ai.handleAttack(nullptr); // a null creature returns at once
 	EXPECT_THROW(ai.handleSpawned(), runtime::Exception) << "the test npc has no npc skills: Java's getNpcSkills() on null";
+}
+
+/**
+ * SiegeWeaponController.java:47-70: guard mode follows the master, and attack mode follows a valid target. Each adds
+ * FollowStartService.newFollowingToTargetCheckTask to the master's controller as SUMMON_FOLLOW. Before P4-last's cp4 both modes reached the
+ * AION_UNPORTED stand-in standins::followStartServiceNewFollowingToTargetCheckTask and threw.
+ */
+TEST_F(SiegeA1AiTest, ASiegeWeaponsGuardAndAttackModesScheduleTheFollowTaskOnItsMaster) {
+	AI_TEST_SCOPE;
+	Ref<model::gameobjects::player::Player> master = makeWorldPlayer(7206, 502, 500, 100);
+	master->getCommonData()->setRace(model::Race::ASMODIANS); // a GCHIEF_LIGHT boss is a valid target of an Asmodian's weapon
+	Ref<model::gameobjects::Summon> weapon = makeSiegeWeapon(*master);
+	weapon->setEffectController(std::make_unique<controllers::effect::EffectController>(*weapon)); // the move task reads it
+	install<SiegeWeaponProbe>(*weapon);
+	ASSERT_FALSE(master->getController().hasTask(model::TaskId::SUMMON_FOLLOW));
+
+	ASSERT_NO_THROW(weapon->getController().guardMode());
+	EXPECT_TRUE(master->getController().hasTask(model::TaskId::SUMMON_FOLLOW)) << "the follow task of the master";
+	EXPECT_EQ(weapon->getTarget().get(), master.get());
+	executor->advance(std::chrono::milliseconds(1000)); // the first run: the weapon stands at its master, nothing to do
+	EXPECT_TRUE(master->getController().hasTask(model::TaskId::SUMMON_FOLLOW)) << "a fixed-rate task stays scheduled";
+	EXPECT_EQ(weapon->getMaster().get(), master.get()) << "in its master's range: not released for DISTANCE";
+
+	Ref<SiegeNpc> boss = makeSiegeNpc(FORTRESS_BOSS_NPC_ID, 504, 500, 100);
+	know(*weapon, *boss);
+	master->getController().cancelTask(model::TaskId::SUMMON_FOLLOW);
+	ASSERT_FALSE(master->getController().hasTask(model::TaskId::SUMMON_FOLLOW));
+	ASSERT_NO_THROW(weapon->getController().attackMode(boss->getObjectId()));
+	EXPECT_EQ(weapon->getTarget().get(), boss.get());
+	EXPECT_TRUE(master->getController().hasTask(model::TaskId::SUMMON_FOLLOW)) << "the follow task of the target";
+
+	master->getController().cancelTask(model::TaskId::SUMMON_FOLLOW);
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------- cp3
