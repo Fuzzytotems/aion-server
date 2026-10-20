@@ -12,3 +12,12 @@ C++: the delete is a task (delay 0) that runs once the update has
 returned, and the suppression is gone. Tests: `InggisonA1AiTest.TheGeyserBlockerHoldsTheGeyserUntilItDies` (the geyser still stands inside
 see() and is gone after the task), `TheGeyserBlockerTellsThePlayersNearby` (runs the task before the death). Mutation proof 1 of 1 (the
 delete inside see()).
+
+### BollvigAI.cancelTask cancels all four tasks (owner's decision 2026-10-19, both branches; was J-A1C-2)
+
+Java (BollvigAI.java:102-111) cancels the tasks in an else-if chain, so only the first that is not done; a phase or a return home left the
+older round's Charming Attraction running.
+
+C++: independent ifs, every task that is not done is cancelled. Test:
+`HeironA1AiTest.APhaseCancelsEveryTaskOfTheRound` (after the 25 % phase only its own round's 280804 comes, 46 s after the 50 % phase, not
+one second earlier). Mutation proof 1 of 1 (the else-if chain).
