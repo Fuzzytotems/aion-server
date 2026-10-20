@@ -10,6 +10,7 @@
 #include "aion/commons/utils/Rnd.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/attack/AggroInfo.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
@@ -184,6 +185,7 @@ bool RoahCustomInstanceHandler::onPassFlyingRing(Player& player, std::string_vie
 
 // Java RoahCustomInstanceHandler.java:177-221
 void RoahCustomInstanceHandler::onDie(Npc& npc) {
+	dpsReport->addDamage(playerDamageOn(npc)); // C++-dev only: every npc's damage counts for the phase's total DPS
 	switch (npc.getNpcId()) {
 		case TRASH_MOB_ID:
 		case BULKY_MOB_ID:
@@ -200,6 +202,7 @@ void RoahCustomInstanceHandler::onDie(Npc& npc) {
 				"[CI_ROAH] Player [id={}, name={}, class={}, rank={}({}), isPrebuffed={}] succeeded in destroying the artifact in {:.3f}s (DPS:{}).",
 				pcd->getPlayerObjId(), pcd->getName(), xml::enumName(pcd->getPlayerClass()), getRankDescription(rank.get()), rank.get(),
 				isPrebuffed.get(), usedTime, achievedDps.get()));
+			addDamageOnAliveNpcs(&npc); // C++-dev only: the protectors deleted below still count for the phase
 			dpsReport->artifactDestroyed(usedTime, achievedDps.get(), avgClassDps.get(), isPrebuffed.get()); // C++-dev only: the artifact phase
 			sendReport(dpsReport->artifactMessage());
 			deleteAliveNpcs({TRASH_MOB_ID, BULKY_MOB_ID, DOMINATOR_MOB_ID});
@@ -229,12 +232,13 @@ void RoahCustomInstanceHandler::onDie(Npc& npc) {
 		case BOSS_MOB_E_M_ID:
 		case BOSS_MOB_E_F_ID:
 		case BOSS_MOB_AT_ID: {
+			closeRunDamage(&npc); // C++-dev only: adds still alive count for the boss phase
 			dpsReport->bossKilled(npc.getLifeStats()->getMaxHp()); // C++-dev only: the boss phase, logged in the [CI_ROAH] style
 			runtime::Ref<model::gameobjects::player::PlayerCommonData> pcd = services::player::PlayerService::getOrLoadPlayerCommonData(playerObjId.get());
-			log.info(std::format("[CI_ROAH] Player [id={}, name={}, class={}, rank={}({}), isPrebuffed={}] killed the boss in {:.3f}s (DPS:{}), "
-				"the whole run took {:.3f}s.", pcd->getPlayerObjId(), pcd->getName(), xml::enumName(pcd->getPlayerClass()),
+			log.info(std::format("[CI_ROAH] Player [id={}, name={}, class={}, rank={}({}), isPrebuffed={}] killed the boss in {:.3f}s (DPS:{}, total DPS:{}), "
+				"the whole run took {:.3f}s (total DPS:{}).", pcd->getPlayerObjId(), pcd->getName(), xml::enumName(pcd->getPlayerClass()),
 				getRankDescription(rank.get()), rank.get(), isPrebuffed.get(), dpsReport->getBossSeconds(), dpsReport->getBossDps(),
-				dpsReport->getTotalSeconds()));
+				dpsReport->getBossPhaseTotalDps(), dpsReport->getTotalSeconds(), dpsReport->getRunTotalDps()));
 			calcBossDrop(npc.getObjectId());
 			setResult(true);
 			PacketSendUtility::broadcastToMap(*instance, SM_QUEST_ACTION(0, 0));
@@ -268,6 +272,7 @@ void RoahCustomInstanceHandler::onEnterInstance(Player& player) {
 // C++-dev only, not in Java: a run left before its end gets its failure report (the rank is not changed: Java's run just ends)
 void RoahCustomInstanceHandler::onLeaveInstance(Player& player) {
 	if (dpsReport->isRunStarted() && !isCompleted.get()) {
+		closeRunDamage(nullptr);
 		dpsReport->runEnded();
 		PacketSendUtility::sendMessage(player, dpsReport->failureReport("left the instance"));
 	}
@@ -392,6 +397,7 @@ void RoahCustomInstanceHandler::setResult(bool success, std::string_view failure
 		if (success) { // C++-dev only: the run's DPS report in the player's chat log
 			sendReport(dpsReport->successReport(getRankDescription(oldRank), getRankDescription(rank.get())));
 		} else {
+			closeRunDamage(nullptr);
 			dpsReport->runEnded();
 			sendReport(dpsReport->failureReport(failureReason));
 		}
@@ -408,6 +414,31 @@ void RoahCustomInstanceHandler::setResult(bool success, std::string_view failure
 void RoahCustomInstanceHandler::sendReport(const std::string& text) {
 	if (runtime::Ptr<Player> player = instance->getPlayer(playerObjId.get()))
 		PacketSendUtility::sendMessage(*player, text); // GOLDEN_YELLOW: the chat log
+}
+
+int64_t RoahCustomInstanceHandler::playerDamageOn(Npc& npc) {
+	int64_t damage = 0;
+	for (const runtime::Ptr<controllers::attack::AggroInfo>& info : npc.getAggroList().stream()) {
+		if (info->getDamage() <= 0)
+			continue;
+		// the player's summons and servants count as the player, as AggroList.getFinalDamageList attributes them to their master
+		runtime::Ptr<model::gameobjects::Creature> master = info->getAttacker()->getMaster();
+		if (master != nullptr && master->getObjectId() == playerObjId.get())
+			damage += info->getDamage();
+	}
+	return damage;
+}
+
+void RoahCustomInstanceHandler::addDamageOnAliveNpcs(const Npc* except) {
+	for (runtime::Ptr<Npc> n : instance->getNpcs()) {
+		if (n.get() != except && !n->isDead())
+			dpsReport->addDamage(playerDamageOn(*n));
+	}
+}
+
+void RoahCustomInstanceHandler::closeRunDamage(const Npc* except) {
+	if (runDamageClosed.compareAndSet(false, true))
+		addDamageOnAliveNpcs(except);
 }
 
 // Java RoahCustomInstanceHandler.java:333-342
@@ -485,6 +516,7 @@ bool RoahCustomInstanceHandler::onReviveEvent(Player& player) {
 bool RoahCustomInstanceHandler::onDie(Player& player, model::gameobjects::Creature& lastAttacker) {
 	static_cast<void>(lastAttacker);
 	if (!isCompleted.get()) {
+		closeRunDamage(nullptr); // C++-dev only: before the npcs are deleted below
 		if (isBossPhase.get()) {
 			PacketSendUtility::sendMessage(player, "At last! I have become .. your greatest nightmare!", ChatType::BRIGHT_YELLOW_CENTER);
 			deleteAliveNpcs({BOSS_MOB_A_M_ID, BOSS_MOB_A_F_ID, BOSS_MOB_E_M_ID, BOSS_MOB_E_F_ID, BOSS_MOB_AT_ID});

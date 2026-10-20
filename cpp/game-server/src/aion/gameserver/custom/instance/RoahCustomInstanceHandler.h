@@ -65,6 +65,7 @@ private:
 	// C++-dev only, not in Java: the DPS report (docs/deviations/P5-13.md, "C++-dev only: the Eternal Challenge DPS report"), a part; the wall
 	// clock, as startTime
 	const std::unique_ptr<RoahDpsReport> dpsReport;
+	runtime::AtomicBoolean runDamageClosed{AION_LOCK_CLASS(RoahCustomInstanceHandler::runDamageClosed)}; // C++-dev only: alive npcs counted once
 protected:
 	explicit RoahCustomInstanceHandler(world::WorldMapInstance& instance);
 public:
@@ -90,6 +91,12 @@ private:
 	void setResult(bool success, std::string_view failureReason);
 	/** C++-dev only: sends a DPS report line to the player's chat log (GOLDEN_YELLOW), when he is in the instance */
 	void sendReport(const std::string& text);
+	/** C++-dev only: the damage the player (with his summons and servants) dealt to the npc, from its aggro list */
+	int64_t playerDamageOn(gameserver::model::gameobjects::Npc& npc);
+	/** C++-dev only: adds the player's damage on every living npc of the instance but `except` to the report's current phase */
+	void addDamageOnAliveNpcs(const gameserver::model::gameobjects::Npc* except);
+	/** C++-dev only: addDamageOnAliveNpcs once, when the run ends (the boss's death, a failure or leaving) */
+	void closeRunDamage(const gameserver::model::gameobjects::Npc* except);
 	void cancelAllTasks();
 	void spawnUnlockableNpcs(gameserver::model::gameobjects::player::Player& player);
 	int32_t getElapsedTimeMillis();
