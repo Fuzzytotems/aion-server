@@ -235,3 +235,4 @@ One instance per checkpoint, smallest first, stacked from origin/C++ (a branch l
 > **Progress (2026-10-19):** J-P6I7-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
 > **Progress (2026-10-19):** J-P6I12-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
 > **Progress (2026-10-19):** J-P6I13-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-P6I13-2 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.

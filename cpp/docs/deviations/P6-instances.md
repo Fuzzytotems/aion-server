@@ -109,5 +109,14 @@ empyrean lord dies early, instead of the anguished incarnations 236278-236281.
 C++: the loop over 236278-236281. Test:
 `AnguishedRefugeTest.TheAnguishedLordsEarlyDeath` (the four incarnations cast, a 283163 does not). Mutation proof 1 of 1 (Java's ids).
 
+### The Anguished Refuge's end spares its own lords and Tiamat (owner's decision 2026-10-19, both branches; was J-P6I13-2)
+
+Java (AnguishedDragonLordsRefugeInstance.java:140-148) spares 219490, 219493 and 219362 - the normal refuge's ids - when its weakened
+Tiamat (236277) dies, so its own last-phase lords and Tiamat were deleted.
+
+C++: the anguished ids 856022, 856025 and 236277. Test:
+`AnguishedRefugeTest.TheAnguishedEndSparesItsOwnIds` (renamed from TheAnguishedEndSparesTheNormalIds, which pinned Java's behaviour).
+Mutation proof 1 of 1 (Java's ids).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
