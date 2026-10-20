@@ -88,6 +88,10 @@ struct MinionProbe : ais::BeritraMinionAI {
 	using BeritraMinionAI::BeritraMinionAI;
 	using BeritraMinionAI::handleSpawned;
 };
+struct OrissanProbe : ais::OrissanAI {
+	using OrissanAI::OrissanAI;
+	using OrissanAI::handleDied;
+};
 struct HelperProbe : ais::OrissanSummonHelperAI {
 	using OrissanSummonHelperAI::OrissanSummonHelperAI;
 };
@@ -172,6 +176,17 @@ TEST_F(DrakenspireAiTest, TheFactoriesBuildTheirClasses) {
 	EXPECT_NE(dynamic_cast<ais::WaveEventBomberAI*>(ais::WaveEventBomberAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::WaveEventExecutorAI*>(ais::WaveEventExecutorAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::WavePortalAI*>(ais::WavePortalAI_aiFactory(*npc).get()), nullptr);
+}
+
+/** OrissanAI.java:132-136 with the correction of 2026-10-19 (was J-P6I12-1): his death is NpcAI's death (DiedEventHandler: the DIED state,
+ * no target), not the despawn handling Java called */
+TEST_F(DrakenspireAiTest, OrissansDeathIsADeath) {
+	runtime::Ptr<Npc> orissan = place(900200);
+	auto& ai = install<OrissanProbe>(*orissan);
+	orissan->setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(player()));
+	ai.handleDied();
+	EXPECT_EQ(ai.getState(), gameserver::ai::AIState::DIED);
+	EXPECT_EQ(orissan->getTarget(), nullptr);
 }
 
 /** SealBreakerAI.java, DragonBeritraAI.java, OrissansSummonAI.java, OrissanSummonHelperAI.java: their answers */

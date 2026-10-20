@@ -29,7 +29,7 @@ using model::gameobjects::Npc;
 
 class QuestsA1AiTest : public A1NpcAiTest {
 protected:
-	std::string rowsXml() override { return a1NpcTemplatesXml({900100, 282913, 204044, 800020}); }
+	std::string rowsXml() override { return a1NpcTemplatesXml({900100, 282913, 282914, 204044, 800020}); }
 };
 
 TEST_F(QuestsA1AiTest, TheQuestMarkersBuildTheirClasses) {
@@ -39,6 +39,22 @@ TEST_F(QuestsA1AiTest, TheQuestMarkersBuildTheirClasses) {
 	EXPECT_NE(dynamic_cast<quests::NidalberBalaurAI*>(quests::NidalberBalaurAI_aiFactory(npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<quests::QuestStartItemNpcAI*>(quests::QuestStartItemNpcAI_aiFactory(npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<quests::QuestUseNpcAI*>(quests::QuestUseNpcAI_aiFactory(npc).get()), nullptr);
+}
+
+class InfiltratorProbe final : public quests::InfiltratorsAI {
+public:
+	using InfiltratorsAI::InfiltratorsAI;
+	using InfiltratorsAI::handleDied;
+};
+
+/** InfiltratorsAI.java:18-47 with the correction of 2026-10-19 (was J-A1A-1): the last infiltrator of a chain (282914) spawns nothing, where
+ * Java spawned npc 0 (VisibleObjectSpawner's "No template for NPC 0"); the first (282913) spawns the next one, 282914 */
+TEST_F(QuestsA1AiTest, TheLastInfiltratorSpawnsNothing) {
+	ai::testing::LogCapture spawner("com.aionemu.gameserver.spawnengine.VisibleObjectSpawner");
+	install<InfiltratorProbe>(npcAt(282914)).handleDied();
+	EXPECT_EQ(spawner.text().find("No template"), std::string::npos) << spawner.text();
+	install<InfiltratorProbe>(npcAt(282913, 104.0f)).handleDied();
+	EXPECT_EQ(spawner.text().find("No template"), std::string::npos) << "282914 has a template: " << spawner.text();
 }
 
 class GarnonProbe final : public quests::GarnonQ20060AI {

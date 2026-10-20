@@ -172,14 +172,19 @@ TEST_F(I2AiTest, AnAttackerGoesForTheStone) {
 	EXPECT_EQ(attacker->getAggroList().getHate(*stone), 3000);
 }
 
-/** :34-48 (the java-bug of the list): the Elyos stage-3 stone 855809 is not on it, so its attackers hate nothing */
-TEST_F(I2AiTest, AnAttackerDoesNotFindTheThirdElyosStone) {
-	runtime::Ptr<Npc> stone = place(855809);
-	runtime::Ptr<Npc> attacker = place(855842);
-	stoneAware(*attacker, *stone);
-	AttackerProbe& ai = install<AttackerProbe>(*attacker);
-	ai.handleSpawned();
-	EXPECT_FALSE(attacker->getAggroList().isHating(*stone));
+/** :34-48 with the correction of 2026-10-19 (was J-I2-1): the Elyos stage-3 stone 855809 and the Asmodian stage-4 stone 856469 are on the
+ * list, so their attackers hate them (Java's list missed both) */
+TEST_F(I2AiTest, AnAttackerFindsTheThirdElyosAndFourthAsmodianStones) {
+	for (int32_t stoneId : {855809, 856469}) {
+		runtime::Ptr<Npc> stone = place(stoneId);
+		runtime::Ptr<Npc> attacker = place(855842);
+		stoneAware(*attacker, *stone);
+		AttackerProbe& ai = install<AttackerProbe>(*attacker);
+		ai.handleSpawned();
+		EXPECT_EQ(attacker->getAggroList().getHate(*stone), 3000) << stoneId << " (Java: not on the list)";
+		stone->getController().delete_();
+		attacker->getController().delete_();
+	}
 }
 
 } // namespace

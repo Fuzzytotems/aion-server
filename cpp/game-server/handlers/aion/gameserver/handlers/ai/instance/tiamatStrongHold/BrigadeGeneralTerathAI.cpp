@@ -140,7 +140,8 @@ void BrigadeGeneralTerathAI::despawn() {
 	deleteNpcs(instance->getNpcs({283110})); // 4.0
 }
 
-// Java BrigadeGeneralTerathAI.java:156-168 (Java bug J-I6-4 ported: the deleted field stays referenced)
+// Java BrigadeGeneralTerathAI.java:156-168. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I6-4): the
+// reference to the deleted Aetheric Field is cleared, so the next fight's first attack spawns a new one and closes door 706 again
 void BrigadeGeneralTerathAI::handleBackHome() {
 	AggressiveNpcAI::handleBackHome();
 	hpPhases->reset();
@@ -150,6 +151,7 @@ void BrigadeGeneralTerathAI::handleBackHome() {
 	canThink_ = true;
 	isHome.set(true);
 	aethericField.get()->getController().delete_();
+	aethericField = nullptr; // the correction (was J-I6-4)
 	despawn();
 	getPosition()->getWorldMapInstance()->setDoorState(706, true);
 }

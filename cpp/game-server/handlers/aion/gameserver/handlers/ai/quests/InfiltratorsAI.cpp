@@ -6,7 +6,8 @@ namespace aion::gameserver::handlers::ai::quests {
 
 AION_AI(InfiltratorsAI, "infiltrator");
 
-// Java InfiltratorsAI.java:18-47
+// Java InfiltratorsAI.java:18-47. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-A1A-1): no spawn when the
+// switch gave no npc (the last of each chain and every other id); Java spawned npc 0, which fails with an error in the log
 void InfiltratorsAI::handleDied() {
 	AggressiveNpcAI::handleDied();
 	int32_t ownerNpcId = getOwner().getNpcId(); // Java: owner (it hides the AI's member)
@@ -34,7 +35,8 @@ void InfiltratorsAI::handleDied() {
 			spawnNpc = 282923;
 			break;
 	}
-	spawn(spawnNpc, getOwner().getSpawn()->getX(), getOwner().getSpawn()->getY(), getOwner().getSpawn()->getZ(), getOwner().getSpawn()->getHeading());
+	if (spawnNpc != 0) // the correction (was J-A1A-1)
+		spawn(spawnNpc, getOwner().getSpawn()->getX(), getOwner().getSpawn()->getY(), getOwner().getSpawn()->getZ(), getOwner().getSpawn()->getHeading());
 }
 
 } // namespace aion::gameserver::handlers::ai::quests

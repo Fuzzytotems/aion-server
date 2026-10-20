@@ -1366,9 +1366,10 @@ void ShugoImperialTombInstance::leaveInstance(Player& player) {
 	TeleportService::moveToInstanceExit(player, mapId, player.getRace());
 }
 
-// Java ShugoImperialTombInstance.java:1321-1324 (Java bug J-I6-3 ported: 291512 and 291513 for 219512 and 219513)
+// Java ShugoImperialTombInstance.java:1321-1324. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I6-3): 219512
+// and 219513, where Java listed 291512 and 291513
 void ShugoImperialTombInstance::despawnNpcs() {
-	deleteAliveNpcs({219461, 219505, 219507, 219508, 219509, 219510, 219511, 291512, 291513, 219514, 219515, 219516, 219517, 219518, 219519, 219520,
+	deleteAliveNpcs({219461, 219505, 219507, 219508, 219509, 219510, 219511, 219512, 219513, 219514, 219515, 219516, 219517, 219518, 219519, 219520,
 		219521, 219522, 219523, 219524, 219525, 219526, 219527, 219528, 219529, 219530, 219531, 219543, 219544, 219630});
 }
 

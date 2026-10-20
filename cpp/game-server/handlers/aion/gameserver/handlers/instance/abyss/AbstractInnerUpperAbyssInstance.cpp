@@ -73,15 +73,14 @@ void AbstractInnerUpperAbyssInstance::switchToEasyMode() {
 	}
 }
 
-// Java AbstractInnerUpperAbyssInstance.java:164-180 (a second call finds chestLocations null: Java's NullPointerException)
+// Java AbstractInnerUpperAbyssInstance.java:164-180. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-P6I4-1):
+// the list is kept; Java cleared it and set it null, so a keep's second boss death (both ids call spawnChests) threw a NullPointerException
 void AbstractInnerUpperAbyssInstance::spawnChests() {
 	runtime::FutureRef task = chestReductionTask.get();
 	if (task != nullptr && !task->isCancelled())
 		task->cancel(true);
 	int32_t chestCount = 11 - failCounter.get();
 	runtime::Ptr<runtime::RcArrayList<runtime::Ref<WorldPosition>>> locations = chestLocations.get();
-	if (locations == nullptr) // Java: chestLocations.get(i) of the null list (the second boss death after the first)
-		throw runtime::NullPointerException("AbstractInnerUpperAbyssInstance.chestLocations");
 	for (int32_t i = 0; i < chestCount; i++) {
 		runtime::Ptr<WorldPosition> chestLoc = locations->get(i);
 		spawn(getChestId(), chestLoc->getX(), chestLoc->getY(), chestLoc->getZ(), chestLoc->getHeading());
@@ -90,8 +89,7 @@ void AbstractInnerUpperAbyssInstance::spawnChests() {
 		runtime::Ptr<WorldPosition> bChestLoc = locations->get(locations->size() - 1);
 		spawn(getChestId() + 1, bChestLoc->getX(), bChestLoc->getY(), bChestLoc->getZ(), bChestLoc->getHeading());
 	}
-	locations->clear();
-	chestLocations = nullptr;
+	// the correction (was J-P6I4-1): Java's `chestLocations.clear(); chestLocations = null;` is gone
 }
 
 // Java AbstractInnerUpperAbyssInstance.java:187-190

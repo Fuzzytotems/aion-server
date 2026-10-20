@@ -263,7 +263,7 @@ TEST_F(TiamatTest, TahabatasEruptionsAndStorm) {
 }
 
 /** BrigadeGeneralTerathAI.java:44-168: the first attack brings the Aetheric Field; at 90 % the gravity event, its adds 10 s later and gone at
- * 30 s; back home the field goes and the next fight brings none (Java bug J-I6-4) */
+ * 30 s; back home the field goes and the next fight brings a new one (the correction of 2026-10-19, was J-I6-4) */
 TEST_F(TiamatTest, TerathsGravityEvent) {
 	publishSkills({20737, 20739, 20741, 20942});
 	runtime::Ptr<Npc> terath = place(219354);
@@ -284,7 +284,7 @@ TEST_F(TiamatTest, TerathsGravityEvent) {
 	ai.handleBackHome();
 	EXPECT_EQ(count(730692), 0u);
 	ai.handleAttack(runtime::Ptr<Creature>(player()));
-	EXPECT_EQ(count(730692), 0u) << "Java keeps the deleted field: no new one";
+	EXPECT_EQ(count(730692), 1u) << "a new field (Java kept the deleted one: none, was J-I6-4)";
 }
 
 } // namespace

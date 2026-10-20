@@ -165,8 +165,9 @@ void AnguishedDragonLordsRefugeInstance::onDie(Npc& npc) {
 			failTask.get()->cancel(true);
 			PacketSendUtility::broadcastToMap(*instance, SM_QUEST_ACTION(0, 0));
 			// TODO: play movie
-			// Java bug (J-P6I13-2): the normal refuge's ids 219490, 219493, 219362 are spared
-			endInstance({219490, 219493, 219362, 730625, 730633, 730634, 730635, 730636});
+			// the correction of 2026-10-19 (was J-P6I13-2): its own last-phase lords and Tiamat are spared; Java spared the normal refuge's
+			// 219490, 219493 and 219362
+			endInstance({856022, 856025, 236277, 730625, 730633, 730634, 730635, 730636});
 			spawn(702729, 480.0f, 514.0f, 417.405f, int8_t{0}); // Treasure Chest
 			spawn(800430, 506.8f, 511.4f, 417.405f, int8_t{60}); // Kahrun
 			spawn(800350 + raceId.get() * 6, 506.7f, 518.4f, 417.405f, int8_t{60}); // human Kaisinel/Marchutan
@@ -196,7 +197,9 @@ void AnguishedDragonLordsRefugeInstance::onDie(Npc& npc) {
 			if (incarnationKills.get() == 4) // in rare cases the empyrean lord dies while the instance have to wait for progress
 				return;
 			sendMsg(SM_SYSTEM_MESSAGE::STR_MSG_IDTIAMAT_TIAMAT_DEADLYHOWLING());
-			for (int32_t i = 283163; i <= 283166; i++) { // Java bug (J-P6I13-1): the normal refuge's spiritualists
+			// the correction of 2026-10-19 (was J-P6I13-1): the anguished incarnations; Java looped over 283163-283166, the normal refuge's
+			// spiritualists
+			for (int32_t i = 236278; i <= 236281; i++) {
 				runtime::Ptr<Npc> incarnation = getNpc(i);
 				if (incarnation != nullptr)
 					AIActions::useSkill(incarnation->getAi(), 20983);

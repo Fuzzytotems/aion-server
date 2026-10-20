@@ -138,6 +138,28 @@ TEST_F(HeironA1AiTest, BollvigsRoundRepeats) {
 	ai.handleBackHome();
 }
 
+/** BollvigAI.java:102-111 with the correction of 2026-10-19 (was J-A1C-2): the 25 % phase cancels both tasks of the 50 % round, so only
+ * its own round's Charming Attraction (31 s), Curse of Soul (5 s) and 280804 (10 s) follow - 46 s after it, not one second earlier (Java's
+ * else-if chain cancelled only the Nerve Absorption and left the older round running) */
+TEST_F(HeironA1AiTest, APhaseCancelsEveryTaskOfTheRound) {
+	runtime::Ptr<Npc> bollvig = place(900200, 1001.0f, 2828.0f, 235.66f);
+	auto& ai = install<Probe<hei::BollvigAI>>(*bollvig);
+	aggro(*bollvig);
+	bollvig->getLifeStats()->setCurrentHpPercent(74);
+	ai.handleAttack(runtime::Ptr<Creature>(player())); // 75 %
+	bollvig->getLifeStats()->setCurrentHpPercent(49);
+	ai.handleAttack(runtime::Ptr<Creature>(player())); // 50 % at t = 0: Nerve Absorption at 10 s, Charming Attraction at 31 s
+	executor().advance(std::chrono::seconds(1));
+	bollvig->getLifeStats()->setCurrentHpPercent(24);
+	ai.handleAttack(runtime::Ptr<Creature>(player())); // 25 % at t = 1: both cancelled; its own Charming Attraction at 32 s
+	bollvig->getLifeStats()->setCurrentHpPercent(40); // so the rounds' Curse of Soul call the next round (and a 280804 10 s later)
+	executor().advance(std::chrono::seconds(45)); // t = 46
+	EXPECT_EQ(count(280804), 0u) << "the 50 % round was cancelled (Java: its 280804 at 46 s)";
+	executor().advance(std::chrono::seconds(1)); // t = 47
+	EXPECT_EQ(count(280804), 1u) << "the 25 % round's";
+	ai.handleBackHome();
+}
+
 /** KlawspawnAI.java:22-48: no thinking, 1 damage; while no 212120 is there an attack may call one and die; its death deletes it */
 TEST_F(HeironA1AiTest, AKlawspawnMayCallItsMother) {
 	commons::utils::Rnd::seedCurrentThreadForTests(16);
