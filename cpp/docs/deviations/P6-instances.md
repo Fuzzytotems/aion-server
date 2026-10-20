@@ -93,5 +93,13 @@ Java (BrigadeGeneralVashartiAI.java:132-148) switches on Vasharti's own npc id (
 C++: the switch on `n.getNpcId()`. Test: `RentusTest.TheEndOfTheSeaOfFireTakesTheFire` (the three fire effects she knows are deleted, another
 npc stays). Mutation proof 1 of 1 (Java's `getNpcId()`).
 
+### Orissan's death is a death (owner's decision 2026-10-19, both branches; was J-P6I12-1)
+
+Java (OrissanAI.java:132-136) calls `super.handleDespawned()` in handleDied, so Orissan's death skipped NpcAI's death handling
+(DiedEventHandler: the shout, the DIED state, the target cleared).
+
+C++: `super.handleDied()`. Test: `DrakenspireAiTest.OrissansDeathIsADeath` (the DIED state, no target). Mutation proof 1 of 1 (Java's
+handleDespawned).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
