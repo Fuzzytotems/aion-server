@@ -69,6 +69,14 @@ C++: the bands on 283116 (25-37 m, 20970) and 283118 (20-25 m, 20971). Test:
 `TiamatRestAiTest.TahabatasAltarsDebuffInTheirBands` (a cast inside the band, none outside or at an npc). Mutation proof 1 of 1 (Java's
 ids).
 
+### Tiamat's eyes speak with the ids the handler spawns them as, 283177-283180 (owner's decision 2026-10-19, both branches; was J-I6-6)
+
+Java (TiamatEyeAI.java:20-39) switches on the 4.0 ids 283913-283916, but TiamatStrongHoldInstance spawns the eyes as 283177-283180, so
+no eye spoke.
+
+C++: the switch on 283177-283180. Test: `TiamatRestAiTest.TheEyesSpeakWithTheHandlersIds` (each eye's message 2 s after
+its spawn; the 4.0 id says nothing). Mutation proof 1 of 1 (Java's ids).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
