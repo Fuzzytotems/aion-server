@@ -313,16 +313,19 @@ TEST_F(AnguishedRefugeTest, TheAnguishedSpiritualistsGo) {
 	EXPECT_TRUE(dies(283164)->isSpawned()) << "the normal refuge's spiritualist stays";
 }
 
-/** Anguished :140-148 (J-P6I13-2, ported): the weakened Tiamat's death spares the normal refuge's 219490, not its own 856022 */
-TEST_F(AnguishedRefugeTest, TheAnguishedEndSparesTheNormalIds) {
+/** Anguished :140-148 with the correction of 2026-10-19 (was J-P6I13-2): the weakened Tiamat's death spares its own last-phase lords (856022,
+ * 856025) and Tiamat (236277), not the normal refuge's ids */
+TEST_F(AnguishedRefugeTest, TheAnguishedEndSparesItsOwnIds) {
 	handler().onEnterInstance(player());
 	runtime::Ptr<Npc> normalLord = at(219490);
 	runtime::Ptr<Npc> ownLord = at(856022);
+	runtime::Ptr<Npc> otherOwnLord = at(856025);
 	runtime::Ptr<Npc> tiamat = at(236277);
 	handler().onDie(*tiamat);
-	EXPECT_TRUE(normalLord->isSpawned());
-	EXPECT_FALSE(ownLord->isSpawned());
-	EXPECT_FALSE(tiamat->isSpawned());
+	EXPECT_FALSE(normalLord->isSpawned()) << "the normal refuge's id (Java: spared)";
+	EXPECT_TRUE(ownLord->isSpawned());
+	EXPECT_TRUE(otherOwnLord->isSpawned());
+	EXPECT_TRUE(tiamat->isSpawned());
 	EXPECT_EQ(count({702729}), 1u);
 	EXPECT_EQ(count({701542}), 0u);
 	EXPECT_EQ(count({833482}), 1u);
