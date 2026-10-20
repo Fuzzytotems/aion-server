@@ -60,6 +60,15 @@ did not close door 706 again.
 C++: the reference is cleared after the delete. Test: `TiamatTest.TerathsGravityEvent` (the next fight
 brings a new field). Mutation proof 1 of 1 (the reference kept).
 
+### Tahabata's altars check their bands on 283116 and 283118 (owner's decision 2026-10-19, both branches; was J-I6-5)
+
+Java (TahabataAltarAI.java:32-47) chooses the debuff for 283116/283118 but checks the bands on 283253/283255, ids no npc template has,
+so no altar ever debuffed.
+
+C++: the bands on 283116 (25-37 m, 20970) and 283118 (20-25 m, 20971). Test:
+`TiamatRestAiTest.TahabatasAltarsDebuffInTheirBands` (a cast inside the band, none outside or at an npc). Mutation proof 1 of 1 (Java's
+ids).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
