@@ -1,12 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include "aion/gameserver/runtime/collections/ConcurrentHashMap.h"
+#include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/model/broker/fwd.h"
@@ -40,9 +42,12 @@ public:
 		const runtime::Ref<model::gameobjects::Item> kinahItem; // null for BrokerOpSaveTask(brokerItem)
 		const int32_t playerId;
 	protected:
-		BrokerOpSaveTask(model::gameobjects::BrokerItem& brokerItem, model::gameobjects::Item& item, model::gameobjects::Item& kinahItem, int32_t playerId);
+		BrokerOpSaveTask(model::gameobjects::BrokerItem& brokerItem, runtime::Ptr<model::gameobjects::Item> item, runtime::Ptr<model::gameobjects::Item> kinahItem,
+			int32_t playerId);
 	public:
-		static runtime::Ref<BrokerService::BrokerOpSaveTask> create(model::gameobjects::BrokerItem& value, model::gameobjects::Item& itemValue, model::gameobjects::Item& kinahItemValue, int32_t playerIdValue);
+		/** Java's item and kinahItem may be null (run() checks both): the kinah item of an inventory without kinah, a bought item Java adds as null */
+		static runtime::Ref<BrokerService::BrokerOpSaveTask> create(model::gameobjects::BrokerItem& value, runtime::Ptr<model::gameobjects::Item> itemValue,
+			runtime::Ptr<model::gameobjects::Item> kinahItemValue, int32_t playerIdValue);
 	protected:
 		explicit BrokerOpSaveTask(model::gameobjects::BrokerItem& brokerItem);
 	public:
@@ -69,10 +74,17 @@ private:
 	~BrokerService();
 	void initBrokerService();
 public:
-	void showRequestedItems(model::gameobjects::player::Player& player, int32_t clientMask, int8_t sortType, int32_t startPage, const std::vector<int32_t>& itemList);
+	/**
+	 * @param itemList Java's List<Integer>: null for a plain listing (CM_BROKER_LIST), and the cached search list when buyBrokerItem shows the
+	 *          page again. The player's cache keeps it by reference (BrokerPlayerCache.itemList), as Java does
+	 */
+	void showRequestedItems(model::gameobjects::player::Player& player, int32_t clientMask, int8_t sortType, int32_t startPage,
+		runtime::Ptr<runtime::RcArrayList<int32_t>> itemList);
 	int64_t getAveragePrice(model::Race race, int32_t itemId);
 private:
-	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> getItemsByMask(model::gameobjects::player::Player& player, int32_t clientMask, bool cached);
+	/** @return Java's list, std::nullopt for Java's null (a race without a broker) */
+	std::optional<std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>> getItemsByMask(model::gameobjects::player::Player& player, int32_t clientMask,
+		bool cached);
 	std::vector<runtime::Ptr<model::gameobjects::BrokerItem>> getRequestedPage(const std::vector<runtime::Ptr<model::gameobjects::BrokerItem>>& brokerItems, int32_t startPage, int8_t sortType);
 	/** @return the live map of the race, nullptr for other races (Java null) */
 	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::BrokerItem>>* getRaceBrokerItems(model::Race race);

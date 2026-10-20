@@ -21,7 +21,7 @@ namespace aion::gameserver::model::house {
  * S0c declaration header (docs/design/hub-headers.md §3.5). RefCounted (fieldmap K4, `House.houseRegistry`, `HouseObject.registry`), created with
  * create(). The owner is retained (fieldmap `const Ref<House>`; the House <-> registry edge is resolved in cycles.toml, S0B-098). Java
  * `HouseObject<?>` is the erased HouseObject (§8.1). getUsedDecorId returns Java's Integer (null if the building has no default part):
- * `std::optional<int32_t>`. The generic helper discard is a member template with an inline stub (§8.3).
+ * `std::optional<int32_t>`. The generic helper discard is a member template (§8.3), defined in the .cpp file that alone calls it.
  *
  * @author Rolandas
  */
@@ -76,9 +76,7 @@ public:
 private:
 	/** Java: private <T extends AionObject & Persistable> void discard(Map<Integer, T> map, T obj, boolean direct) */
 	template <class T>
-	void discard(runtime::LinkedHashMap<int32_t, runtime::Ref<T>>& map, T& obj, bool direct) {
-		AION_UNPORTED();
-	}
+	void discard(runtime::LinkedHashMap<int32_t, runtime::Ref<T>>& map, T& obj, bool direct); // defined in HouseRegistry.cpp, its only user
 
 public:
 	void reset();

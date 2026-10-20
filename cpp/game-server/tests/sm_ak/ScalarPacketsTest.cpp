@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -95,6 +96,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_ACQUIRE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_PAY_RENT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_SCRIPTS.h"
+#include "aion/gameserver/utils/xml/CompressUtil.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_TELEPORT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ICON_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_INSTANCE_COUNT_INFO.h"
@@ -441,6 +443,43 @@ TEST_F(PacketTest, HouseScripts) {
 		Bytes().D(1100).H(2).C(2).H(8 + 3 + 8).D(3 + 8).D(99).B(content).B(padding).C(5).H(0).data);
 	EXPECT_EQ(SM_HOUSE_SCRIPTS::DYNAMIC_BODY_PART_SIZE_CALCULATOR(*withData), 11 + 3 + 8);
 	EXPECT_EQ(SM_HOUSE_SCRIPTS::DYNAMIC_BODY_PART_SIZE_CALCULATOR(*empty), 3);
+}
+
+TEST_F(PacketTest, LuaSandboxFixIsTheCompressedFixScript) {
+	// PlayerScript.java:14-37 (P5-11): id 0, the UTF-16LE bytes of the text block compressed by CompressUtil, their length uncompressed.
+	// The text block is written out here line by line, its two tabs of incidental indentation stripped, as javac does
+	const std::vector<std::string_view> lines{R"(<?xml version="1.0" encoding="UTF-16" ?>)", "<lboxes>", "\t<lbox>", "\t\t<id>101</id>",
+		"\t\t<name><![CDATA[Lua Fix]]></name>", "\t\t<desc><![CDATA[Secures the Lua environment against malicious actors]]></desc>",
+		"\t\t<script><![CDATA[", "_G.debug = nil", "_G.dofile = nil", "_G.io = nil", "_G.load = nil", "_G.loadfile = nil",
+		"_G.loadstring = nil", "_G.package = nil", "_G.require = nil", "]]></script>", "\t\t<icon>1</icon>", "\t</lbox>", "</lboxes>"};
+	std::vector<uint8_t> utf16;
+	for (std::string_view line : lines) {
+		for (char c : line) {
+			utf16.push_back(static_cast<uint8_t>(c));
+			utf16.push_back(0);
+		}
+		utf16.push_back('\n');
+		utf16.push_back(0);
+	}
+	const Ref<model::house::PlayerScript>& fix = model::house::PlayerScript::LUA_SANDBOX_FIX;
+	ASSERT_TRUE(fix);
+	EXPECT_EQ(fix->id(), 0);
+	EXPECT_EQ(fix->uncompressedSize(), static_cast<int32_t>(utf16.size())) << "script.length: the UTF-16LE byte count";
+	ASSERT_TRUE(fix->hasData());
+	std::vector<uint8_t> compressed;
+	for (int32_t i = 0; i < fix->compressedBytes()->length(); i++)
+		compressed.push_back(static_cast<uint8_t>((*fix->compressedBytes())[i].get()));
+	ASSERT_GE(compressed.size(), 2u);
+	EXPECT_EQ(compressed[0], 0x78) << "zlib header, as Java's Deflater() writes it";
+	EXPECT_EQ(compressed[1], 0x9C);
+	EXPECT_EQ(utils::xml::CompressUtil::decompress(compressed), utf16);
+	EXPECT_EQ(utils::xml::CompressUtil::compress(utf16), compressed) << "CompressUtil.compress of the script, nothing else";
+
+	// what PlayerEnterWorldService sends at every login: SM_HOUSE_SCRIPTS(0, LUA_SANDBOX_FIX)
+	const std::array<uint8_t, 8> padding{0xCD, 0xCD, 0xCD, 0xCD, 0xCD, 0xCD, 0xCD, 0xCD};
+	const int32_t n = static_cast<int32_t>(compressed.size());
+	EXPECT_EQ(dataOf(SM_HOUSE_SCRIPTS(0, Ptr<model::house::PlayerScript>(fix))),
+		Bytes().D(0).H(1).C(0).H(8 + n + 8).D(n + 8).D(static_cast<int32_t>(utf16.size())).B(compressed).B(padding).data);
 }
 
 TEST_F(PacketTest, TemplatePackets) {

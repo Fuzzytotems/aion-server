@@ -39,6 +39,7 @@
 #include "aion/gameserver/configs/administration/CommandsConfig.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/configs/main/GeoDataConfig.h"
+#include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/dao/BookmarkDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
@@ -49,10 +50,14 @@
 #include "aion/gameserver/dataholders/GatherableData.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
+#include "aion/gameserver/dataholders/QuestsData.bind.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/dataholders/SpawnsData.bind.h"
 #include "aion/gameserver/dataholders/SpawnsData.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
+#include "aion/gameserver/dataholders/XMLQuests.bind.h"
+#include "aion/gameserver/dataholders/XMLQuests.h"
 #include "aion/gameserver/geoEngine/GeoCallbacks.h"
 #include "aion/gameserver/geoEngine/collision/CollisionIntention.h"
 #include "aion/gameserver/geoEngine/collision/CollisionIntentionInfo.h"
@@ -70,7 +75,9 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/templates/BoundRadius.h"
 #include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
+#include "aion/gameserver/model/templates/quest/QuestDrop.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_GM_BOOKMARK_ADD.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/world/World.h"
@@ -78,7 +85,9 @@
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/geo/GeoService.h"
 #include "aion/gameserver/GameServer.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/QuestService.h"
+#include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/utils/cron/ThreadPoolManagerRunnableRunner.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -530,8 +539,8 @@ TEST_F(SystemCommandsTest, DebugSyntaxAndNoNioServer) {
 
 // ---- //reload (Reload.java:24-106) --------------------------------------------------------------------------------------------------------
 
-/** Reload.java:43-106: the syntax arms, the ai arm (AIEngine.reload) and the quests arm, which stays unported (QuestEngine.reload, A-D1) */
-TEST_F(SystemCommandsTest, ReloadSyntaxAiAndTheUnportedQuestsArm) {
+/** Reload.java:43-106: the syntax arms and the ai arm (AIEngine.reload) */
+TEST_F(SystemCommandsTest, ReloadSyntaxAndAi) {
 	Player& admin = gm(731021);
 	// AIEngine.validateScripts reads the npc templates: none here
 	savedMissingAiHandlers = configs::main::AIConfig::MISSING_AI_HANDLERS.get();
@@ -546,11 +555,63 @@ TEST_F(SystemCommandsTest, ReloadSyntaxAiAndTheUnportedQuestsArm) {
 	client()->clearSent();
 	EXPECT_TRUE(reload.process(admin, args({"AI"})));
 	EXPECT_EQ(client()->sentBytes(), info("AI successfully reloaded!"));
-	const uint64_t before = runtime::unportedHitCount();
+}
+
+/**
+ * Reload.java:48-55 (C2 cp5): the quests arm loads quest_data.xml and the quest_script_data files from ./data/static_data (a scratch working
+ * directory here), replaces both published holders (the old ones stay valid) and runs QuestEngine.reload (P5-06a), which re-reads them.
+ */
+TEST_F(SystemCommandsTest, ReloadQuestsReplacesTheQuestDataAndReloadsTheQuestEngine) {
+	Player& admin = gm(731023);
+	const std::filesystem::path previous = std::filesystem::current_path();
+	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("aion_gs_reload_quests_" + std::to_string(std::random_device()()));
+	std::filesystem::create_directories(dir / "data/static_data/quest_data");
+	std::filesystem::create_directories(dir / "data/static_data/quest_script_data");
+	std::ofstream(dir / "data/static_data/quest_data/quest_data.xml", std::ios::binary)
+		<< R"(<quests><quest id="1005"><quest_drop npc_id="210007" item_id="182200005"/></quest><quest id="1006"/></quests>)";
+	std::ofstream(dir / "data/static_data/quest_script_data/none.xml", std::ios::binary) << "<quest_scripts/>";
+	std::filesystem::current_path(dir);
+	// the engine's 09:00 message task needs the cron service; the spawn analysis (a long-running task) is not this command's
+	services::cron::CronService::resetForTests();
+	services::cron::CronService::initSingleton(std::make_unique<utils::cron::ThreadPoolManagerRunnableRunner>(), std::chrono::locate_zone("UTC"),
+		services::cron::CronService::Driver::EXECUTOR);
+	const bool analyze = configs::main::GSConfig::ANALYZE_QUESTHANDLERS.exchange(false);
+	struct Restore {
+		std::filesystem::path previous, dir;
+		bool analyze;
+		~Restore() {
+			questEngine::QuestEngine::getInstance().clear();
+			services::cron::CronService::resetForTests();
+			configs::main::GSConfig::ANALYZE_QUESTHANDLERS.store(analyze);
+			std::filesystem::current_path(previous);
+			std::error_code ignored;
+			std::filesystem::remove_all(dir, ignored);
+		}
+	} restore{previous, dir, analyze};
+
+	xml::LoadContext questContext;
+	dataholders::DataManager::QUEST_DATA.resetForTests();
+	dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(questContext,
+		R"(<quests><quest id="1001"><quest_drop npc_id="210001" item_id="182200001"/></quest></quests>)"));
+	dataholders::DataManager::XML_QUESTS.resetForTests();
+	dataholders::DataManager::XML_QUESTS.publish(xml::bindString<dataholders::XMLQuests>(questContext, "<quest_scripts/>"));
+	const dataholders::QuestsData* oldQuests = dataholders::DataManager::QUEST_DATA.get();
+	const dataholders::XMLQuests* oldScripts = dataholders::DataManager::XML_QUESTS.get();
+	questEngine::QuestEngine::getInstance().init();
+	ASSERT_EQ(services::QuestService::getQuestDrop(210001).size(), 1u);
+
+	handlers::admincommands::Reload reload;
 	client()->clearSent();
-	EXPECT_TRUE(reload.process(admin, args({"quests"})));
-	EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>"));
-	EXPECT_EQ(runtime::unportedHitCount(), before + 1);
+	EXPECT_TRUE(reload.process(admin, args({"QUESTS"})));
+	EXPECT_EQ(client()->sentBytes(), info("2 quest templates loaded (0 handlers)."));
+	EXPECT_NE(dataholders::DataManager::QUEST_DATA.get(), oldQuests);
+	EXPECT_NE(dataholders::DataManager::XML_QUESTS.get(), oldScripts);
+	EXPECT_EQ(oldQuests->size(), 1) << "the old holder stays valid";
+	EXPECT_TRUE(services::QuestService::getQuestDrop(210001).empty()) << "the engine dropped the old quest drops";
+	ASSERT_EQ(services::QuestService::getQuestDrop(210007).size(), 1u) << "and read the new quest data";
+	EXPECT_EQ(services::QuestService::getQuestDrop(210007)[0]->getItemId(), 182200005);
+	dataholders::DataManager::QUEST_DATA.resetForTests(); // the reloaded holders are immortal, like every published holder
+	dataholders::DataManager::XML_QUESTS.resetForTests();
 }
 
 /**

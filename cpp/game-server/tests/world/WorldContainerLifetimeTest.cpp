@@ -397,10 +397,10 @@ TEST_F(WorldContainerLifetimeTest, TheLeakProbeSaysWhatItSearchedWhenNothingHold
 		std::string::npos)
 		<< log;
 	for (const char* structure : {"World.allObjects", "Player.postman", "House.spawns", "every instance of every world map", "WalkerGroup",
-			 "SiegeLocation.creatures"})
+			 "SiegeLocation.creatures", "Base.flag and Base.assaulter of every Base a pending task pins"})
 		EXPECT_NE(std::string(WorldLeakProbe::SEARCHED).find(structure), std::string::npos) << structure;
 	for (const char* structure : {"InstanceWalkerFormations.groupedSpawnObjects", "MoveTaskManager.movingCreatures",
-			 "PlayerMoveTaskManager.movingPlayers", "TemporarySpawnEngine.spawnedObjects", "Town.spawnedNpcs", "Base.flag", "WorldRaid",
+			 "PlayerMoveTaskManager.movingPlayers", "TemporarySpawnEngine.spawnedObjects", "Town.spawnedNpcs", "a Base no pending task pins", "WorldRaid",
 			 "ObserveController observers", "the other fields of world objects", "objects outside the world"})
 		EXPECT_NE(std::string(WorldLeakProbe::NOT_SEARCHED).find(structure), std::string::npos) << structure;
 }

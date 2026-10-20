@@ -38,7 +38,11 @@ private:
 		int64_t delay = 0;
 	};
 
-	/** Java: private static class Packets (delay -1; packets null without <packet> elements) */
+	/**
+	 * Java: private static class Packets (delay -1; packets null without <packet> elements). The JAXB classes' Packets.iterator(),
+	 * Packets.toString(), Packet.getOpcode(), Packet.toString(), Part.getType() and Part.toString() are not ported: the records' fields replace
+	 * the accessors and iteration, and nothing prints the records.
+	 */
 	struct Packets {
 		std::optional<std::vector<Packet>> packets;
 		int64_t delay = -1;

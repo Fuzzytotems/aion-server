@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/model/base/fwd.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/services/LeakCensus.h"
 
 namespace aion::gameserver::world {
@@ -66,6 +68,17 @@ public:
 
 	/** runtime::LeakCensus::HolderProbe: logHolders for the visible objects among `leaks` */
 	static void probe(std::span<const runtime::LeakCensus::ProbedLeak> leaks);
+
+	/** What the probe reads of a Base, by identity (header request m5b3-leak-h03: Base befriends this class) */
+	struct BaseView {
+		int32_t id = 0;
+		bool stopped = false;
+		runtime::Ptr<model::gameobjects::Npc> flag;
+		std::vector<runtime::Ptr<model::gameobjects::Npc>> assaulters;
+	};
+
+	/** Base.flag, Base.assaulter, its id and whether it is stopped; read only, under the containers' own locks */
+	static BaseView viewOf(const model::base::Base& base);
 
 	/** Sets probe() as the leak census holder probe (GameServer's World step). Idempotent. */
 	static void install() noexcept;

@@ -126,7 +126,9 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		// The Hexway
 		219609, 219617, 219611, 286933, 219612, 219613, 219610, 219614, 219635, 219636, 701662, 701663, 701664,
 		// the Hexway AIs: the smoke, Galamat's adds
-		282465, 219616};
+		282465, 219616,
+		// the PvPvE map's Iron Wall npcs (ModifiedIronWallAggressiveAI): its boss, a cleric, a keymaster, the 3.2x and 7x HP rates
+		231304, 218547, 219218, 219167, 219193};
 	return ids;
 }
 

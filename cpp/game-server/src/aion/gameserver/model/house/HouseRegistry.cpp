@@ -24,6 +24,25 @@ runtime::Ref<HouseRegistry> HouseRegistry::create(House& ownerValue) {
 	return runtime::makeRef<HouseRegistry>(ownerValue);
 }
 
+// Java HouseRegistry.java:136-146 (the <T extends AionObject & Persistable> helper of discardObject and discardDecor)
+template <class T>
+void HouseRegistry::discard(runtime::LinkedHashMap<int32_t, runtime::Ref<T>>& map, T& obj, bool direct) {
+	if (obj.getPersistentState() == PersistentState::NEW || direct) {
+		map.remove(obj.getObjectId(), runtime::Ptr<T>(obj));
+	} else {
+		obj.setPersistentState(PersistentState::DELETED);
+		setPersistentState(PersistentState::UPDATE_REQUIRED);
+	}
+	// remove house object use cooldowns for this object
+	if (runtime::Ptr<gameobjects::UseableHouseObject> useableHouseObject = runtime::as<gameobjects::UseableHouseObject>(obj);
+		useableHouseObject && useableHouseObject->hasUseCooldown()) {
+		const int32_t objectId = obj.getObjectId();
+		// lambda at HouseRegistry.java:145: runs synchronously on this thread, so the id is captured by value
+		world::World::getInstance().forEachPlayer(
+			[objectId](gameobjects::player::Player& player) { player.getHouseObjectCooldowns()->remove(objectId); });
+	}
+}
+
 std::vector<runtime::Ptr<gameobjects::HouseObject>> HouseRegistry::getObjects() {
 	return objects.values();
 }
@@ -61,20 +80,7 @@ bool HouseRegistry::putObject(gameobjects::HouseObject& houseObject, bool saveRe
 }
 
 void HouseRegistry::discardObject(gameobjects::HouseObject& object, bool direct) {
-	// Java: discard(objects, object, direct) - the generic helper is written out for both maps (the header keeps its declaration)
-	if (object.getPersistentState() == PersistentState::NEW || direct) {
-		objects.remove(object.getObjectId(), runtime::Ptr<gameobjects::HouseObject>(object));
-	} else {
-		object.setPersistentState(PersistentState::DELETED);
-		setPersistentState(PersistentState::UPDATE_REQUIRED);
-	}
-	// remove house object use cooldowns for this object
-	if (runtime::Ptr<gameobjects::UseableHouseObject> useableHouseObject = runtime::as<gameobjects::UseableHouseObject>(object);
-		useableHouseObject && useableHouseObject->hasUseCooldown()) {
-		int32_t objectId = object.getObjectId();
-		world::World::getInstance().forEachPlayer(
-			[objectId](gameobjects::player::Player& player) { player.getHouseObjectCooldowns()->remove(objectId); });
-	}
+	discard(objects, object, direct);
 }
 
 std::vector<runtime::Ptr<gameobjects::HouseDecoration>> HouseRegistry::getDecors() {
@@ -138,14 +144,7 @@ void HouseRegistry::discardDecor(templates::housing::PartType partType, int32_t 
 }
 
 void HouseRegistry::discardDecor(gameobjects::HouseDecoration& decor, bool direct) {
-	// Java: discard(decors, decor, direct) - the generic helper is written out for both maps (the header keeps its declaration); a decoration is no
-	// UseableHouseObject, so the cooldown removal never applies
-	if (decor.getPersistentState() == PersistentState::NEW || direct) {
-		decors.remove(decor.getObjectId(), runtime::Ptr<gameobjects::HouseDecoration>(decor));
-	} else {
-		decor.setPersistentState(PersistentState::DELETED);
-		setPersistentState(PersistentState::UPDATE_REQUIRED);
-	}
+	discard(decors, decor, direct);
 }
 
 void HouseRegistry::reset() {

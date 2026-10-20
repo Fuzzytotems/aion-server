@@ -117,6 +117,7 @@
 #include "aion/gameserver/services/craft/CraftSkillUpdateService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/BrokerService.h"
+#include "aion/gameserver/world/zone/ZoneService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
@@ -1409,6 +1410,9 @@ protected:
 		// the butler quests 18830 / 28830 (lane C, 2026-10-11): the house item hook takes the env only (AbstractQuestHandler.java)
 		if (hook == "onHouseItemUseEvent")
 			return handler.onHouseItemUseEvent(env);
+		// sanctum/_1929 (questgen row B50, lane C, 2026-10-14): the equip hook takes the env and the item id (AbstractQuestHandler.java)
+		if (hook == "onEquipItemEvent")
+			return handler.onEquipItemEvent(env, intArg(args));
 		if (hook == "onItemUseEvent") {
 			// the review of #79, item 2: the item held in the inventory (run), else (a given count 0 of it) one outside it
 			if (Ptr<gameserver::model::gameobjects::Item> held = player.getInventory().getItemByObjId(USED_ITEM_OBJECT))
@@ -2129,6 +2133,9 @@ const std::set<std::string>& knownNotReproducible() {
 		"24021 onDialogEvent#20",
 		// Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): useQuestObject kills the target npc (KILLS_TARGET, as 1612)
 		"2223 onDialogEvent#21",
+		// the escorts (lane C, 2026-10-15): 2333 and 2394 #1, useQuestItem, which the replay does not model (as 10502 #3)
+		"2333 onItemUseEvent#1",
+		"2394 onItemUseEvent#1",
 	};
 	return known;
 }
@@ -2644,6 +2651,7 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q06 (lane C): none left; the 47 got their cases with the
  * CraftSkillUpdateService predicates, the kinah, skill-list, recipe and special-cube rows (extract.py, 2026-10-13), and 2430 (Q09) with the kinah
  * Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): altgard 2213 (getEffectController(), SkillEngine.getInstance)
+ * Rows B49/B50 (lane C, 2026-10-14): daevanion 1990 (player.getEquipment(), the packed getQuestVars().getQuestVars())
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2654,7 +2662,8 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
 	18821, 28821,
 	2600, 2630, 2663, 2664, 28600, 4074, 4200,
-	2213};
+	2213,
+	1990};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
@@ -2871,7 +2880,7 @@ public:
 				if (flip == Flip::THROW_AFTER_STEP)
 					throw runtime::NullPointerException("the negative control's flip");
 				if (flip == Flip::UNPORTED) {
-					services::BrokerService::getInstance().showRegisteredItems(*player); // parked (owner's D2): stays AION_UNPORTED
+					world::zone::ZoneService::getInstance().saveMaterialZones(); // the write-back of static data: stays AION_UNPORTED (static-data.md §3.6)
 					return true;
 				}
 				return flip != Flip::RETURN;
@@ -3209,6 +3218,11 @@ public:
 		events.push_back("onHouseItemUseEvent");
 		return false;
 	}
+	// sanctum/_1929 (lane C, 2026-10-14): registerOnEquipItem, per item (QuestEngine.onEquipItem)
+	bool onEquipItemEvent(QuestEnv&, int32_t itemId) override {
+		events.push_back("onEquipItemEvent " + std::to_string(itemId));
+		return false;
+	}
 	bool onGetItemEvent(QuestEnv& env) override {
 		events.push_back("onGetItemEvent " + std::to_string(env.getQuestId()));
 		return false;
@@ -3235,6 +3249,12 @@ public:
 	}
 	bool onLeaveZoneEvent(QuestEnv&, const world::zone::ZoneName* zoneName) override {
 		events.push_back("onLeaveZoneEvent " + zoneName->name());
+		return false;
+	}
+	// lane C (2026-10-18, levinshor 13744/23744): QuestEngine.java registerOnKillInZone, per zone; the hook gets no zone, so the test's
+	// `firing` text names it
+	bool onKillInZoneEvent(QuestEnv&) override {
+		events.push_back("onKillInZoneEvent " + firing);
 		return false;
 	}
 	bool onPassFlyingRingEvent(QuestEnv&, std::string_view flyingRing) override {
@@ -3280,8 +3300,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 	// as the Java register() adds it and in no other npc's list, and every other registration routes exactly the engine events it names. A
 	// can-act registration also comes from the first kill, talk, aggro or distance registration of the quest at an npc (QuestNpc.java:59-95),
 	// and registerCanAct keeps only an npc whose template's AI is quest_use_item (QuestEngine.java registerCanAct)
-	std::set<std::string> zones, leaveZones, rings, bonusTypes;
-	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems, killWorlds, skills, failCraftItems;
+	std::set<std::string> zones, leaveZones, killZones, rings, bonusTypes;
+	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems, killWorlds, skills, failCraftItems, equipItems;
 	auto usesQuestItemAi = [](int32_t npcId) {
 		const gameserver::model::templates::npc::NpcTemplate* template_ = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
 		return template_ != nullptr && template_->getAiName() == "quest_use_item";
@@ -3297,6 +3317,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				leaveZones.insert(reg["args"][0].get<std::string>());
 			else if (kind == "registerOnKillInWorld")
 				killWorlds.insert(reg["args"][0].get<int32_t>());
+			else if (kind == "registerOnKillInZone")
+				killZones.insert(unquoted(reg["args"][0].get<std::string>()));
 			else if (kind == "registerOnPassFlyingRings")
 				rings.insert(unquoted(reg["args"][0].get<std::string>()));
 			else if (kind == "registerQuestSkill")
@@ -3315,6 +3337,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				canActNpcs.insert(reg["args"][1].get<int32_t>());
 			else if (reg.value("call", std::string()) == "registerOnGetItem")
 				getItems.insert(reg["args"][0].get<int32_t>());
+			else if (reg.value("call", std::string()) == "registerOnEquipItem")
+				equipItems.insert(reg["args"][0].get<int32_t>());
 			if (reg.value("call", std::string()) == "registerCanAct")
 				allNpcs.insert(reg["args"][1].get<int32_t>());
 		}
@@ -3397,6 +3421,9 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 			}
 			else if (call == "registerOnGetItem")
 				expectedEvents.push_back("onGetItemEvent " + std::to_string(reg["args"][1].get<int32_t>()));
+			// sanctum/_1929 (lane C, 2026-10-14): QuestEngine.java registerOnEquipItem, per item
+			else if (call == "registerOnEquipItem")
+				expectedEvents.push_back("onEquipItemEvent " + std::to_string(reg["args"][0].get<int32_t>()));
 			else if (call == "registerAddOnReachTargetEvent")
 				expectedEvents.push_back("onNpcReachTargetEvent");
 			else if (call == "registerAddOnLostTargetEvent")
@@ -3416,6 +3443,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				expectedEvents.push_back("onKillInWorldEvent " + std::to_string(reg["args"][0].get<int32_t>()));
 			else if (call == "registerOnLeaveZone")
 				expectedEvents.push_back("onLeaveZoneEvent " + reg["args"][0].get<std::string>());
+			else if (call == "registerOnKillInZone")
+				expectedEvents.push_back("onKillInZoneEvent " + unquoted(reg["args"][0].get<std::string>()));
 			else if (call == "registerOnPassFlyingRings")
 				expectedEvents.push_back("onPassFlyingRingEvent " + unquoted(reg["args"][0].get<std::string>()));
 			else if (call == "registerQuestSkill")
@@ -3483,6 +3512,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		QuestEngine::getInstance().onNpcLostTarget(*QuestEnv::create(nullptr, player, 0));
 		for (int32_t itemId : getItems)
 			QuestEngine::getInstance().onItemGet(player, itemId);
+		for (int32_t itemId : equipItems)
+			QuestEngine::getInstance().onEquipItem(*QuestEnv::create(nullptr, player, 0), itemId);
 		// lane C: the events of the kinds above, once each (the kill-ranked one per rank, the kill-in-world one per map)
 		for (size_t rank = 0; rank < rankNames.size(); rank++) {
 			RoutingSpy::firing = std::string(rankNames[rank]);
@@ -3491,6 +3522,10 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		for (int32_t worldId : killWorlds) {
 			RoutingSpy::firing = std::to_string(worldId);
 			QuestEngine::getInstance().onKillInWorld(*QuestEnv::create(nullptr, player, 0), worldId);
+		}
+		for (const std::string& zone : killZones) {
+			RoutingSpy::firing = zone;
+			QuestEngine::getInstance().onKillInZone(*QuestEnv::create(nullptr, player, 0), zone);
 		}
 		RoutingSpy::firing.clear();
 		for (const std::string& zone : leaveZones)

@@ -40,6 +40,25 @@ def checks(j, c):
 
 
 class Tokens(unittest.TestCase):
+    def test_an_array_stream_any_match_is_the_cpp_any_of(self):
+        # eltnen/_14026's hand port (lane C, 2026-10-15): Arrays.stream(mobs).anyMatch(npcId -> npcId == targetId) and
+        # std::ranges::any_of(mobs, [&](int32_t npcId) { return npcId == targetId; }) have the same facts
+        java = 'public class _1 { boolean f() { return Arrays.stream(mobs).anyMatch(npcId -> npcId == targetId); } }'
+        cpp = ('#include "aion/gameserver/handlers/quest/QuestPrelude.h"\nclass _1 { bool f() { '
+               'return std::ranges::any_of(mobs, [&](int32_t npcId) { return npcId == targetId; }); } };')
+        self.assertEqual(parity.compare(java, cpp), [])
+
+    def test_an_imported_nested_enum_is_its_cpp_enum(self):
+        # NESTED_ENUM_IMPORTS (eltnen/_1354, lane C, 2026-10-14): SM_ATTACK_STATUS.TYPE and .LOG are C++'s SM_ATTACK_STATUS_TYPE / _LOG, and
+        # only in a file that imports them by those names
+        java = ('import com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.TYPE;\n'
+                'import com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.LOG;\n'
+                'public class _1 { void f() { x.increaseFp(TYPE.FP_RINGS, 7, 0, LOG.REGULAR); } }')
+        facts, _imports = parity.java_facts(java)
+        self.assertEqual(facts.constants, ['SM_ATTACK_STATUS_TYPE', 'FP_RINGS', 'SM_ATTACK_STATUS_LOG', 'REGULAR'])
+        facts, _imports = parity.java_facts('public class _1 { void f() { x.g(TYPE.AB, LOG.CD); } }')
+        self.assertEqual(facts.constants, ['TYPE', 'AB', 'LOG', 'CD'])
+
     def test_number_forms(self):
         n = parity._number
         self.assertEqual(n('0x1F', False), ('int', 31))

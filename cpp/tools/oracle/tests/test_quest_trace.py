@@ -706,16 +706,15 @@ class Q14SliceTest(unittest.TestCase):
 
 	# the Q14 files questgen refuses (docs/deviations/Q14.md, "Not in the tree"): 21 at the landing, 4 since the owner's decisions of
 	# 2026-10-07 (the 15 mentor dailies and pangaea's two joined the slice)
-	REFUSED = {
-		"levinshor/_13744AgentinNeed.java", "levinshor/_23744EffectElyosElimination.java", "tiamat_stronghold/_30721OminousDebrisEnergy.java",
-		"tiamat_stronghold/_30771ImpendingDebrisEnergy.java"}
+	# and none since 2026-10-18, when the last 4 joined the slice as hand ports (lane C; docs/deviations/Q14.md)
+	REFUSED = set()
 
 	def test_the_q14_slice(self):
 		dirs = sorted({rel.split("/")[0] for rel in extract.SLICE_Q14} | {rel.split("/")[0] for rel in self.REFUSED})
 		java = sorted(f"{d}/{f.name}" for d in dirs for f in (extract.QUEST_DIR / d).glob("*.java"))
 		self.assertEqual(len(java), 95)
 		self.assertEqual(sorted(extract.SLICE_Q14), sorted(set(java) - self.REFUSED))
-		self.assertEqual(len(extract.SLICE_Q14), 91)
+		self.assertEqual(len(extract.SLICE_Q14), 95)
 		self.assertEqual(set(extract.SLICE_Q14) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
 		                                              extract.SLICE_Q08 + extract.SLICE_Q01 + extract.SLICE_Q02), set())
 		docs = {}
@@ -803,14 +802,14 @@ class Q12SliceTest(unittest.TestCase):
 class Q04SliceTest(unittest.TestCase):
 	"""67 generated handlers of beluslan and brusthonin (SLICE_Q04, phase 6 step 2, lane C, 2026-10-13; docs/deviations/Q04.md)"""
 
-	LEFT_OUT = {'beluslan/_2634TheDraupnirRedemption.java', 'beluslan/_24053TheMaulingoftheMau.java'}
+	LEFT_OUT = set()  # the escorts 24053 and 2634 are in since FollowingNpcAI merged (lane C, 2026-10-15)
 
 	def test_the_q04_slice(self):
 		java = {f"{d}/{f.name}" for d in ('beluslan', 'brusthonin') for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09 + extract.SLICE_Q07 + extract.SLICE_Q12)
 		self.assertEqual(set(extract.SLICE_Q04) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q04), 67)
+		self.assertEqual(len(extract.SLICE_Q04), 69)
 		self.assertTrue(set(extract.SLICE_Q04) <= java - self.LEFT_OUT)
 		docs = {}
 		for rel in extract.SLICE_Q04:
@@ -847,14 +846,14 @@ class Q09RestSliceTest(unittest.TestCase):
 
 	# questgen refuses 24026 (the butlers 28806, 28821, 28828 since the static-set shape); the escorts 2333 and 2394 wait for
 	# FollowingNpcAI (m5d-plan.md §21.1)
-	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "morheim/_2333ARibbitOutOfWater.java", "morheim/_2394ADyingWish.java"}
+	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java"}  # a hand port; the escorts 2333 and 2394 are in since FollowingNpcAI (2026-10-15)
 
 	def test_the_q09_rest_slice(self):
 		java = {f"{d}/{f.name}" for d in ("morheim", "pernon") for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05)
 		self.assertEqual(set(extract.SLICE_Q09) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q09), 51)
+		self.assertEqual(len(extract.SLICE_Q09), 53)
 		self.assertTrue(set(extract.SLICE_Q09) <= java - self.LEFT_OUT)
 		docs = {}
 		for rel in extract.SLICE_Q09:
@@ -955,8 +954,8 @@ class Q05RestSliceTest(unittest.TestCase):
 class Q11SliceTest(unittest.TestCase):
 	"""daevanion and sanctum (SLICE_Q11, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q11.md): every file but the two questgen refuses"""
 
-	# refused by questgen (API gaps), and the escort 3212 held back for FollowingNpcAI (m5d-plan.md §21.1)
-	REFUSED = {"daevanion/_1990ASagesGift.java", "sanctum/_1929ASliverofDarkness.java", "sanctum/_3212TheMissingCubeCraftsman.java"}
+	# the escort 3212, held back for FollowingNpcAI (m5d-plan.md §21.1); 1990 and 1929 are in since questgen's rows B49 and B50 (2026-10-14)
+	REFUSED = set()  # the escort 3212 is in since FollowingNpcAI merged (lane C, 2026-10-15)
 
 	def test_the_q11_slice(self):
 		java = sorted(f"{d}/{f.name}" for d in ("daevanion", "sanctum") for f in (extract.QUEST_DIR / d).glob("*.java"))
@@ -971,7 +970,7 @@ class Q11SliceTest(unittest.TestCase):
 			docs[d["questId"]] = d
 		# no case in 22 (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
 		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]),
-		                 [1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964,
+		                 [1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1990, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964,
 		                  80291, 80295])
 		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
 		self.assertEqual(extract.check(rels=extract.SLICE_Q11, extra=False), [])
@@ -1348,12 +1347,12 @@ class Q10SliceTest(unittest.TestCase):
 			cls.docs[d["questId"]] = d
 
 	def test_the_q10_slice(self):
-		self.assertEqual(len(self.docs), 69)
+		self.assertEqual(len(self.docs), 70)
 		self.assertEqual(set(extract.SLICE_Q10) & (set(extract.SLICE_TIER_A) | set(extract.SLICE_ROUTE)), set())
 		self.assertEqual(sorted({rel.split("/")[0] for rel in extract.SLICE_Q10}), ["altgard", "pandaemonium"])
-		# the six the slice leaves out: the five hand ports and 4212, held back (docs/deviations/Q10.md)
+		# the five the slice leaves out: the hand ports (4212 is in since FollowingNpcAI merged, lane C, 2026-10-15)
 		for rel in ("altgard/_2208MauInTenMinutesADay.java", "altgard/_2230AFriendlyWager.java", "altgard/_2252ChasingtheLegend.java",
-		            "altgard/_24013PoisonInTheWaters.java", "pandaemonium/_2900NoEscapingDestiny.java", "pandaemonium/_4212MissingSidrunerk.java"):
+		            "altgard/_24013PoisonInTheWaters.java", "pandaemonium/_2900NoEscapingDestiny.java"):
 			self.assertNotIn(rel, extract.SLICE)
 		# every hook refused: 2213, 2925, 2938, 2952 and the four charms (the golden harness lists them in ORACLE_REFUSES_EVERY_HOOK)
 		empty = sorted(q for q, d in self.docs.items() if not d["cases"])
