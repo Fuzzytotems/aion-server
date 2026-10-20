@@ -66,7 +66,7 @@ None of the scenario gates enters these maps. A handler only runs when a player 
 > - **cp6** (2026-10-18): Padmarashka's Cave, the two Danuar Sanctuaries and their 6 AIs. PadmarashkaDanuarTest.cpp has 16 cases and
 >   PadmarashkaDanuarAiTest.cpp 15. Mutants: 52 of 52 killed. With cp6, the census counts 0 open bodies in I2.
 >
-> **Proposed corrections** (kept as Java; see I2.md):
-> - **J-I2-3**: ShieldGeneratorSouthAI and ShieldGeneratorWestAI shout the east's N_WAVE_01_BEGIN instead of their getGateMsg().
+> **Applied corrections** (owner's decision 2026-10-19, both branches; see I2.md):
+> - **J-I2-3**: ShieldGeneratorSouthAI and ShieldGeneratorWestAI shout their own getGateMsg(); Java shouted the east's N_WAVE_01_BEGIN.
 > **Progress (2026-10-19):** J-I2-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/I2.md.
 > **Progress (2026-10-19):** J-I2-2 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/I2.md.

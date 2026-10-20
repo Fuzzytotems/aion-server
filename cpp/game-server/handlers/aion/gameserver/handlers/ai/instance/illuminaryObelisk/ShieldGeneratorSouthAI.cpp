@@ -33,10 +33,11 @@ void ShieldGeneratorSouthAI::handleChargeComplete() {
 	charges.add(runtime::Ref<Npc>(*runtime::cast<Npc>(spawn(702224 + chargeCount, 298.304f, 254.48207f, 295.95157f, int8_t{0}))));
 }
 
-// Java ShieldGeneratorSouthAI.java:42-46
+// Java ShieldGeneratorSouthAI.java:42-46. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I2-3): the
+// generator shouts its own getGateMsg(); Java shouted the east's STR_MSG_IDF5_U3_N_WAVE_01_BEGIN
 void ShieldGeneratorSouthAI::handleVortexSpawn() {
 	spawn(702016, 343.1202f, 254.10585f, 291.62302f, int8_t{0}, 34); // south
-	shout(SM_SYSTEM_MESSAGE::STR_MSG_IDF5_U3_N_WAVE_01_BEGIN());
+	shout(getGateMsg()); // the correction (was J-I2-3)
 }
 
 // Java ShieldGeneratorSouthAI.java:48-51
