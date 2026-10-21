@@ -108,7 +108,8 @@ TEST_F(InggisonA1AiTest, TheBarrierCloneTargetsOmegaAfterThreeSeconds) {
 	ai.handleDied(); // takes 18671 off Omega (he has none here: a no-op)
 }
 
-/** GeyserBlockerAI.java:29-48: a geyser seen within 5 m is deleted, the blocker's death brings it back with its static id at the spawn point */
+/** GeyserBlockerAI.java:29-48: a geyser seen within 5 m is deleted (a task once the known list's update has returned, the correction of
+ * 2026-10-19, was J-A1C-1), the blocker's death brings it back with its static id at the spawn point */
 TEST_F(InggisonA1AiTest, TheGeyserBlockerHoldsTheGeyserUntilItDies) {
 	runtime::Ptr<Npc> blocker = place(900200, 200.0f, 2200.0f, 441.0f);
 	auto& ai = install<Probe<ing::GeyserBlockerAI>>(*blocker);
@@ -117,7 +118,9 @@ TEST_F(InggisonA1AiTest, TheGeyserBlockerHoldsTheGeyserUntilItDies) {
 	EXPECT_TRUE(far->isSpawned()) << "10 m away";
 	runtime::Ptr<Npc> geyser = spawnStaticNpc(*instance, 700545, 203.0f, 2200.0f, 441.0f, 4712);
 	ai.handleCreatureSee(*geyser);
-	EXPECT_FALSE(geyser->isSpawned());
+	EXPECT_TRUE(geyser->isSpawned()) << "not inside see(), under the known list's lock";
+	executor().advance(std::chrono::milliseconds(1));
+	EXPECT_FALSE(geyser->isSpawned()) << "the task deleted it";
 	ASSERT_EQ(count(700545), 1u);
 	ZoneKnownListPairing::pair(*blocker, player()); // the player stands 60 m away: no message
 	ai.handleDied();
@@ -134,6 +137,7 @@ TEST_F(InggisonA1AiTest, TheGeyserBlockerTellsThePlayersNearby) {
 	auto& ai = install<Probe<ing::GeyserBlockerAI>>(*blocker);
 	ZoneKnownListPairing::pair(*blocker, player());
 	ai.handleCreatureSee(*spawnStaticNpc(*instance, 700545, 151.0f, 2140.0f, 441.0f, 4712));
+	executor().advance(std::chrono::milliseconds(1)); // the delete's task
 	ai.handleDied();
 	EXPECT_EQ(countSent(serialized(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_WINDBOX_TRIGGER_ON_INFO())), 1);
 	runtime::Ptr<Npc> other = place(900300, 160.0f, 2140.0f, 441.0f);

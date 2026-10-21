@@ -25,6 +25,11 @@
 // open blocker of the gate's R1.
 
 #include "ControllersTestSupport.h"
+#include "aion/gameserver/custom/pvpmap/PvpMapHandler.h"
+#include "aion/gameserver/dataholders/NpcData.bind.h"
+#include "aion/gameserver/dataholders/NpcData.h"
+#include "aion/gameserver/dataholders/QuestsData.bind.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
 
 #include <cstdint>
@@ -90,6 +95,10 @@
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.bind.h"
+#include "aion/gameserver/model/templates/quest/QuestNpc.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
+#include "aion/gameserver/questEngine/model/QuestEnv.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/model/HopType.h"
 #include "aion/gameserver/utils/stats/CalculationType.h"
@@ -574,5 +583,66 @@ TEST_F(AttackSeamTest, DoRewardPaysTheRealPvEApGained) {
 	EXPECT_EQ(player->getAbyssRank()->getAp() - before, ap);
 }
 
+/** Counts its onKillEvent calls (QuestEngine keeps its handlers for good, so the count is static) */
+class KillRecordingQuestHandler final : public questEngine::handlers::AbstractQuestHandler {
+public:
+	explicit KillRecordingQuestHandler(int32_t questId) : AbstractQuestHandler(questId) {}
+
+	static inline int32_t kills = 0;
+
+	void register_() override {}
+
+	bool onKillEvent(questEngine::model::QuestEnv&) override {
+		kills++;
+		return true;
+	}
+};
+
+/**
+ * NpcController.java:229-233 (doReward): a player's kill goes to QuestEngine.onKill, except when the npc's instance handler is a PvpMapHandler.
+ * P4-last cp4 tests `instanceof PvpMapHandler` with a cast instead of the stand-in standins::isPvpMapHandler.
+ */
+TEST_F(AttackSeamTest, DoRewardTellsTheQuestEngineOfTheKillExceptOnThePvpMap) {
+	CONTROLLERS_TEST_SCOPE;
+	constexpr int32_t QUEST_ID = 99410;
+	xml::LoadContext questContext;
+	const bool publishNpcs = !dataholders::DataManager::NPC_DATA; // the setup throws without a published NpcData
+	if (publishNpcs)
+		dataholders::DataManager::NPC_DATA.publish(xml::bindString<dataholders::NpcData>(questContext, "<npc_templates/>"));
+	const bool publishQuests = !dataholders::DataManager::QUEST_DATA;
+	if (publishQuests)
+		dataholders::DataManager::QUEST_DATA.publish(
+			xml::bindString<dataholders::QuestsData>(questContext, R"(<quests><quest id="99410" name="kill probe"/></quests>)"));
+	questEngine::QuestEngine::getInstance().addQuestHandler(std::make_unique<KillRecordingQuestHandler>(QUEST_ID));
+	questEngine::QuestEngine::getInstance().registerQuestNpc(fighterTemplate->getTemplateId())->addOnKillEvent(QUEST_ID);
+	KillRecordingQuestHandler::kills = 0;
+
+	Ref<SeamPlayer> player = createPlayer(100023, 9023);
+	player->getCommonData()->setLevel(10);
+	place(*player, 502.0f, 500.0f, 10.0f);
+	Ref<ControllersTestNpc> npc = createFighter(fighterTemplate);
+	place(*npc, 500.0f, 500.0f, 10.0f);
+	ASSERT_TRUE(KnownListPairing::pair(*npc, *player));
+	npc->getAggroList().addDamage(*player, 150, true, skillengine::model::HopType::DAMAGE);
+	npc->recordingController().doReward();
+	EXPECT_EQ(KillRecordingQuestHandler::kills, 1) << "a kill in a plain instance reaches the quest engine";
+
+	Ref<world::WorldMapInstance> pvpInstance = world::WorldMap2DInstance::create(*map, 2, 0, 0, [](world::WorldMapInstance& instance) {
+		return Ref<instance::handlers::InstanceHandler>(custom::pvpmap::PvpMapHandler::create(instance));
+	});
+	Ref<ControllersTestNpc> pvpNpc = createFighter(fighterTemplate);
+	pvpNpc->setPosition(world::WorldPosition::create(210010000, 500.0f, 500.0f, 10.0f, int8_t{0}, pvpInstance->getRegion(500, 500, 10)));
+	pvpNpc->getPosition()->setIsSpawned(true);
+	ASSERT_TRUE(KnownListPairing::pair(*pvpNpc, *player));
+	pvpNpc->getAggroList().addDamage(*player, 150, true, skillengine::model::HopType::DAMAGE);
+	pvpNpc->recordingController().doReward();
+	EXPECT_EQ(KillRecordingQuestHandler::kills, 1) << "a kill on the PvP map does not";
+
+	pvpInstance->detachInstanceHandler();
+	if (publishQuests)
+		dataholders::DataManager::QUEST_DATA.resetForTests();
+	if (publishNpcs)
+		dataholders::DataManager::NPC_DATA.resetForTests();
+}
 } // namespace
 } // namespace aion::gameserver::controllers::testing

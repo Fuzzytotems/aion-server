@@ -18,7 +18,8 @@ void TahabataAltarAI::handleCreatureMoved(Creature& creature) {
 	checkDistance(creature);
 }
 
-// Java TahabataAltarAI.java:32-47 (Java bug J-I6-5 ported)
+// Java TahabataAltarAI.java:32-47. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I6-5): the bands are
+// checked on the altars' real ids 283116 and 283118, where Java checked 283253 and 283255 (ids no npc template has)
 void TahabataAltarAI::checkDistance(Creature& creature) {
 	int32_t ownerId = getNpcId(); // Java: int owner (renamed: it hides AbstractAI::owner)
 	int32_t debuff;
@@ -34,8 +35,8 @@ void TahabataAltarAI::checkDistance(Creature& creature) {
 			break;
 	}
 	if (runtime::as<Player>(creature) != nullptr) { // Java: creature instanceof Player
-		if ((getNpcId() == 283253 && PositionUtil::isInRangeLimited(getOwner(), creature, 25, 37))
-			|| (getNpcId() == 283255 && PositionUtil::isInRangeLimited(getOwner(), creature, 20, 25))) {
+		if ((getNpcId() == 283116 && PositionUtil::isInRangeLimited(getOwner(), creature, 25, 37))
+			|| (getNpcId() == 283118 && PositionUtil::isInRangeLimited(getOwner(), creature, 20, 25))) {
 			if (!creature.getEffectController()->hasAbnormalEffect(debuff)) {
 				AIActions::useSkill(*this, debuff);
 			}

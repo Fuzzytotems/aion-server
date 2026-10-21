@@ -231,3 +231,8 @@ One instance per checkpoint, smallest first, stacked from origin/C++ (a branch l
 > task when they never spawned (an NPE in Java too). Retest (no gate covers I4): the casts and their effects (Tiamat's buffs and warning, the
 > atrocities' fields, the summons' skills, the Surkanas' reflect), the walks to a random player and the queued skills' use, the HM atrocity's angle
 > choice. Census I4: 131 -> 0 open bodies; I4 is complete.
+> **Progress (2026-10-19):** J-P6I4-1 is an applied correction (owner's decision 2026-10-19, both branches; spawnChests keeps its list): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-P6I7-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-P6I12-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-P6I13-1 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.
+> **Progress (2026-10-19):** J-P6I13-2 is an applied correction (owner's decision 2026-10-19, both branches): docs/deviations/P6-instances.md.

@@ -1,6 +1,7 @@
 #include "aion/gameserver/model/gameobjects/HouseObject.h"
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "aion/gameserver/controllers/PlaceableObjectController.h"
@@ -11,12 +12,14 @@
 #include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/model/house/HouseRegistry.h"
 #include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
+#include "aion/gameserver/model/templates/housing/Building.h"
+#include "aion/gameserver/model/templates/housing/HouseTypeInfo.h"
+#include "aion/gameserver/model/templates/housing/LimitTypeInfo.h"
 #include "aion/gameserver/model/templates/housing/PlaceableHouseObject.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_EDIT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/spawnengine/SpawnEngine.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
@@ -163,11 +166,15 @@ templates::housing::PlaceArea HouseObject::getPlaceArea() {
 	return requireTemplateValue(getObjectTemplate()->getArea(), "area");
 }
 
+// Java HouseObject.java:190-195
 int32_t HouseObject::getPlacementLimit(bool trial) {
-	// Java: getObjectTemplate().getPlacementLimit() and LimitType.get(Trial)ObjectPlaceLimit(registry.getOwner().getBuilding().getSize()):
-	// PlaceableHouseObject and Building declare no such accessors and LimitType has no companion yet (P4-07b)
-	static_cast<void>(trial);
-	AION_UNPORTED();
+	templates::housing::LimitType limitType = getObjectTemplate()->getPlacementLimit();
+	const std::optional<templates::housing::HouseType> size = registry->getOwner()->getBuilding()->getSize();
+	if (!size) // Java: HouseType.getLimitTypeIndex() on Building.getSize()'s null (a building and its holder row without a size)
+		throw runtime::NullPointerException("The building of house object " + std::to_string(getObjectId()) + " has no size");
+	if (trial)
+		return getTrialObjectPlaceLimit(limitType, *size);
+	return getObjectPlaceLimit(limitType, *size);
 }
 
 templates::item::ItemQuality HouseObject::getQuality() {

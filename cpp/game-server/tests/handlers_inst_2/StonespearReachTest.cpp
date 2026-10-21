@@ -247,6 +247,25 @@ TEST_F(StonespearReachTest, TheAethericFieldsKilledInTime) {
 }
 
 /** :851-881: before the end, a player without a legion is refused without a message while the instance has no legion */
+/** :558-596 with the correction of 2026-10-19 (was J-I2-2): stage 4-3 starts 18 minutes into the run; its second wave's 855835 at point 1
+ * comes at 9 s, with its neighbours (Java: 90 s). The aetheric fields of stages 1 to 3 are killed as they come, so the run goes on */
+TEST_F(StonespearReachTest, TheStage43SecondWaveComesTogether) {
+	start();
+	(*client)->clearSent();
+	for (int minute = 1; minute <= 18; minute++) {
+		executor().advance(std::chrono::milliseconds(60000));
+		for (int32_t fieldId : {855764, 855787, 855810, 855833})
+			for (runtime::Ptr<Npc>& field : npcs(*instance, fieldId))
+				handler().onDie(*field);
+	}
+	for (const Score& score : scores())
+		ASSERT_EQ(score.progression, START_PROGRESS);
+	executor().advance(std::chrono::milliseconds(8999));
+	const size_t before = count(855835);
+	executor().advance(std::chrono::milliseconds(1));
+	EXPECT_EQ(count(855835), before + 1) << "the 9 s spawn at point 1 (Java: 90 s)";
+}
+
 TEST_F(StonespearReachTest, NoLegionNoEntry) {
 	(*client)->clearSent();
 	EXPECT_FALSE(handler().canEnter(player()));

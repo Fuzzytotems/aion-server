@@ -12,8 +12,8 @@
 // the binding's own element names (HousingObjectData.java:20-25).
 //
 // Not here: UseableItemObject.onUse (its timed use, cooldown, the COOKING limit and the cancel) is the gate's C17, and the decoration mode and
-// the destroyed studio's save on despawn the gate's C16 and C19 (gs.scenario.m5h). HouseObject.getPlacementLimit(bool) stays unported: Java
-// never calls it (m5h-plan.md H-05).
+// the destroyed studio's save on despawn the gate's C16 and C19 (gs.scenario.m5h). HouseObject.getPlacementLimit(bool), which Java never calls
+// (m5h-plan.md H-05), is ported since 2026-10-19 and checked here against LimitType's tables.
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 #include "LegionHouseTestSupport.h"
@@ -242,6 +242,25 @@ TEST_F(StudioHouseTest, TheFactoryBuildsTheObjectOfEveryTemplateKind) {
 	EXPECT_FALSE(dynamic_cast<go::ChairObject*>(passive.get()));
 	EXPECT_EQ(passive->getObjectId(), objectId);
 	EXPECT_THROW(build(3999999), runtime::NullPointerException) << "no template";
+}
+
+TEST_F(StudioHouseTest, ThePlacementLimitIsTheLimitTypesValueForTheBuildingsSize) {
+	// HouseObject.java:190-195: LimitType.getObjectPlaceLimit / getTrialObjectPlaceLimit of the building's size, the studio (house_buildings.xml
+	// :99, size STUDIO: index 3 of LimitType's a, b, c, d, s tables, LimitType.java:11-18)
+	runtime::Ref<House> house = go::VisibleObject::create<House>(dataholders::DataManager::HOUSE_DATA->getAddress(2001), 0);
+	runtime::Ref<HouseRegistry> registry = HouseRegistry::create(*house);
+	runtime::Ref<go::HouseObject> storage = HouseObjectFactory::createNew(*registry, 7201, 3000007); // limit="STORAGE"
+	runtime::Ref<go::HouseObject> picture = HouseObjectFactory::createNew(*registry, 7202, 3050001); // limit="PICTURE"
+	runtime::Ref<go::HouseObject> cake = HouseObjectFactory::createNew(*registry, 7203, 3190034);    // limit="COOKING"
+	runtime::Ref<go::HouseObject> chair = HouseObjectFactory::createNew(*registry, 7204, 3000004);   // no limit: LimitType.NONE
+	EXPECT_EQ(storage->getPlacementLimit(false), 8) << "STORAGE { 6, 5, 4, 8, 7 }";
+	EXPECT_EQ(storage->getPlacementLimit(true), 4) << "STORAGE trial { 0, 0, 0, 4, 0 }";
+	EXPECT_EQ(picture->getPlacementLimit(false), 1);
+	EXPECT_EQ(picture->getPlacementLimit(true), 0) << "PICTURE trial { 1, 1, 1, 0, 1 }";
+	EXPECT_EQ(cake->getPlacementLimit(false), 1);
+	EXPECT_EQ(cake->getPlacementLimit(true), 1);
+	EXPECT_EQ(chair->getPlacementLimit(false), 0) << "PlaceableHouseObject.getPlacementLimit: NONE without a limit";
+	EXPECT_EQ(chair->getPlacementLimit(true), 0);
 }
 
 TEST_F(StudioHouseTest, AnItemsHouseObjectExpiresAfterItsUseDays) {

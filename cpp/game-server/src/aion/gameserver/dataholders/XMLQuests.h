@@ -13,7 +13,10 @@ namespace aion::gameserver::dataholders {
  * Java com.aionemu.gameserver.dataholders.XMLQuests.
  * <p>
  * C++: the index points into the bound `data` storage, which stays after afterUnmarshal (static-data.md §2.6). getAllQuests returns the quests
- * in Java's HashMap<Integer, XMLQuest> iteration order. setData serves only the //reload command (deferred, design D3).
+ * in Java's HashMap<Integer, XMLQuest> iteration order.
+ * <p>
+ * Java's setData is replaced: //reload publishes a new holder from the files (DataManager::XML_QUESTS.republish in Reload.cpp) instead of
+ * setting the quests of the published one, which stays immutable.
  *
  * @author MrPoke
  */
@@ -32,7 +35,6 @@ public:
 	const questEngine::handlers::models::XMLQuest* getQuest(int32_t questId) const;
 
 	/** Java: replaces the quests and runs afterUnmarshal again (//reload only; deferred, design D3) */
-	void setData(std::vector<std::unique_ptr<questEngine::handlers::models::XMLQuest>> data);
 };
 
 } // namespace aion::gameserver::dataholders

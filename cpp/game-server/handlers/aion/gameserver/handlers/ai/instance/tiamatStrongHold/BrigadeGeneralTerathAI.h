@@ -19,8 +19,8 @@ namespace aion::gameserver::handlers::ai::instance::tiamatStrongHold {
  * they go and he fights again. At 25 % he casts 20942 once. His death or return home deletes the field and opens door 706.
  * <p>
  * Java: data/handlers/ai/instance/tiamatStrongHold/BrigadeGeneralTerathAI.java, @AIName("brigadegeneralterath") (the marker is in the .cpp).
- * **Java bug, ported (proposed correction J-I6-4):** handleBackHome deletes the Aetheric Field but keeps the reference, so the next fight
- * spawns no new field and does not close door 706 again; proposed: null the reference after the delete (handleBackHome and handleDied).
+ * **Correction of the Java code (owner's decision 2026-10-19, both branches; was J-I6-4):** handleBackHome clears the reference to the
+ * Aetheric Field it deletes; Java kept it, so the next fight spawned no new field and did not close door 706 again.
  *
  * @author Cheatkiller
  */
