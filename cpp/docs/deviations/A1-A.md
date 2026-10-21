@@ -35,17 +35,18 @@ delete removes them). Mutation proof 4 of 4 (GarnonQ20060AI's delay, delete and 
 Retest (no quest scripts, quest maps or walks in the unit tests):
 - Quest 20060 (Garnon, "Q20060"): three minutes after Garnon spawns he is replaced by 800020 at 442.3 464.3 341.5.
 - The infiltrators ("infiltrator", 282913-282923): each death spawns the next infiltrator of its chain at the dead one's spawn point. The
-  last ones of the chains (282914, 282916, 282922, 282923) spawn npc 0, as Java does: a "no template" error in the log, nothing spawned
-  (J-A1A-1 below).
+  last ones of the chains (282914, 282916, 282922, 282923) spawn nothing (the applied correction below; Java spawned npc 0).
 - The Nidalber balaur ("nidalber_balaur", maps 310040000 and 320040000): it walks to 271.2 178.9 204.5 and attacks the quest npc (204044 or
   204432); without that npc, or with it dead, the balaur goes.
 - "quest_start_use_item" objects open the quest selection when they start quests (else the start talk), and a dialog npc's page 1011 when
   no quest answers; "quest_use_npc" npcs talk on use.
 
-### Proposed correction J-A1A-1 (InfiltratorsAI, kept as ported)
+### InfiltratorsAI spawns nothing without a next infiltrator (applied correction: owner's decision 2026-10-19, both branches; was J-A1A-1)
 
 InfiltratorsAI.java:40 spawns `spawnNpc` even when the switch (lines 22-39) gave none (`spawnNpc` stays 0 for 282914, 282916, 282922,
-282923 and every other npc id): the spawn of npc 0 fails with an error in the log. Proposed: `if (spawnNpc != 0)` before the spawn.
+282923 and every other npc id): the spawn of npc 0 fails with an error in the log. C++: `if (spawnNpc != 0)` before the spawn. Test:
+`QuestsA1AiTest.TheLastInfiltratorSpawnsNothing` (no "No template for NPC 0" from VisibleObjectSpawner). Mutation proof 1 of 1 (the
+guard removed).
 
 ## classNpc and walkers (checkpoint cp3)
 

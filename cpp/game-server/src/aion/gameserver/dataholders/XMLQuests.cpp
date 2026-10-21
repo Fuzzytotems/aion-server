@@ -1,7 +1,6 @@
 #include "aion/gameserver/dataholders/XMLQuests.h"
 
 #include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::dataholders {
 
@@ -26,10 +25,6 @@ const std::vector<const XMLQuest*>& XMLQuests::getAllQuests() const {
 const XMLQuest* XMLQuests::getQuest(int32_t questId) const {
 	auto it = questsById.find(questId);
 	return it != questsById.end() ? it->second : nullptr;
-}
-
-void XMLQuests::setData(std::vector<std::unique_ptr<XMLQuest>> /*data*/) {
-	AION_UNPORTED(); // //reload of static data is deferred (design D3): a published holder is immutable
 }
 
 } // namespace aion::gameserver::dataholders

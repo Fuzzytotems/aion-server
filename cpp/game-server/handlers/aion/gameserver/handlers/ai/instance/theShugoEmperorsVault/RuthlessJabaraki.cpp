@@ -13,7 +13,7 @@ void RuthlessJabaraki::handleAttack(runtime::Ptr<Creature> creature) {
 	hpPhases->tryEnterNextPhase(*this);
 }
 
-// Java RuthlessJabaraki.java:31-41 (Java bug J-I6-2 ported: only 80 and 35 are phases)
+// Java RuthlessJabaraki.java:31-41 (every case is a phase since the correction of 2026-10-19, was J-I6-2)
 void RuthlessJabaraki::handleHpPhase(int32_t phaseHpPercent) {
 	switch (phaseHpPercent) {
 		case 95:

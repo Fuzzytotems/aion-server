@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "aion/commons/utils/Rnd.h"
@@ -45,6 +46,7 @@
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/player/QuestStateList.h"
+#include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUEST_ACTION.h"
@@ -281,20 +283,44 @@ TEST_F(TiamatRestAiTest, KahrunBreaksTheDoor) {
 	EXPECT_EQ(count(730613), fields - 1);
 }
 
-/** TiamatEyeAI.java:20-51: the 4.0 eye (283913) speaks 2 s after its spawn; the eyes the handler spawns (283177) say nothing (Java bug J-I6-6) */
-TEST_F(TiamatRestAiTest, TheEyesSpeakOnlyWithTheirOldIds) {
+/** TiamatEyeAI.java:20-51 with the correction of 2026-10-19 (was J-I6-6): the eyes the handler spawns (283177-283180) speak their general's
+ * message 2 s after their spawn; the 4.0 id 283913 says nothing */
+TEST_F(TiamatRestAiTest, TheEyesSpeakWithTheHandlersIds) {
+	const std::pair<int32_t, int32_t> eyes[] = {{283177, 1500679}, {283178, 1500680}, {283179, 1500681}, {283180, 1500682}};
 	runtime::Ptr<Npc> old = place(283913);
-	runtime::Ptr<Npc> eye = place(283177);
 	InstanceKnownListPairing::pair(*old, player());
-	InstanceKnownListPairing::pair(*eye, player());
 	install<ts::TiamatEyeAI>(*old).handleSpawned();
-	install<ts::TiamatEyeAI>(*eye).handleSpawned();
+	std::vector<runtime::Ptr<Npc>> placed;
+	for (const auto& [eyeId, message] : eyes) {
+		runtime::Ptr<Npc> eye = place(eyeId);
+		InstanceKnownListPairing::pair(*eye, player());
+		install<ts::TiamatEyeAI>(*eye).handleSpawned();
+		placed.push_back(eye);
+	}
 	executor().advance(std::chrono::milliseconds(1999));
-	EXPECT_EQ(said(*old, 1500679), 0);
+	EXPECT_EQ(said(*placed[0], 1500679), 0);
 	executor().advance(std::chrono::milliseconds(1));
-	EXPECT_EQ(said(*old, 1500679), 1);
-	EXPECT_EQ(said(*eye, 1500679), 0) << "J-I6-6";
-	EXPECT_EQ(said(*eye, 1500680) + said(*eye, 1500681) + said(*eye, 1500682), 0) << "J-I6-6";
+	for (size_t i = 0; i < placed.size(); i++)
+		EXPECT_EQ(said(*placed[i], eyes[i].second), 1) << eyes[i].first;
+	EXPECT_EQ(said(*old, 1500679) + said(*old, 1500680) + said(*old, 1500681) + said(*old, 1500682), 0) << "the 4.0 id (Java's switch)";
+}
+
+/** TahabataAltarAI.java:32-47 with the correction of 2026-10-19 (was J-I6-5): 283116 casts 20970 at a player 25-37 m away, 283118 20971 at
+ * 20-25 m; nearer or farther, or an npc, nothing (Java checked the bands on 283253/283255: no altar cast) */
+TEST_F(TiamatRestAiTest, TahabatasAltarsDebuffInTheirBands) {
+	auto casts = [&](int32_t altarId, float x, Creature& creature) {
+		runtime::Ptr<Npc> altar = place(altarId, x);
+		auto& ai = install<ts::TahabataAltarAI>(*altar);
+		ai.handleCreatureMoved(creature);
+		return altar->getGameStats()->getLastSkillTime() != 0;
+	};
+	EXPECT_TRUE(casts(283116, 1060.0f, player())) << "283116 at 30 m";
+	EXPECT_FALSE(casts(283116, 1050.0f, player())) << "283116 at 20 m";
+	EXPECT_FALSE(casts(283116, 1070.0f, player())) << "283116 at 40 m";
+	EXPECT_TRUE(casts(283118, 1052.0f, player())) << "283118 at 22 m";
+	EXPECT_FALSE(casts(283118, 1058.0f, player())) << "283118 at 28 m";
+	runtime::Ptr<Npc> npc = place(900200, 1030.0f);
+	EXPECT_FALSE(casts(283116, 1060.0f, *npc)) << "an npc";
 }
 
 /** SuramaTheTraitorAI.java:26-56: 10 s after her spawn the talk; 8 s later Raksha (219356) turns on her and becomes attackable; her death speaks */

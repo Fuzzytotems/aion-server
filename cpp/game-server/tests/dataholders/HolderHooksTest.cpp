@@ -4,8 +4,11 @@
 
 #include <atomic>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
+#include <random>
 #include <set>
 #include <sstream>
 #include <string>
@@ -816,6 +819,89 @@ TEST(ZoneDataTest, AreasAndWeatherZoneIds) {
 	EXPECT_EQ(data->getWeatherZoneId(*w2), 2) << "the empty sphere takes no id";
 	EXPECT_EQ(data->getWeatherZoneId(*w3), 1) << "numbering restarts per map";
 	EXPECT_EQ(data->getWeatherZoneId(*sub), 0);
+}
+
+/**
+ * P4-09 ZoneData.saveData: the zones go to ./data/static_data/zones/generated_zones.xml of the working directory. The test works in a scratch
+ * directory (as the spawn write-back tests do), never in a tracked data tree.
+ */
+class ZoneDataSaveTest : public ::testing::Test {
+protected:
+	void SetUp() override {
+		previous = std::filesystem::current_path();
+		dir = std::filesystem::temp_directory_path() / ("aion_gs_zone_save_" + std::to_string(std::random_device()()));
+		std::filesystem::create_directories(dir);
+		std::filesystem::current_path(dir);
+	}
+
+	void TearDown() override {
+		std::filesystem::current_path(previous);
+		std::error_code ignored;
+		std::filesystem::remove_all(dir, ignored);
+	}
+
+	static std::filesystem::path generated() { return std::filesystem::path("data/static_data/zones/generated_zones.xml"); }
+
+	static std::string readGenerated() {
+		std::ifstream in(generated(), std::ios::binary);
+		std::ostringstream text;
+		text << in.rdbuf();
+		return text.str();
+	}
+
+	runtime::TaskScope scope{AION_TASK_INFO(runtime::TaskKind::TEST)};
+	std::filesystem::path previous;
+	std::filesystem::path dir;
+};
+
+TEST_F(ZoneDataSaveTest, SaveDataWritesTheZonesInJaxbsFormattedForm) {
+	std::filesystem::create_directories("data/static_data/zones");
+	std::unique_ptr<ZoneData> data = bindXml<ZoneData>(
+	  R"(<zones>)"
+	  R"(<zone mapid="1" name="P4_09_poly&amp;&lt;&gt;&quot;" area_type="POLYGON" zone_type="FLY" flags="8" priority="3" siege_id="1011 1012" town_id="5">)"
+	  R"(<points bottom="0" top="10.5"><point x="1" y="2"/><point x="3.25" y="4"/><point x="-7" y="0.1"/></points></zone>)"
+	  R"(<zone mapid="2" name="P4_09_CYL" area_type="CYLINDER" zone_type="PVP"><cylinder x="1" y="2" r="5" bottom="0" top="10"/></zone>)"
+	  R"(<zone mapid="2" name="P4_09_BALL" area_type="SPHERE" zone_type="SUB" siege_id="7"><sphere x="-1.5" y="2" z="3" r="4"/></zone>)"
+	  R"(<zone mapid="1" name="P4_09_HALF" area_type="SEMISPHERE" zone_type="WEATHER"><semisphere x="1" y="1" z="1" r="5"/></zone>)"
+	  R"(</zones>)");
+	data->saveData();
+	EXPECT_EQ(readGenerated(),
+	  "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+	  "<zones>\n"
+	  "    <zone flags=\"8\" priority=\"3\" mapid=\"1\" siege_id=\"1011 1012\" town_id=\"5\" area_type=\"POLYGON\" zone_type=\"FLY\" "
+	  "name=\"P4_09_POLY&amp;&lt;&gt;&quot;\">\n"
+	  "        <points top=\"10.5\" bottom=\"0.0\">\n"
+	  "            <point y=\"2.0\" x=\"1.0\"/>\n"
+	  "            <point y=\"4.0\" x=\"3.25\"/>\n"
+	  "            <point y=\"0.1\" x=\"-7.0\"/>\n"
+	  "        </points>\n"
+	  "    </zone>\n"
+	  "    <zone flags=\"-1\" priority=\"0\" mapid=\"2\" town_id=\"0\" area_type=\"CYLINDER\" zone_type=\"PVP\" name=\"P4_09_CYL\">\n"
+	  "        <cylinder top=\"10.0\" bottom=\"0.0\" x=\"1.0\" y=\"2.0\" r=\"5.0\"/>\n"
+	  "    </zone>\n"
+	  "    <zone flags=\"-1\" priority=\"0\" mapid=\"2\" siege_id=\"7\" town_id=\"0\" area_type=\"SPHERE\" zone_type=\"SUB\" name=\"P4_09_BALL\">\n"
+	  "        <sphere x=\"-1.5\" y=\"2.0\" z=\"3.0\" r=\"4.0\"/>\n"
+	  "    </zone>\n"
+	  "    <zone flags=\"-1\" priority=\"0\" mapid=\"1\" town_id=\"0\" area_type=\"SEMISPHERE\" zone_type=\"WEATHER\" name=\"P4_09_HALF\">\n"
+	  "        <semisphere x=\"1.0\" y=\"1.0\" z=\"1.0\" r=\"5.0\"/>\n"
+	  "    </zone>\n"
+	  "</zones>\n")
+	  << "the list order of the holder, attributes in ZoneTemplate's property order, the name interned upper case and escaped";
+
+	data = bindXml<ZoneData>("<zones/>");
+	data->saveData();
+	EXPECT_EQ(readGenerated(), "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<zones/>\n")
+	  << "the file is replaced; an empty list is an empty root element";
+}
+
+TEST_F(ZoneDataSaveTest, AMissingDirectoryIsLoggedAndNothingIsWritten) {
+	std::unique_ptr<ZoneData> data =
+	  bindXml<ZoneData>(R"(<zones><zone mapid="1" name="P4_09_LOST" area_type="SPHERE" zone_type="SUB"><sphere x="1" y="1" z="1" r="5"/></zone></zones>)");
+	LogCapture capture("com.aionemu.gameserver.dataholders.ZoneData");
+	data->saveData();
+	EXPECT_EQ(capture.text().rfind("error|Error while saving data: null", 0), 0u) << capture.text();
+	EXPECT_FALSE(std::filesystem::exists(generated()));
+	EXPECT_FALSE(std::filesystem::exists("data")) << "Java's marshal(Object, File) creates no directory";
 }
 
 // ---- TradeListData.validateBuyLists and DataManager helpers ------------------------------------------------------------------------------------

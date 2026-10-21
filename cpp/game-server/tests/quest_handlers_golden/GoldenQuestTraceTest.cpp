@@ -117,7 +117,6 @@
 #include "aion/gameserver/services/craft/CraftSkillUpdateService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/BrokerService.h"
-#include "aion/gameserver/world/zone/ZoneService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
@@ -2799,10 +2798,20 @@ TEST_F(GoldenQuestTraceTest, HandTracesOfTheClassSkillQuests) {
  * What the negative control changes in its copy of _1111InsomniaMedicine. OPCODES and THROW (the Q03 review, 2026-09-29): a system message
  * (no key packet) and a NullPointerException before the QUEST_SELECT page. OPCODES_AFTER_STEP, THROW_AFTER_STEP and UNPORTED (the Q10
  * review, the same day): one more packet that is no key packet, a NullPointerException after the step's effects, and an unported engine
- * body reached that the tally must report: BrokerService::showRegisteredItems (parked, D2; WarehouseService::expand until the M5b-3
- * leftovers ported it) (the Q10 review used defaultStartFollowEvent, which M5d stage 3 E-07 ported on C++, fed04d229, before slice 2 landed there)
+ * body reached that the tally must report: negativeControlUnportedBody below, a stand-in since P4-last ported the last unported game-server
+ * body (ZoneService::saveMaterialZones, #393 before it; BrokerService::showRegisteredItems and WarehouseService::expand earlier; the Q10 review
+ * used defaultStartFollowEvent, which M5d stage 3 E-07 ported on C++, fed04d229, before slice 2 landed there)
  */
 enum class Flip { NONE, PAGE, VAR, REWARD_GROUP, ITEM, STATUS, RETURN, OPCODES, THROW, OPCODES_AFTER_STEP, THROW_AFTER_STEP, UNPORTED };
+
+/**
+ * The negative control's unported engine body, test target only: the game server has no AION_UNPORTED body left, so the control reaches this
+ * stand-in, which throws UnportedException and counts its site exactly as an unported server body would. The census and closure scan the
+ * server's sources (src, generated, handlers), not the tests, so it counts as no open body.
+ */
+[[noreturn]] void negativeControlUnportedBody() {
+	AION_UNPORTED();
+}
 
 /**
  * A statement-by-statement copy of the generated _1111InsomniaMedicine.cpp (quest 1111) with one deliberate difference, chosen by `flip`: the
@@ -2879,10 +2888,8 @@ public:
 					utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_CAN_NOT_GET_LORE_ITEM("flip"));
 				if (flip == Flip::THROW_AFTER_STEP)
 					throw runtime::NullPointerException("the negative control's flip");
-				if (flip == Flip::UNPORTED) {
-					world::zone::ZoneService::getInstance().saveMaterialZones(); // the write-back of static data: stays AION_UNPORTED (static-data.md §3.6)
-					return true;
-				}
+				if (flip == Flip::UNPORTED)
+					negativeControlUnportedBody(); // [[noreturn]]
 				return flip != Flip::RETURN;
 			} else if (env.getDialogActionId() == DA::SETPRO2 && qs->getStatus() != QuestStatus::COMPLETE) {
 				if (!giveQuestItem(env, 182200221, 1))

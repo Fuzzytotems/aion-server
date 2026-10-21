@@ -121,10 +121,11 @@ void OrissanAI::handleBackHome() {
 	AggressiveNoLootNpcAI::handleBackHome();
 }
 
-// Java OrissanAI.java:132-136
+// Java OrissanAI.java:132-136. Correction of the Java code (owner's decision 2026-10-19, both branches; was J-P6I12-1): super.handleDied();
+// Java called super.handleDespawned(), so Orissan's death skipped NpcAI's death handling
 void OrissanAI::handleDied() {
 	cancelTask();
-	AggressiveNoLootNpcAI::handleDespawned(); // Java bug (J-P6I12-1): super.handleDespawned(), not super.handleDied()
+	AggressiveNoLootNpcAI::handleDied();
 }
 
 // Java OrissanAI.java:138-142

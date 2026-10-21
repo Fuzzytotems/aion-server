@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -14,8 +15,8 @@ namespace aion::gameserver::dataholders {
  * Java com.aionemu.gameserver.dataholders.ZoneData.
  * <p>
  * C++: the zone infos are RefCounted (ZoneInfo.h) and refer to the bound zone templates, which stay (Java sets the list to null). Weather zone
- * ids are keyed by template identity (Java: ZoneTemplate has no equals). saveData writes the zones back with JAXB marshalling: write-back comes
- * after the load path (static-data.md §3.6 item 7), so it stays unported.
+ * ids are keyed by template identity (Java: ZoneTemplate has no equals). saveData writes the zones back in the JAXB RI's formatted form (see
+ * ZoneData.cpp); ZoneService.saveMaterialZones builds a new ZoneData for its list, which the C++ writes through the static overload.
  *
  * @author ATracer
  */
@@ -38,8 +39,14 @@ public:
 	/** Weather zone ID it's an order number (starts from 1) */
 	int32_t getWeatherZoneId(const model::templates::zone::ZoneTemplate& template_) const;
 
-	/** Java: writes ./data/static_data/zones/generated_zones.xml with JAXB. Unported: write-back */
+	/** Java: writes ./data/static_data/zones/generated_zones.xml (relative to the working directory) with JAXB */
 	void saveData();
+
+	/**
+	 * C++ only: Java's `new ZoneData()` whose zoneList is `zones`, then saveData() (ZoneService.saveMaterialZones). The holder owns its templates
+	 * by value, so a list of the service's templates is written through this overload instead of a second holder.
+	 */
+	static void saveData(std::span<const model::templates::zone::ZoneTemplate* const> zones);
 };
 
 } // namespace aion::gameserver::dataholders

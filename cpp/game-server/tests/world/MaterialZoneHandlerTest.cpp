@@ -20,11 +20,16 @@
 
 #include <atomic>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
+#include <random>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include "WorldTestSupport.h"
 
@@ -39,6 +44,7 @@
 #include "aion/gameserver/dataholders/NpcSkillData.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
+#include "aion/gameserver/geoEngine/bounding/BoundingBox.h"
 #include "aion/gameserver/geoEngine/collision/CollisionResults.h"
 #include "aion/gameserver/geoEngine/math/Ray.h"
 #include "aion/gameserver/geoEngine/math/Vector3f.h"
@@ -115,6 +121,11 @@ public:
 		lastRay = ray;
 		collisionChecks.fetch_add(1);
 		return Node::collideWith(ray, results);
+	}
+
+	/** gives the mesh the world bound of a box (MaterialZoneTemplate reads its center and extents) */
+	void setWorldBox(const geoEngine::math::Vector3f& center, float x, float y, float z) {
+		worldBound.set(Ptr<geoEngine::bounding::BoundingVolume>(geoEngine::bounding::BoundingBox::create(center, x, y, z)));
 	}
 
 protected:
@@ -306,6 +317,57 @@ TEST_F(MaterialZoneHandlerTest, TheQueuedCollisionCheckOfTheActorFindsNothing) {
 	handler->onLeaveZone(*npc, *zone);
 	EXPECT_FALSE(npc->getObserveController()->hasObservers());
 	EXPECT_EQ(mesh->collisionChecks.load(), 1) << "onLeaveZone aborts the actor instead of checking again";
+}
+
+// P4-10 ZoneService.saveMaterialZones: the templates of the zones whose area has a collidable handler, map by map in WORLD_MAPS_DATA order,
+// stably sorted by map id, written by ZoneData.saveData to ./data/static_data/zones/generated_zones.xml of the working directory. The test
+// writes into a scratch directory. The material zones it registers stay in the process's ZoneService (ctest runs every test in its own process):
+// they are on Dredgion and Ishalgen, away from what other world tests read there (WorldZonesTest counts Reshanta's zones, WorldContainerLifetime
+// reads Ishalgen's region at 100, 100).
+TEST_F(MaterialZoneHandlerTest, SaveMaterialZonesWritesTheCollidableZonesSortedByMapId) {
+	xml::LoadContext materialContext;
+	dataholders::DataManager::MATERIAL_DATA.republish(xml::bindString<dataholders::MaterialData>(materialContext, MATERIALS_XML));
+	const std::filesystem::path previous = std::filesystem::current_path();
+	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("aion_gs_material_zones_" + std::to_string(std::random_device()()));
+	std::filesystem::create_directories(dir / "data/static_data/zones");
+	std::filesystem::current_path(dir);
+
+	zone::ZoneService& service = zone::ZoneService::getInstance();
+	Ref<RecordingMesh> first = makeMesh("P4_10_FIRST_MESH", 14);
+	first->setWorldBox(geoEngine::math::Vector3f(10, 20, 30), 1, 2, 3);
+	Ref<RecordingMesh> cylinder = makeMesh("P4_10_CYLINDER_MESH", 14);
+	cylinder->setWorldBox(geoEngine::math::Vector3f(40, 50, 60), 3, 4, 5);
+	Ref<RecordingMesh> second = makeMesh("P4_10_SEMISPHERE_MESH", 13);
+	second->setWorldBox(geoEngine::math::Vector3f(200, 210, 90), 1, 1, 1);
+	service.createMaterialZoneTemplate(*first, DREDGION, zone::ZoneName::createOrGet("P4_10_FIRST"));
+	service.createMaterialZoneTemplate(*cylinder, DREDGION, zone::ZoneName::createOrGet("P4_10_CYLINDER"));
+	service.createMaterialZoneTemplate(*second, ISHALGEN, zone::ZoneName::createOrGet("P4_10_SECOND"));
+
+	service.saveMaterialZones();
+	std::ifstream in("data/static_data/zones/generated_zones.xml", std::ios::binary);
+	std::ostringstream read;
+	read << in.rdbuf();
+	in.close();
+	const std::string text = read.str();
+	std::filesystem::current_path(previous);
+	std::error_code ignored;
+	std::filesystem::remove_all(dir, ignored);
+	dataholders::DataManager::MATERIAL_DATA.republish(xml::bindString<dataholders::MaterialData>(materialContext, "<material_templates/>"));
+
+	std::vector<std::string> zones;
+	for (size_t at = text.find("<zone "); at != std::string::npos; at = text.find("<zone ", at + 1))
+		zones.push_back(text.substr(at, text.find('>', at) - at));
+	ASSERT_EQ(zones.size(), 3u) << "Poeta's zones of WorldTestSupport have no collidable handler\n" << text;
+	EXPECT_NE(zones[0].find("mapid=\"220010000\""), std::string::npos) << zones[0];
+	EXPECT_NE(zones[0].find("area_type=\"SEMISPHERE\""), std::string::npos) << zones[0];
+	EXPECT_NE(zones[0].find("name=\"P4_10_SEMISPHERE_MESH_220010000\""), std::string::npos)
+	  << "Ishalgen comes last in world_maps.xml and has the lowest id: " << zones[0];
+	EXPECT_NE(zones[1].find("name=\"P4_10_FIRST_MESH_300110000\""), std::string::npos) << zones[1];
+	EXPECT_NE(zones[1].find("area_type=\"SPHERE\""), std::string::npos) << zones[1];
+	EXPECT_NE(zones[2].find("name=\"P4_10_CYLINDER_MESH_300110000\""), std::string::npos) << "the sort is stable: " << zones[2];
+	EXPECT_NE(zones[2].find("area_type=\"CYLINDER\""), std::string::npos) << zones[2];
+	EXPECT_NE(text.find("        <cylinder top=\"66.0\" bottom=\"54.0\" x=\"40.0\" y=\"50.0\" r=\"6.0\"/>\n"), std::string::npos)
+	  << "r = sqrt(3 * 3 + 4 * 4) + 1, top and bottom one past the z extent\n" << text;
 }
 
 } // namespace

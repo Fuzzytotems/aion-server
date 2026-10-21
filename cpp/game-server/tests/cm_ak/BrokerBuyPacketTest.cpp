@@ -113,16 +113,23 @@ TEST_F(BrokerBuyTest, PartOfASplittableOfferIsANewStackAndTheRestStaysOffered) {
 	EXPECT_EQ(maildb::queryLong("SELECT COUNT(*) FROM broker WHERE is_sold = 1 AND item_count = 4 AND price = 7"), 1);
 }
 
-TEST_F(BrokerBuyTest, FewerPiecesOfAnUnsplittableOfferBuyTheWholeStackAtTheirPrice) {
+TEST_F(BrokerBuyTest, FewerPiecesOfAnUnsplittableOfferAreRefusedAndTheWholeStackIsBoughtAtItsPrice) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	offer(9604, MINOR_LIFE_POTION, 10, 7, SELLER_ID, "ELYOS", false);
 	owned(9699, KINAH, 1000);
 	targetBroker();
 
+	// J-P5-09b-2 (owner's decision 2026-10-19, applied): a count other than the offer's is refused for an offer that cannot be split. Java
+	// (:250, :272-274) took the whole stack for the price of the requested pieces
 	buy(9604, 2);
+	EXPECT_EQ(kinahOf(player()), 1000);
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(9604));
+	EXPECT_EQ(countOf(player(), MINOR_LIFE_POTION), 0);
+	buy(9604, 11);
+	EXPECT_EQ(kinahOf(player()), 1000) << "more pieces than the offer holds are refused too";
 
-	// :250, :272-274 (J-P5-09b-2): not splittable, so the else branch takes the whole offer, but the price is the requested count's
-	EXPECT_EQ(kinahOf(player()), 986);
+	buy(9604, 10);
+	EXPECT_EQ(kinahOf(player()), 930) << "the whole stack at 10 * 7";
 	runtime::Ptr<Item> bought = storage(StorageType::CUBE).getItemByObjId(9604);
 	ASSERT_TRUE(bought);
 	EXPECT_EQ(bought->getItemCount(), 10);
