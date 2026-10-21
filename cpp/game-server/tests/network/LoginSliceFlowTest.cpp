@@ -663,7 +663,8 @@ TEST_F(LoginSliceDatabaseFlowTest, AnEnterRejectedOnASecondConnectionKeepsTheAcc
 	EXPECT_EQ(loginslice::test::createdSlicePlayers.load(), createdBefore + 1) << "getPlayer created the rejected player";
 	{
 		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
-		EXPECT_EQ(services::player::PlayerService::accountWarehouseActor(*account).get(), online.get())
+		// the reject packet is sent before the breakers' finally block restores the actor (as in Java), so wait for the restore
+		EXPECT_TRUE(waitUntil([&] { return services::player::PlayerService::accountWarehouseActor(*account).get() == online.get(); }, 5s))
 			<< "the breakers of the rejected player must not leave the online character without an account warehouse actor";
 		world::World::getInstance().removeObject(*online);
 	}
