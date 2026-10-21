@@ -1,5 +1,7 @@
 #include "aion/gameserver/handlers/ai/portals/PortalDialogAI.h"
 
+#include "aion/gameserver/custom/difficulty/DifficultyMenu.h"
+
 #include <vector>
 
 #include "aion/gameserver/dataholders/AutoGroupData.h"
@@ -65,7 +67,8 @@ bool PortalDialogAI::onDialogSelect(Player& player, int32_t dialogActionId, int3
 	}
 	if (questId == 0) {
 		const PortalPath* portalPath = DataManager::PORTAL2_DATA->getPortalDialogPath(getNpcId(), dialogActionId, player);
-		if (portalPath != nullptr)
+		// C++-dev: the example difficulty menu in front of Fire Temple (RuntimeConfig::DIFFICULTY_MENU_ENABLE, off by default)
+		if (portalPath != nullptr && !custom::difficulty::DifficultyMenu::offer(player, *this, portalPath))
 			PortalService::port(portalPath, player, getOwner());
 		return true;
 	}

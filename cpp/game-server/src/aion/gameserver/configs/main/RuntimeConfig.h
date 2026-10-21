@@ -59,6 +59,12 @@ struct RuntimeConfig {
 	/** Run movement ticks sequentially (ThreadPoolManager::Config::serialMovement, reproduction aid) */
 	static inline std::atomic<bool> DEBUG_SERIAL_MOVEMENT{false};
 
+	/**
+	 * C++-dev only: the example difficulty menu in front of Fire Temple's entrance (custom/difficulty/DifficultyMenu.h). Off by default: Java's
+	 * entry runs unchanged.
+	 */
+	static inline std::atomic<bool> DIFFICULTY_MENU_ENABLE{false};
+
 	/** Binds the fields above to their property keys. */
 	static void bind(commons::configuration::ConfigurableProcessor& processor);
 

@@ -1,13 +1,22 @@
 #include "aion/gameserver/handlers/instance/FireTempleInstance.h"
 
 #include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/custom/difficulty/DifficultyMenu.h"
+#include "aion/gameserver/model/ChatType.h"
+#include "aion/gameserver/model/stats/calc/Stat2.h"
+#include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
+#include "aion/gameserver/model/stats/calc/functions/StatSetFunction.h"
+#include "aion/gameserver/model/stats/container/NpcGameStats.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/model/stats/container/StatEnum.h"
 
 namespace aion::gameserver::handlers::instance {
 
 AION_INSTANCE_HANDLER(FireTempleInstance, 320100000);
 
 // Java FireTempleInstance.java:14-16
-FireTempleInstance::FireTempleInstance(WorldMapInstance& instance) : GeneralInstanceHandler(instance) {
+FireTempleInstance::FireTempleInstance(WorldMapInstance& instance)
+	: GeneralInstanceHandler(instance), difficulty(custom::difficulty::DifficultyMenu::difficultyOfNewInstance(320100000)) {
 }
 
 runtime::Ref<FireTempleInstance> FireTempleInstance::create(WorldMapInstance& instance) {
@@ -52,6 +61,37 @@ void FireTempleInstance::onInstanceCreate() {
 	} else { // normal kromede
 		spawn(212846, 421.9935f, 93.18915f, 117.3053f, int8_t{46});
 	}
+}
+
+// C++-dev only (the difficulty menu example)
+void FireTempleInstance::onSpawn(VisibleObject& object) {
+	if (difficulty != custom::difficulty::DifficultyMenu::HARD)
+		return;
+	if (runtime::Ptr<Npc> npc = runtime::as<Npc>(runtime::Ptr<VisibleObject>(&object)))
+		applyHardMode(*npc);
+}
+
+// C++-dev only (the difficulty menu example)
+void FireTempleInstance::onEnterInstance(Player& player) {
+	if (difficulty == custom::difficulty::DifficultyMenu::HARD)
+		PacketSendUtility::sendMessage(player, HARD_MODE_MESSAGE, model::ChatType::BRIGHT_YELLOW_CENTER);
+}
+
+// C++-dev only (the difficulty menu example)
+void FireTempleInstance::applyHardMode(Npc& npc) {
+	using model::stats::calc::functions::RcStatFunction;
+	using model::stats::calc::functions::StatSetFunction;
+	using model::stats::container::StatEnum;
+	const int32_t maxHp = npc.getLifeStats()->getMaxHp();
+	const int32_t physicalAttack = npc.getGameStats()->getMainHandPAttack({})->getCurrent();
+	const int32_t magicalAttack = npc.getGameStats()->getMainHandMAttack({})->getCurrent();
+	std::vector<runtime::Ref<model::stats::calc::functions::IStatFunction>> functions{
+		RcStatFunction<StatSetFunction>::create(StatEnum::MAXHP, maxHp * 2),
+		RcStatFunction<StatSetFunction>::create(StatEnum::PHYSICAL_ATTACK, physicalAttack * 3 / 2),
+		RcStatFunction<StatSetFunction>::create(StatEnum::MAGICAL_ATTACK, magicalAttack * 3 / 2)};
+	std::vector<runtime::Ptr<model::stats::calc::functions::IStatFunction>> borrowed(functions.begin(), functions.end());
+	npc.getGameStats()->addEffect(nullptr, borrowed);
+	npc.getLifeStats()->setCurrentHp(npc.getLifeStats()->getMaxHp());
 }
 
 } // namespace aion::gameserver::handlers::instance
