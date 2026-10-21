@@ -2,6 +2,8 @@
 
 #include "aion/gameserver/handlers/instance/InstancePrelude.h"
 
+#include "aion/gameserver/custom/instance/InstanceScoring.h"
+
 namespace aion::gameserver::handlers::instance {
 
 /**
@@ -10,7 +12,9 @@ namespace aion::gameserver::handlers::instance {
  * Java: data/handlers/instance/FireTempleInstance.java.
  * <p>
  * C++-dev only: the Hard mode of the difficulty menu example (custom/difficulty/DifficultyMenu.h, docs/deviations/C2.md). An instance created by
- * the menu's Hard entry doubles every spawned npc's max HP and raises its attack by half, and tells each entering player so.
+ * the menu's Hard entry doubles every spawned npc's max HP and raises its attack by half, and tells each entering player so. With
+ * RuntimeConfig::INSTANCE_SCORING_ENABLE it is also scored (custom/instance/InstanceScoring.h): a 20-minute countdown from the first entry,
+ * points per kill, the end at Kromede's death or the time out.
  *
  * @author Gigi
  */
@@ -38,8 +42,25 @@ public:
 
 	static constexpr const char* HARD_MODE_MESSAGE = "Fire Temple - Hard: enemies have doubled health and stronger attacks.";
 
+	/** C++-dev: the kill's points (Hard with scoring) */
+	void onDie(Npc& npc) override;
+
+	/** C++-dev: the scoring's timer task ends with the instance */
+	void onInstanceDestroy() override;
+
+	/** C++-dev: Fire Temple Hard's scoring settings - 20 minutes, the named bosses, Kromede as the final boss, the rewards per rank */
+	static custom::instance::InstanceScoring::Settings scoringSettings();
+
+	/** C++-dev: the score of a Hard instance with scoring on, else null */
+	runtime::Ptr<custom::instance::InstanceScoring> getScoring() const { return scoring.get(); }
+
+	/** C++-dev: the scoring's time out (the timer task's body) */
+	void onScoringTimeout();
+
 private:
 	const int8_t difficulty;
+	runtime::Field<runtime::Ref<custom::instance::InstanceScoring>> scoring{}; // C++-dev only
+	runtime::Field<runtime::FutureRef> scoringTimeout{};                      // C++-dev only
 };
 
 } // namespace aion::gameserver::handlers::instance

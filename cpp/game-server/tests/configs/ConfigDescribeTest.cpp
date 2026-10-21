@@ -86,7 +86,7 @@ TEST(ConfigDescribeTest, DescribeListsEveryBindOfEveryConfigClassAsTheGoldenDump
 	}
 	EXPECT_EQ(unnamed, 1);
 	const std::vector<std::string> golden = goldenRows();
-	ASSERT_EQ(golden.size(), 449u); // C++-dev: + RuntimeConfig.DIFFICULTY_MENU_ENABLE
+	ASSERT_EQ(golden.size(), 451u); // C++-dev: + RuntimeConfig.DIFFICULTY_MENU_ENABLE, INSTANCE_SCORING_ENABLE, INSTANCE_SCORING_DP_PANEL
 	EXPECT_EQ(rows, golden);
 }
 
