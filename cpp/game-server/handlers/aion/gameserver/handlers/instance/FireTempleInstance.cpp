@@ -1,6 +1,8 @@
 #include "aion/gameserver/handlers/instance/FireTempleInstance.h"
 
 #include "aion/commons/utils/Rnd.h"
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/configs/main/RuntimeConfig.h"
 #include "aion/gameserver/custom/difficulty/DifficultyMenu.h"
 #include "aion/gameserver/model/ChatType.h"
 #include "aion/gameserver/model/stats/calc/Stat2.h"
@@ -17,6 +19,12 @@ AION_INSTANCE_HANDLER(FireTempleInstance, 320100000);
 // Java FireTempleInstance.java:14-16
 FireTempleInstance::FireTempleInstance(WorldMapInstance& instance)
 	: GeneralInstanceHandler(instance), difficulty(custom::difficulty::DifficultyMenu::difficultyOfNewInstance(320100000)) {
+	if (difficulty == custom::difficulty::DifficultyMenu::HARD && configs::main::RuntimeConfig::INSTANCE_SCORING_ENABLE.load()) {
+		runtime::Ref<custom::instance::InstanceScoring> score =
+			custom::instance::InstanceScoring::create(scoringSettings(), [] { return commons::utils::currentTimeMillis(); });
+		score->setTitle("Fire Temple - Hard");
+		scoring.set(score);
+	}
 }
 
 runtime::Ref<FireTempleInstance> FireTempleInstance::create(WorldMapInstance& instance) {
@@ -75,6 +83,55 @@ void FireTempleInstance::onSpawn(VisibleObject& object) {
 void FireTempleInstance::onEnterInstance(Player& player) {
 	if (difficulty == custom::difficulty::DifficultyMenu::HARD)
 		PacketSendUtility::sendMessage(player, HARD_MODE_MESSAGE, model::ChatType::BRIGHT_YELLOW_CENTER);
+	runtime::Ptr<custom::instance::InstanceScoring> score = scoring.get();
+	if (score != nullptr && score->start(*instance)) // the countdown starts at the first entry
+		scoringTimeout.set(ThreadPoolManager::getInstance().schedule({this}, [this] { onScoringTimeout(); },
+			int64_t{score->getSettings().timeLimitSeconds} * 1000));
+}
+
+// C++-dev only (instance scoring)
+void FireTempleInstance::onScoringTimeout() {
+	if (runtime::Ptr<custom::instance::InstanceScoring> score = scoring.get())
+		score->finish(*instance, false);
+}
+
+// C++-dev only (instance scoring); Java's FireTempleInstance has no onDie
+void FireTempleInstance::onDie(Npc& npc) {
+	GeneralInstanceHandler::onDie(npc);
+	runtime::Ptr<custom::instance::InstanceScoring> score = scoring.get();
+	if (score == nullptr)
+		return;
+	score->onKill(*instance, npc);
+	if (score->isFinished())
+		if (runtime::Ptr<runtime::Future> task = scoringTimeout.get())
+			task->cancel(false);
+}
+
+// C++-dev only (instance scoring)
+void FireTempleInstance::onInstanceDestroy() {
+	GeneralInstanceHandler::onInstanceDestroy();
+	if (runtime::Ptr<runtime::Future> task = scoringTimeout.get())
+		task->cancel(false);
+}
+
+// C++-dev only: 20 minutes; the seven named bosses (onInstanceCreate's spawns) count as bosses; Kromede, either form, ends the run
+custom::instance::InstanceScoring::Settings FireTempleInstance::scoringSettings() {
+	custom::instance::InstanceScoring::Settings settings;
+	settings.timeLimitSeconds = 20 * 60;
+	settings.bossNpcIds = {212839, 212842, 212840, 212843, 212841, 212845, 212846, 214621};
+	settings.finalBossNpcIds = {212846, 214621};
+	// 162000049 Greater Recovery Serum, 162000005 Greater Life Potion, 162000010 Greater Mana Potion (level 40 consumables)
+	settings.rewards = {{
+		{{162000049, 10}, {162000005, 20}}, // rank 1
+		{{162000049, 5}, {162000005, 15}},  // rank 2
+		{{162000005, 10}, {162000010, 10}}, // rank 3
+		{{162000005, 5}},                   // rank 4
+		{{162000005, 2}},                   // rank 5
+		{},                                 // 6 and 7: not reached by this shape
+		{},
+		{}, // rank 8: the time out
+	}};
+	return settings;
 }
 
 // C++-dev only (the difficulty menu example)

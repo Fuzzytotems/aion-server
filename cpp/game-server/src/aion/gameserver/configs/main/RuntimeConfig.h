@@ -65,6 +65,12 @@ struct RuntimeConfig {
 	 */
 	static inline std::atomic<bool> DIFFICULTY_MENU_ENABLE{false};
 
+	/** C++-dev only: instance scoring (custom/instance/InstanceScoring.h) in the Fire Temple Hard example. Off by default */
+	static inline std::atomic<bool> INSTANCE_SCORING_ENABLE{false};
+
+	/** C++-dev only, an experiment: also send InstanceScoring's points and time as Dark Poeta's SM_INSTANCE_SCORE panel. Off by default */
+	static inline std::atomic<bool> INSTANCE_SCORING_DP_PANEL{false};
+
 	/** Binds the fields above to their property keys. */
 	static void bind(commons::configuration::ConfigurableProcessor& processor);
 

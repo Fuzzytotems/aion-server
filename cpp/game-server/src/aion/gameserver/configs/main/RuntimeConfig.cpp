@@ -20,6 +20,8 @@ void RuntimeConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	AION_BIND(p, "gameserver.debug.single_executor", DEBUG_SINGLE_EXECUTOR, "false");
 	AION_BIND(p, "gameserver.debug.serial_movement", DEBUG_SERIAL_MOVEMENT, "false");
 	AION_BIND(p, "gameserver.custom.difficulty_menu.enable", DIFFICULTY_MENU_ENABLE, "false");
+	AION_BIND(p, "gameserver.custom.instance_scoring.enable", INSTANCE_SCORING_ENABLE, "false");
+	AION_BIND(p, "gameserver.custom.instance_scoring.dp_panel", INSTANCE_SCORING_DP_PANEL, "false");
 }
 
 runtime::Reclaimer::Config RuntimeConfig::reclaimerConfig() {
