@@ -19,7 +19,7 @@ AION_ADMIN_COMMAND(Damage);
 Damage::Damage() : AdminCommand("damage") {
 }
 
-// Java Damage.java:26-107
+// Java Damage.java:26-107. C++-dev: the value is always absolute points; a percentage is //damagepercent's (docs/deviations/C1.md)
 void Damage::execute(Player& admin, std::span<const std::string> params) {
 	using commons::utils::StringUtils::equalsIgnoreCase;
 	using TYPE = network::aion::serverpackets::SM_ATTACK_STATUS::TYPE; // parity: the C++ alias of Java's import of SM_ATTACK_STATUS.TYPE
@@ -62,25 +62,16 @@ void Damage::execute(Player& admin, std::span<const std::string> params) {
 			std::string percent = params[0];
 			if (!equalsIgnoreCase(damageType, "hp"))
 				percent = params[1];
-			// Java: Pattern.compile("([^%]+)%").matcher(percent).find() - the first run of non-'%' characters that a '%' ends
-			std::optional<std::string> group; // parity= Pattern damage = Pattern.compile("([^%]+)%"); Matcher result = damage.matcher(percent); // the scan of docs/deviations/C1.md
-			for (size_t start = 0; start < percent.size() && !group; start++) { // parity: (continued)
-				size_t end = start; // parity: (continued)
-				while (end < percent.size() && percent[end] != '%') // parity: (continued)
-					end++; // parity: (continued)
-				if (end > start && end < percent.size()) // parity: (continued)
-					group = percent.substr(start, end - start); // parity: (continued)
-			} // parity: (continued)
-			if (group) { // parity= if (result.find()) {
-				dmg = commons::utils::parseInt(*group); // parity= dmg = Integer.parseInt(result.group(1));
-				isPercent = true;
+			// C++-dev: a percentage - Java's "([^%]+)%" arm and its "dmg <= 100" rule - is //damagepercent's; //damage refuses a % value
+			if (percent.find('%') != std::string::npos) { // parity= Pattern damage = Pattern.compile("([^%]+)%"); Matcher result = damage.matcher(percent); if (result.find()) {
+				PacketSendUtility::sendMessage(admin, "//damage takes absolute points. Use //damagepercent [mp|fp|dp] <percent> for a percentage."); // parity= dmg = Integer.parseInt(result.group(1)); isPercent = true; // C++-dev: refused instead (docs/deviations/C1.md)
+				return; // parity: (the same)
 			} else if (equalsIgnoreCase(damageType, "hp"))
 				dmg = commons::utils::parseInt(params[0]);
 			else
 				dmg = commons::utils::parseInt(params[1]);
 
-			if (dmg <= 100)
-				isPercent = true;
+			// parity= if (dmg <= 100) isPercent = true; // C++-dev: removed, //damage is always points (docs/deviations/C1.md)
 
 			using geoEngine::math::JavaFloat;
 			if (damageType == "hp") { // parity= switch (damageType) { case "hp":
@@ -108,9 +99,9 @@ void Damage::execute(Player& admin, std::span<const std::string> params) {
 	}
 }
 
-// Java Damage.java:109-113
+// Java Damage.java:109-113 (C++-dev: the syntax of points only)
 void Damage::info(Player& player, std::optional<std::string_view> /*message*/) {
-	PacketSendUtility::sendMessage(player, "syntax //damage (mp/fp/dp) <dmg | dmg%>\n<dmg> must be a number.\n" // parity= PacketSendUtility.sendMessage(player, "syntax //damage (mp/fp/dp) <dmg | dmg%>" + "\n<dmg> must be a number." + "\n(mp/fp/dp) is optional, leave out to use HP damage" + "\nin case of fp/dp, target must be player!");
+	PacketSendUtility::sendMessage(player, "syntax //damage (mp/fp/dp) <dmg>\n<dmg> must be a number of points (for a percentage use //damagepercent).\n" // parity= PacketSendUtility.sendMessage(player, "syntax //damage (mp/fp/dp) <dmg | dmg%>" + "\n<dmg> must be a number." + "\n(mp/fp/dp) is optional, leave out to use HP damage" + "\nin case of fp/dp, target must be player!");
 										   "(mp/fp/dp) is optional, leave out to use HP damage\nin case of fp/dp, target must be player!"); // parity: (continued)
 }
 

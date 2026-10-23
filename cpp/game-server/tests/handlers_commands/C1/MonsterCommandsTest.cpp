@@ -31,6 +31,11 @@
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/handlers/admincommands/Ai.h"
 #include "aion/gameserver/handlers/admincommands/Damage.h"
+#include "aion/gameserver/handlers/admincommands/DamagePercent.h"
+#include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
+#include "aion/gameserver/model/stats/calc/functions/StatSetFunction.h"
+#include "aion/gameserver/model/stats/container/PlayerGameStats.h"
+#include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/handlers/admincommands/Delete.h"
 #include "aion/gameserver/handlers/admincommands/Kill.h"
 #include "aion/gameserver/handlers/admincommands/NpcSkill.h"
@@ -422,13 +427,19 @@ TEST_F(MonsterCommandsTest, DeleteATargetedWorldNpc) {
 	EXPECT_TRUE(client()->sentBytes().empty() || !sent(invalidTarget())) << "respawn time 0: saveSpawn refuses quietly";
 }
 
-// ---- //damage (Damage.java:26-113) --------------------------------------------------------------------------------------------------------
+// ---- //damage (Damage.java:26-113) and //damagepercent (C++-dev: the split, docs/deviations/C1.md) ------------------------------------------
+
+const char* const DAMAGE_SYNTAX = "syntax //damage (mp/fp/dp) <dmg>\n<dmg> must be a number of points (for a percentage use //damagepercent).\n"
+								  "(mp/fp/dp) is optional, leave out to use HP damage\nin case of fp/dp, target must be player!";
+const char* const DAMAGE_PERCENT_SYNTAX = "syntax //damagepercent (mp/fp/dp) <percent | percent%>\n<percent> must be a number from 0 to 100 "
+										  "(of the max HP/MP/FP, DP: of 4000).\n(mp/fp/dp) is optional, leave out to use HP damage\nin case of "
+										  "fp/dp, target must be player!";
+const char* const DAMAGE_PERCENT_REFUSAL = "//damage takes absolute points. Use //damagepercent [mp|fp|dp] <percent> for a percentage.";
 
 TEST_F(MonsterCommandsTest, DamageArms) {
 	Player& admin = gm(730205);
 	handlers::admincommands::Damage damage;
-	const std::vector<uint8_t> syntax = message("syntax //damage (mp/fp/dp) <dmg | dmg%>\n<dmg> must be a number.\n"
-												 "(mp/fp/dp) is optional, leave out to use HP damage\nin case of fp/dp, target must be player!");
+	const std::vector<uint8_t> syntax = message(DAMAGE_SYNTAX);
 	EXPECT_TRUE(damage.process(admin, args({})));
 	EXPECT_EQ(client()->sentBytes(), exactly({syntax}));
 	client()->clearSent();
@@ -448,21 +459,99 @@ TEST_F(MonsterCommandsTest, DamageArms) {
 	client()->clearSent();
 	const int32_t mp = npc.getLifeStats()->getCurrentMp();
 	EXPECT_TRUE(damage.process(admin, args({"MP", "abc%"})));
-	EXPECT_EQ(client()->sentBytes(), exactly({syntax})) << "the % group \"abc\" is no number";
+	EXPECT_EQ(client()->sentBytes(), exactly({message(DAMAGE_PERCENT_REFUSAL)})) << "C++-dev: a % value is //damagepercent's";
 	EXPECT_EQ(npc.getLifeStats()->getCurrentMp(), mp);
 }
 
-TEST_F(MonsterCommandsTest, DamageAPercentageOfTheHp) {
+/** C++-dev: //damage is always points - 50 is 50 HP, not half (Java: dmg <= 100 was a percentage) - and refuses a % value */
+TEST_F(MonsterCommandsTest, DamageIsAlwaysPoints) {
 	Player& admin = gm(730211);
 	Npc& npc = npcAt(admin, 101.0f);
 	target(admin, npc);
 	handlers::admincommands::Damage damage;
 	const int32_t maxHp = npc.getLifeStats()->getMaxHp();
+	ASSERT_GT(maxHp, 200);
+	EXPECT_TRUE(damage.process(admin, args({"50"})));
+	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - 50) << "50 points";
+	EXPECT_TRUE(damage.process(admin, args({"150"})));
+	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - 200);
+	client()->clearSent();
 	EXPECT_TRUE(damage.process(admin, args({"50%"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({message(DAMAGE_PERCENT_REFUSAL)}));
+	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - 200) << "refused: no damage";
+}
+
+/** C++-dev: //damagepercent takes 0 to 100 percent of the max, with or without %, and refuses anything else with its syntax */
+TEST_F(MonsterCommandsTest, DamagePercentTakesAPercentageOfTheMax) {
+	Player& admin = gm(730212);
+	handlers::admincommands::DamagePercent damagePercent;
+	const std::vector<uint8_t> syntax = message(DAMAGE_PERCENT_SYNTAX);
+	EXPECT_TRUE(damagePercent.process(admin, args({})));
+	EXPECT_EQ(client()->sentBytes(), exactly({syntax}));
+	client()->clearSent();
+	EXPECT_TRUE(damagePercent.process(admin, args({"10"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({message("No target selected")}));
+
+	Npc& npc = npcAt(admin, 101.0f);
+	target(admin, npc);
+	const int32_t maxHp = npc.getLifeStats()->getMaxHp();
+	EXPECT_TRUE(damagePercent.process(admin, args({"50"})));
 	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - maxHp / 2) << "(int) (50 / 100f * maxHp)";
-	EXPECT_TRUE(damage.process(admin, args({"10"})));
-	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - maxHp / 2 - maxHp / 10)
-		<< "a value up to 100 is a percentage too (Java: dmg <= 100 -> isPercent; proposed correction)";
+	EXPECT_TRUE(damagePercent.process(admin, args({"10%"})));
+	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - maxHp / 2 - maxHp / 10) << "a trailing % is accepted";
+	EXPECT_TRUE(damagePercent.process(admin, args({"0"})));
+	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), maxHp - maxHp / 2 - maxHp / 10) << "0 is in range";
+	const int32_t hp = npc.getLifeStats()->getCurrentHp();
+	for (std::vector<std::string> params : {args({"101"}), args({"-1"}), args({"101%"}), args({"abc"}), args({"5%%"}), args({"mp"})}) {
+		client()->clearSent();
+		EXPECT_TRUE(damagePercent.process(admin, params));
+		EXPECT_EQ(client()->sentBytes(), exactly({syntax})) << params[0];
+	}
+	EXPECT_EQ(npc.getLifeStats()->getCurrentHp(), hp) << "refused: no damage";
+	client()->clearSent();
+	EXPECT_TRUE(damagePercent.process(admin, args({"fp", "10"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({syntax})) << "fp needs a player";
+	client()->clearSent();
+	EXPECT_TRUE(damagePercent.process(admin, args({"dp", "10"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({syntax})) << "dp needs a player";
+	EXPECT_EQ(damagePercent.getLevel(), handlers::admincommands::Damage().getLevel()) << "//damage's access level (commands.properties: damage)";
+}
+
+/** C++-dev: dp and fp on a player target - DP as a percentage of 4000, clamped at the player's DP (Java's DP clamp) */
+TEST_F(MonsterCommandsTest, DamagePercentOnAPlayersDpAndFp) {
+	Player& admin = gm(730213);
+	admin.getCommonData()->setPlayerClass(model::PlayerClass::GLADIATOR); // setDp ignores a starting class
+	admin.getCommonData()->setDp(3000);
+	const int32_t dp = admin.getCommonData()->getDp();
+	ASSERT_GT(dp, 0);
+	target(admin, admin);
+	handlers::admincommands::DamagePercent damagePercent;
+	EXPECT_TRUE(damagePercent.process(admin, args({"dp", "25"})));
+	EXPECT_EQ(admin.getCommonData()->getDp(), dp - std::min(dp, 1000)) << "25% of 4000, at most the DP";
+	EXPECT_TRUE(damagePercent.process(admin, args({"DP", "100%"})));
+	EXPECT_EQ(admin.getCommonData()->getDp(), 0) << "the clamp";
+	{ // the flight time stat (max FP) of a real character: 60 s
+		using model::stats::calc::functions::RcStatFunction;
+		using model::stats::calc::functions::StatSetFunction;
+		std::vector<runtime::Ref<model::stats::calc::functions::IStatFunction>> functions{
+			RcStatFunction<StatSetFunction>::create(model::stats::container::StatEnum::FLY_TIME, 60)};
+		std::vector<runtime::Ptr<model::stats::calc::functions::IStatFunction>> borrowed(functions.begin(), functions.end());
+		admin.getGameStats()->addEffect(nullptr, borrowed);
+	}
+	const int32_t maxFp = admin.getLifeStats()->getMaxFp();
+	ASSERT_GT(maxFp, 10);
+	admin.getLifeStats()->setCurrentFp(maxFp);
+	ASSERT_EQ(admin.getLifeStats()->getCurrentFp(), maxFp);
+	EXPECT_TRUE(damagePercent.process(admin, args({"fp", "20"})));
+	EXPECT_EQ(admin.getLifeStats()->getCurrentFp(), maxFp - static_cast<int32_t>(20 / 100.0f * static_cast<float>(maxFp))) << "(int) (20 / 100f * maxFp)";
+
+	handlers::admincommands::Damage damage;
+	admin.getCommonData()->setDp(3000);
+	const int32_t points = admin.getCommonData()->getDp();
+	EXPECT_TRUE(damage.process(admin, args({"dp", "50"})));
+	EXPECT_EQ(admin.getCommonData()->getDp(), points - std::min(points, 50)) << "//damage dp 50 is 50 points";
+	EXPECT_TRUE(damage.process(admin, args({"dp", "100000"})));
+	EXPECT_EQ(admin.getCommonData()->getDp(), 0) << "//damage's DP clamp (Java): at most the DP";
 }
 
 // ---- //ai (Ai.java:37-128) ----------------------------------------------------------------------------------------------------------------

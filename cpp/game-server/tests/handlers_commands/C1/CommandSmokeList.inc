@@ -26,6 +26,7 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Coords_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory CustomInstance_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Damage_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory DamagePercent_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Debug_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Delete_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory DelSkill_commandFactory; }
@@ -182,6 +183,7 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Coords", &::aion::gameserver::handlers::admincommands::Coords_commandFactory},
 	{"admincommands.CustomInstance", &::aion::gameserver::handlers::admincommands::CustomInstance_commandFactory},
 	{"admincommands.Damage", &::aion::gameserver::handlers::admincommands::Damage_commandFactory},
+	{"admincommands.DamagePercent", &::aion::gameserver::handlers::admincommands::DamagePercent_commandFactory},
 	{"admincommands.Debug", &::aion::gameserver::handlers::admincommands::Debug_commandFactory},
 	{"admincommands.Delete", &::aion::gameserver::handlers::admincommands::Delete_commandFactory},
 	{"admincommands.DelSkill", &::aion::gameserver::handlers::admincommands::DelSkill_commandFactory},
