@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -167,11 +168,14 @@ TEST(LoggerTest, ConfigureWhileOtherThreadsLog) {
 	LoggerFactory::configure("test.concurrent", {.level = spdlog::level::info, .sinks = {capture.sink}, .additive = false});
 	auto log = LoggerFactory::getLogger("test.concurrent.Worker");
 	std::atomic<bool> stop{false};
+	std::atomic<int> logged{0};
 	std::vector<std::jthread> threads;
 	for (int i = 0; i < 4; i++) {
 		threads.emplace_back([&] {
-			while (!stop)
+			while (!stop) {
 				log.info("message");
+				logged.fetch_add(1);
+			}
 		});
 	}
 	for (int i = 0; i < 2000; i++) {
@@ -179,7 +183,12 @@ TEST(LoggerTest, ConfigureWhileOtherThreadsLog) {
 		LoggerFactory::configure("test.concurrent", {.level = spdlog::level::info, .sinks = {capture.sink}, .additive = false});
 		LoggerFactory::setRootLevel(spdlog::level::info);
 	}
+	// on a slow machine the 2000 configure rounds can end before a worker logged once: let them log before stopping them (CI flake, 2026-10-23)
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	while (logged.load() < 4 && std::chrono::steady_clock::now() < deadline)
+		std::this_thread::yield();
 	stop = true;
 	threads.clear();
+	EXPECT_GE(logged.load(), 4);
 	EXPECT_NE(capture.stream.str().find("info|test.concurrent.Worker|message"), std::string::npos);
 }
