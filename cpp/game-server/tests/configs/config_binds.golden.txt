@@ -394,6 +394,7 @@ RuntimeConfig	bind	WATCHDOG_RESTART_ON_DEADLOCK	gameserver.watchdog.restart_on_d
 RuntimeConfig	bind	SCHEDULER_COALESCE_AFTER	gameserver.scheduler.coalesce_after	10
 RuntimeConfig	bind	DEBUG_SINGLE_EXECUTOR	gameserver.debug.single_executor	false
 RuntimeConfig	bind	DEBUG_SERIAL_MOVEMENT	gameserver.debug.serial_movement	false
+RuntimeConfig	bind	DIFFICULTY_MENU_ENABLE	gameserver.custom.difficulty_menu.enable	false
 SecurityConfig	bind	AION_BIN_CHECK	gameserver.security.aion.bin.check	false
 SecurityConfig	bind	TELEPORTATION	gameserver.security.antihack.teleportation	false
 SecurityConfig	bind	SPEEDHACK	gameserver.security.antihack.speedhack	false

@@ -1,3 +1,4 @@
+#include "aion/gameserver/custom/difficulty/DifficultyMenu.h"
 #include "aion/gameserver/services/HTMLService.h"
 
 #include <algorithm>
@@ -131,6 +132,9 @@ void HTMLService::getReward(runtime::Ptr<model::gameobjects::player::Player> pla
 	if (!player || messageId < 1) {
 		return;
 	}
+
+	if (custom::difficulty::DifficultyMenu::onAnswer(*player, messageId, items)) // C++-dev: the difficulty menu example's answer
+		return;
 
 	if (SurveyService::getInstance().isActive(*player, messageId)) {
 		return;
