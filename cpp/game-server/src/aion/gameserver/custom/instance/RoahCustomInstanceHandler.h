@@ -93,6 +93,9 @@ private:
 	void sendReport(const std::string& text);
 	/** C++-dev only: the damage the player (with his summons and servants) dealt to the npc, from its aggro list */
 	int64_t playerDamageOn(gameserver::model::gameobjects::Npc& npc);
+	static bool isBoss(int32_t npcId);
+	/** C++-dev only: playerDamageOn, and at least the boss's max HP for the boss (its aggro list may have been reset) */
+	int64_t damageForReport(gameserver::model::gameobjects::Npc& npc);
 	/** C++-dev only: adds the player's damage on every living npc of the instance but `except` to the report's current phase */
 	void addDamageOnAliveNpcs(const gameserver::model::gameobjects::Npc* except);
 	/** C++-dev only: addDamageOnAliveNpcs once, when the run ends (the boss's death, a failure or leaving) */
@@ -107,6 +110,8 @@ public:
 	runtime::Ptr<neuralnetwork::PlayerModel> getPlayerModel() const { return this->model.get(); }
 	/** Java: the list itself (null before the player entered) */
 	runtime::Ptr<runtime::RcArrayList<int32_t>> getSkillSet() const { return this->skillSet.get(); }
+	/** C++-dev only: the boss hated the player (CustomInstanceBossAI.handleAttack); the report's boss fight starts at the first call */
+	void onBossEngaged();
 	/** C++-dev only: the DPS report (tests) */
 	const RoahDpsReport& getDpsReport() const { return *dpsReport; }
 	bool allowSelfReviveBySkill() override;

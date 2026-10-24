@@ -66,21 +66,52 @@ TEST_F(RoahDpsReportTest, ASuccessReportsBothPhasesWithTheirTotalsTheRunTotalAnd
 	report.artifactDestroyed(312.4f, 3841, 4000, false);
 	advance(600); // the boss spawns a moment after the artifact's death
 	report.bossSpawned();
-	advance(45'200);
+	advance(60'300); // the player rests, rebuffs and walks up
+	report.bossEngaged();
+	advance(2'000);
+	report.bossEngaged(); // a re-aggro after a reset: the fight started at the first one
+	advance(43'200);
 	report.addDamage(128'881); // the boss
 	report.addDamage(9'119);   // an add the boss summoned
 	report.bossKilled(128'881);
 	EXPECT_TRUE(report.isBossKilled());
-	EXPECT_FLOAT_EQ(report.getBossSeconds(), 45.2f);
+	EXPECT_FLOAT_EQ(report.getBossSeconds(), 45.2f) << "from the first engagement";
+	EXPECT_FLOAT_EQ(report.getPrepSeconds(), 60.3f) << "from the spawn to the first engagement";
 	EXPECT_EQ(report.getBossDps(), 2851) << "128881 / 45.2 = 2851.35";
 	EXPECT_EQ(report.getBossPhaseTotalDps(), 3053) << "138000 / 45.2 = 3053.10: the add counts";
-	EXPECT_FLOAT_EQ(report.getTotalSeconds(), 358.2f);
-	EXPECT_EQ(report.getRunTotalDps(), 3963) << "1419500 / 358.2 = 3962.87";
+	EXPECT_FLOAT_EQ(report.getTotalSeconds(), 418.5f) << "the whole run includes the preparation";
+	EXPECT_EQ(report.getRunTotalDps(), 3392) << "1419500 / 418.5 = 3391.88";
 	advance(60'000);
-	EXPECT_FLOAT_EQ(report.getTotalSeconds(), 358.2f) << "the run ended with the boss";
+	EXPECT_FLOAT_EQ(report.getTotalSeconds(), 418.5f) << "the run ended with the boss";
 	EXPECT_EQ(report.successReport("Iron", "Bronze"),
-		"[Eternal Challenge] Success | Aether Stone: 312.4s, 3841 DPS on the stone, 4102 total DPS (class average 4000) | Boss: 45.2s, 2851 DPS on "
-		"the boss, 3053 total DPS | Total: 358.2s, 3963 total DPS | Rank: Iron -> Bronze");
+		"[Eternal Challenge] Success | Aether Stone: 312.4s, 3841 DPS on the stone, 4102 total DPS (class average 4000) | Boss: 45.2s (prep 60.3s), "
+		"2851 DPS on the boss, 3053 total DPS | Total: 418.5s, 3392 total DPS | Rank: Iron -> Bronze");
+}
+
+TEST_F(RoahDpsReportTest, TheBossFightStartsAtTheFirstEngagementAfterTheSpawnOrAtTheSpawnWithoutOne) {
+	report.runStarted();
+	report.artifactDestroyed(100.0f, 1000, 1000, false);
+	report.bossEngaged(); // before the spawn: nothing to engage
+	EXPECT_FALSE(report.isBossEngaged());
+	report.bossSpawned();
+	advance(10'000);
+	report.bossKilled(20'000); // never engaged (killed from out of its sight): the fight is timed from the spawn
+	EXPECT_FALSE(report.isBossEngaged());
+	EXPECT_FLOAT_EQ(report.getPrepSeconds(), 0.0f);
+	EXPECT_FLOAT_EQ(report.getBossSeconds(), 10.0f);
+	EXPECT_EQ(report.getBossDps(), 2000);
+
+	RoahDpsReport engaged{[this] { return now; }};
+	engaged.runStarted();
+	engaged.bossSpawned();
+	advance(30'000);
+	engaged.bossEngaged();
+	EXPECT_TRUE(engaged.isBossEngaged());
+	advance(10'000);
+	engaged.bossKilled(20'000);
+	EXPECT_FLOAT_EQ(engaged.getPrepSeconds(), 30.0f);
+	EXPECT_FLOAT_EQ(engaged.getBossSeconds(), 10.0f);
+	EXPECT_EQ(engaged.getBossDps(), 2000) << "the preparation is not fight time";
 }
 
 TEST_F(RoahDpsReportTest, AFailureInTheBossPhaseReportsTheArtifactAndTheTimeSpentWithTheRunTotal) {

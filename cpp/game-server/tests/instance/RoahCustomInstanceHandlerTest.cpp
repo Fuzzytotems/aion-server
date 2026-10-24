@@ -24,6 +24,7 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/ChatType.h"
 #include "aion/gameserver/model/Gender.h"
+#include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
@@ -359,10 +360,18 @@ TEST_F(RoahCustomInstanceHandlerTest, TheArtifactThenTheBoss) {
 	std::vector<runtime::Ptr<model::gameobjects::Npc>> bosses = npcs(*instance, male ? 231918 : 231717);
 	ASSERT_EQ(bosses.size(), 1u) << "an Elyos warrior's boss";
 
+	EXPECT_FALSE(handler.getDpsReport().isBossEngaged()) << "C++-dev: the boss fight's clock waits for the boss to hate the player";
 	hit(*bosses[0], 1234); // C++-dev: the boss phase
+	// this target does not link the AIs (the boss runs a default AI): CustomInstanceBossAI.handleAttack's call, as the play kit makes it
+	handler.onBossEngaged();
+	EXPECT_TRUE(handler.getDpsReport().isBossEngaged());
+	bosses[0]->getController().loseAggro(false); // C++-dev: the boss lost its target: its aggro list (the 1234) is gone, its HP stays
+	hit(*bosses[0], 100);
+	const int64_t bossMaxHp = bosses[0]->getLifeStats()->getMaxHp();
+	ASSERT_GT(bossMaxHp, 1234 + 100);
 	(*client)->clearSent();
 	handler.onDie(*bosses[0]);
-	EXPECT_EQ(handler.getDpsReport().getBossPhaseDamage(), 1234);
+	EXPECT_EQ(handler.getDpsReport().getBossPhaseDamage(), bossMaxHp) << "C++-dev: the boss's death means the player dealt at least its max HP";
 	EXPECT_EQ(handler.getDpsReport().getArtifactPhaseDamage(), 5000 + 3000 + 300 * 4000) << "the stone's phase is closed";
 	EXPECT_TRUE(sentText("Your rank has been increased to " + custom::instance::getRankDescription(1)
 		+ ". Stay steadfast for tougher challenges and higher rewards!"));
