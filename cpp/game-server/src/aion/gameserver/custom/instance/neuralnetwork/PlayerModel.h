@@ -27,6 +27,8 @@ class PlayerModel : public runtime::RefCounted {
 private:
 	static constexpr int64_t MAX_TRAINING_TIME_IN_MS = 180000;
 public:
+	/** C++: the QuiescentOptIn purpose of PlayerModelController::runTraining; train's quiescent points take effect only under it */
+	static constexpr const char* TRAINING_QUIESCENCE = "PlayerModel training";
 	runtime::Field<bool> isReady{};
 	runtime::Field<double> learnRate{};
 	runtime::Field<double> momentum{};

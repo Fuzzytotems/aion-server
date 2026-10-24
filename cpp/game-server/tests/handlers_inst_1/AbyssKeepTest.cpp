@@ -106,7 +106,8 @@ TEST_F(AbyssKeepTest, AGuardsDeathOpensItsDoor) {
 	EXPECT_FALSE(door5->isSpawned());
 }
 
-/** :164-180: the boss's death brings 11 chests minus the failures, and the bonus chest in hard mode; the legion version has its own chest */
+/** :164-180: the boss's death brings 11 chests minus the failures, and the bonus chest in hard mode; the legion version has its own chest.
+ * The second boss id's death brings them again: spawnChests keeps its locations (the correction of 2026-10-19, was J-P6I4-1) */
 TEST_F(AbyssKeepTest, TheBossesDeathBringsTheChests) {
 	world::WorldMapInstance& instance = barracks();
 	dies(instance, 233633);
@@ -114,7 +115,9 @@ TEST_F(AbyssKeepTest, TheBossesDeathBringsTheChests) {
 	ASSERT_EQ(npcs(instance, 702289).size(), 1u) << "hard mode: the bonus chest";
 	EXPECT_FLOAT_EQ(npcs(instance, 702289).front()->getX(), 576.463f);
 	EXPECT_EQ(npcs(instance, 702289).front()->getHeading(), 56);
-	EXPECT_THROW(dies(instance, 233632), runtime::NullPointerException) << "Java: the second spawnChests finds chestLocations null";
+	EXPECT_NO_THROW(dies(instance, 233632)) << "Java: the second spawnChests found chestLocations null";
+	EXPECT_EQ(npcs(instance, 702288).size(), 22u) << "the kept locations";
+	EXPECT_EQ(npcs(instance, 702289).size(), 2u);
 
 	world::WorldMapInstance& legion = create(LEGIONS_KROTAN_BARRACKS, abyss::LegionsKrotanBarracks_instanceFactory);
 	dies(legion, 233632);

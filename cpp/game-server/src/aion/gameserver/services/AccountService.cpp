@@ -1,3 +1,4 @@
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/services/AccountService.h"
 
 #include <string>
@@ -7,7 +8,6 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/dao/InventoryDAO.h"
 #include "aion/gameserver/dao/ItemStoneListDAO.h"
 #include "aion/gameserver/dao/PlayerAppearanceDAO.h"
@@ -62,8 +62,7 @@ void AccountService::removeDeletedCharacters(Account& account) {
 			if (configs::main::GSConfig::ENABLE_RATIO_LIMITATION.load() &&
 				pad->getPlayerCommonData()->getLevel() >= configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL.load()) {
 				if (account.getNumberOf(race) == 0) {
-					// Java: GameServer.updateRatio (P5-14; GameServer.h does not exist yet, the P4-11b stand-in is used until stage 2)
-					controllers::standins::gameServerUpdateRatio(pad->getPlayerCommonData()->getRace(), -1);
+					GameServer::updateRatio(pad->getPlayerCommonData()->getRace(), -1);
 				}
 			}
 			if (account.isEmpty()) {

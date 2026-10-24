@@ -478,8 +478,8 @@ class Corpus(unittest.TestCase):
         # scheduled-closure)
         # row B39 (the Q08 follow-up, lane C, 2026-10-05) adds gelkmaros/_20034, rows B40-B42 (chunk Q01) 14043, 24045, 24043, 50008
         # and 51008, rows B43-B44 (chunk Q02) 10034 and 11118, row B45 (chunk Q14) 3208, row B47 (chunk Q05's rest) 18802 and 28802;
-        # 14045 also needs a P6-T rule
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 933)
+        # 14045 also needs a P6-T rule; rows B49-B50 (lane C, 2026-10-14) daevanion/_1990 and sanctum/_1929
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 935)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)

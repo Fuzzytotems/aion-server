@@ -44,6 +44,7 @@ Q10 = {
         '_2289RampagingMosbears', '_2290GrokensEscape', '_24011FunnyFloatingFungus', '_24012AnOminousCrop', '_24014StompOutThePlot',
         '_24015TotemPlowed', '_24016AStrangeNewThread', '_24112NoLaissezFaireForLepharists'),
     'pandaemonium': (
+        '_4212MissingSidrunerk',
         '_2911SongOfBlessing', '_2917ArekedilsHeritage', '_2953DeliveringSupplyRequest', '_29004VeldinaCall', '_29048SeriphimTeachings', '_4973MarraWorry',
         '_2912FollowtheRibbon', '_2913AChainofDebt', '_2914ATokenofLostLove', '_2916ManInTheLongBlackRobe', '_2918DeepMaternalLove',
         '_2919BookOfOblivion', '_2920ElementaryMyDearDaeva', '_2921LoveAtFirstSight', '_2922FascinatingGift', '_2925AHeartfeltConfession',
@@ -121,6 +122,7 @@ Q02 = {
 # transliterates, in the tree but for the escort _3212 (71 of 74; 1990 and 1929 are refused for API gaps; docs/deviations/Q11.md)
 Q11 = {
     'daevanion': (
+        '_1990ASagesGift',
         '_19631CoastalCrush', '_19632CascadeCritters', '_19633AlisaryAssistance', '_19634FurtherAidforAlisary', '_19635SouthernQuell',
         '_19636FinalStabilization', '_19637OnboardforOne', '_19638TroublewithTwos', '_19639TreesandThrees', '_19640FlyingthroughFour',
         '_19641FidgetyFives', '_19642SuccessforSix', '_1988AMeetingWithASage', '_1989ASagesTeachings', '_1993AnotherBeginning',
@@ -130,6 +132,8 @@ Q11 = {
         '_2990MakingTheDaevanionWeapon', '_2993AnotherBeginning', '_2994ANewChoice', '_80291DurableDaevanionWeapon',
         '_80295DurableDaevanionWeapon',),
     'sanctum': (
+        '_3212TheMissingCubeCraftsman',
+        '_1929ASliverofDarkness',
         '_19004PeriklessInsight', '_1900RingImbuedAether', '_1901KrallicPotion', '_19047JustBetweenMeAndFasimedes',
         '_19048AndreasTeachings', '_1908UlaguruSpeaks', '_1909ASongOfPraise', '_1917ALingeringMystery', '_1918AnAxForNamus',
         '_1926SecretLibraryAccess', '_1928ChasingaCriminal', '_1932AMatterOfReputation', '_1935TissueIDontEvenKnowYou',
@@ -165,6 +169,8 @@ Q05 = {
 # Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
 Q09 = {
     'morheim': (
+        '_2394ADyingWish',
+        '_2333ARibbitOutOfWater',
         '_2303DaevaWheresMyHerb', '_2307IrresistibleSoup', '_2316VivisBook', '_2321SpyTheSpiritsLetter', '_2324TheSpiritsNotebook',
         '_2332MeatyTreats', '_2343AncientGinseng', '_2345OrashunerkSpecialOrder', '_2367APrizedPossession', '_2392BeautifulFeather',
         '_2393TheLoveOfAFather', '_24020AegirsOrders', '_24021GhostsintheDesert', '_24022SneakBehindtheIceClaw', '_24023ABlazingRescue',
@@ -229,6 +235,8 @@ Q12 = {
 # Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
 Q04 = {
     'beluslan': (
+        '_2634TheDraupnirRedemption',
+        '_24053TheMaulingoftheMau',
         '_16909AMarkofDistinction', '_24050NeritasOrders', '_24051InvesetigatetheDisappearance', '_24052AFrozenCity',
         '_24054CrisisinBeluslan', '_2501FallingFragments', '_2505LetCookingExpertsCook', '_2512FoodforRemotePlaces',
         '_2513TheStrangeCottage', '_2514TheRedManeReport', '_2515LeanorsErrand', '_2523GrassfortheGraveRobbers', '_2533BeritrasCurse',
@@ -437,7 +445,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 41))
+        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 42))
         for directory, classes in Q08.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -454,7 +462,10 @@ class CommittedTree(unittest.TestCase):
         self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
         # _1367 and _24026 are hand ports since the owner's decision of 2026-10-13 (docs/deviations/Q05.md and Q09.md, "Correction: 1367 and
         # 24026"): in the tree, without questgen's banner, and still refused by questgen
-        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide')):
+        # and _1354 (lane C, 2026-10-14: a hand port without a correction, questgen refuses its String[] field and getLifeStats)
+        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide'),
+                                 ('eltnen', '_1354PraticalAerobatics'), ('event_quests', '_80030EventAnUnwelcomeGaze'),
+                                 ('event_quests', '_80033EventAvertingTheGaze'), ('eltnen', '_14026ALoneDefense')):
             with self.subTest(file=f'{directory}/{klass}'):
                 hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
                 self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
@@ -474,11 +485,21 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q13.values()), 87)
+        # the phase 6 leftovers' hand ports (lane C, 2026-10-18; docs/deviations/Q12.md and Q14.md): in the tree, without questgen's banner,
+        # and still refused by questgen
+        for directory, klass in (('event_quests', '_80016EventSockHop'), ('event_quests', '_80018EventSockItToEm'),
+                                 ('levinshor', '_13744AgentinNeed'), ('levinshor', '_23744EffectElyosElimination'),
+                                 ('tiamat_stronghold', '_30721OminousDebrisEnergy'), ('tiamat_stronghold', '_30771ImpendingDebrisEnergy')):
+            with self.subTest(file=f'{directory}/{klass}'):
+                hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
+                self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
+                self.assertIn('Hand-ported from', hand_port)
+                self.assertNotIn((directory, klass), found)
         for directory, classes in Q11.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q11.values()), 71)
+        self.assertEqual(sum(len(classes) for classes in Q11.values()), 74)
         for directory, classes in Q05.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -488,7 +509,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q09.values()), 51)
+        self.assertEqual(sum(len(classes) for classes in Q09.values()), 53)
         for directory, classes in Q07.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -503,7 +524,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q04.values()), 67)
+        self.assertEqual(sum(len(classes) for classes in Q04.values()), 69)
         for directory, classes in Q06.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

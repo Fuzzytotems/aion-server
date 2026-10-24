@@ -22,8 +22,9 @@ namespace aion::gameserver::network::aion {
  * broadcast; the packets whose writeImpl reads the connection override recipients() to return PER_RECIPIENT and are serialized for each
  * recipient (§8.3).
  * <p>
- * Java's no-argument constructor sets the opcode from `ServerPacketsOpcodes.getOpcode(getClass())`; in C++ the dynamic type is not known in the
- * base constructor, so every subclass passes `opcodeOf<SM_X>` (ServerPacketsOpcodes.gen.h) to AionServerPacket(int32_t).
+ * Java's no-argument constructor AionServerPacket() sets the opcode from `ServerPacketsOpcodes.getOpcode(getClass())`. It is replaced: in C++
+ * the dynamic type is not known in the base constructor, so every subclass passes `opcodeOf<SM_X>` (ServerPacketsOpcodes.gen.h) to
+ * AionServerPacket(int32_t).
  *
  * @author -Nemesiss-
  */

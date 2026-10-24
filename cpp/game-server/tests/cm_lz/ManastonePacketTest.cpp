@@ -43,6 +43,7 @@
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_GODSTONE_SOCKET.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_MANASTONE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -66,6 +67,13 @@ struct CM_MANASTONETestAccess {
 	static int32_t stoneUniqueId(const CM_MANASTONE& p) { return p.stoneUniqueId; }
 	static int32_t targetItemUniqueId(const CM_MANASTONE& p) { return p.targetItemUniqueId; }
 	static int32_t supplementUniqueId(const CM_MANASTONE& p) { return p.supplementUniqueId; }
+};
+
+/** The friend CM_GODSTONE_SOCKET.h declares: the fields readImpl decoded, which Java keeps private */
+struct CM_GODSTONE_SOCKETTestAccess {
+	static int32_t npcObjectId(const CM_GODSTONE_SOCKET& p) { return p.npcObjectId; }
+	static int32_t weaponId(const CM_GODSTONE_SOCKET& p) { return p.weaponId; }
+	static int32_t stoneId(const CM_GODSTONE_SOCKET& p) { return p.stoneId; }
 };
 
 namespace testing::items {
@@ -520,6 +528,86 @@ TEST_F(ManastoneRunTest, AnUnknownActionDoesNothing) {
 	run(stoneBody(5, 0, 760016, 0, 0));
 
 	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+
+// CM_GODSTONE_SOCKET (P5-15, CM_GODSTONE_SOCKET.java:27-39): registered under no opcode in 4.8 (AionClientPacketFactory.java:119 has its
+// line commented out), so no client reaches it; the cases drive it directly with packets[91]'s old opcode. Unlike CM_MANASTONE's action 4,
+// it needs the named npc targeted and in talk range, and it takes the weapon from the equipment.
+constexpr int32_t CM_GODSTONE_SOCKET_OPCODE = 91;
+
+std::vector<uint8_t> godstoneBody(int32_t npc, int32_t weapon, int32_t stone) {
+	return PacketWriter().D(npc).D(weapon).D(stone).data;
+}
+
+TEST(GodstoneSocketReadTest, TheBodyIsTheNpcTheWeaponAndTheStone) {
+	std::vector<uint8_t> body = godstoneBody(0x01020304, 0x11121314, 0x21222324);
+	CM_GODSTONE_SOCKET packet(CM_GODSTONE_SOCKET_OPCODE, StateSet{AionConnection_State::IN_GAME});
+	packet.setBuffer(commons::utils::ByteBuffer::wrap(body));
+	ASSERT_TRUE(packet.read());
+	EXPECT_EQ(CM_GODSTONE_SOCKETTestAccess::npcObjectId(packet), 0x01020304);
+	EXPECT_EQ(CM_GODSTONE_SOCKETTestAccess::weaponId(packet), 0x11121314);
+	EXPECT_EQ(CM_GODSTONE_SOCKETTestAccess::stoneId(packet), 0x21222324);
+	EXPECT_EQ(packet.getRemainingBytes(), 0);
+}
+
+class GodstoneSocketRunTest : public ManastoneRunTest {
+protected:
+	void runGodstone(const std::vector<uint8_t>& body) {
+		Driver<CM_GODSTONE_SOCKET> packet(CM_GODSTONE_SOCKET_OPCODE);
+		packet.readAndRun(body, client->get());
+	}
+};
+
+TEST_F(GodstoneSocketRunTest, TheGodstoneGoesIntoTheEquippedWeaponAtTheTargetedNpcInTalkRange) {
+	model::gameobjects::Npc& npc = targetNpcAt(103.0f);
+	Item& sword = equipped(760101, TRAINING_SWORD, 1);
+	stored(760102, FX_TEST_EARTH_GODSTONE, 1);
+
+	runGodstone(godstoneBody(npc.getObjectId(), 760101, 760102));
+
+	// :36-37 -> ItemSocketService.socketGodstone(player, the equipped weapon, stone): its 2 s task (ItemSocketService.java:193)
+	EXPECT_EQ(packetsOf(sent(), SM_ITEM_USAGE_ANIMATION_OPCODE).size(), 1u);
+	executor->advance(std::chrono::milliseconds(2000));
+	ASSERT_TRUE(sword.hasGodStone());
+	EXPECT_EQ(sword.getGodStoneId(), FX_TEST_EARTH_GODSTONE);
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(760102)) << "the stone is used up";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(GodstoneSocketRunTest, AWeaponInTheCubeIsNoEquippedWeapon) {
+	model::gameobjects::Npc& npc = targetNpcAt(103.0f);
+	stored(760103, TRAINING_SWORD, 1);
+	stored(760104, FX_TEST_EARTH_GODSTONE, 1);
+
+	runGodstone(godstoneBody(npc.getObjectId(), 760103, 760104));
+
+	// getEquippedItemByObjId finds nothing: socketGodstone(player, null, stone) says there is no target item (ItemSocketService.java:154-157)
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_GIVE_ITEM_PROC_NO_TARGET_ITEM())}));
+}
+
+TEST_F(GodstoneSocketRunTest, NothingHappensWithoutTheNamedNpcTargetedInTalkRange) {
+	// socketGodstone is never reached: it would start its 2 s task and animate (each case checks what it sent before the next targets)
+	equipped(760105, TRAINING_SWORD, 1);
+	stored(760106, FX_TEST_EARTH_GODSTONE, 1);
+
+	clearSent();
+	EXPECT_NO_THROW(runGodstone(godstoneBody(0, 760105, 760106)));
+	EXPECT_TRUE(sent().empty()) << "no target";
+
+	player().setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(player()));
+	clearSent();
+	EXPECT_NO_THROW(runGodstone(godstoneBody(player().getObjectId(), 760105, 760106)));
+	EXPECT_TRUE(sent().empty()) << "a target that is no Npc, named by its own id: the player himself";
+
+	model::gameobjects::Npc& near = targetNpcAt(103.0f);
+	EXPECT_NO_THROW(runGodstone(godstoneBody(near.getObjectId() + 1, 760105, 760106)));
+	EXPECT_TRUE(sent().empty()) << "the npc in range, but the packet names another object";
+
+	model::gameobjects::Npc& far = targetNpcAt(130.0f);
+	EXPECT_NO_THROW(runGodstone(godstoneBody(far.getObjectId(), 760105, 760106)));
+	EXPECT_TRUE(sent().empty()) << "the named npc 30 m away";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 

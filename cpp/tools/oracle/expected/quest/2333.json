@@ -1,0 +1,123 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2333,
+ "java": "morheim/_2333ARibbitOutOfWater.java",
+ "class": "_2333ARibbitOutOfWater",
+ "javaSha256": "480c809b46951d4ad8b227b4f2b4c2094e2c134778909d3f77733ec18ad85dfe",
+ "register": [
+  {"npc": 798084, "event": "addOnQuestStart", "args": [2333]},
+  {"npc": 798084, "event": "addOnTalkEvent", "args": [2333]},
+  {"npc": 701147, "event": "addOnTalkEvent", "args": [2333]},
+  {"call": "registerQuestItem", "args": [182204130, 2333]},
+  {"call": "registerAddOnLostTargetEvent", "args": [2333]},
+  {"call": "registerAddOnReachTargetEvent", "args": [2333]},
+  {"call": "registerOnDie", "args": [2333]},
+  {"call": "registerOnLogOut", "args": [2333]},
+  {"call": "addHandlerSideQuestDrop", "args": [2333, 212420, 182204130, 1, 100]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 45, "unsupported": "call spawnInFrontOf"},
+  {"hook": "onItemUseEvent", "line": 89, "cases": 3},
+  {"hook": "onDieEvent", "line": 99, "cases": 4},
+  {"hook": "onLogOutEvent", "line": 104, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 109, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 114, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @92", "qs.getStatus() == QuestStatus.START -> true @92"],
+   "effects": [{"call": "useQuestItem", "kind": "var", "args": ["$item", 0, 0, false, 182204131, 1, 0, 0], "line": 93}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @92", "qs.getStatus() == QuestStatus.START -> false @92"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @92"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onDieEvent#1",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @122", "qs.getStatus() == QuestStatus.START -> true @122", "var == 2 -> true @124"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [1], "line": 125},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 126}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onDieEvent#2",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @122", "qs.getStatus() == QuestStatus.START -> true @122", "var == 2 -> false @124"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#3",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @122", "qs.getStatus() == QuestStatus.START -> false @122"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#4",
+   "hook": "onDieEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @122"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @122", "qs.getStatus() == QuestStatus.START -> true @122", "var == 2 -> true @124"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [1], "line": 125},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 126}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @122", "qs.getStatus() == QuestStatus.START -> true @122", "var == 2 -> false @124"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @122", "qs.getStatus() == QuestStatus.START -> false @122"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @122"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

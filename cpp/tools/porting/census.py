@@ -2090,7 +2090,8 @@ def enum_ctor(jt, ms, scopes, fileset, jf, index):
     companion (<Enum>Info.h/.cpp, a free function matched), explicit enumerator values, or a table struct in the enum's files; 'standIn'
     when its methods are stand-ins in other chunks and none is undeclared (the data sits in the stand-ins); else 'undeclared' (kind
     enumData: the data is nowhere in C++)"""
-    info = any(f.endswith(('Info.h', 'Info.cpp')) for f in jf.cpp_files)
+    # the companion of a nested enum is Outer_InnerInfo.h (fileset names it), not one of the Java file's own files
+    info = any(f.endswith(('Info.h', 'Info.cpp')) for f in jf.cpp_files) or any(f.endswith('Info.h') and f in index.files for f in fileset)
     explicit = any(index.scopes[s].explicit for s in scopes if s in index.scopes)
     stand = any(m.via == 'standIn' for m in jt.methods) and not any(m.status == 'undeclared' for m in jt.methods)
     table = bool(scopes) and bool(table_fields(index, fileset, scopes, jt.path[-1]))
@@ -3040,7 +3041,7 @@ LIVE_CHECKS = [
 ]
 # (Java file, type path, expected initializer statuses in order)
 LIVE_INITIALIZERS = [
-    ('model/house/PlayerScript.java', 'PlayerScript', ['partial']),        # `null until CompressUtil is ported`
+    ('model/house/PlayerScript.java', 'PlayerScript', ['ported']),         # LUA_SANDBOX_FIX's initializer is ported (P5 leftovers cp5, #376)
     ('model/ChatType.java', 'ChatType', ['ported']),                      # the ChatTypeInfo.h lookup replaces the map
     ('model/team/common/events/TeamCommand.java', 'TeamCommand', ['ported']),       # TeamCommandInfo.h's lookup replaces the map (M5g)
 ]
@@ -3240,7 +3241,9 @@ def live_checks(check):
     check('live SM_SYSTEM_MESSAGE bodies not ported', sum(1 for jt in (sm.types if sm else ()) for m in jt.methods
                                                           if m.status != 'ported'), 0)
     kinds = {where.split(' ', 1)[1]: kind for _, where, kind, _ in ms.helper_list()}
-    for name, kind in (('standins::followStartServiceNewFollowingToTargetCheckTask', 'stale'),
+    for name, kind in (
+                       # P4-last cp4 (2026-10-19) rewired SiegeWeaponController to FollowStartService: the stale helper
+                       # standins::followStartServiceNewFollowingToTargetCheckTask is gone; the synthetic checks still cover the 'stale' kind
                        # M5g (2026-10-05) ported the team stand-ins and the last inherited accessors (PlayerGroup's, PlayerAlliance's,
                        # League's): no 'standIn' or 'inherited' helper is left in the tree; the synthetic checks still cover both kinds
                        # M5j stage 4 CP3 (2026-10-13) ported the score writers' constructors: the taken helper <anon>::unportedScoreBase

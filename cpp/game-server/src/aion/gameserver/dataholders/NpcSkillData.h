@@ -12,8 +12,10 @@ namespace aion::gameserver::dataholders {
  * Java com.aionemu.gameserver.dataholders.NpcSkillData.
  * <p>
  * C++: the @XmlTransient index points into the bound `npcSkills` storage, which stays after afterUnmarshal (static-data.md §2.6; Java sets the
- * list to null). setNpcSkillTemplates serves only the //reload command (reload is deferred, design D3). getAllNpcSkillTemplates returns the
- * lists in Java's HashMap<Integer, NpcSkillTemplates> iteration order.
+ * list to null). getAllNpcSkillTemplates returns the lists in Java's HashMap<Integer, NpcSkillTemplates> iteration order.
+ * <p>
+ * Java's setNpcSkillTemplates is replaced: //reload publishes a new holder from the files (DataManager::NPC_SKILL_DATA.republish in
+ * Reload.cpp) instead of setting the templates of the published one, which stays immutable.
  *
  * @author ATracer
  */
@@ -32,7 +34,6 @@ public:
 	const model::templates::npcskill::NpcSkillTemplates* getNpcSkillList(int32_t id) const;
 
 	/** Java: replaces the lists and runs afterUnmarshal again (//reload only; deferred, design D3) */
-	void setNpcSkillTemplates(std::vector<model::templates::npcskill::NpcSkillTemplates> template_);
 
 	const std::vector<const model::templates::npcskill::NpcSkillTemplates*>& getAllNpcSkillTemplates() const;
 };

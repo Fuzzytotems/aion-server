@@ -16,12 +16,15 @@
 #include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/dataholders/ItemRestrictionCleanupData.h"
 #include "aion/gameserver/dataholders/NpcSkillData.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/UpgradeArcadeData.h"
+#include "aion/gameserver/dataholders/XMLQuests.h"
 #include "aion/gameserver/dataholders/detail/StaticDataRegistry.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/templates/event/upgradearcade/ArcadeRewards.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/services/event/EventService.h"
 #include "aion/gameserver/utils/xml/XmlUtil.h"
 #include "aion/gameserver/utils/chathandlers/ChatProcessor.h"
@@ -74,7 +77,7 @@ Reload::Reload()
 }
 
 // Java Reload.java:43-106. The static-data arms (owner's decision 2026-10-13) load the files with loadHolder and republish the holder (the old
-// one stays alive, static-data.md §3.6); the quests arm stays AION_UNPORTED: it needs QuestEngine.reload (A-D1).
+// one stays alive, static-data.md §3.6); the quests arm then runs QuestEngine.reload (P5-06a, C2 cp5).
 void Reload::execute(Player& admin, std::span<const std::string> params) {
 	using commons::utils::StringUtils::equalsIgnoreCase; // parity: C++ using-declaration
 	if (params.empty()) {
@@ -82,7 +85,14 @@ void Reload::execute(Player& admin, std::span<const std::string> params) {
 		return;
 	}
 	if (equalsIgnoreCase(params[0], "quests")) { // parity= if (params[0].equalsIgnoreCase("quests")) {
-		AION_UNPORTED(); // parity= File xml = new File("./data/static_data/quest_data/quest_data.xml"); DataManager.QUEST_DATA = JAXBUtil.deserialize(xml, QuestsData.class, "./data/static_data/static_data.xsd"); List<XMLQuest> templates = new ArrayList<>(); Collection<File> files = XmlUtil.listFiles("./data/static_data/quest_script_data", true); JAXBUtil.deserialize(files, XMLQuests.class, "./data/static_data/static_data.xsd").forEach(e -> templates.addAll(e.getAllQuests())); DataManager.XML_QUESTS.setData(templates); QuestEngine.getInstance().reload(); sendInfo(admin, DataManager.QUEST_DATA.size() + " quest templates loaded (" + QuestEngine.getInstance().getQuestHandlerCount() + " handlers).");
+		std::filesystem::path xml("./data/static_data/quest_data/quest_data.xml"); // parity= File xml = new File("./data/static_data/quest_data/quest_data.xml");
+		DataManager::QUEST_DATA.republish(reloadHolderFromFiles<dataholders::QuestsData>({xml})); // parity= DataManager.QUEST_DATA = JAXBUtil.deserialize(xml, QuestsData.class, "./data/static_data/static_data.xsd");
+		// C++: the files' quests in one holder that replaces the published one (Java: setData on the published holder)
+		std::vector<std::filesystem::path> files = utils::xml::XmlUtil::listFiles("./data/static_data/quest_script_data", true); // parity= List<XMLQuest> templates = new ArrayList<>(); Collection<File> files = XmlUtil.listFiles("./data/static_data/quest_script_data", true);
+		DataManager::XML_QUESTS.republish(reloadHolderFromFiles<dataholders::XMLQuests>(files)); // parity= JAXBUtil.deserialize(files, XMLQuests.class, "./data/static_data/static_data.xsd").forEach(e -> templates.addAll(e.getAllQuests())); DataManager.XML_QUESTS.setData(templates);
+		questEngine::QuestEngine::getInstance().reload(); // parity= QuestEngine.getInstance().reload();
+		sendInfo(admin, std::to_string(DataManager::QUEST_DATA->size()) + " quest templates loaded (" + // parity= sendInfo(admin, DataManager.QUEST_DATA.size() + " quest templates loaded (" + QuestEngine.getInstance().getQuestHandlerCount() + " handlers).");
+			std::to_string(questEngine::QuestEngine::getInstance().getQuestHandlerCount()) + " handlers)."); // parity: (the same)
 	} else if (equalsIgnoreCase(params[0], "skills")) { // parity= } else if (params[0].equalsIgnoreCase("skills")) {
 		std::filesystem::path xml("./data/static_data/skills/skill_templates.xml"); // parity= File xml = new File("./data/static_data/skills/skill_templates.xml");
 		DataManager::SKILL_DATA.republish(reloadHolderFromFiles<dataholders::SkillData>({xml})); // parity= DataManager.SKILL_DATA = JAXBUtil.deserialize(xml, SkillData.class, "./data/static_data/static_data.xsd");

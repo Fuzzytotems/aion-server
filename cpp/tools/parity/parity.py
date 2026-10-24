@@ -428,6 +428,12 @@ def _java_rewrites(toks):
             out.append(Tok('op', ','))
             i += 6
             continue
+        if t.text == 'Arrays' and [x.text for x in toks[i + 1:i + 4]] == ['.', 'stream', '(']:
+            close = _match(toks, i + 3)         # Arrays.stream(x).anyMatch( -> anyMatch(x, : as x.stream().anyMatch( (eltnen/_14026, lane C)
+            if [x.text for x in toks[close + 1:close + 4]] == ['.', 'anyMatch', '(']:
+                out += [Tok('ident', 'anyMatch'), Tok('op', '(')] + list(toks[i + 4:close]) + [Tok('op', ',')]
+                i = close + 4
+                continue
         if t.text == 'new' and [x.text for x in toks[i + 1:i + 9]] == ['ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']:
             outer = _match(toks, i + 4)
             inner = _match(toks, i + 8)
@@ -751,9 +757,29 @@ def _command_super(toks):
     return toks
 
 
+# Java nested enums a handler imports by their simple name, and the C++ enum each is (a C++ enum is not nested in its packet class):
+# the import line -> (the Java simple name, the C++ name). Only a file with that exact import is renamed (eltnen/_1354's hand port, lane C,
+# 2026-10-14)
+NESTED_ENUM_IMPORTS = {
+    'com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.TYPE': ('TYPE', 'SM_ATTACK_STATUS_TYPE'),
+    'com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.LOG': ('LOG', 'SM_ATTACK_STATUS_LOG'),
+}
+
+
+def _nested_enum_renames(text, toks):
+    """the tokens with each NESTED_ENUM_IMPORTS name the file imports spelled as its C++ enum"""
+    renames = {}
+    for line, (java, cpp) in NESTED_ENUM_IMPORTS.items():
+        if re.search(r'^\s*import\s+' + re.escape(line) + r'\s*;', text, re.M):
+            renames[java] = cpp
+    if not renames:
+        return toks
+    return [Tok(t.kind, renames[t.text]) if t.kind == 'ident' and t.text in renames else t for t in toks]
+
+
 def java_facts(text):
     toks, imports = java_region(text)
-    return facts(_java_rewrites(_command_super(_drop_annotations(toks))), cpp=False), imports
+    return facts(_java_rewrites(_command_super(_drop_annotations(_nested_enum_renames(text, toks)))), cpp=False), imports
 
 
 def cpp_facts(text, static_imports=frozenset()):

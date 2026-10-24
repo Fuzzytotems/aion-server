@@ -1,0 +1,98 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 23744,
+ "java": "levinshor/_23744EffectElyosElimination.java",
+ "class": "_23744EffectElyosElimination",
+ "javaSha256": "6cbd6f45301ad74a049b0731a36abb1862def58919c6133834c7d0f6a34d0b61",
+ "register": [
+  {"npc": 832841, "event": "addOnTalkEvent", "args": [23744]},
+  {"call": "registerOnEnterZone", "args": ["DRAGON_LORDS_SHRINE_600100000", 23744]},
+  {"call": "registerOnEnterZone", "args": ["FLAMEBERTH_DOWNS_600100000", 23744]},
+  {"call": "registerOnKillInZone", "args": ["\"DRAGON_LORDS_SHRINE_600100000\"", 23744]},
+  {"call": "registerOnKillInZone", "args": ["\"FLAMEBERTH_DOWNS_600100000\"", 23744]}
+ ],
+ "hooks": [
+  {"hook": "onEnterZoneEvent", "line": 34, "unsupported": "call SiegeService.getInstance"},
+  {"hook": "onKillInZoneEvent", "line": 47, "unsupported": "instanceof Player"},
+  {"hook": "onDialogEvent", "line": 76, "cases": 7}
+ ],
+ "cases": [
+  {
+   "id": "onDialogEvent#1",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @80", "qs.getStatus() == QuestStatus.REWARD -> true @80"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#2",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 832841}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs != null -> true @80",
+    "qs.getStatus() == QuestStatus.REWARD -> true @80",
+    "env.getTargetId() == 832841 -> true @81",
+    "env.getDialogActionId() == USE_OBJECT -> true @82"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [10002], "line": 84}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#3",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 832841},
+    "dialogAction": {"name": "SELECT_QUEST_REWARD", "id": 1009},
+    "questState": {"status": "REWARD"}
+   },
+   "guards": [
+    "qs != null -> true @80",
+    "qs.getStatus() == QuestStatus.REWARD -> true @80",
+    "env.getTargetId() == 832841 -> true @81",
+    "env.getDialogActionId() == SELECT_QUEST_REWARD -> true @82"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [5], "line": 86}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#4",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 832841}, "dialogAction": {"name": "NULL", "id": 1}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs != null -> true @80",
+    "qs.getStatus() == QuestStatus.REWARD -> true @80",
+    "env.getTargetId() == 832841 -> true @81",
+    "env.getDialogActionId() not in [USE_OBJECT, SELECT_QUEST_REWARD] -> true @82"
+   ],
+   "dialogExcludes": [-1, 1009],
+   "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 88}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#5",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 200000}, "questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @80", "qs.getStatus() == QuestStatus.REWARD -> true @80", "env.getTargetId() == 832841 -> false @81"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#6",
+   "hook": "onDialogEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @80", "qs.getStatus() == QuestStatus.REWARD -> false @80"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#7",
+   "hook": "onDialogEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @80"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

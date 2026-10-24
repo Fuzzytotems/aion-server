@@ -468,6 +468,7 @@
 	X(beluslan, _24050NeritasOrders, 24050) \
 	X(beluslan, _24051InvesetigatetheDisappearance, 24051) \
 	X(beluslan, _24052AFrozenCity, 24052) \
+	X(beluslan, _24053TheMaulingoftheMau, 24053) \
 	X(beluslan, _24054CrisisinBeluslan, 24054) \
 	X(beluslan, _2501FallingFragments, 2501) \
 	X(beluslan, _2505LetCookingExpertsCook, 2505) \
@@ -488,6 +489,7 @@
 	X(beluslan, _2620SummoningPhagrasul, 2620) \
 	X(beluslan, _2630TheDutifulSpy, 2630) \
 	X(beluslan, _2633DestroyingBalaurWeapons, 2633) \
+	X(beluslan, _2634TheDraupnirRedemption, 2634) \
 	X(beluslan, _2641PowwowWiththeMau, 2641) \
 	X(beluslan, _2646TheInscrutableStranger, 2646) \
 	X(beluslan, _2651SpyAFriendsWhereabouts, 2651) \
@@ -664,6 +666,7 @@
 	X(daevanion, _19642SuccessforSix, 19642) \
 	X(daevanion, _1988AMeetingWithASage, 1988) \
 	X(daevanion, _1989ASagesTeachings, 1989) \
+	X(daevanion, _1990ASagesGift, 1990) \
 	X(daevanion, _1993AnotherBeginning, 1993) \
 	X(daevanion, _1994ANewChoice, 1994) \
 	X(daevanion, _29631GlugGlugGlug, 29631) \
@@ -814,9 +817,11 @@
 	X(kromedes_trial, _28604RecoveringRotan, 28604) \
 	X(levinshor, _13704FonasQuickFix, 13704) \
 	X(levinshor, _13708ProximityProtect, 13708) \
+	X(levinshor, _13744AgentinNeed, 13744) \
 	X(levinshor, _13745EljersRequest, 13745) \
 	X(levinshor, _23704LoudNoises, 23704) \
 	X(levinshor, _23708SoundtheAlarm, 23708) \
+	X(levinshor, _23744EffectElyosElimination, 23744) \
 	X(levinshor, _23745NoMoreinLevinshor, 23745) \
 	X(linkgate_foundry, _16940DiarySecrets, 16940) \
 	X(linkgate_foundry, _26940RaidtheLinkgateFoundry, 26940) \
@@ -839,11 +844,13 @@
 	X(morheim, _2321SpyTheSpiritsLetter, 2321) \
 	X(morheim, _2324TheSpiritsNotebook, 2324) \
 	X(morheim, _2332MeatyTreats, 2332) \
+	X(morheim, _2333ARibbitOutOfWater, 2333) \
 	X(morheim, _2343AncientGinseng, 2343) \
 	X(morheim, _2345OrashunerkSpecialOrder, 2345) \
 	X(morheim, _2367APrizedPossession, 2367) \
 	X(morheim, _2392BeautifulFeather, 2392) \
 	X(morheim, _2393TheLoveOfAFather, 2393) \
+	X(morheim, _2394ADyingWish, 2394) \
 	X(morheim, _24020AegirsOrders, 24020) \
 	X(morheim, _24021GhostsintheDesert, 24021) \
 	X(morheim, _24022SneakBehindtheIceClaw, 24022) \
@@ -892,6 +899,7 @@
 	X(oriel, _18832ImaginingAQuietLife, 18832) \
 	X(oriel, _18847Housewarming, 18847) \
 	X(oriel, _50009TisTheSeason, 50009) \
+	X(pandaemonium, _4212MissingSidrunerk, 4212) \
 	X(pangaea, _14220NewZoneNewRules, 14220) \
 	X(pangaea, _24220WelcometoPanesterra, 24220) \
 	X(pernon, _28802BeItEverSoHumble, 28802) \
@@ -925,6 +933,7 @@
 	X(sanctum, _1918AnAxForNamus, 1918) \
 	X(sanctum, _1926SecretLibraryAccess, 1926) \
 	X(sanctum, _1928ChasingaCriminal, 1928) \
+	X(sanctum, _1929ASliverofDarkness, 1929) \
 	X(sanctum, _1932AMatterOfReputation, 1932) \
 	X(sanctum, _1935TissueIDontEvenKnowYou, 1935) \
 	X(sanctum, _1936WhatNerisonSaw, 1936) \
@@ -937,6 +946,7 @@
 	X(sanctum, _1964ASouvenirForNoris, 1964) \
 	X(sanctum, _1987ABiggerWarehouse, 1987) \
 	X(sanctum, _3210RescueHaorunerk, 3210) \
+	X(sanctum, _3212TheMissingCubeCraftsman, 3212) \
 	X(sanctum, _3908ToMastertheDragon, 3908) \
 	X(sanctum, _3913ASecretSummons, 3913) \
 	X(sanctum, _3920TheSecretOfSurkana, 3920) \
@@ -1034,12 +1044,14 @@
 	X(tiamat_stronghold, _30708SuramaTheBetrayer, 30708) \
 	X(tiamat_stronghold, _30709SoulSearching, 30709) \
 	X(tiamat_stronghold, _30710TheGreatRelease, 30710) \
+	X(tiamat_stronghold, _30721OminousDebrisEnergy, 30721) \
 	X(tiamat_stronghold, _30722CheckTheGate, 30722) \
 	X(tiamat_stronghold, _30750AttackOnTiamatStronghold, 30750) \
 	X(tiamat_stronghold, _30751DeathToTheDragonLord, 30751) \
 	X(tiamat_stronghold, _30758SuramaTheBitter, 30758) \
 	X(tiamat_stronghold, _30759CountingStatues, 30759) \
 	X(tiamat_stronghold, _30760PetrifiedHeroOfTheAsmodians, 30760) \
+	X(tiamat_stronghold, _30771ImpendingDebrisEnergy, 30771) \
 	X(tiamat_stronghold, _30772InvestigateTheGate, 30772) \
 	X(udas_temple, _30003SecretOfTheUdasTemple, 30003) \
 	X(udas_temple, _30005HealMeKillMe, 30005) \

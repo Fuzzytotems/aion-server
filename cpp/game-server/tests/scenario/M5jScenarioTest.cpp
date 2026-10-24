@@ -104,6 +104,7 @@
 #include "Oracle.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
+#include "PrologueSupport.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/EconomyDecoders.h"
 #include "decoders/ItemDecoders.h"
@@ -634,7 +635,7 @@ std::vector<Packet> enterGame(ScenarioServers& servers, ScenarioClient& client) 
 	client.z = spawned.z;
 	client.worldId = spawned.worldId;
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	collectBurst(*client.game, client.async);
+	expectEnterWorldTimerEnds(collectBurst(*client.game, client.async), client.label + " level ready");
 	collectFor(*client.game, 1000ms);
 	return client.since(from);
 }
@@ -649,7 +650,7 @@ decoders::PlayerSpawn followInstantTeleport(ScenarioClient& client, size_t from)
 		throw std::runtime_error(client.label + ": no SM_PLAYER_SPAWN: " + join(namesOf(client.since(from))));
 	const decoders::PlayerSpawn spawned = decoders::decodePlayerSpawn(spawn->data);
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	collectFor(*client.game, 1500ms);
+	expectEnterWorldTimerEnds(collectFor(*client.game, 1500ms), client.label + " level ready");
 	client.x = spawned.x;
 	client.y = spawned.y;
 	client.z = spawned.z;

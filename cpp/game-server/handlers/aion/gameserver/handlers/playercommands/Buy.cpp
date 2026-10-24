@@ -47,6 +47,7 @@ Buy::Buy()
 }
 
 // Java Buy.java:39-62 (initRewards) and 136-141 (addReward)
+/** Java: Buy.initRewards() and Buy.addReward(int, int, int) - the static table replaces both (Buy.h) */
 const std::vector<Buy::Reward>& Buy::rewards() { // parity: C++ accessor of the static map, filled once (Buy.h)
 	static const auto* const rewards = new std::vector<Reward>{ // parity= private void initRewards() {
 		Reward{166000194, 40, 5}, // Delta Enchantment Stone // parity= addReward(166000194, 5, 40);

@@ -1,0 +1,77 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24053,
+ "java": "beluslan/_24053TheMaulingoftheMau.java",
+ "class": "_24053TheMaulingoftheMau",
+ "javaSha256": "8fd029d8c1b46d0b84591e08921e7d3a17c4e02fde06d5b374f07bf7c9ef9eb1",
+ "register": [
+  {"call": "registerOnLogOut", "args": [24053]},
+  {"call": "registerAddOnReachTargetEvent", "args": [24053]},
+  {"call": "registerAddOnLostTargetEvent", "args": [24053]},
+  {"call": "registerOnQuestCompleted", "args": [24053]},
+  {"call": "registerOnLevelChanged", "args": [24053]},
+  {"npc": 204787, "event": "addOnTalkEvent", "args": [24053]},
+  {"npc": 204795, "event": "addOnTalkEvent", "args": [24053]},
+  {"npc": 204796, "event": "addOnTalkEvent", "args": [24053]},
+  {"npc": 204700, "event": "addOnTalkEvent", "args": [24053]}
+ ],
+ "hooks": [
+  {"hook": "onNpcReachTargetEvent", "line": 38, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 43, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onLogOutEvent", "line": 48, "cases": 4},
+  {"hook": "onQuestCompletedEvent", "line": 61, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 66, "cases": 1},
+  {"hook": "onDialogEvent", "line": 71, "unsupported": "call spawnInFrontOf"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": ["qs != null -> true @51", "qs.getStatus() == QuestStatus.START -> true @51", "var == 3 -> true @53"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [3, 2], "line": 54}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @51", "qs.getStatus() == QuestStatus.START -> true @51", "var == 3 -> false @53"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @51", "qs.getStatus() == QuestStatus.START -> false @51"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @51"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24050], "line": 62}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24050], "line": 67}],
+   "returns": null
+  }
+ ]
+}

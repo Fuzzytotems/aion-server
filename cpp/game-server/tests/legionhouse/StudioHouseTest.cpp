@@ -12,8 +12,8 @@
 // the binding's own element names (HousingObjectData.java:20-25).
 //
 // Not here: UseableItemObject.onUse (its timed use, cooldown, the COOKING limit and the cancel) is the gate's C17, and the decoration mode and
-// the destroyed studio's save on despawn the gate's C16 and C19 (gs.scenario.m5h). HouseObject.getPlacementLimit(bool) stays unported: Java
-// never calls it (m5h-plan.md H-05).
+// the destroyed studio's save on despawn the gate's C16 and C19 (gs.scenario.m5h). HouseObject.getPlacementLimit(bool), which Java never calls
+// (m5h-plan.md H-05), is ported since 2026-10-19 and checked here against LimitType's tables.
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 #include "LegionHouseTestSupport.h"
@@ -28,6 +28,7 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/controllers/HouseController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/model/gameobjects/player/Cooldowns.h"
 #include "aion/gameserver/dataholders/HouseData.bind.h"
 #include "aion/gameserver/dataholders/HouseBuildingData.bind.h"
 #include "aion/gameserver/dataholders/HouseBuildingData.h"
@@ -243,6 +244,25 @@ TEST_F(StudioHouseTest, TheFactoryBuildsTheObjectOfEveryTemplateKind) {
 	EXPECT_THROW(build(3999999), runtime::NullPointerException) << "no template";
 }
 
+TEST_F(StudioHouseTest, ThePlacementLimitIsTheLimitTypesValueForTheBuildingsSize) {
+	// HouseObject.java:190-195: LimitType.getObjectPlaceLimit / getTrialObjectPlaceLimit of the building's size, the studio (house_buildings.xml
+	// :99, size STUDIO: index 3 of LimitType's a, b, c, d, s tables, LimitType.java:11-18)
+	runtime::Ref<House> house = go::VisibleObject::create<House>(dataholders::DataManager::HOUSE_DATA->getAddress(2001), 0);
+	runtime::Ref<HouseRegistry> registry = HouseRegistry::create(*house);
+	runtime::Ref<go::HouseObject> storage = HouseObjectFactory::createNew(*registry, 7201, 3000007); // limit="STORAGE"
+	runtime::Ref<go::HouseObject> picture = HouseObjectFactory::createNew(*registry, 7202, 3050001); // limit="PICTURE"
+	runtime::Ref<go::HouseObject> cake = HouseObjectFactory::createNew(*registry, 7203, 3190034);    // limit="COOKING"
+	runtime::Ref<go::HouseObject> chair = HouseObjectFactory::createNew(*registry, 7204, 3000004);   // no limit: LimitType.NONE
+	EXPECT_EQ(storage->getPlacementLimit(false), 8) << "STORAGE { 6, 5, 4, 8, 7 }";
+	EXPECT_EQ(storage->getPlacementLimit(true), 4) << "STORAGE trial { 0, 0, 0, 4, 0 }";
+	EXPECT_EQ(picture->getPlacementLimit(false), 1);
+	EXPECT_EQ(picture->getPlacementLimit(true), 0) << "PICTURE trial { 1, 1, 1, 0, 1 }";
+	EXPECT_EQ(cake->getPlacementLimit(false), 1);
+	EXPECT_EQ(cake->getPlacementLimit(true), 1);
+	EXPECT_EQ(chair->getPlacementLimit(false), 0) << "PlaceableHouseObject.getPlacementLimit: NONE without a limit";
+	EXPECT_EQ(chair->getPlacementLimit(true), 0);
+}
+
 TEST_F(StudioHouseTest, AnItemsHouseObjectExpiresAfterItsUseDays) {
 	runtime::Ref<House> house = go::VisibleObject::create<House>(dataholders::DataManager::HOUSE_DATA->getAddress(2001), 0);
 	const int64_t now = commons::utils::currentTimeMillis() / 1000;
@@ -266,6 +286,53 @@ TEST_F(StudioHouseTest, ABareHousedecoHasTemplateIdZero) {
 	ASSERT_NE(decorate, nullptr) << "<housedeco/>";
 	EXPECT_EQ(decorate->getTemplateId(), 0) << "DecorateAction.java:28-32: no id attribute -> 0";
 	EXPECT_EQ(item(170190034)->getActions()->getDecorateAction(), nullptr);
+}
+
+TEST_F(StudioHouseTest, DiscardRemovesNewOrDirectEntriesMarksTheRestDeletedAndDropsUseCooldowns) {
+	// HouseRegistry.java:136-146 (P5-11), the helper of discardObject (:70-72) and discardDecor (:132-134): a NEW entry or a direct discard
+	// leaves the map, any other is marked DELETED and the registry UPDATE_REQUIRED; a UseableHouseObject with a use cooldown (the cake, cd 10)
+	// is taken out of every online player's house object cooldowns either way
+	using PersistentState = go::Persistable::PersistentState;
+	go::player::Player& player = owner(410010, "Discarder", model::Race::ELYOS);
+	runtime::Ref<House> house = go::VisibleObject::create<House>(dataholders::DataManager::HOUSE_DATA->getAddress(2001), 0);
+	runtime::Ref<HouseRegistry> registry = HouseRegistry::create(*house);
+	runtime::Ref<go::HouseObject> newCake = HouseObjectFactory::createNew(*registry, 7101, 3190034);
+	runtime::Ref<go::HouseObject> savedCake = HouseObjectFactory::createNew(*registry, 7102, 3190034);
+	runtime::Ref<go::HouseObject> bed = HouseObjectFactory::createNew(*registry, 7103, 3120000);
+	runtime::Ref<go::HouseDecoration> wallpaper = go::HouseDecoration::create(7104, 3554000);
+	for (go::HouseObject* object : {newCake.get(), savedCake.get(), bed.get()})
+		ASSERT_TRUE(registry->putObject(*object, false));
+	ASSERT_TRUE(registry->putDecor(*wallpaper, false));
+	savedCake->setPersistentState(PersistentState::UPDATED);
+	bed->setPersistentState(PersistentState::UPDATED);
+	wallpaper->setPersistentState(PersistentState::UPDATED);
+	const int64_t reuseTime = commons::utils::currentTimeMillis() + 3600000; // an hour ahead: Cooldowns.put drops an expired entry
+	for (int32_t id : {7101, 7102, 7103, 7104})
+		player.getHouseObjectCooldowns()->put(id, reuseTime);
+	ASSERT_EQ(newCake->getPersistentState(), PersistentState::NEW);
+
+	registry->discardObject(*newCake, false);
+	EXPECT_FALSE(registry->getObjectByObjId(7101)) << "NEW: removed";
+	EXPECT_FALSE(player.getHouseObjectCooldowns()->get(7101).has_value()) << "a use cooldown: dropped";
+
+	registry->discardObject(*savedCake, false);
+	EXPECT_TRUE(registry->getObjectByObjId(7102)) << "saved and not direct: kept for the DAO to delete";
+	EXPECT_EQ(savedCake->getPersistentState(), PersistentState::DELETED);
+	EXPECT_FALSE(player.getHouseObjectCooldowns()->get(7102).has_value()) << "the cooldown goes whether the object stays or not";
+
+	registry->discardObject(*bed, true);
+	EXPECT_FALSE(registry->getObjectByObjId(7103)) << "direct: removed";
+	EXPECT_EQ(bed->getPersistentState(), PersistentState::UPDATED) << "direct: the state is not touched";
+	EXPECT_TRUE(player.getHouseObjectCooldowns()->get(7103).has_value()) << "a chair is no UseableHouseObject";
+
+	registry->setPersistentState(PersistentState::UPDATED);
+	registry->discardDecor(*wallpaper, false);
+	EXPECT_EQ(wallpaper->getPersistentState(), PersistentState::DELETED);
+	EXPECT_EQ(registry->getPersistentState(), PersistentState::UPDATE_REQUIRED) << "the registry is marked by discard itself";
+	EXPECT_EQ(registry->getDecorByObjId(7104).get(), wallpaper.get()) << "kept";
+	registry->discardDecor(*wallpaper, true);
+	EXPECT_FALSE(registry->getDecorByObjId(7104)) << "direct: removed";
+	EXPECT_TRUE(player.getHouseObjectCooldowns()->get(7104).has_value()) << "a decoration is no UseableHouseObject";
 }
 
 TEST_F(StudioHouseTest, TheRegistryStoredIsTheRegistryLoaded) {
