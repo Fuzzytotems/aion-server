@@ -36,6 +36,8 @@ public:
 	void onEndUseSkill(const SkillTemplate* skillTemplate, int32_t skillLevel) override;
 
 protected:
+	/** C++-dev only, not in Java: tells the handler the boss hated the player (its DPS report's boss fight starts at the first time) */
+	void handleAttack(runtime::Ptr<Creature> creature) override;
 	void handleSpawned() override;
 	void handleBackHome() override;
 	void handleDied() override;

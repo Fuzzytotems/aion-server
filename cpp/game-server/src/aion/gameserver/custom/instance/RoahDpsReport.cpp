@@ -22,13 +22,21 @@ void RoahDpsReport::artifactDestroyed(float seconds, int32_t dps, int32_t classA
 }
 
 void RoahDpsReport::bossSpawned() {
-	bossStart.set(clock());
+	bossSpawn.set(clock());
+}
+
+void RoahDpsReport::bossEngaged() {
+	if (bossSpawn.get() && !bossStart.get())
+		bossStart.set(clock());
 }
 
 void RoahDpsReport::bossKilled(int64_t bossMaxHp) {
 	const int64_t now = clock();
 	runEnd.set(now);
-	const int64_t millis = now - bossStart.get().value_or(now);
+	const int64_t spawn = bossSpawn.get().value_or(now);
+	const int64_t fightStart = bossStart.get().value_or(spawn);
+	const int64_t millis = now - fightStart;
+	prepSeconds.set(static_cast<float>(fightStart - spawn) / 1000.0f);
 	bossSeconds.set(static_cast<float>(millis) / 1000.0f);
 	bossDps.set(dps(bossMaxHp, millis));
 }
@@ -39,7 +47,7 @@ void RoahDpsReport::runEnded() {
 }
 
 void RoahDpsReport::addDamage(int64_t damage) {
-	if (bossStart.get())
+	if (bossSpawn.get())
 		bossPhaseDamage.addAndGet(damage);
 	else
 		artifactPhaseDamage.addAndGet(damage);
@@ -94,9 +102,10 @@ std::string RoahDpsReport::artifactPart() const {
 }
 
 std::string RoahDpsReport::successReport(std::string_view oldRank, std::string_view newRank) const {
-	return std::format("[Eternal Challenge] Success | {} | Boss: {}, {} DPS on the boss, {} total DPS | Total: {}, {} total DPS | Rank: {} -> {}",
-		artifactPart(), seconds(getBossSeconds()), getBossDps(), getBossPhaseTotalDps(), seconds(getTotalSeconds()), getRunTotalDps(), oldRank,
-		newRank);
+	return std::format(
+		"[Eternal Challenge] Success | {} | Boss: {} (prep {}), {} DPS on the boss, {} total DPS | Total: {}, {} total DPS | Rank: {} -> {}",
+		artifactPart(), seconds(getBossSeconds()), seconds(getPrepSeconds()), getBossDps(), getBossPhaseTotalDps(), seconds(getTotalSeconds()),
+		getRunTotalDps(), oldRank, newRank);
 }
 
 std::string RoahDpsReport::failureReport(std::string_view reason) const {

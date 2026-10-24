@@ -99,6 +99,17 @@ void CustomInstanceBossAI::handleSpawned() {
 	}
 }
 
+// C++-dev only (owner, 2026-10-24): the ATTACK event fires whenever the boss's aggro list takes hate (the early aggro by sight, a hit, a
+// re-aggro after a reset); the handler's report keeps the first one as the boss fight's start (docs/deviations/P5-13.md)
+void CustomInstanceBossAI::handleAttack(runtime::Ptr<Creature> creature) {
+	GeneralNpcAI::handleAttack(creature);
+	runtime::Ptr<world::WorldMapInstance> wmi = getPosition()->getWorldMapInstance();
+	if (wmi == nullptr)
+		return;
+	if (runtime::Ptr<RoahCustomInstanceHandler> handler = runtime::as<RoahCustomInstanceHandler>(wmi->getInstanceHandler()))
+		handler->onBossEngaged();
+}
+
 // Java CustomInstanceBossAI.java:106-114
 void CustomInstanceBossAI::handleBackHome() {
 	GeneralNpcAI::handleBackHome();

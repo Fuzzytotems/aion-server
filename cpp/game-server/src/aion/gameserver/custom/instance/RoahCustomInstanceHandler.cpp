@@ -185,7 +185,7 @@ bool RoahCustomInstanceHandler::onPassFlyingRing(Player& player, std::string_vie
 
 // Java RoahCustomInstanceHandler.java:177-221
 void RoahCustomInstanceHandler::onDie(Npc& npc) {
-	dpsReport->addDamage(playerDamageOn(npc)); // C++-dev only: every npc's damage counts for the phase's total DPS
+	dpsReport->addDamage(damageForReport(npc)); // C++-dev only: every npc's damage counts for the phase's total DPS
 	switch (npc.getNpcId()) {
 		case TRASH_MOB_ID:
 		case BULKY_MOB_ID:
@@ -235,10 +235,11 @@ void RoahCustomInstanceHandler::onDie(Npc& npc) {
 			closeRunDamage(&npc); // C++-dev only: adds still alive count for the boss phase
 			dpsReport->bossKilled(npc.getLifeStats()->getMaxHp()); // C++-dev only: the boss phase, logged in the [CI_ROAH] style
 			runtime::Ref<model::gameobjects::player::PlayerCommonData> pcd = services::player::PlayerService::getOrLoadPlayerCommonData(playerObjId.get());
-			log.info(std::format("[CI_ROAH] Player [id={}, name={}, class={}, rank={}({}), isPrebuffed={}] killed the boss in {:.3f}s (DPS:{}, total DPS:{}), "
-				"the whole run took {:.3f}s (total DPS:{}).", pcd->getPlayerObjId(), pcd->getName(), xml::enumName(pcd->getPlayerClass()),
-				getRankDescription(rank.get()), rank.get(), isPrebuffed.get(), dpsReport->getBossSeconds(), dpsReport->getBossDps(),
-				dpsReport->getBossPhaseTotalDps(), dpsReport->getTotalSeconds(), dpsReport->getRunTotalDps()));
+			log.info(std::format("[CI_ROAH] Player [id={}, name={}, class={}, rank={}({}), isPrebuffed={}] killed the boss in {:.3f}s after {:.3f}s of "
+				"preparation (DPS:{}, total DPS:{}), the whole run took {:.3f}s (total DPS:{}).", pcd->getPlayerObjId(), pcd->getName(),
+				xml::enumName(pcd->getPlayerClass()), getRankDescription(rank.get()), rank.get(), isPrebuffed.get(), dpsReport->getBossSeconds(),
+				dpsReport->getPrepSeconds(), dpsReport->getBossDps(), dpsReport->getBossPhaseTotalDps(), dpsReport->getTotalSeconds(),
+				dpsReport->getRunTotalDps()));
 			calcBossDrop(npc.getObjectId());
 			setResult(true);
 			PacketSendUtility::broadcastToMap(*instance, SM_QUEST_ACTION(0, 0));
@@ -427,6 +428,23 @@ int64_t RoahCustomInstanceHandler::playerDamageOn(Npc& npc) {
 			damage += info->getDamage();
 	}
 	return damage;
+}
+
+bool RoahCustomInstanceHandler::isBoss(int32_t npcId) {
+	return npcId == BOSS_MOB_A_M_ID || npcId == BOSS_MOB_A_F_ID || npcId == BOSS_MOB_E_M_ID || npcId == BOSS_MOB_E_F_ID || npcId == BOSS_MOB_AT_ID;
+}
+
+int64_t RoahCustomInstanceHandler::damageForReport(Npc& npc) {
+	int64_t damage = playerDamageOn(npc);
+	// the boss drops its aggro list (and the damage in it) whenever it loses its target, but keeps the HP it lost; only the player fights it,
+	// so its death means he dealt at least its max HP
+	if (isBoss(npc.getNpcId()))
+		damage = std::max<int64_t>(damage, npc.getLifeStats()->getMaxHp());
+	return damage;
+}
+
+void RoahCustomInstanceHandler::onBossEngaged() {
+	dpsReport->bossEngaged();
 }
 
 void RoahCustomInstanceHandler::addDamageOnAliveNpcs(const Npc* except) {

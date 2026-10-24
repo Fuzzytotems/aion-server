@@ -198,6 +198,14 @@ TEST_F(CustomInstanceAiTest, TheDamageModifiers) {
 	EXPECT_EQ(boss.getLifeStats()->getMaxHp(), 172);
 }
 
+/** C++-dev only: the boss's ATTACK event (its aggro list takes hate) runs CustomInstanceBossAI.handleAttack; outside the Roah handler's
+ * instance it tells no handler (the Roah handler's report is driven in RoahCustomInstanceHandlerTest) */
+TEST_F(CustomInstanceAiTest, TheBossAttackEventOutsideTheRoahInstance) {
+	Npc& boss = npcAt(BOSS, 4);
+	install<BossProbe>(boss);
+	EXPECT_NO_THROW(boss.getAi().onCreatureEvent(gameserver::ai::event::AIEventType::ATTACK, player()));
+}
+
 /** CustomInstanceTeleporter.java:22-35: below level 65 the level message; at 65 without a stored rank the entry, whose updateLastEntry fails
  * without a database: the shugo message */
 TEST_F(CustomInstanceAiTest, TheTeleporter) {
