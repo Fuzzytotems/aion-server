@@ -259,6 +259,54 @@ TEST_F(InstanceTeleportTest, TheAnimatedInstanceOverloadWaitsForTheClient) {
 	EXPECT_TRUE(actor.player->getController().hasTask(model::TaskId::TELEPORT));
 }
 
+// C++-dev only (owner, 2026-10-24): the custom PvP map's respawn - moved at once, with the battleground's arrival animation
+TEST_F(InstanceTeleportTest, AnInstantTeleportWithABattlegroundLookMovesAtOnceAndLandsWithTheGlow) {
+	runtime::Ptr<world::WorldMapInstance> here = actor.player->getPosition()->getWorldMapInstance();
+	const float z = actor.player->getZ();
+	(*client)->clearSent();
+
+	TeleportService::teleportInstantly(*actor.player, *here, 640.0f, 1060.0f, z, int8_t{33}, TeleportAnimation::BATTLEGROUND);
+
+	expectAt(POETA, 1, 640.0f, 1060.0f, z);
+	EXPECT_EQ(actor.player->getHeading(), 33);
+	EXPECT_TRUE(actor.player->isSpawned()) << "spawnOnSameMap ran at once";
+	EXPECT_FALSE(actor.player->getController().hasTask(model::TaskId::TELEPORT)) << "no wait for CM_TELEPORT_ANIMATION_DONE";
+	EXPECT_FALSE(wasSentClass(cptest::serialized(network::aion::serverpackets::SM_TELEPORT_LOC(POETA, 1, 640.0f, 1060.0f, z, int8_t{33},
+		TeleportAnimation::BATTLEGROUND), client->con()))) << "no animation for the client to play first";
+	// spawnOnSameMap sends the arrival animation in SM_PLAYER_INFO, then clears it (TeleportService.java:516). The animation byte is where
+	// SM_PLAYER_INFO with LANDING_GLOW and with NONE differ (later state, like the spawn protection, differs from the sent packet elsewhere)
+	EXPECT_EQ(actor.player->getPortAnimationId(), model::animations::getId(model::animations::ArrivalAnimation::NONE));
+	std::vector<uint8_t> withNone = cptest::serialized(network::aion::serverpackets::SM_PLAYER_INFO(*actor.player), client->con());
+	actor.player->setPortAnimation(model::animations::ArrivalAnimation::LANDING_GLOW);
+	std::vector<uint8_t> withGlow = cptest::serialized(network::aion::serverpackets::SM_PLAYER_INFO(*actor.player), client->con());
+	actor.player->setPortAnimation(model::animations::ArrivalAnimation::NONE);
+	ASSERT_EQ(withNone.size(), withGlow.size());
+	size_t at = 0;
+	while (at < withNone.size() && withNone[at] == withGlow[at])
+		++at;
+	ASSERT_LT(at, withNone.size());
+	int infos = 0;
+	for (const std::vector<uint8_t>& bytes : sent())
+		if (headerOf(bytes) == headerOf(withGlow)) {
+			++infos;
+			ASSERT_GT(bytes.size(), at);
+			EXPECT_EQ(bytes[at], withGlow[at]) << "the sent SM_PLAYER_INFO lands with LANDING_GLOW, BATTLEGROUND's arrival";
+		}
+	EXPECT_EQ(infos, 1);
+}
+
+TEST_F(InstanceTeleportTest, AnInstantTeleportRevivesADeadPlayerAsTeleportToDoes) {
+	runtime::Ptr<world::WorldMapInstance> here = actor.player->getPosition()->getWorldMapInstance();
+	const float z = actor.player->getZ();
+	die();
+
+	TeleportService::teleportInstantly(*actor.player, *here, 641.0f, 1061.0f, z, int8_t{3}, TeleportAnimation::BATTLEGROUND);
+
+	expectAt(POETA, 1, 641.0f, 1061.0f, z);
+	EXPECT_FALSE(actor.player->isDead()) << "TeleportService.java:282-283's revive";
+	EXPECT_TRUE(actor.player->isSpawned());
+}
+
 TEST_F(InstanceTeleportTest, HaramelsExitDependsOnTheRace) {
 	TeleportService::moveToInstanceExit(*actor.player, HARAMEL, model::Race::ELYOS);
 	expectAt(VERTERON, 1, 2533.8564f, 835.055f, 103.967476f); // instance_exit.xml:16
