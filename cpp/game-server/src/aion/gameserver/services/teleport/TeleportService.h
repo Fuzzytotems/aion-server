@@ -54,6 +54,12 @@ public:
 		model::animations::TeleportAnimation animation);
 	static void teleportTo(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y, float z, int8_t heading,
 		model::animations::TeleportAnimation animation);
+	/**
+	 * C++-dev only: moves the player at once, with `look`'s departure (seen by others) and arrival animations; unlike teleportTo with an
+	 * animation, it does not wait for the client's CM_TELEPORT_ANIMATION_DONE (the custom PvP map's respawn)
+	 */
+	static void teleportInstantly(model::gameobjects::player::Player& player, world::WorldMapInstance& instance, float x, float y, float z,
+		int8_t heading, model::animations::TeleportAnimation look);
 	static void showMap(model::gameobjects::player::Player& player, model::gameobjects::Npc& npc);
 	static void teleportToPrison(model::gameobjects::player::Player& player);
 	static void teleportToNpc(model::gameobjects::player::Player& player, int32_t npcId);

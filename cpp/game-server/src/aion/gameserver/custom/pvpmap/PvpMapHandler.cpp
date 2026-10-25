@@ -353,7 +353,9 @@ bool PvpMapHandler::onReviveEvent(Player& player) {
 		}
 	} else {
 		runtime::Ref<WorldPosition> pos(*randomPosition(*respawnLocations.get(player.getRace())));
-		services::teleport::TeleportService::teleportTo(player, *instance, pos->getX(), pos->getY(), pos->getZ(), pos->getHeading(),
+		// C++-dev only (owner, 2026-10-24): the respawn moves the player at once and plays the battleground animations around it; Java's
+		// teleportTo(..., BATTLEGROUND) waited for the client's animation before moving him (docs/deviations/P5-13.md)
+		services::teleport::TeleportService::teleportInstantly(player, *instance, pos->getX(), pos->getY(), pos->getZ(), pos->getHeading(),
 			model::animations::TeleportAnimation::BATTLEGROUND);
 	}
 	return true;

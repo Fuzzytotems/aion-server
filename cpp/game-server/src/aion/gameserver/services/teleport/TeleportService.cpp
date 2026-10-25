@@ -166,29 +166,35 @@ private:
 	const float z;
 	const int8_t h;
 	const model::animations::TeleportAnimation animation;
+	/** C++-dev only: the arrival animation of an instant teleport that looks like another one (teleportInstantly); empty: the default */
+	const std::optional<model::animations::ArrivalAnimation> arrival;
 
 protected:
 	SpawnTask(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y, float z, int8_t h,
-		model::animations::TeleportAnimation animation);
+		model::animations::TeleportAnimation animation, std::optional<model::animations::ArrivalAnimation> arrival);
 	~SpawnTask() override;
 
 public:
 	/** Java: new SpawnTask(player, worldId, instanceId, x, y, z, h, animation) */
 	static runtime::Ref<SpawnTask> create(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y,
-		float z, int8_t h, model::animations::TeleportAnimation animation);
+		float z, int8_t h, model::animations::TeleportAnimation animation,
+		std::optional<model::animations::ArrivalAnimation> arrival = std::nullopt);
 	void run();
 };
 
 TeleportService::SpawnTask::SpawnTask(model::gameobjects::player::Player& value, int32_t worldIdValue, int32_t instanceIdValue, float xValue,
-	float yValue, float zValue, int8_t hValue, model::animations::TeleportAnimation animationValue)
-	: player(value), worldId(worldIdValue), instanceId(instanceIdValue), x(xValue), y(yValue), z(zValue), h(hValue), animation(animationValue) {
+	float yValue, float zValue, int8_t hValue, model::animations::TeleportAnimation animationValue,
+	std::optional<model::animations::ArrivalAnimation> arrivalValue)
+	: player(value), worldId(worldIdValue), instanceId(instanceIdValue), x(xValue), y(yValue), z(zValue), h(hValue), animation(animationValue),
+	  arrival(arrivalValue) {
 }
 
 TeleportService::SpawnTask::~SpawnTask() = default;
 
 runtime::Ref<TeleportService::SpawnTask> TeleportService::SpawnTask::create(model::gameobjects::player::Player& value, int32_t worldIdValue,
-	int32_t instanceIdValue, float xValue, float yValue, float zValue, int8_t hValue, model::animations::TeleportAnimation animationValue) {
-	return runtime::makeRef<SpawnTask>(value, worldIdValue, instanceIdValue, xValue, yValue, zValue, hValue, animationValue);
+	int32_t instanceIdValue, float xValue, float yValue, float zValue, int8_t hValue, model::animations::TeleportAnimation animationValue,
+	std::optional<model::animations::ArrivalAnimation> arrivalValue) {
+	return runtime::makeRef<SpawnTask>(value, worldIdValue, instanceIdValue, xValue, yValue, zValue, hValue, animationValue, arrivalValue);
 }
 
 // Java TeleportService.java:500-536
@@ -215,7 +221,7 @@ void TeleportService::SpawnTask::run() {
 	world::World::getInstance().setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(*player), worldId, instanceId, x, y, z, h);
 	world::World::getInstance().setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(player->getPet()), worldId, instanceId, x, y, z, h);
 
-	player->setPortAnimation(model::animations::getDefaultArrivalAnimation(animation));
+	player->setPortAnimation(arrival.value_or(model::animations::getDefaultArrivalAnimation(animation)));
 	if (currentWorldId == worldId && currentInstance == instanceId) {
 		// instant teleport when map is the same
 		spawnOnSameMap(*player);
@@ -529,6 +535,21 @@ void TeleportService::teleportTo(model::gameobjects::player::Player& player, int
 		DuelService::getInstance().loseDuel(player);
 	}
 	sendLoc(player, worldId, instanceId, x, y, z, heading, animation);
+}
+
+// C++-dev only (owner, 2026-10-24): `look`'s departure and arrival animations, but the player is moved at once (no SM_TELEPORT_LOC, no wait for
+// CM_TELEPORT_ANIMATION_DONE): teleportTo's revive and duel handling, then sendLoc's instant branch with `look`'s animations
+void TeleportService::teleportInstantly(model::gameobjects::player::Player& player, world::WorldMapInstance& instance, float x, float y, float z,
+	int8_t heading, model::animations::TeleportAnimation look) {
+	if (player.isDead()) {
+		player::PlayerReviveService::revive(player, 20, 20, true, 0);
+	} else if (DuelService::getInstance().isDueling(player)) {
+		DuelService::getInstance().loseDuel(player);
+	}
+	abortPlayerActions(player);
+	world::World::getInstance().despawn(player, model::animations::getDefaultObjectDeleteAnimation(look));
+	SpawnTask::create(player, instance.getMapId(), instance.getInstanceId(), x, y, z, heading, model::animations::TeleportAnimation::NONE,
+		model::animations::getDefaultArrivalAnimation(look))->run();
 }
 
 // Java TeleportService.java:291-295
