@@ -16,6 +16,9 @@ Outputs (under cpp/game-server/src/aion/gameserver/, committed; see docs/design/
                                               sorted by opcode, with INTERNAL_VERSION
     network/aion/ClientPacketInfo.gen.inc     X-macro list AION_CLIENT_PACKET_INFO(opcode, wireOpcode, Class, "clientName", STATE...) sorted by
                                               opcode, plus AION_CLIENT_PACKET_TABLE_SIZE(250) when that macro is defined
+Output under cpp/client-protocol/src/aion/clientprotocol/ (committed; --client-out-dir), the client side's view of the same tables:
+    ClientOpcodes.gen.h                       ClientOpcodes::CLIENT_PACKETS and SERVER_PACKETS {opcode, wireOpcode, name, clientName, direction}
+                                              sorted by opcode, one int32_t constant per packet name, lookups by opcode and by wire opcode
 
 wireOpcode is the 16-bit value on the wire: for server packets (opcode + INTERNAL_VERSION) ^ 0xDF (Crypt.encodeServerPacketOpcode), for client
 packets the unique 16-bit value w with Crypt.decodeClientPacketOpcode(w) == opcode, i.e. (((opcode + INTERNAL_VERSION) ^ 0xEF) + 0x0C) ^ 0xEF.
@@ -27,7 +30,7 @@ Java semantics reproduced as checks (the generator fails instead of guessing):
     AionClientPacketFactory: an index outside the array throws ArrayIndexOutOfBoundsException; assigning an index twice would silently keep the
     last PacketInfo in Java and is rejected here, as are duplicate states (EnumSet.of would ignore them).
 
-Usage: python opcodes.py [--java-dir GAME_SERVER_DIR] [--out-dir CPP_GAME_SERVER_SRC] [--check]
+Usage: python opcodes.py [--java-dir GAME_SERVER_DIR] [--out-dir CPP_GAME_SERVER_SRC] [--client-out-dir CPP_CLIENT_PROTOCOL_SRC] [--check]
     --check   compare instead of writing; exit 1 if a committed output differs (drift test)
 """
 from __future__ import annotations
@@ -45,6 +48,7 @@ GEN_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(GEN_DIR, '..', '..', '..'))
 DEFAULT_JAVA_DIR = os.path.join(REPO, 'game-server')
 DEFAULT_OUT_DIR = os.path.join(REPO, 'cpp', 'game-server', 'src', 'aion', 'gameserver')
+DEFAULT_CLIENT_OUT_DIR = os.path.join(REPO, 'cpp', 'client-protocol', 'src', 'aion', 'clientprotocol')
 
 PKG_DIR = 'src/com/aionemu/gameserver/network'
 SERVER_OPCODES_JAVA = PKG_DIR + '/aion/ServerPacketsOpcodes.java'
@@ -57,6 +61,9 @@ CLIENT_PACKETS_DIR = PKG_DIR + '/aion/clientpackets'
 
 SERVER_OPCODES_OUT = 'network/aion/ServerPacketsOpcodes.gen.h'
 CLIENT_INFO_OUT = 'network/aion/ClientPacketInfo.gen.inc'
+# written below the client protocol library's directory (--client-out-dir) instead of the game server's
+CLIENT_OPCODES_OUT = 'ClientOpcodes.gen.h'
+CLIENT_PROTOCOL_OUTPUTS = {CLIENT_OPCODES_OUT}
 
 # Token texts of the Java method bodies whose semantics this generator reproduces; any change there must be reviewed here first.
 EXPECTED_BODIES = {
@@ -517,6 +524,113 @@ def render_client_info(table_size, entries, internal_version, states):
     return '\n'.join(out)
 
 
+def render_client_opcodes(server, client, internal_version):
+    """The client protocol library's table: both directions with decoded and wire opcodes, names and lookups, without server types."""
+    server_rows = [(opcode, encode_server_opcode(opcode, internal_version), name, bracketed_name(comment), 'SERVER_TO_CLIENT')
+                   for opcode, name, comment, _ in sorted(server)]
+    client_rows = [(opcode, client_wire_opcode(opcode, internal_version), name, bracketed_name(comment), 'CLIENT_TO_SERVER')
+                   for opcode, name, _, comment, _ in sorted(client)]
+    for opcode, wire, name, _, _ in server_rows:
+        if not 0 <= wire <= 0xFFFF:
+            raise GenError(f'server opcode {opcode} ({name}) does not fit into 16 bits after obfuscation')
+    out = [HEADER_NOTE,
+           f'// Source: game-server/{CLIENT_FACTORY_JAVA} ({len(client_rows)} client packets) and',
+           f'// game-server/{SERVER_OPCODES_JAVA} ({len(server_rows)} server packets), INTERNAL_VERSION from SM_VERSION_CHECK.java.',
+           '// The client side of the game server\'s ServerPacketsOpcodes.gen.h and ClientPacketInfo.gen.inc, for code that speaks the protocol as',
+           '// the game client does (the scenario tests, the UE client). Needs only the standard library.',
+           '#pragma once',
+           '',
+           '#include <array>',
+           '#include <cstddef>',
+           '#include <cstdint>',
+           '#include <string_view>',
+           '',
+           'namespace aion::clientprotocol {',
+           '',
+           '/** Which way a packet of the game connection travels */',
+           'enum class PacketDirection : uint8_t { CLIENT_TO_SERVER, SERVER_TO_CLIENT };',
+           '',
+           'namespace ClientOpcodes {',
+           '',
+           '/** Java: SM_VERSION_CHECK.INTERNAL_VERSION - client version number and base of the opcode obfuscation (Crypt) */',
+           f'inline constexpr int32_t INTERNAL_VERSION = {internal_version};',
+           '',
+           '/**',
+           ' * One packet of the game protocol. opcode is the decoded opcode (the Java packet id), wireOpcode the 16-bit word after the frame length:',
+           ' * (opcode + INTERNAL_VERSION) ^ 0xDF for server packets, (((opcode + INTERNAL_VERSION) ^ 0xEF) + 0x0C) ^ 0xEF for client packets.',
+           ' * clientName is the bracketed client-side name from the Java comment, or empty.',
+           ' */',
+           'struct Entry {',
+           '\tint32_t opcode;',
+           '\tuint16_t wireOpcode;',
+           '\tstd::string_view name;',
+           '\tstd::string_view clientName;',
+           '\tPacketDirection direction;',
+           '};',
+           '']
+    for title, array, rows in (('client packets (AionClientPacketFactory)', 'CLIENT_PACKETS', client_rows),
+                               ('server packets (ServerPacketsOpcodes)', 'SERVER_PACKETS', server_rows)):
+        out.append(f'/** The {title}, sorted by opcode */')
+        out.append(f'inline constexpr std::array<Entry, {len(rows)}> {array} = {{{{')
+        for opcode, wire, name, client_name, direction in rows:
+            out.append(f'\t{{{opcode}, 0x{wire:04X}, "{name}", {cpp_string(client_name)}, PacketDirection::{direction}}},')
+        out += ['}};', '']
+    out.append('/** The decoded opcode of each packet, by its Java class name */')
+    for opcode, _, name, _, _ in client_rows + server_rows:
+        out.append(f'inline constexpr int32_t {name} = {opcode};')
+    out += ['',
+            'namespace detail {',
+            'template <size_t N>',
+            'constexpr const Entry* findByOpcode(const std::array<Entry, N>& entries, int32_t opcode) noexcept {',
+            '\tsize_t low = 0;',
+            '\tsize_t high = N;',
+            '\twhile (low < high) {',
+            '\t\tconst size_t mid = low + (high - low) / 2;',
+            '\t\tif (entries[mid].opcode < opcode)',
+            '\t\t\tlow = mid + 1;',
+            '\t\telse',
+            '\t\t\thigh = mid;',
+            '\t}',
+            '\treturn low < N && entries[low].opcode == opcode ? &entries[low] : nullptr;',
+            '}',
+            '',
+            'template <size_t N>',
+            'constexpr const Entry* findByWireOpcode(const std::array<Entry, N>& entries, uint16_t wireOpcode) noexcept {',
+            '\tfor (const Entry& entry : entries) {',
+            '\t\tif (entry.wireOpcode == wireOpcode)',
+            '\t\t\treturn &entry;',
+            '\t}',
+            '\treturn nullptr;',
+            '}',
+            '} // namespace detail',
+            '',
+            '/** @return the client packet with the given decoded opcode, or nullptr */',
+            'constexpr const Entry* findClientPacket(int32_t opcode) noexcept {',
+            '\treturn detail::findByOpcode(CLIENT_PACKETS, opcode);',
+            '}',
+            '',
+            '/** @return the server packet with the given decoded opcode, or nullptr */',
+            'constexpr const Entry* findServerPacket(int32_t opcode) noexcept {',
+            '\treturn detail::findByOpcode(SERVER_PACKETS, opcode);',
+            '}',
+            '',
+            '/** @return the client packet with the given wire opcode, or nullptr */',
+            'constexpr const Entry* findClientPacketByWireOpcode(uint16_t wireOpcode) noexcept {',
+            '\treturn detail::findByWireOpcode(CLIENT_PACKETS, wireOpcode);',
+            '}',
+            '',
+            '/** @return the server packet with the given wire opcode, or nullptr */',
+            'constexpr const Entry* findServerPacketByWireOpcode(uint16_t wireOpcode) noexcept {',
+            '\treturn detail::findByWireOpcode(SERVER_PACKETS, wireOpcode);',
+            '}',
+            '',
+            '} // namespace ClientOpcodes',
+            '',
+            '} // namespace aion::clientprotocol',
+            '']
+    return '\n'.join(out)
+
+
 def generate(java_dir):
     """Parses the Java sources and returns ({output relpath: content}, summary dict)."""
     java_dir = os.path.abspath(java_dir)
@@ -532,6 +646,7 @@ def generate(java_dir):
     outputs = {
         SERVER_OPCODES_OUT: render_server_opcodes(server, internal_version),
         CLIENT_INFO_OUT: render_client_info(table_size, client, internal_version, states),
+        CLIENT_OPCODES_OUT: render_client_opcodes(server, client, internal_version),
     }
     state_counts = {}
     for _, _, st, _, _ in client:
@@ -548,11 +663,11 @@ def generate(java_dir):
     return outputs, summary
 
 
-def write_outputs(outputs, out_dir, check):
-    """Writes (or with check compares) the outputs; returns the list of relpaths that differ."""
+def write_outputs(outputs, out_dir, check, client_out_dir=DEFAULT_CLIENT_OUT_DIR):
+    """Writes (or with check compares) the outputs, CLIENT_PROTOCOL_OUTPUTS below client_out_dir; returns the list of relpaths that differ."""
     differ = []
     for rel, content in sorted(outputs.items()):
-        path = os.path.join(out_dir, rel)
+        path = os.path.join(client_out_dir if rel in CLIENT_PROTOCOL_OUTPUTS else out_dir, rel)
         old = None
         if os.path.isfile(path):
             with open(path, encoding='utf-8', newline='') as f:
@@ -571,6 +686,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--java-dir', default=DEFAULT_JAVA_DIR, help='the Java game-server directory')
     ap.add_argument('--out-dir', default=DEFAULT_OUT_DIR, help='cpp/game-server/src/aion/gameserver')
+    ap.add_argument('--client-out-dir', default=DEFAULT_CLIENT_OUT_DIR, help='cpp/client-protocol/src/aion/clientprotocol')
     ap.add_argument('--check', action='store_true', help='exit 1 if a committed output is out of date')
     args = ap.parse_args(argv)
     try:
@@ -578,7 +694,7 @@ def main(argv=None):
     except (GenError, javasrc.JavaSyntaxError) as e:
         print(f'error: {e}', file=sys.stderr)
         return 2
-    differ = write_outputs(outputs, args.out_dir, args.check)
+    differ = write_outputs(outputs, args.out_dir, args.check, args.client_out_dir)
     for k, v in summary.items():
         print(f'{k}: {v}')
     for rel in differ:
