@@ -9,14 +9,14 @@
 #include <utility>
 #include <vector>
 
-#include "decoders/SocialDecoders.h"
+#include "aion/clientprotocol/decoders/SocialDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** a writeS(text, fixedLength) of AionServerPacket.java:90-98 */
 void fixedS(PacketWriter& w, std::u16string_view text, size_t fixedLength) {
@@ -169,4 +169,4 @@ TEST(SocialDecodersTest, AbyssRankingPlayers) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

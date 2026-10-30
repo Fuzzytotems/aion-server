@@ -15,9 +15,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader and DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader and DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** PetAction ids (PetAction.java:10-24) */
 constexpr uint16_t PET_ACTION_LOAD_PETS = 0;
@@ -112,4 +112,4 @@ struct KiskUpdate {
 
 KiskUpdate decodeKiskUpdate(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

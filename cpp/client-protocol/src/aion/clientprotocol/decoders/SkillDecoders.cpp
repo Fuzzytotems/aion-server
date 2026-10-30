@@ -1,9 +1,9 @@
-#include "decoders/SkillDecoders.h"
+#include "aion/clientprotocol/decoders/SkillDecoders.h"
 
 #include <algorithm>
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -291,4 +291,4 @@ StatUpdateMp decodeStatUpdateMp(std::span<const uint8_t> body) {
 	return stat;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

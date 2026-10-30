@@ -12,14 +12,14 @@
 #include <span>
 #include <vector>
 
-#include "decoders/ProgressionDecoders.h"
+#include "aion/clientprotocol/decoders/ProgressionDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** every decoder refuses a body one byte short and one byte long */
 template <typename Decode>
@@ -252,4 +252,4 @@ TEST(ProgressionDecodersTest, SummonPanelRemoveAndOwnerRemove) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

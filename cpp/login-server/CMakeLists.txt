@@ -28,9 +28,10 @@ add_executable(aion_login_server "${LS_SRC}/main.cpp")
 target_link_libraries(aion_login_server PRIVATE aion_loginserver_lib aion::compiler_options)
 set_target_properties(aion_login_server PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${LS_JAVA_DIR}")
 
-aion_add_tests(aion_loginserver_crypto_tests "${LS_TESTS}/crypto" DEPENDS aion_loginserver_crypto)
+# the crypto and server tests also drive the client side of the protocol (cpp/client-protocol, through support/AionLoginClientCrypto.h)
+aion_add_tests(aion_loginserver_crypto_tests "${LS_TESTS}/crypto" DEPENDS aion_loginserver_crypto aion_client_protocol)
 aion_add_tests(aion_loginserver_data_tests "${LS_TESTS}/data" DEPENDS aion_loginserver_lib)
-aion_add_tests(aion_loginserver_tests "${LS_TESTS}/server" DEPENDS aion_loginserver_lib)
+aion_add_tests(aion_loginserver_tests "${LS_TESTS}/server" DEPENDS aion_loginserver_lib aion_client_protocol)
 
 # header-only test helpers shared by the test targets (e.g. the client side of the Aion login protocol), included as "support/..."
 foreach(test_target aion_loginserver_crypto_tests aion_loginserver_data_tests aion_loginserver_tests)

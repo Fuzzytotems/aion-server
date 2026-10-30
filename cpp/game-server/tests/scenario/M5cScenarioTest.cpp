@@ -62,12 +62,13 @@
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
 #include "../support/NetworkTestSupport.h" // the little endian PacketWriter (C2b)
-#include "decoders/CombatDecoders.h"
-#include "decoders/EconomyDecoders.h"
-#include "decoders/ItemDecoders.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/ProgressionDecoders.h" // SM_MESSAGE (C2b)
-#include "decoders/QuestDecoders.h" // SM_STATUPDATE_EXP (m5d-plan.md G-02 moved it there)
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/decoders/ItemDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/ProgressionDecoders.h" // SM_MESSAGE (C2b)
+#include "aion/clientprotocol/decoders/QuestDecoders.h" // SM_STATUPDATE_EXP (m5d-plan.md G-02 moved it there)
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h

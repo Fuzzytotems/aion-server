@@ -1,10 +1,10 @@
-#include "decoders/ItemDecoders.h"
+#include "aion/clientprotocol/decoders/ItemDecoders.h"
 
 #include <string>
 #include <string_view>
 #include <utility>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -184,4 +184,4 @@ ItemUsageAnimation decodeItemUsageAnimation(std::span<const uint8_t> body) {
 	return animation;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/TeamDecoders.h"
+#include "aion/clientprotocol/decoders/TeamDecoders.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** PlayerAllianceEvent.getId() (PlayerAllianceEvent.java:7-29); JOIN and MEMBER_GROUP_CHANGE share 5, the ENTER family shares 13 */
 inline constexpr uint8_t ALLIANCE_EVENT_LEAVE = 0;
@@ -76,4 +76,4 @@ struct AllianceReadyCheck {
 };
 AllianceReadyCheck decodeAllianceReadyCheck(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

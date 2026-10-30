@@ -18,9 +18,9 @@
 #include <span>
 #include <string>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_ACTION_ANIMATION -------------------------------------------------------------------------------------------------------------------
 
@@ -176,4 +176,4 @@ uint16_t decodeSummonPanelRemove(std::span<const uint8_t> body);
 /** SM_SUMMON_OWNER_REMOVE (SM_SUMMON_OWNER_REMOVE.java:18-20): writeD(summonObjId) */
 int32_t decodeSummonOwnerRemove(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

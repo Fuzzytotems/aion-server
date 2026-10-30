@@ -15,9 +15,9 @@
 #include <span>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_SIEGE_LOCATION_INFO --------------------------------------------------------------------------------------------------------------
 
@@ -152,4 +152,4 @@ struct NpcAssembler {
 
 NpcAssembler decodeNpcAssembler(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

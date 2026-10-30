@@ -1,10 +1,10 @@
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
 
 #include <algorithm>
 #include <set>
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_QUEST_ACTION --------------------------------------------------------------------------------------------------------------------
 
@@ -163,4 +163,4 @@ PlayMovie decodePlayMovie(std::span<const uint8_t> body) {
 	return movie;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

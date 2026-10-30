@@ -24,9 +24,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError, InventoryItem, readItemInfoBlob
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError, InventoryItem, readItemInfoBlob
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- the constants the packets carry ----------------------------------------------------------------------------------------------------
 
@@ -439,4 +439,4 @@ int32_t decodeRecipeDelete(std::span<const uint8_t> body);
  */
 std::vector<int32_t> decodeRecipeList(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

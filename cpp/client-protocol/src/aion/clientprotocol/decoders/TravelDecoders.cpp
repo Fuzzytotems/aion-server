@@ -1,8 +1,8 @@
-#include "decoders/TravelDecoders.h"
+#include "aion/clientprotocol/decoders/TravelDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 TeleportMap decodeTeleportMap(std::span<const uint8_t> body) {
 	BodyReader reader(body, "SM_TELEPORT_MAP");
@@ -158,4 +158,4 @@ SystemMessage decodeSystemMessage(std::span<const uint8_t> body) {
 	return message;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

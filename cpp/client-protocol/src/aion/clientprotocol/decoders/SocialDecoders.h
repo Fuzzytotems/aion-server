@@ -17,9 +17,9 @@
 #include <utility>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader and DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader and DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** FriendList.Status ids (FriendList.java:147-159) */
 constexpr uint8_t FRIEND_STATUS_OFFLINE = 0;
@@ -218,4 +218,4 @@ struct AbyssRankingPlayers {
 };
 AbyssRankingPlayers decodeAbyssRankingPlayers(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

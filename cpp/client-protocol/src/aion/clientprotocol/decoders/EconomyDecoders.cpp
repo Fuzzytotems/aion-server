@@ -1,10 +1,10 @@
-#include "decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/decoders/EconomyDecoders.h"
 
 #include <string>
 #include <string_view>
 #include <utility>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -424,4 +424,4 @@ std::vector<int32_t> decodeRecipeList(std::span<const uint8_t> body) {
 	return recipes;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

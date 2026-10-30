@@ -1,8 +1,8 @@
-#include "decoders/SocialDecoders.h"
+#include "aion/clientprotocol/decoders/SocialDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -272,4 +272,4 @@ AbyssRankingPlayers decodeAbyssRankingPlayers(std::span<const uint8_t> body) {
 	return ranking;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

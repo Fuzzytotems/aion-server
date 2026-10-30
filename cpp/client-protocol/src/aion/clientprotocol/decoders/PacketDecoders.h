@@ -20,7 +20,7 @@
 #include <string_view>
 #include <vector>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** A body that does not match the Java layout (wrong width, wrong order, trailing or missing bytes, a changed constant) */
 class DecodeError : public std::runtime_error {
@@ -612,4 +612,4 @@ AttackParties decodeAttackParties(std::span<const uint8_t> body);
  */
 int32_t decodeAttackStatusObjectId(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

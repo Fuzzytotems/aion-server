@@ -8,7 +8,8 @@
 
 #include "AsyncAllowed.h"
 #include "PacketSequence.h"
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "NetworkTestSupport.h"
 

@@ -17,9 +17,9 @@
 #include <span>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_QUEST_ACTION --------------------------------------------------------------------------------------------------------------------
 
@@ -211,4 +211,4 @@ inline constexpr int64_t PROLOGUE_EXP = 1;
  */
 inline constexpr int32_t PROLOGUE_EXP_MESSAGE = 1370002;
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

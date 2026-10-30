@@ -1,11 +1,11 @@
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
 
 #include <bit>
 #include <utility>
 
-#include "aion/commons/utils/StringUtils.h"
+#include "aion/clientprotocol/Utf.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -91,7 +91,7 @@ std::string BodyReader::S() {
 	std::u16string text;
 	for (char16_t c; (c = static_cast<char16_t>(H())) != 0;)
 		text += c;
-	return commons::utils::StringUtils::toUtf8(text);
+	return utf16ToUtf8(text);
 }
 
 std::string BodyReader::S(size_t fixedLength) {
@@ -107,7 +107,7 @@ std::string BodyReader::S(size_t fixedLength) {
 		else
 			fail("a fixed length string continues after its terminating NUL char");
 	}
-	return commons::utils::StringUtils::toUtf8(text);
+	return utf16ToUtf8(text);
 }
 
 std::vector<uint8_t> BodyReader::B(size_t count) {
@@ -994,4 +994,4 @@ int32_t decodeAttackStatusObjectId(std::span<const uint8_t> body) {
 	return reader.D(); // creature.getObjectId()
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

@@ -11,14 +11,14 @@
 #include <string>
 #include <vector>
 
-#include "decoders/HousingDecoders.h"
+#include "aion/clientprotocol/decoders/HousingDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 template <typename Decode>
 void expectExactLength(const std::vector<uint8_t>& body, Decode decode, const char* name) {
@@ -314,4 +314,4 @@ TEST(HousingDecodersTest, HouseBids) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

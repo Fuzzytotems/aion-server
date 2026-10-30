@@ -58,10 +58,11 @@
 #include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
-#include "decoders/CombatDecoders.h"
-#include "decoders/ItemDecoders.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/SkillDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/ItemDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/SkillDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 

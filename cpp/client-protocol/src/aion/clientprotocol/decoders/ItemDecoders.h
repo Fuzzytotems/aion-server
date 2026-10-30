@@ -20,9 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError, InventoryItem, EquippedItems, readItemInfoBlob
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError, InventoryItem, EquippedItems, readItemInfoBlob
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- the enums the packets carry --------------------------------------------------------------------------------------------------------
 
@@ -204,4 +204,4 @@ struct ItemUsageAnimation {
 
 ItemUsageAnimation decodeItemUsageAnimation(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

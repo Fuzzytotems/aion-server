@@ -1,8 +1,8 @@
-#include "decoders/SiegeDecoders.h"
+#include "aion/clientprotocol/decoders/SiegeDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 SiegeLocationInfo decodeSiegeLocationInfo(std::span<const uint8_t> body) {
 	BodyReader reader(body, "SM_SIEGE_LOCATION_INFO");
@@ -225,4 +225,4 @@ NpcAssembler decodeNpcAssembler(std::span<const uint8_t> body) {
 	return assembler;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

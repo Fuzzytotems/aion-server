@@ -84,17 +84,16 @@
 #include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
-#include "decoders/CombatDecoders.h"
-#include "decoders/EconomyDecoders.h"
-#include "decoders/ItemDecoders.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/decoders/ItemDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
-namespace aion::gameserver::scenario {
-
-namespace decoders {
+namespace aion::clientprotocol::decoders {
 // GoogleTest prints the two quest list entries of a failed comparison with these (ADL finds them in the entries' namespace); internal to this
 // file, so no other test file sees them
 static void PrintTo(const QuestEntry& entry, std::ostream* out) {
@@ -103,7 +102,9 @@ static void PrintTo(const QuestEntry& entry, std::ostream* out) {
 static void PrintTo(const QuestCompletedEntry& entry, std::ostream* out) {
 	*out << entry.questId << ":c" << +entry.completeCount << ":r" << +entry.repeatFlag;
 }
-} // namespace decoders
+} // namespace aion::clientprotocol::decoders
+
+namespace aion::gameserver::scenario {
 
 namespace {
 

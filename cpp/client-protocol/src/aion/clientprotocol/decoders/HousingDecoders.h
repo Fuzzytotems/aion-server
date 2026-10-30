@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** HousingUseableItem.getTypeId (HousingUseableItem.java): the type byte after which the usage data follows */
 constexpr uint8_t HOUSE_OBJECT_TYPE_USE_ITEM = 1;
@@ -285,4 +285,4 @@ struct HouseBids {
 
 HouseBids decodeHouseBids(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

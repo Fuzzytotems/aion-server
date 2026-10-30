@@ -1,9 +1,9 @@
-#include "decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
 
 #include <bit>
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -368,4 +368,4 @@ StatUpdateHp decodeStatUpdateHp(std::span<const uint8_t> body) {
 	return stat;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

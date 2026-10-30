@@ -1,8 +1,8 @@
-#include "decoders/ProgressionDecoders.h"
+#include "aion/clientprotocol/decoders/ProgressionDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 ActionAnimation decodeActionAnimation(std::span<const uint8_t> body) {
 	BodyReader reader(body, "SM_ACTION_ANIMATION");
@@ -173,4 +173,4 @@ int32_t decodeSummonOwnerRemove(std::span<const uint8_t> body) {
 	return objectId;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

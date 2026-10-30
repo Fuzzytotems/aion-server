@@ -9,14 +9,14 @@
 #include <string>
 #include <vector>
 
-#include "decoders/TeamDecoders.h"
+#include "aion/clientprotocol/decoders/TeamDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** SM_GROUP_INFO.java:31-47 for a group with the default LootGroupRules (LootGroupRules.java:32-40) and TeamType.GROUP (0x3F, 0) */
 TEST(TeamDecodersTest, GroupInfo) {
@@ -170,4 +170,4 @@ TEST(TeamDecodersTest, RecalledByOther) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

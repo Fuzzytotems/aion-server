@@ -21,9 +21,9 @@
 #include <span>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader and DecodeError; also the four EmoteManager emotion ids of the M5a async set
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader and DecodeError; also the four EmoteManager emotion ids of the M5a async set
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_ATTACK --------------------------------------------------------------------------------------------------------------------------
 
@@ -304,4 +304,4 @@ struct StatUpdateHp {
 
 StatUpdateHp decodeStatUpdateHp(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

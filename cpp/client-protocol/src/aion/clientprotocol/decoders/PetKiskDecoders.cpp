@@ -1,9 +1,9 @@
-#include "decoders/PetKiskDecoders.h"
+#include "aion/clientprotocol/decoders/PetKiskDecoders.h"
 
 #include <string>
 #include <utility>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -198,4 +198,4 @@ KiskUpdate decodeKiskUpdate(std::span<const uint8_t> body) {
 	return update;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

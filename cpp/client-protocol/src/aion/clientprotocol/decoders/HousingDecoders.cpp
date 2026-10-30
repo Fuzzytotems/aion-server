@@ -1,8 +1,8 @@
-#include "decoders/HousingDecoders.h"
+#include "aion/clientprotocol/decoders/HousingDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 namespace {
 
@@ -353,4 +353,4 @@ HouseBids decodeHouseBids(std::span<const uint8_t> body) {
 	return bids;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

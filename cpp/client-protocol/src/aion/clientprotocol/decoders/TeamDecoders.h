@@ -15,9 +15,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader and DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader and DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** GroupEvent.getId() (GroupEvent.java:8-15) */
 constexpr uint8_t GROUP_EVENT_LEAVE = 0;
@@ -143,4 +143,4 @@ struct RecalledByOther {
 };
 RecalledByOther decodeRecalledByOther(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

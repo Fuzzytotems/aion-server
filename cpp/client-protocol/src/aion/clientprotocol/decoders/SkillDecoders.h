@@ -32,9 +32,9 @@
 #include <span>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader and DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader and DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 /** a position the skill packets write as three writeF */
 struct SkillPosition {
@@ -314,4 +314,4 @@ StatUpdateMp decodeStatUpdateMp(std::span<const uint8_t> body);
  */
 constexpr uint8_t ATTACK_STATUS_TYPE_USED_MP = 23;
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

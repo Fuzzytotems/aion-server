@@ -1,8 +1,8 @@
-#include "decoders/AllianceDecoders.h"
+#include "aion/clientprotocol/decoders/AllianceDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_ALLIANCE_INFO --------------------------------------------------------------------------------------------------------------------
 
@@ -140,4 +140,4 @@ AllianceReadyCheck decodeAllianceReadyCheck(std::span<const uint8_t> body) {
 	return check;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

@@ -20,7 +20,8 @@
 
 #include "AsyncAllowed.h"
 #include "GameSession.h"
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "ScenarioDecoders.h"
 
 namespace aion::gameserver::scenario {
 

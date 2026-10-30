@@ -19,9 +19,9 @@
 #include <string>
 #include <vector>
 
-#include "decoders/PacketDecoders.h" // BodyReader, DecodeError
+#include "aion/clientprotocol/decoders/PacketDecoders.h" // BodyReader, DecodeError
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_TELEPORT_MAP ---------------------------------------------------------------------------------------------------------------------
 
@@ -185,4 +185,4 @@ struct SystemMessage {
 
 SystemMessage decodeSystemMessage(std::span<const uint8_t> body);
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

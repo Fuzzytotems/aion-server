@@ -11,14 +11,14 @@
 #include <string>
 #include <vector>
 
-#include "decoders/ItemDecoders.h"
+#include "aion/clientprotocol/decoders/ItemDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /**
  * ChatUtil.l10n(desc) (ChatUtil.java:95-101), written as the UTF-16 code units writeS puts on the wire plus its NUL: "$", then the two chars of
@@ -414,4 +414,4 @@ TEST(ItemDecodersTest, ItemUsageAnimationFromAHandBuiltBody) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

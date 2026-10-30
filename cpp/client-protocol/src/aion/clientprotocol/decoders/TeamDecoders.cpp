@@ -1,8 +1,8 @@
-#include "decoders/TeamDecoders.h"
+#include "aion/clientprotocol/decoders/TeamDecoders.h"
 
 #include <string>
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 
 // ---- SM_GROUP_INFO -----------------------------------------------------------------------------------------------------------------------
 
@@ -231,4 +231,4 @@ RecalledByOther decodeRecalledByOther(std::span<const uint8_t> body) {
 	return recall;
 }
 
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders
