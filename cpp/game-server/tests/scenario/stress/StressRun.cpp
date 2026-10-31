@@ -10,7 +10,8 @@
 
 #include "FakeLoginClient.h"
 #include "GameSession.h"
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/database/Connection.h"
 #include "aion/commons/database/PreparedStatement.h"

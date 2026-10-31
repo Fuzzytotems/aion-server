@@ -23,14 +23,14 @@
 #include <span>
 #include <vector>
 
-#include "decoders/SkillDecoders.h"
+#include "aion/clientprotocol/decoders/SkillDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 // ---- the Java writeImpl sequences, spelled out once more from the Java side ----------------------------------------------------------------
 
@@ -818,4 +818,4 @@ TEST(SkillDecodersTest, StatUpdateMpFromAHandBuiltBody) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

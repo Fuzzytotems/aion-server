@@ -52,9 +52,10 @@
 #include "InventoryModel.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
-#include "decoders/CombatDecoders.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 

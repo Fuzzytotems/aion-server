@@ -11,14 +11,14 @@
 #include <span>
 #include <vector>
 
-#include "decoders/TravelDecoders.h"
+#include "aion/clientprotocol/decoders/TravelDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** every decoder refuses a body one byte short and one byte long */
 template <typename Decode>
@@ -198,4 +198,4 @@ TEST(TravelDecodersTest, SystemMessageWithOneParameter) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

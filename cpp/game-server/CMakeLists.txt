@@ -371,16 +371,22 @@ if(AION_BUILD_TESTS)
 	aion_set_discovered_test_properties(aion_gs_worldevents_tests REGEX "^(EventBuffsTest\\.ABuffHandlerPicksItsPoolAndBuffDaysAndStoresThem|EventBuffsTest\\.ANewDayDrawsANewPool|EventBuffsTest\\.ValidStoredBuffDataIsKeptAndInvalidIsReplaced)$" ${gs_database})
 
 	# the application's server process tests (gs.smoke.startup, gs.m4.check_static_data and their database helper aion_gs_m4_database): chunk
+	# FakeGameClient (tests/support, P4-15) is GameClientCrypto of the client protocol library plus a test socket
+	if(TARGET aion_gs_network_tests)
+		target_link_libraries(aion_gs_network_tests PRIVATE aion_client_protocol)
+	endif()
+
 	# P5-14 owns cmake/AppTests.cmake (chunks.cmake OTHER_FILES)
 	include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AppTests.cmake")
 
 	# M5a scenario harness (chunk P5-SC, m5a-plan.md §5.1, §5.10): aion_gs_scenario_tests (created by the chunk manifest from tests/scenario) runs
-	# aion_login_server and aion_game_server as child processes. The login client side of the protocol is login-server/tests/support
-	# (AionLoginClientCrypto.h, included by name) over aion_loginserver_crypto. The tests find the executables and the Java module directories
-	# (working directories, config and sql) through compile definitions. CTest registrations: tests/scenario/ScenarioTests.cmake (P5-SC).
+	# aion_login_server and aion_game_server as child processes. The client side of the login and game protocols (crypto, frames, CM_* builders,
+	# SM_* decoders) is the client protocol library aion_client_protocol (cpp/client-protocol), which the UE client shares. The tests find the
+	# executables and the Java module directories (working directories, config and sql) through compile definitions. CTest registrations:
+	# tests/scenario/ScenarioTests.cmake (P5-SC). login-server/tests/support gives LoginServerTestDatabase.h (included by name).
 	if(TARGET aion_gs_scenario_tests)
 		target_include_directories(aion_gs_scenario_tests PRIVATE "${CMAKE_SOURCE_DIR}/login-server/tests/support")
-		target_link_libraries(aion_gs_scenario_tests PRIVATE aion_loginserver_crypto)
+		target_link_libraries(aion_gs_scenario_tests PRIVATE aion_client_protocol)
 		get_filename_component(gs_ls_java_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../login-server" ABSOLUTE)
 		target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_GAME_SERVER_EXECUTABLE="$<TARGET_FILE:aion_game_server>"
 			AION_LOGIN_SERVER_EXECUTABLE="$<TARGET_FILE:aion_login_server>" AION_LOGINSERVER_JAVA_DIR="${gs_ls_java_dir}"

@@ -19,7 +19,8 @@
 
 #include "GameSession.h"
 #include "Oracle.h" // OracleMonsterSpot
-#include "decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "ScenarioDecoders.h"
 
 namespace aion::gameserver::scenario {
 

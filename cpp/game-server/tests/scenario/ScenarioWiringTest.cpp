@@ -1,5 +1,5 @@
-// Build wiring of the M5a scenario harness (chunk P5-SC, m5a-plan.md I-01): the test executable sees the login client crypto of
-// login-server/tests/support and the game client of tests/support by name, links aion_loginserver_crypto, and knows the paths of both server
+// Build wiring of the M5a scenario harness (chunk P5-SC, m5a-plan.md I-01): the test executable sees the client protocol library
+// (cpp/client-protocol) and the game client of tests/support, links aion_client_protocol, and knows the paths of both server
 // executables (built before it) and of the Java module directories. Written by the integrator pre-stage; the harness lane (F-04) owns the file.
 
 #include <gtest/gtest.h>
@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "AionLoginClientCrypto.h"
 #include "FakeGameClient.h"
+#include "aion/clientprotocol/LoginClientCrypto.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -34,12 +34,12 @@ TEST(ScenarioWiringTest, ClientProtocolSupportLinks) {
 	EXPECT_EQ(FakeGameClientCrypto::serverWireOpcode(FakeGameClientCrypto::SM_KEY_OPCODE),
 		static_cast<uint16_t>((FakeGameClientCrypto::SM_KEY_OPCODE + FakeGameClientCrypto::INTERNAL_VERSION) ^ 0xDF));
 
-	using aion::loginserver::test::AionLoginClientCrypto;
-	AionLoginClientCrypto loginCrypto; // Blowfish with the static initial key: links aion_loginserver_crypto
+	using aion::clientprotocol::LoginClientCrypto;
+	LoginClientCrypto loginCrypto; // Blowfish with the static initial key: links aion_client_protocol
 	const std::vector<uint8_t> body = {0x01, 0x02, 0x03};
-	const std::vector<uint8_t> frame = AionLoginClientCrypto::makeFrame(body);
+	const std::vector<uint8_t> frame = LoginClientCrypto::makeFrame(body);
 	EXPECT_EQ(frame, (std::vector<uint8_t>{0x05, 0x00, 0x01, 0x02, 0x03}));
-	EXPECT_EQ(AionLoginClientCrypto::frameBody(frame), body);
+	EXPECT_EQ(LoginClientCrypto::frameBody(frame), body);
 }
 
 } // namespace

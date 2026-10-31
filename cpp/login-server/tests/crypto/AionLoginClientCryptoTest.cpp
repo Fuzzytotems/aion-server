@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -182,14 +183,14 @@ TEST(AionLoginClientCryptoTest, DecryptsSmInit) {
 	ASSERT_EQ(init.body.size(), 200u);
 	EXPECT_TRUE(std::equal(server.lastPayload.begin(), server.lastPayload.end(), init.body.begin()));
 
-	EXPECT_THROW(client.decryptInitPacket(frame), IllegalStateException);
+	EXPECT_THROW(client.decryptInitPacket(frame), std::logic_error);
 }
 
 TEST(AionLoginClientCryptoTest, ServerPacketsAfterInit) {
 	{
 		ServerConnection server;
 		AionLoginClientCrypto client;
-		EXPECT_THROW(client.decryptServerPacket(server.write(std::vector<uint8_t>(8))), IllegalStateException);
+		EXPECT_THROW(client.decryptServerPacket(server.write(std::vector<uint8_t>(8))), std::logic_error);
 	}
 
 	ServerConnection server;
@@ -226,7 +227,7 @@ TEST(AionLoginClientCryptoTest, SmInitWithOverlappingXorKey) {
 TEST(AionLoginClientCryptoTest, ClientPacketsVerifyOnServer) {
 	ServerConnection server;
 	AionLoginClientCrypto client;
-	EXPECT_THROW(client.encryptClientPacket(std::vector<uint8_t>{0x07}), IllegalStateException);
+	EXPECT_THROW(client.encryptClientPacket(std::vector<uint8_t>{0x07}), std::logic_error);
 	client.decryptInitPacket(server.writeSM_INIT());
 
 	for (size_t size = 1; size <= 80; size++) {
@@ -348,23 +349,23 @@ TEST(AionLoginClientCryptoTest, CmLoginWithWrongKeyPair) {
 
 TEST(AionLoginClientCryptoTest, MalformedInput) {
 	AionLoginClientCrypto client;
-	EXPECT_THROW(client.decryptInitPacket(std::vector<uint8_t>{0x01}), IllegalArgumentException);
-	EXPECT_THROW(client.decryptInitPacket(std::vector<uint8_t>{0x05, 0x00, 1, 2}), IllegalArgumentException); // size header mismatch
-	EXPECT_THROW(client.decryptInitPacket(AionLoginClientCrypto::makeFrame(std::vector<uint8_t>(64))), IllegalArgumentException); // too short
-	EXPECT_THROW(client.decryptInitPacket(AionLoginClientCrypto::makeFrame(std::vector<uint8_t>(203))), IllegalArgumentException); // not % 8
+	EXPECT_THROW(client.decryptInitPacket(std::vector<uint8_t>{0x01}), std::invalid_argument);
+	EXPECT_THROW(client.decryptInitPacket(std::vector<uint8_t>{0x05, 0x00, 1, 2}), std::invalid_argument); // size header mismatch
+	EXPECT_THROW(client.decryptInitPacket(AionLoginClientCrypto::makeFrame(std::vector<uint8_t>(64))), std::invalid_argument); // too short
+	EXPECT_THROW(client.decryptInitPacket(AionLoginClientCrypto::makeFrame(std::vector<uint8_t>(203))), std::invalid_argument); // not % 8
 	EXPECT_FALSE(client.isInitialized());
 
 	ServerConnection server;
 	client.decryptInitPacket(server.writeSM_INIT());
 	std::vector<uint8_t> frame = server.write(randomBytes(20));
 	frame[5] ^= 0x80;
-	EXPECT_THROW(client.decryptServerPacket(frame), IllegalArgumentException);
-	EXPECT_THROW(client.decryptServerPacket(AionLoginClientCrypto::makeFrame({})), IllegalArgumentException);
+	EXPECT_THROW(client.decryptServerPacket(frame), std::invalid_argument);
+	EXPECT_THROW(client.decryptServerPacket(AionLoginClientCrypto::makeFrame({})), std::invalid_argument);
 
-	EXPECT_THROW(AionLoginClientCrypto::decryptModulus(std::vector<uint8_t>(127)), IllegalArgumentException);
+	EXPECT_THROW(AionLoginClientCrypto::decryptModulus(std::vector<uint8_t>(127)), std::invalid_argument);
 	std::vector<uint8_t> modulus(client.getModulus().begin(), client.getModulus().end());
-	EXPECT_THROW(AionLoginClientCrypto::rsaEncrypt(modulus, std::vector<uint8_t>(100)), IllegalArgumentException);
-	EXPECT_THROW(AionLoginClientCrypto::rsaEncrypt(modulus, modulus), IllegalArgumentException); // not smaller than the modulus
+	EXPECT_THROW(AionLoginClientCrypto::rsaEncrypt(modulus, std::vector<uint8_t>(100)), std::invalid_argument);
+	EXPECT_THROW(AionLoginClientCrypto::rsaEncrypt(modulus, modulus), std::invalid_argument); // not smaller than the modulus
 }
 
 TEST(AionLoginClientCryptoTest, MakeFrame) {
@@ -373,7 +374,7 @@ TEST(AionLoginClientCryptoTest, MakeFrame) {
 	EXPECT_EQ(frame[0], 0x2E);
 	EXPECT_EQ(frame[1], 0x01);
 	EXPECT_EQ(AionLoginClientCrypto::frameBody(frame), std::vector<uint8_t>(300, 7));
-	EXPECT_THROW(AionLoginClientCrypto::makeFrame(std::vector<uint8_t>(0xFFFE)), IllegalArgumentException);
+	EXPECT_THROW(AionLoginClientCrypto::makeFrame(std::vector<uint8_t>(0xFFFE)), std::invalid_argument);
 }
 
 TEST(AionLoginClientCryptoTest, DecXORPassInvertsFirstPacketObfuscationForAllSizes) {

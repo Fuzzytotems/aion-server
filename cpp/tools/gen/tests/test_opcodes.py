@@ -220,6 +220,21 @@ class GenerateTest(unittest.TestCase):
                       info)
         self.assertNotIn('GODSTONE', info)
         self.assertTrue(info.endswith(')\n'))
+        client = outputs['ClientOpcodes.gen.h']
+        self.assertIn('inline constexpr int32_t INTERNAL_VERSION = 207;', client)
+        self.assertIn('inline constexpr std::array<Entry, 3> CLIENT_PACKETS = {{\n'
+                      '\t{0, 0x00C3, "CM_VERSION_CHECK", "C_VERSION (VersionPacket)", PacketDirection::CLIENT_TO_SERVER},\n'
+                      f'\t{{8, 0x{opcodes.client_wire_opcode(8, 207):04X}, "CM_ENTER_WORLD", "C_ENTER_WORLD (EnterWorldPacket)", '
+                      'PacketDirection::CLIENT_TO_SERVER},\n'
+                      f'\t{{18, 0x{opcodes.client_wire_opcode(18, 207):04X}, "CM_TIME_CHECK", "", PacketDirection::CLIENT_TO_SERVER}},\n'
+                      '}};', client)
+        self.assertIn('inline constexpr std::array<Entry, 3> SERVER_PACKETS = {{\n'
+                      '\t{0, 0x0010, "SM_VERSION_CHECK", "S_VERSION_CHECK", PacketDirection::SERVER_TO_CLIENT},\n'
+                      '\t{32, 0x0030, "SM_PLAYER_INFO", "", PacketDirection::SERVER_TO_CLIENT},\n'
+                      '\t{72, 0x01C8, "SM_KEY", "S_KEY", PacketDirection::SERVER_TO_CLIENT},\n'
+                      '}};', client)
+        self.assertIn('inline constexpr int32_t CM_TIME_CHECK = 18;\ninline constexpr int32_t SM_VERSION_CHECK = 0;\n', client)
+        self.assertNotIn('gameserver', client.split('#pragma once')[1])  # no server types or includes after the header comment
 
     def test_deterministic(self):
         with Fixture() as root:
@@ -233,19 +248,25 @@ class GenerateTest(unittest.TestCase):
             outputs, summary = opcodes.generate(root)
         self.assertEqual(summary['internal_version'], 206)
         self.assertIn(f'{{72, 0x{(72 + 206) ^ 0xDF:04X}, "SM_KEY", "S_KEY"}}', outputs['network/aion/ServerPacketsOpcodes.gen.h'])
+        self.assertIn(f'{{72, 0x{(72 + 206) ^ 0xDF:04X}, "SM_KEY", "S_KEY", PacketDirection::SERVER_TO_CLIENT}}', outputs['ClientOpcodes.gen.h'])
 
     def test_write_and_check(self):
-        with Fixture() as root, tempfile.TemporaryDirectory() as out, contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(opcodes.main(['--java-dir', root, '--out-dir', out, '--check']), 1)
+        with (Fixture() as root, tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as client_out,
+              contextlib.redirect_stdout(io.StringIO())):
+            args = ['--java-dir', root, '--out-dir', out, '--client-out-dir', client_out]
+            self.assertEqual(opcodes.main(args + ['--check']), 1)
             self.assertEqual(os.listdir(out), [])
-            self.assertEqual(opcodes.main(['--java-dir', root, '--out-dir', out]), 0)
-            self.assertEqual(opcodes.main(['--java-dir', root, '--out-dir', out, '--check']), 0)
-            path = os.path.join(out, 'network/aion/ClientPacketInfo.gen.inc')
-            with open(path, 'rb') as f:
-                self.assertNotIn(b'\r\n', f.read())
-            with open(path, 'ab') as f:
-                f.write(b'// edited\n')
-            self.assertEqual(opcodes.main(['--java-dir', root, '--out-dir', out, '--check']), 1)
+            self.assertEqual(os.listdir(client_out), [])
+            self.assertEqual(opcodes.main(args), 0)
+            self.assertEqual(os.listdir(client_out), ['ClientOpcodes.gen.h'])
+            self.assertEqual(opcodes.main(args + ['--check']), 0)
+            for path in (os.path.join(out, 'network/aion/ClientPacketInfo.gen.inc'), os.path.join(client_out, 'ClientOpcodes.gen.h')):
+                with open(path, 'rb') as f:
+                    self.assertNotIn(b'\r\n', f.read())
+                with open(path, 'ab') as f:
+                    f.write(b'// edited\n')
+                self.assertEqual(opcodes.main(args + ['--check']), 1)
+                self.assertEqual(opcodes.main(args), 0)
 
 
 class ErrorTest(unittest.TestCase):

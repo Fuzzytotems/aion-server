@@ -58,11 +58,12 @@
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
 #include "PrologueSupport.h"
-#include "decoders/CombatDecoders.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/ProgressionDecoders.h"
-#include "decoders/QuestDecoders.h"
-#include "decoders/TravelDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/ProgressionDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/TravelDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/StringUtils.h"
 

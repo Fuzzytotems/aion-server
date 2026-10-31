@@ -64,13 +64,14 @@
 #include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
-#include "decoders/CombatDecoders.h"
-#include "decoders/EconomyDecoders.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/ProgressionDecoders.h"
-#include "decoders/QuestDecoders.h"
-#include "decoders/SkillDecoders.h"
-#include "decoders/TravelDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/ProgressionDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/SkillDecoders.h"
+#include "aion/clientprotocol/decoders/TravelDecoders.h"
+#include "ScenarioDecoders.h"
 
 namespace aion::gameserver::scenario {
 namespace {

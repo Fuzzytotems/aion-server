@@ -18,7 +18,8 @@
 #include <vector>
 
 #include "GameSession.h"
-#include "decoders/ItemDecoders.h" // STORAGE_CUBE, STORAGE_REGULAR_WAREHOUSE
+#include "aion/clientprotocol/decoders/ItemDecoders.h" // STORAGE_CUBE, STORAGE_REGULAR_WAREHOUSE
+#include "ScenarioDecoders.h"
 
 namespace aion::gameserver::scenario {
 

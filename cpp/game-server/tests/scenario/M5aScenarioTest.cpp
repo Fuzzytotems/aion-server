@@ -45,8 +45,9 @@
 #include "PacketSequence.h"
 #include "PrologueSupport.h"
 #include "ScenarioServers.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
