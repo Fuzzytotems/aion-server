@@ -1789,11 +1789,19 @@ void runM5jGate() {
 				const std::string cppText((std::istreambuf_iterator<char>(cpp)), std::istreambuf_iterator<char>());
 				if (cppText.find(marker) == std::string::npos)
 					continue;
-				std::ifstream java(javaHandlers / pkg / (file.path().stem().string() + ".java"));
+				// the alias from the Java class; a C++-only command (no Java class, e.g. //damagepercent, docs/deviations/C1.md) names it in its
+				// constructor's AdminCommand("...") / PlayerCommand("...")
+				const std::filesystem::path javaFile = javaHandlers / pkg / (file.path().stem().string() + ".java");
+				const bool cppOnly = !std::filesystem::exists(javaFile);
+				std::ifstream java(javaFile);
 				const std::string javaText((std::istreambuf_iterator<char>(java)), std::istreambuf_iterator<char>());
-				const size_t super = javaText.find("super(\"");
-				ASSERT_NE(super, std::string::npos) << file.path() << ": no super(\"alias\" in the Java class";
-				const std::string alias = javaText.substr(super + 7, javaText.find('"', super + 7) - super - 7);
+				const std::string& text = cppOnly ? cppText : javaText;
+				const std::string opener = cppOnly ? "Command(\"" : "super(\"";
+				const size_t super = text.find(opener);
+				ASSERT_NE(super, std::string::npos) << file.path() << (cppOnly ? ": no Command(\"alias\" in the C++-only command"
+																			   : ": no super(\"alias\" in the Java class");
+				const size_t from = super + opener.size();
+				const std::string alias = text.substr(from, text.find('"', from) - from);
 				if (!leftOut.contains(alias))
 					lines.push_back(prefix + alias + " zzsmoke");
 			}
