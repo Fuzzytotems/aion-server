@@ -22,8 +22,9 @@
 #include "AsyncAllowed.h"
 #include "GameSession.h"
 #include "PrologueSupport.h"
-#include "decoders/PacketDecoders.h"
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "NetworkTestSupport.h"
 

@@ -48,9 +48,10 @@
 #include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
-#include "decoders/CombatDecoders.h"
-#include "decoders/EconomyDecoders.h"
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/CombatDecoders.h"
+#include "aion/clientprotocol/decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "../support/NetworkTestSupport.h" // the little endian PacketWriter
 

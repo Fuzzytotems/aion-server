@@ -8,14 +8,14 @@
 #include <string>
 #include <vector>
 
-#include "decoders/AllianceDecoders.h"
+#include "aion/clientprotocol/decoders/AllianceDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** SM_ALLIANCE_INFO.writeImpl: four groups, leader 2002, one vice captain, default loot rules, TeamType.ALLIANCE, no league */
 TEST(AllianceDecodersTest, AllianceInfoWithoutALeague) {
@@ -119,4 +119,4 @@ TEST(AllianceDecodersTest, ReadyCheck) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

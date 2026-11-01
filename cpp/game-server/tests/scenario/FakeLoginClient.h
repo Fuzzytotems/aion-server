@@ -1,7 +1,7 @@
 #pragma once
 
-// FakeLoginClient (m5a-plan.md F-04, §5.2 step 1): the game client's login server conversation over the client side crypto of
-// login-server/tests/support/AionLoginClientCrypto.h: SM_INIT, CM_AUTH_GG -> SM_AUTH_GG, CM_LOGIN -> SM_LOGIN_OK (the login server creates the
+// FakeLoginClient (m5a-plan.md F-04, §5.2 step 1): the game client's login server conversation over the client side crypto of the client
+// protocol library (cpp/client-protocol, LoginClientCrypto): SM_INIT, CM_AUTH_GG -> SM_AUTH_GG, CM_LOGIN -> SM_LOGIN_OK (the login server creates the
 // account with loginserver.accounts.autocreate), CM_SERVER_LIST -> SM_SERVER_LIST, CM_PLAY -> SM_PLAY_OK. Packet layouts written from the Java
 // login server packets (network/aion/clientpackets and serverpackets), independent of the C++ login server.
 
@@ -12,8 +12,8 @@
 #include <string_view>
 #include <vector>
 
-#include "AionLoginClientCrypto.h"
 #include "NetworkTestSupport.h"
+#include "aion/clientprotocol/LoginClientCrypto.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -89,7 +89,7 @@ private:
 	std::vector<uint8_t> expectPacket(uint8_t opcode, std::string_view step);
 
 	network::test::TestSocket socket;
-	loginserver::test::AionLoginClientCrypto crypto;
+	clientprotocol::LoginClientCrypto crypto;
 	SessionKey key;
 };
 

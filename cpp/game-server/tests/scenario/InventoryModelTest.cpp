@@ -15,7 +15,8 @@
 #include <vector>
 
 #include "InventoryModel.h"
-#include "decoders/ItemDecoders.h"
+#include "aion/clientprotocol/decoders/ItemDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "NetworkTestSupport.h"
 

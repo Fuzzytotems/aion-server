@@ -13,14 +13,14 @@
 #include <string>
 #include <vector>
 
-#include "decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/decoders/EconomyDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** SM_QUESTION_WINDOW ids of the dialog path (SM_QUESTION_WINDOW.java:107, 123, 194) */
 constexpr int32_t STR_EXCHANGE_DO_YOU_ACCEPT_EXCHANGE = 90001;
@@ -749,4 +749,4 @@ TEST(EconomyDecodersTest, CraftAnimationAndTheRecipePackets) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

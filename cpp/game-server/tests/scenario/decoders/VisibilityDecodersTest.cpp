@@ -11,14 +11,14 @@
 #include <string_view>
 #include <vector>
 
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** SM_NPC_INFO.writeImpl, field by field (gear == null: a single zero int instead of the mask and the entries) */
 std::vector<uint8_t> npcInfoBytes(int32_t objectId, int32_t templateId, float x, float y, float z, uint8_t heading, uint8_t hpPercentage,
@@ -261,4 +261,4 @@ TEST(VisibilityDecodersTest, WarehouseInfoReadsAnItemWithItsInfoBlob) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

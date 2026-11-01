@@ -1,0 +1,629 @@
+#pragma once
+
+// The client packet bodies of the Aion 4.8 game protocol: the CM_* opcodes (AionClientPacketFactory) and one builder per packet, each writing the
+// fields of the Java readImpl in their order (the leading fields only: the frame adds nothing, the server ignores what it does not read). A
+// builder returns the body after the 5 header bytes; GameClientCrypto::buildClientFrame turns it into an encrypted frame.
+//
+// Moved from cpp/game-server/tests/scenario/GameSession.h, which derives from ClientPackets so the scenario tests keep writing
+// GameSession::buildCM_X and GameSession::CM_X. The references to plans (m5a-plan.md etc.) are the milestone documents of those tests.
+
+#include <array>
+#include <cstdint>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "aion/clientprotocol/PacketWriter.h"
+
+namespace aion::clientprotocol {
+
+/** The appearance fields of AbstractCharacterEditPacket.readAppearance in their wire order (unsigned bytes unless noted) */
+struct CharacterAppearance {
+	int32_t voice = 0;
+	int32_t skinRGB = 0x00E1C3B4;
+	int32_t hairRGB = 0x00202020;
+	int32_t eyeRGB = 0x00503010;
+	int32_t lipRGB = 0x00A06060;
+	uint8_t face = 1, hair = 1, deco = 0, tattoo = 0, faceContour = 0, expression = 0;
+	uint8_t unknown4 = 4; // "always 4"
+	uint8_t jawLine = 0, forehead = 0;
+	uint8_t eyeHeight = 0, eyeSpace = 0, eyeWidth = 0, eyeSize = 0, eyeShape = 0, eyeAngle = 0;
+	uint8_t browHeight = 0, browAngle = 0, browShape = 0;
+	uint8_t nose = 0, noseBridge = 0, noseWidth = 0, noseTip = 0;
+	uint8_t cheek = 0, lipHeight = 0, mouthSize = 0, lipSize = 0, smile = 0, lipShape = 0, jawHeight = 0, chinJut = 0, earShape = 0, headSize = 0;
+	uint8_t neck = 0, neckLength = 0;
+	uint8_t shoulderSize = 0;
+	uint8_t torso = 0, chest = 0, waist = 0, hips = 0;
+	uint8_t armThickness = 0;
+	uint8_t handSize = 0, legThickness = 0;
+	uint8_t footSize = 0, facialRate = 0;
+	uint8_t unknown0 = 0; // "always 0"
+	uint8_t armLength = 0, legLength = 0, shoulders = 0, faceShape = 0;
+	uint8_t unknownA = 0, unknownB = 0, unknownC = 0;
+	float height = 1.0f;
+
+	void writeTo(PacketWriter& writer) const;
+};
+
+/** CM_CREATE_CHARACTER's character (AbstractCharacterEditPacket.readBasicInfo) */
+struct NewCharacter {
+	std::string name;
+	bool female = false;
+	bool asmodian = false;
+	int32_t playerClassId = WARRIOR;
+	CharacterAppearance appearance;
+
+	static constexpr int32_t WARRIOR = 0; // PlayerClass.WARRIOR id
+	static constexpr int32_t MAGE = 6;    // PlayerClass.MAGE id
+};
+
+/** The client packet opcodes, the constants their fields take and the body builders (all static) */
+class ClientPackets {
+public:
+	/** Java opcodes (AionClientPacketFactory) of the client packets built here */
+	static constexpr int32_t CM_VERSION_CHECK = 0;
+	static constexpr int32_t CM_QUIT = 3;
+	static constexpr int32_t CM_ENTER_WORLD = 8;
+	static constexpr int32_t CM_LEVEL_READY = 9;
+	static constexpr int32_t CM_TIME_CHECK = 18;
+	static constexpr int32_t CM_PING = 44;
+	static constexpr int32_t CM_MOVE = 48;
+	static constexpr int32_t CM_SECURITY_TOKEN = 92;
+	static constexpr int32_t CM_GAMEGUARD = 104;
+	static constexpr int32_t CM_L2AUTH_LOGIN_CHECK = 149;
+	static constexpr int32_t CM_CHARACTER_LIST = 150;
+	static constexpr int32_t CM_CREATE_CHARACTER = 151;
+	static constexpr int32_t CM_CHECK_NICKNAME = 177;
+	static constexpr int32_t CM_MAY_LOGIN_INTO_GAME = 186;
+	static constexpr int32_t CM_MAC_ADDRESS = 189;
+	/** the two in-world packets of item C-01 a real client sends without any user action (AionClientPacketFactory packets[12] and packets[163]) */
+	static constexpr int32_t CM_CUSTOM_SETTINGS = 12;
+	static constexpr int32_t CM_SUBZONE_CHANGE = 163;
+	/** the three packets of an M5b fight (AionClientPacketFactory packets[5], [31] and [32]; m5b-plan.md G-02) */
+	static constexpr int32_t CM_REVIVE = 5;
+	static constexpr int32_t CM_TARGET_SELECT = 31;
+	static constexpr int32_t CM_ATTACK = 32;
+
+	/** the two packets of an M5b-2 cast (AionClientPacketFactory packets[33] and [35]; m5b2-plan.md G-02) */
+	static constexpr int32_t CM_CASTSPELL = 33;
+	static constexpr int32_t CM_REMOVE_ALTERED_STATE = 35;
+
+	/**
+	 * the nine packets of M5b-3's loot and items (m5b3-plan.md §2.7, G-02): AionClientPacketFactory packets[37], [38], [74], [116], [154],
+	 * [155], [156], [157] and [178] (AionClientPacketFactory.java:65, 66, 102, 144, 182-185, 206). 4.8 sockets a godstone with CM_MANASTONE
+	 * action 4; CM_GODSTONE_SOCKET (packets[91]) is commented out there (:119)
+	 */
+	static constexpr int32_t CM_USE_ITEM = 37;
+	static constexpr int32_t CM_EQUIP_ITEM = 38;
+	static constexpr int32_t CM_MANASTONE = 74;
+	static constexpr int32_t CM_DELETE_ITEM = 116;
+	static constexpr int32_t CM_START_LOOT = 154;
+	static constexpr int32_t CM_LOOT_ITEM = 155;
+	static constexpr int32_t CM_MOVE_ITEM = 156;
+	static constexpr int32_t CM_SPLIT_ITEM = 157;
+	static constexpr int32_t CM_REPLACE_ITEM = 178;
+
+	/**
+	 * the four packets of talking to an npc (m5c-plan.md §2.1, G-02): AionClientPacketFactory packets[50], [52], [53] and [54]
+	 * (AionClientPacketFactory.java:78, 80-82)
+	 */
+	static constexpr int32_t CM_QUESTION_RESPONSE = 50;
+	static constexpr int32_t CM_SHOW_DIALOG = 52;
+	static constexpr int32_t CM_CLOSE_DIALOG = 53;
+	static constexpr int32_t CM_DIALOG_SELECT = 54;
+
+	/** abandoning a quest (m5d-plan.md D-03, G-02): AionClientPacketFactory packets[80], "C_GIVE_UP_QUEST" (AionClientPacketFactory.java:108) */
+	static constexpr int32_t CM_DELETE_QUEST = 80;
+	/**
+	 * the end of a cutscene (P6-Q prologue, owner answer 4 of 2026-09-29): AionClientPacketFactory packets[81], "C_QUIT_CUTSCENE"
+	 * (AionClientPacketFactory.java:109)
+	 */
+	static constexpr int32_t CM_PLAY_MOVIE_END = 81;
+
+	/**
+	 * the stage-1 packets of M5c (m5c-plan.md K-01, K-02, G-02): the shop, the exchange, the private store, the mail and identification
+	 * (AionClientPacketFactory packets[51], [63], [64], [66]-[69], [119], [120], [132]-[134], [136], [137], [235], [236] and [238],
+	 * AionClientPacketFactory.java:79, 91-92, 94-97, 147-148, 160-162, 164-165, 263-264, 266), and stage 2's two crafting packets
+	 * (packets[89] and [141], :117, :169). There is no packets[65] (the exchange's) and packets[135] (C_MAIL_SETREAD) is commented out
+	 */
+	static constexpr int32_t CM_BUY_ITEM = 51;
+	static constexpr int32_t CM_EXCHANGE_REQUEST = 63;
+	static constexpr int32_t CM_EXCHANGE_ADD_ITEM = 64;
+	static constexpr int32_t CM_EXCHANGE_ADD_KINAH = 66;
+	static constexpr int32_t CM_EXCHANGE_LOCK = 67;
+	static constexpr int32_t CM_EXCHANGE_OK = 68;
+	static constexpr int32_t CM_EXCHANGE_CANCEL = 69;
+	static constexpr int32_t CM_RECIPE_DELETE = 89;
+	static constexpr int32_t CM_PRIVATE_STORE = 119;
+	static constexpr int32_t CM_PRIVATE_STORE_NAME = 120;
+	static constexpr int32_t CM_SEND_MAIL = 132;
+	static constexpr int32_t CM_CHECK_MAIL_LIST = 133;
+	static constexpr int32_t CM_READ_MAIL = 134;
+	static constexpr int32_t CM_GET_MAIL_ATTACHMENT = 136;
+	static constexpr int32_t CM_DELETE_MAIL = 137;
+	static constexpr int32_t CM_CRAFT = 141;
+	/** M5e's packets (m5e-plan.md G-02; AionClientPacketFactory.java:62, 149, 262) */
+	static constexpr int32_t CM_TOGGLE_SKILL_DEACTIVATE = 34;
+	static constexpr int32_t CM_SUMMON_COMMAND = 121;
+	static constexpr int32_t CM_SUMMON_ATTACK = 203;
+	static constexpr int32_t CM_USE_CHARGE_SKILL = 234;
+	static constexpr int32_t CM_TUNE = 235;
+	static constexpr int32_t CM_SELECT_DECOMPOSABLE = 236;
+	static constexpr int32_t CM_TUNE_RESULT = 238;
+	/** M5f's packets (m5f-plan.md G-02; ClientPacketInfo.gen.inc:31, 54, 57, 60, 131, 201) */
+	static constexpr int32_t CM_TELEPORT_ANIMATION_DONE = 15;
+	static constexpr int32_t CM_EMOTION = 43;
+	static constexpr int32_t CM_INSTANCE_LEAVE = 46;
+	static constexpr int32_t CM_MOVE_IN_AIR = 49;
+	static constexpr int32_t CM_TELEPORT_SELECT = 148;
+	static constexpr int32_t CM_BIND_POINT_TELEPORT = 244;
+
+	/**
+	 * CM_BUY_ITEM's tradeActionId (CM_BUY_ITEM.java:75-88): what the entries' ids mean - a private store's INDEX (0), an inventory object id to
+	 * sell (1) or a repurchase object id (2), a template id to buy (13-16), a pet's (17)
+	 */
+	static constexpr int16_t TRADE_PRIVATE_STORE = 0;
+	static constexpr int16_t TRADE_SELL = 1;
+	static constexpr int16_t TRADE_REPURCHASE = 2;
+	static constexpr int16_t TRADE_BUY = 13;
+	static constexpr int16_t TRADE_BUY_ABYSS = 14;
+	static constexpr int16_t TRADE_BUY_REWARD = 15;
+	static constexpr int16_t TRADE_BUY_GENERAL = 16;
+	static constexpr int16_t TRADE_SELL_TO_PET = 17;
+	/** the audit bounds CM_BUY_ITEM.readImpl checks (CM_BUY_ITEM.java:53, 69): at most 36 entries, each count at most 20000 */
+	static constexpr uint16_t BUY_ITEM_MAX_ENTRIES = 36;
+	static constexpr int64_t BUY_ITEM_MAX_COUNT = 20000;
+
+	/** CM_GET_MAIL_ATTACHMENT's attachmentType (CM_GET_MAIL_ATTACHMENT.java:25, "0 - item , 1 - kinah") */
+	static constexpr uint8_t MAIL_ATTACHMENT_ITEM = 0;
+	static constexpr uint8_t MAIL_ATTACHMENT_KINAH = 1;
+	/** CM_SEND_MAIL's idLetterType, LetterType.getId() (LetterType.java:8-10) */
+	static constexpr uint8_t LETTER_NORMAL = 0;
+	static constexpr uint8_t LETTER_EXPRESS = 1;
+	/** CM_CRAFT's first byte: 129 is the morph substances' arm, which skips the target check (CM_CRAFT.java:53) */
+	static constexpr uint8_t CRAFT_UNK_MORPH = 129;
+
+	/**
+	 * CM_QUESTION_RESPONSE's answer (CM_QUESTION_RESPONSE.java:30, "y/n"): RequestResponseHandler.handle denies on 0 and accepts on any other
+	 * value (RequestResponseHandler.java:28-33)
+	 */
+	static constexpr uint8_t ANSWER_NO = 0;
+	static constexpr uint8_t ANSWER_YES = 1;
+
+	/** CM_START_LOOT's action (CM_START_LOOT.java runImpl): 0 opens the drop list (requestDropList), 1 closes it (closeDropList) */
+	static constexpr uint8_t LOOT_OPEN = 0;
+	static constexpr uint8_t LOOT_CLOSE = 1;
+	/** CM_EQUIP_ITEM's action (CM_EQUIP_ITEM.java:30, "0/1/2 = equip/unequip/switch weapons") */
+	static constexpr uint8_t EQUIP = 0;
+	static constexpr uint8_t UNEQUIP = 1;
+	static constexpr uint8_t SWITCH_WEAPONS = 2;
+	/** CM_MANASTONE's actionType for a godstone (CM_MANASTONE.java runImpl: ItemSocketService.socketGodstone) */
+	static constexpr uint8_t MANASTONE_SOCKET_GODSTONE = 4;
+	/** CM_MANASTONE's arm that reads a slot and an npc instead of two item ids (CM_MANASTONE.java:51-56, removeManastone) */
+	static constexpr uint8_t MANASTONE_REMOVE = 3;
+
+	/** ReviveType ids, which are what CM_REVIVE carries (model/gameobjects/player/ReviveType.java; note that 5 and 7 are no revive type) */
+	static constexpr uint8_t BIND_REVIVE = 0;
+	static constexpr uint8_t REBIRTH_REVIVE = 1;
+	static constexpr uint8_t ITEM_SELF_REVIVE = 2;
+	static constexpr uint8_t SKILL_REVIVE = 3;
+	static constexpr uint8_t KISK_REVIVE = 4;
+	static constexpr uint8_t INSTANCE_REVIVE = 6;
+	static constexpr uint8_t OBELISK_REVIVE = 8;
+
+	/** the MAC address (LoginServer.java MAC pattern) and HDD serial every scenario client sends (the builders' defaults) */
+	static constexpr std::string_view MAC_ADDRESS = "0A-1B-2C-3D-4E-5F";
+	static constexpr std::string_view HDD_SERIAL = "M5ASCENARIO0001";
+	/** the client version CM_VERSION_CHECK sends (SM_VERSION_CHECK echoes it; 206 is below INTERNAL_VERSION like the 4.8 client) */
+	static constexpr uint16_t CLIENT_VERSION = 206;
+
+	/**
+	 * The fields CM_CASTSPELL.readImpl reads, in its order (CM_CASTSPELL.java:36-71): readUH spellid, readUC level, readUC targetType, the target
+	 * arm, readUH hitTime, readD unk. runImpl passes spellid, targetType, x/y/z, hitTime and level on to PlayerController.useSkill
+	 * (CM_CASTSPELL.java:108); the object id of the 0/3/4 arm and `unk` are read and dropped - the first target is the player's current target
+	 * (PlayerController.useSkill: SkillEngine.getSkillFor(player, template, player.getTarget())), which is why the gate selects it first.
+	 */
+	struct CastRequest {
+		uint16_t spellId = 0;
+		/** the level the client claims; Skill takes the level from the player's skill list, not from here */
+		uint8_t level = 1;
+		/** 0, 3 and 4 read an object id, 1 reads x/y/z, 2 reads x/y/z and eight more floats, and any other value reads no arm at all */
+		uint8_t targetType = 0;
+		int32_t targetObjectId = 0;
+		float x = 0, y = 0, z = 0;
+		/** the client's hit time, which PlayerController.useSkill hands to Skill.setClientHitTime */
+		uint16_t hitTime = 0;
+		int32_t unk = 0;
+	};
+
+	/**
+	 * The fields CM_MANASTONE.readImpl reads, in its order (CM_MANASTONE.java:39-58): readUC actionType, readUC targetFusedSlot, readD
+	 * targetItemUniqueId, then the arm of the action - 1, 2, 4 and 8 read the stone and the supplement (readD, readD), 3 reads readUC slotNum, a
+	 * dropped readC and readH, and readD npcObjId - and any other action reads no arm (the switch has no default).
+	 */
+	struct ManastoneRequest {
+		uint8_t actionType = MANASTONE_SOCKET_GODSTONE;
+		uint8_t targetFusedSlot = 0;
+		int32_t targetItemUniqueId = 0;
+		/** arms 1, 2, 4, 8 */
+		int32_t stoneUniqueId = 0;
+		int32_t supplementUniqueId = 0;
+		/** arm 3 */
+		uint8_t slotNum = 0;
+		int32_t npcObjId = 0;
+	};
+
+	// ---- client packet bodies (Java readImpl order) ----
+	static std::vector<uint8_t> buildCM_VERSION_CHECK(uint16_t clientVersion = CLIENT_VERSION);
+	static std::vector<uint8_t> buildCM_L2AUTH_LOGIN_CHECK(int32_t playOk2, int32_t playOk1, int32_t accountId, int32_t loginOk);
+	static std::vector<uint8_t> buildCM_MAC_ADDRESS(std::string_view macAddress = MAC_ADDRESS, std::string_view hddSerial = HDD_SERIAL);
+	static std::vector<uint8_t> buildCM_TIME_CHECK(int32_t nanoTime);
+	static std::vector<uint8_t> buildCM_CHARACTER_LIST(int32_t playOk2);
+	static std::vector<uint8_t> buildCM_PING();
+	static std::vector<uint8_t> buildCM_GAMEGUARD(std::span<const uint8_t> data);
+	static std::vector<uint8_t> buildCM_SECURITY_TOKEN();
+	static std::vector<uint8_t> buildCM_CHECK_NICKNAME(std::string_view nick);
+	static std::vector<uint8_t> buildCM_CREATE_CHARACTER(int32_t accountId, std::string_view accountName, const NewCharacter& character, uint8_t type);
+	static std::vector<uint8_t> buildCM_MAY_LOGIN_INTO_GAME();
+	static std::vector<uint8_t> buildCM_ENTER_WORLD(int32_t objectId);
+	static std::vector<uint8_t> buildCM_LEVEL_READY();
+	/** CM_MOVE with type POSITION | MANUAL | ABSOLUTE (0xE0): position, heading, type, target position */
+	static std::vector<uint8_t> buildCM_MOVE(float x, float y, float z, int8_t heading, int8_t type, float x2, float y2, float z2);
+	/** CM_MOVE without POSITION|MANUAL, GLIDE and VEHICLE data (e.g. a stop move with type 0) */
+	static std::vector<uint8_t> buildCM_MOVE(float x, float y, float z, int8_t heading, int8_t type);
+	static std::vector<uint8_t> buildCM_QUIT(bool stayConnected);
+	/** CM_CUSTOM_SETTINGS.readImpl: display, deny (both readUH) */
+	static std::vector<uint8_t> buildCM_CUSTOM_SETTINGS(uint16_t display, uint16_t deny);
+	/** CM_SUBZONE_CHANGE.readImpl: one readC ("always 1") */
+	static std::vector<uint8_t> buildCM_SUBZONE_CHANGE(uint8_t unk);
+	/** CM_TARGET_SELECT.readImpl: readD targetObjectId (0 unselects), readC selectTargetOfTarget */
+	static std::vector<uint8_t> buildCM_TARGET_SELECT(int32_t targetObjectId, bool selectTargetOfTarget = false);
+	/**
+	 * CM_ATTACK.readImpl: readD targetObjectId, readUC attackno, readUH time, readUC type. Only the object id and `time` are used -
+	 * runImpl looks the id up in the knownlist and calls attackTarget(creature, time, false), which passes `time` on to the DelayedOnAttack
+	 * of CreatureController.attackTarget; `attackno` and `type` are read and dropped (CM_ATTACK.java:36-59).
+	 */
+	static std::vector<uint8_t> buildCM_ATTACK(int32_t targetObjectId, uint8_t attackNo = 0, uint16_t time = 0, uint8_t type = 0);
+	/** CM_REVIVE.readImpl: one readUC reviveId, which must be a ReviveType id (CM_REVIVE.java:32-63 throws IllegalArgumentException otherwise) */
+	static std::vector<uint8_t> buildCM_REVIVE(uint8_t reviveId = BIND_REVIVE);
+	/** CM_CASTSPELL.readImpl (CM_CASTSPELL.java:36-71), every target arm; the eight extra floats of arm 2 are written as 0 */
+	static std::vector<uint8_t> buildCM_CASTSPELL(const CastRequest& request);
+	/**
+	 * CM_CASTSPELL for an object target, the form the gate casts with (m5b2-plan.md §10.2: `CM_CASTSPELL(1282, 1, 0, objId, hitTime)`).
+	 * @throws std::invalid_argument for target type 1 or 2, which read a point instead: use the CastRequest form
+	 */
+	static std::vector<uint8_t> buildCM_CASTSPELL(uint16_t spellId, uint8_t level, uint8_t targetType, int32_t targetObjectId, uint16_t hitTime = 0);
+	/**
+	 * CM_REMOVE_ALTERED_STATE.readImpl: readUH skillId, then two readC the server drops (CM_REMOVE_ALTERED_STATE.java:24-28, "seen 1 with
+	 * skillId 3573"). runImpl ends the player's effect of that skill unless it is a DEBUFF (:31-42) - the client's right click on a buff icon.
+	 */
+	static std::vector<uint8_t> buildCM_REMOVE_ALTERED_STATE(uint16_t skillId, uint8_t unk1 = 0, uint8_t unk2 = 0);
+
+	// ---- M5b-3's loot and item packets (m5b3-plan.md §2.7, G-02), each the Java readImpl field order ----
+	/** CM_START_LOOT.readImpl (CM_START_LOOT.java:35-38): readD targetObjectId, readC action (LOOT_OPEN, LOOT_CLOSE) */
+	static std::vector<uint8_t> buildCM_START_LOOT(int32_t targetObjectId, uint8_t action = LOOT_OPEN);
+	/** CM_LOOT_ITEM.readImpl (CM_LOOT_ITEM.java:23-26): readD targetObjectId, readUC index (the entry's DropItem index, not its position) */
+	static std::vector<uint8_t> buildCM_LOOT_ITEM(int32_t targetObjectId, uint8_t index);
+	/**
+	 * CM_USE_ITEM.readImpl (CM_USE_ITEM.java:38-52): readD uniqueItemId, readC type, then readD targetItemId for type 2, syncId for type 5 or
+	 * indexReturn for type 6 - `extra` - and nothing for any other type (a potion is type 0)
+	 */
+	static std::vector<uint8_t> buildCM_USE_ITEM(int32_t uniqueItemId, int8_t type = 0, int32_t extra = 0);
+	/**
+	 * CM_MOVE_ITEM.readImpl (CM_MOVE_ITEM.java:25-30): readD itemObjId, readC source, readC destination (0 cube, 1 regular, 2 account, 3 legion
+	 * warehouse), readH slot (-1 merges into a stack of the same item, ItemMoveService.moveItem)
+	 */
+	static std::vector<uint8_t> buildCM_MOVE_ITEM(int32_t itemObjId, uint8_t source, uint8_t destination, int16_t slot);
+	/**
+	 * CM_SPLIT_ITEM.readImpl (CM_SPLIT_ITEM.java:27-34): readD sourceItemObjId, readQ itemAmount, readC sourceStorageType, readD
+	 * destinationItemObjId (0: a new stack), readC destinationStorageType, readH slotNum
+	 */
+	static std::vector<uint8_t> buildCM_SPLIT_ITEM(int32_t sourceItemObjId, int64_t itemAmount, uint8_t sourceStorageType, int32_t destinationItemObjId,
+		uint8_t destinationStorageType, int16_t slotNum);
+	/** CM_REPLACE_ITEM.readImpl (CM_REPLACE_ITEM.java:25-30): readC sourceStorageType, readD sourceItemObjId, readC replaceStorageType, readD replaceItemObjId */
+	static std::vector<uint8_t> buildCM_REPLACE_ITEM(uint8_t sourceStorageType, int32_t sourceItemObjId, uint8_t replaceStorageType, int32_t replaceItemObjId);
+	/** CM_MANASTONE.readImpl, every arm (ManastoneRequest) */
+	static std::vector<uint8_t> buildCM_MANASTONE(const ManastoneRequest& request);
+	/**
+	 * CM_MANASTONE for the arms that read two item ids (1, 2, 4, 8) - the gate's `CM_MANASTONE(4, 0, sword, stone, 0)` (m5b3-plan.md §10.2 L6).
+	 * @throws std::invalid_argument for action 3, which reads a slot and an npc instead: use the ManastoneRequest form
+	 */
+	static std::vector<uint8_t> buildCM_MANASTONE(uint8_t actionType, uint8_t targetFusedSlot, int32_t targetItemUniqueId, int32_t stoneUniqueId,
+		int32_t supplementUniqueId = 0);
+	/** CM_EQUIP_ITEM.readImpl (CM_EQUIP_ITEM.java:29-33): readC action (EQUIP, UNEQUIP, SWITCH_WEAPONS), readQ slotRead, readD itemObjId */
+	static std::vector<uint8_t> buildCM_EQUIP_ITEM(uint8_t action, int64_t slot, int32_t itemObjId);
+	/** CM_DELETE_ITEM.readImpl (CM_DELETE_ITEM.java:26-28): readD itemObjectId */
+	static std::vector<uint8_t> buildCM_DELETE_ITEM(int32_t itemObjectId);
+
+	// ---- M5c's dialog packets (m5c-plan.md §2.1, G-02), each the Java readImpl field order ----
+	/** CM_SHOW_DIALOG.readImpl (CM_SHOW_DIALOG.java:23-25): readD targetObjectId */
+	static std::vector<uint8_t> buildCM_SHOW_DIALOG(int32_t targetObjectId);
+	/** CM_CLOSE_DIALOG.readImpl (CM_CLOSE_DIALOG.java:24-26): readD targetObjectId */
+	static std::vector<uint8_t> buildCM_CLOSE_DIALOG(int32_t targetObjectId);
+	/**
+	 * CM_DIALOG_SELECT.readImpl (CM_DIALOG_SELECT.java:47-54): readD targetObjectId, readUH dialogActionId, readUH extendedRewardIndex, readUH
+	 * lastPage, readD questId, readUH unk ("unk 4.7"). A function dialog - the gate's `CM_DIALOG_SELECT(798007, BUY = 2)` - leaves the last four at 0
+	 */
+	static std::vector<uint8_t> buildCM_DIALOG_SELECT(int32_t targetObjectId, uint16_t dialogActionId, uint16_t extendedRewardIndex = 0,
+		uint16_t lastPage = 0, int32_t questId = 0, uint16_t unk = 0);
+	/**
+	 * CM_QUESTION_RESPONSE.readImpl (CM_QUESTION_RESPONSE.java:27-36): readD questionid, readUC response, a dropped readC ("unk 0x00 - 0x01 ?")
+	 * and readH, readD senderid, then a dropped readD and readH. runImpl answers by questionid alone (ResponseRequester.respond): the sender id
+	 * is read and never used, so it defaults to 0
+	 */
+	static std::vector<uint8_t> buildCM_QUESTION_RESPONSE(int32_t questionId, uint8_t response, int32_t senderId = 0);
+
+	// ---- M5d's quest packet (m5d-plan.md D-03, G-02) ----
+	/**
+	 * CM_DELETE_QUEST.readImpl (CM_DELETE_QUEST.java:23-25): readD questId. runImpl stops a timer quest's timer (an SM_QUEST_ACTION TIMER 0)
+	 * and calls QuestService.abandonQuest (:28-37) - the gate's `CM_DELETE_QUEST(1103)` (m5d-plan.md §10.2 C14)
+	 */
+	static std::vector<uint8_t> buildCM_DELETE_QUEST(int32_t questId);
+	/**
+	 * CM_PLAY_MOVIE_END.readImpl (CM_PLAY_MOVIE_END.java:33-40): readC type, readD targetObjectId, readD questId, readD movieId, readC (unknown),
+	 * readC (0: canSkip). A real client sends it with the fields of the SM_PLAY_MOVIE whose cutscene ended or was skipped (the last two bytes
+	 * written as 0). Until it arrives the server drops every CM_MOVE: SM_PLAY_MOVIE.java:28 sets WATCHING_CUTSCENE, CM_MOVE.java:159-161 drops
+	 * a move while it is set, and CM_PLAY_MOVIE_END.java:52 alone clears it
+	 */
+	static std::vector<uint8_t> buildCM_PLAY_MOVIE_END(uint8_t type, int32_t targetObjectId, int32_t questId, int32_t movieId);
+
+	// ---- M5g's party packets (m5g-plan.md H-02), each the Java readImpl field order ----
+	/** the party packets of M5g: AionClientPacketFactory packets[77], [79], [96], [97], [108], [164], [181], [184] and [185] */
+	static constexpr int32_t CM_FIND_GROUP = 77;
+	static constexpr int32_t CM_GROUP_DATA_EXCHANGE = 79;
+	static constexpr int32_t CM_PLAYER_STATUS_INFO = 96;
+	static constexpr int32_t CM_INVITE_TO_GROUP = 97;
+	static constexpr int32_t CM_GROUP_DISTRIBUTION = 108;
+	static constexpr int32_t CM_QUEST_SHARE = 164;
+	static constexpr int32_t CM_SHOW_BRAND = 181;
+	static constexpr int32_t CM_GROUP_LOOT = 184;
+	static constexpr int32_t CM_DISTRIBUTION_SETTINGS = 185;
+	/** CM_INVITE_TO_GROUP.readImpl (CM_INVITE_TO_GROUP.java:30-33): readUC inviteType (0 group, 12 alliance, 28 league), readS playerName */
+	static std::vector<uint8_t> buildCM_INVITE_TO_GROUP(uint8_t inviteType, std::string_view playerName);
+	/** CM_PLAYER_STATUS_INFO.readImpl (CM_PLAYER_STATUS_INFO.java:31-36): readUC commandCode, readD selectedObjectId, allianceGroupId, secondObjectId */
+	static std::vector<uint8_t> buildCM_PLAYER_STATUS_INFO(uint8_t commandCode, int32_t selectedObjectId, int32_t allianceGroupId = 0,
+		int32_t secondObjectId = 0);
+	/**
+	 * CM_DISTRIBUTION_SETTINGS.readImpl (CM_DISTRIBUTION_SETTINGS.java:41-60): readD isLeague, lootRule, misc, the six quality words, then a
+	 * readD unk
+	 */
+	static std::vector<uint8_t> buildCM_DISTRIBUTION_SETTINGS(int32_t lootRule, int32_t misc, std::array<int32_t, 6> qualityWords);
+	/** CM_GROUP_DISTRIBUTION.readImpl (CM_GROUP_DISTRIBUTION.java:29-32): readQ amount, readC partyType */
+	static std::vector<uint8_t> buildCM_GROUP_DISTRIBUTION(int64_t amount, uint8_t partyType);
+	/** CM_SHOW_BRAND.readImpl (CM_SHOW_BRAND.java:31-35): readD action, brandId, targetObjectId */
+	static std::vector<uint8_t> buildCM_SHOW_BRAND(int32_t action, int32_t brandId, int32_t targetObjectId);
+	/**
+	 * CM_GROUP_DATA_EXCHANGE.readImpl (CM_GROUP_DATA_EXCHANGE.java:36-44): readUC action; for action != 1 readUC groupType and readUC unk2; then
+	 * readD size and readB data
+	 */
+	static std::vector<uint8_t> buildCM_GROUP_DATA_EXCHANGE(uint8_t action, uint8_t groupType, uint8_t unk2, std::span<const uint8_t> data);
+	/** CM_FIND_GROUP.readImpl action 0 (CM_FIND_GROUP.java:41-43): the recruitment list */
+	static std::vector<uint8_t> buildCM_FIND_GROUP_LIST();
+	/** CM_FIND_GROUP.readImpl action 2 (:53-57): readD playerOrTeamId, readS message, readUC groupType */
+	static std::vector<uint8_t> buildCM_FIND_GROUP_OFFER(int32_t playerOrTeamId, std::string_view message, uint8_t groupType);
+	/** CM_GROUP_LOOT.readImpl (CM_GROUP_LOOT.java:44-56) */
+	static std::vector<uint8_t> buildCM_GROUP_LOOT(int32_t groupId, int32_t index, int32_t itemId, int32_t npcObjId, uint8_t distributionMode,
+		int32_t roll, int64_t bid);
+	/** CM_QUEST_SHARE.readImpl (CM_QUEST_SHARE.java:39-41): readD questId */
+	static std::vector<uint8_t> buildCM_QUEST_SHARE(int32_t questId);
+
+	// ---- M5j stage 0's chat and GM packets (m5j-plan.md H-02), each the Java readImpl field order ----
+	/** AionClientPacketFactory packets[27], [28] and [41] (ClientPacketInfo.gen.inc:39, :40, :52) */
+	static constexpr int32_t CM_CHAT_MESSAGE_PUBLIC = 27;
+	static constexpr int32_t CM_CHAT_MESSAGE_WHISPER = 28;
+	static constexpr int32_t CM_BUILDER_COMMAND = 41;
+	/** ChatType NORMAL (ChatType.java: id 0), the type a chat line and a typed chat command go out with */
+	static constexpr uint8_t CHAT_NORMAL = 0;
+	/**
+	 * CM_CHAT_MESSAGE_PUBLIC.readImpl (CM_CHAT_MESSAGE_PUBLIC.java:38-41): readC chat type, readS message. A chat command is such a line:
+	 * runImpl hands it to ChatProcessor.handleChatCommand first (:47-48), so `//kill` typed by a player who may not use it goes out as chat
+	 */
+	static std::vector<uint8_t> buildCM_CHAT_MESSAGE_PUBLIC(uint8_t chatType, std::string_view message);
+	/** a chat command as the client sends it: a NORMAL CM_CHAT_MESSAGE_PUBLIC line (`//announce a hi`, `.gmlist`) */
+	static std::vector<uint8_t> buildGmCommand(std::string_view text) { return buildCM_CHAT_MESSAGE_PUBLIC(CHAT_NORMAL, text); }
+	/** CM_CHAT_MESSAGE_WHISPER.readImpl (CM_CHAT_MESSAGE_WHISPER.java:44-47): readS name, readS message */
+	static std::vector<uint8_t> buildCM_CHAT_MESSAGE_WHISPER(std::string_view name, std::string_view message);
+	/** CM_BUILDER_COMMAND, AbstractGmCommandPacket.readImpl (AbstractGmCommandPacket.java:27-29): readS command (a console command line) */
+	static std::vector<uint8_t> buildCM_BUILDER_COMMAND(std::string_view command);
+
+	// ---- M5j stage 1's social packets (m5j-plan.md §10.4, §18.1 CP1 "H-11's builders"), each the Java readImpl field order ----
+	/**
+	 * AionClientPacketFactory packets[58], [100], [111], [112], [114], [139], [159], [166], [175] and [188] (AionClientPacketFactory.java:86,
+	 * 128, 139, 140, 142, 167, 187, 194, 203, 216)
+	 */
+	static constexpr int32_t CM_SET_NOTE = 58;
+	static constexpr int32_t CM_VIEW_PLAYER_DETAILS = 100;
+	static constexpr int32_t CM_FRIEND_ADD = 111;
+	static constexpr int32_t CM_FRIEND_DEL = 112;
+	static constexpr int32_t CM_DUEL_REQUEST = 114;
+	static constexpr int32_t CM_TITLE_SET = 139;
+	static constexpr int32_t CM_PLAYER_SEARCH = 159;
+	static constexpr int32_t CM_BLOCK_ADD = 166;
+	static constexpr int32_t CM_MACRO_CREATE = 175;
+	static constexpr int32_t CM_ABYSS_RANKING_PLAYERS = 188;
+	/** CM_SET_NOTE.readImpl (CM_SET_NOTE.java): readS note */
+	static std::vector<uint8_t> buildCM_SET_NOTE(std::string_view note);
+	/** CM_VIEW_PLAYER_DETAILS.readImpl: readD targetObjectId */
+	static std::vector<uint8_t> buildCM_VIEW_PLAYER_DETAILS(int32_t targetObjectId);
+	/** CM_FRIEND_ADD.readImpl: readS targetName, readS message */
+	static std::vector<uint8_t> buildCM_FRIEND_ADD(std::string_view targetName, std::string_view message);
+	/** CM_FRIEND_DEL.readImpl: readS targetName */
+	static std::vector<uint8_t> buildCM_FRIEND_DEL(std::string_view targetName);
+	/** CM_DUEL_REQUEST.readImpl: readD objectId */
+	static std::vector<uint8_t> buildCM_DUEL_REQUEST(int32_t objectId);
+	/** CM_TITLE_SET.readImpl: readUH titleId (0xFFFF takes the title off) */
+	static std::vector<uint8_t> buildCM_TITLE_SET(uint16_t titleId);
+	/**
+	 * CM_PLAYER_SEARCH.readImpl: readS(25) name - AionClientPacket.readS(int): the string with its NUL char, then (25 - length) * 2 bytes of
+	 * padding -, readD region, readD classMask, readUC minLevel, readUC maxLevel, readUC lfgOnly, readC. 0xFF levels are "any"
+	 * @throws std::invalid_argument for a name of more than 25 UTF-16 units (the client field holds no more)
+	 */
+	static std::vector<uint8_t> buildCM_PLAYER_SEARCH(std::string_view name, int32_t region = 0, int32_t classMask = 0, uint8_t minLevel = 0xFF,
+		uint8_t maxLevel = 0xFF, uint8_t lfgOnly = 0);
+	/** CM_BLOCK_ADD.readImpl: readS targetName, readS reason */
+	static std::vector<uint8_t> buildCM_BLOCK_ADD(std::string_view targetName, std::string_view reason);
+	/** CM_MACRO_CREATE.readImpl (CM_MACRO_CREATE.java:40-43): readUC macroPosition, readS macroXML */
+	static std::vector<uint8_t> buildCM_MACRO_CREATE(uint8_t position, std::string_view xml);
+	/** CM_ABYSS_RANKING_PLAYERS.readImpl: readC raceId (0 Elyos, 1 Asmodians) */
+	static std::vector<uint8_t> buildCM_ABYSS_RANKING_PLAYERS(uint8_t raceId);
+
+	// ---- M5j stage 2's toy pet packet (m5j-plan.md §10.4 Z11, §18.3 CP5), the Java readImpl field order ----
+	/** AionClientPacketFactory packets[22] (ClientPacketInfo.gen.inc:37) */
+	static constexpr int32_t CM_PET = 22;
+	/** PetAction ids of CM_PET (PetAction.java:11-14) */
+	static constexpr uint16_t PET_ADOPT = 1;
+	static constexpr uint16_t PET_SPAWN = 3;
+	static constexpr uint16_t PET_DISMISS = 4;
+	/**
+	 * CM_PET.readImpl ADOPT (CM_PET.java:52-61): readUH action, readD eggObjId, readD templateId, readUC unk2, readD unk3, readD decorationId,
+	 * readD unk5, readD unk6, readS petName
+	 */
+	static std::vector<uint8_t> buildCM_PET_ADOPT(int32_t eggObjectId, int32_t templateId, int32_t decorationId, std::string_view petName);
+	/** CM_PET.readImpl SURRENDER, SPAWN and DISMISS (CM_PET.java:62-66): readUH action, readD templateId */
+	static std::vector<uint8_t> buildCM_PET(uint16_t action, int32_t templateId);
+
+	// ---- M5j stage 4's matchmaker packet (m5j-plan.md §18.5 CP2, W-13) ----
+	/** AionClientPacketFactory packets[200] (ClientPacketInfo.gen.inc:172) */
+	static constexpr int32_t CM_AUTO_GROUP = 200;
+	/** CM_AUTO_GROUP.readImpl (CM_AUTO_GROUP.java:27-32): readD instanceMaskId, readC windowId, readC entryRequestId */
+	static std::vector<uint8_t> buildCM_AUTO_GROUP(int32_t instanceMaskId, uint8_t windowId, uint8_t entryRequestId);
+
+	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
+	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
+	struct BuyItemEntry {
+		int32_t itemId = 0;
+		int64_t count = 0;
+	};
+	/**
+	 * CM_BUY_ITEM.readImpl (CM_BUY_ITEM.java:47-90): readD sellerObjId, readH tradeActionId, readUH amount = entries.size(), then each entry.
+	 * The gate's `CM_BUY_ITEM(798007, 13, [(162000052, 2)])` (m5c-plan.md C5). Nothing is clamped: 37 entries or a count above 20000 are sent as
+	 * given, which is how a test reaches the audit arms
+	 * @throws std::invalid_argument for more than 65535 entries (readUH cannot carry them)
+	 */
+	static std::vector<uint8_t> buildCM_BUY_ITEM(int32_t sellerObjectId, int16_t tradeActionId, std::span<const BuyItemEntry> entries);
+	/** CM_EXCHANGE_REQUEST.readImpl (CM_EXCHANGE_REQUEST.java:34-36): readD targetObjectId */
+	static std::vector<uint8_t> buildCM_EXCHANGE_REQUEST(int32_t targetObjectId);
+	/** CM_EXCHANGE_ADD_ITEM.readImpl (CM_EXCHANGE_ADD_ITEM.java:23-26): readD itemObjId, readD itemCount - an int, not a long */
+	static std::vector<uint8_t> buildCM_EXCHANGE_ADD_ITEM(int32_t itemObjectId, int32_t itemCount);
+	/** CM_EXCHANGE_ADD_KINAH.readImpl (CM_EXCHANGE_ADD_KINAH.java:21-23): readQ kinahCount */
+	static std::vector<uint8_t> buildCM_EXCHANGE_ADD_KINAH(int64_t kinahCount);
+	/** CM_EXCHANGE_LOCK, CM_EXCHANGE_OK and CM_EXCHANGE_CANCEL read nothing (their readImpl is empty): an empty body */
+	static std::vector<uint8_t> buildCM_EXCHANGE_LOCK();
+	static std::vector<uint8_t> buildCM_EXCHANGE_OK();
+	static std::vector<uint8_t> buildCM_EXCHANGE_CANCEL();
+	/** one item of CM_PRIVATE_STORE (CM_PRIVATE_STORE.java:27-30): readD itemObjId, readD itemId, readUH count, readQ price (of one item) */
+	struct PrivateStoreItem {
+		int32_t itemObjectId = 0;
+		int32_t itemId = 0;
+		uint16_t count = 0;
+		int64_t price = 0;
+	};
+	/**
+	 * CM_PRIVATE_STORE.readImpl (CM_PRIVATE_STORE.java:23-33): readUH itemCount, then each item; an empty list closes the store
+	 * @throws std::invalid_argument for more than 65535 items
+	 */
+	static std::vector<uint8_t> buildCM_PRIVATE_STORE(std::span<const PrivateStoreItem> items);
+	/** CM_PRIVATE_STORE_NAME.readImpl (CM_PRIVATE_STORE_NAME.java:27-29): readS name */
+	static std::vector<uint8_t> buildCM_PRIVATE_STORE_NAME(std::string_view name);
+	/**
+	 * CM_SEND_MAIL.readImpl (CM_SEND_MAIL.java:29-37): readS recipientName, readS title, readS message, readD itemObjId (0 for none), readQ
+	 * itemCount, readQ kinahCount, readUC idLetterType (LETTER_NORMAL, LETTER_EXPRESS). The gate's `CM_SEND_MAIL(B, "m5c", "gate", potion
+	 * stack, 5, 200, NORMAL)` (m5c-plan.md C11)
+	 */
+	static std::vector<uint8_t> buildCM_SEND_MAIL(std::string_view recipientName, std::string_view title, std::string_view message,
+		int32_t itemObjectId, int64_t itemCount, int64_t kinahCount, uint8_t letterType = LETTER_NORMAL);
+	/** CM_CHECK_MAIL_LIST.readImpl (CM_CHECK_MAIL_LIST.java:22-24): readC, `== 1` lists only the unread express letters */
+	static std::vector<uint8_t> buildCM_CHECK_MAIL_LIST(bool expressOnly = false);
+	/** CM_READ_MAIL.readImpl (CM_READ_MAIL.java:22-24): readD mailObjId */
+	static std::vector<uint8_t> buildCM_READ_MAIL(int32_t letterObjectId);
+	/** CM_GET_MAIL_ATTACHMENT.readImpl (CM_GET_MAIL_ATTACHMENT.java:23-26): readD mailObjId, readC attachmentType (MAIL_ATTACHMENT_*) */
+	static std::vector<uint8_t> buildCM_GET_MAIL_ATTACHMENT(int32_t letterObjectId, uint8_t attachmentType);
+	/**
+	 * CM_DELETE_MAIL.readImpl (CM_DELETE_MAIL.java:22-28): readUH count, then per letter readD mailObjId and a dropped readC (written 0)
+	 * @throws std::invalid_argument for more than 65535 letters
+	 */
+	static std::vector<uint8_t> buildCM_DELETE_MAIL(std::span<const int32_t> letterObjectIds);
+	/** CM_TUNE.readImpl (CM_TUNE.java:25-28): readD itemObjectId, readD tuningScrollObjectId - 0 identifies without a scroll (C15) */
+	static std::vector<uint8_t> buildCM_TUNE(int32_t itemObjectId, int32_t tuningScrollObjectId = 0);
+	/** CM_TUNE_RESULT.readImpl (CM_TUNE_RESULT.java:28-31): readD itemObjectId, readC `== 1` hasAccepted */
+	static std::vector<uint8_t> buildCM_TUNE_RESULT(int32_t itemObjectId, bool accepted);
+	/** CM_SELECT_DECOMPOSABLE.readImpl (CM_SELECT_DECOMPOSABLE.java:38-42): readD objectId, readD unk, readUC index */
+	static std::vector<uint8_t> buildCM_SELECT_DECOMPOSABLE(int32_t objectId, int32_t unk, uint8_t index);
+	/** one material of CM_CRAFT (CM_CRAFT.java:40): readD itemId, readQ count - the key and value of Java's materialsData map */
+	struct CraftMaterial {
+		int32_t itemId = 0;
+		int64_t count = 0;
+	};
+	/**
+	 * CM_CRAFT.readImpl (CM_CRAFT.java:32-41): readUC unk, readD targetTemplateId, readD recipeId, readD targetObjId, readUH materialsCount,
+	 * readUC craftType - the count comes BEFORE the craft type and the materials after both. The gate's
+	 * `CM_CRAFT(0, 150000009, 155001381, oven, {152001001: 1, 169400096: 2}, 0)` (m5c-plan.md C19)
+	 * @throws std::invalid_argument for more than 65535 materials
+	 */
+	static std::vector<uint8_t> buildCM_CRAFT(uint8_t unk, int32_t targetTemplateId, int32_t recipeId, int32_t targetObjectId,
+		std::span<const CraftMaterial> materials, uint8_t craftType = 0);
+	/** CM_RECIPE_DELETE.readImpl (CM_RECIPE_DELETE.java:21-23): readD recipeId */
+	static std::vector<uint8_t> buildCM_RECIPE_DELETE(int32_t recipeId);
+
+	// ---- M5f's travel packets (m5f-plan.md §2.10, G-02), each the Java readImpl field order ----
+	/** CM_TELEPORT_SELECT.readImpl (CM_TELEPORT_SELECT.java:38-43): readD targetObjId, readD locId, readH (dropped, written 0) */
+	static std::vector<uint8_t> buildCM_TELEPORT_SELECT(int32_t targetObjectId, int32_t locId);
+	/** CM_TELEPORT_ANIMATION_DONE.readImpl reads nothing: an empty body */
+	static std::vector<uint8_t> buildCM_TELEPORT_ANIMATION_DONE();
+	/** CM_INSTANCE_LEAVE.readImpl reads nothing ("nothing to read"): an empty body */
+	static std::vector<uint8_t> buildCM_INSTANCE_LEAVE();
+	/** CM_MOVE_IN_AIR.readImpl (CM_MOVE_IN_AIR.java:34-42): readD worldId, readF x/y/z, readC heading, readD distance */
+	static std::vector<uint8_t> buildCM_MOVE_IN_AIR(int32_t worldId, float x, float y, float z, int8_t heading, int32_t distance);
+	/** EmotionType START_FLYTELEPORT (6) and LAND_FLYTELEPORT (7), EmotionType.java */
+	static constexpr uint8_t EMOTION_START_FLYTELEPORT = 6;
+	static constexpr uint8_t EMOTION_LAND_FLYTELEPORT = 7;
+	/**
+	 * CM_EMOTION.readImpl (CM_EMOTION.java:52-60) for an emotion type that reads nothing more (LAND_FLYTELEPORT and the other arms without
+	 * fields): readUC emotionType
+	 */
+	static std::vector<uint8_t> buildCM_EMOTION(uint8_t emotionType);
+	/** CM_BIND_POINT_TELEPORT's actions (CM_BIND_POINT_TELEPORT.java:27, "1 casting, 2 cancel, 3 done") */
+	static constexpr uint8_t BIND_POINT_TELEPORT_CAST = 1;
+	static constexpr uint8_t BIND_POINT_TELEPORT_CANCEL = 2;
+	/** CM_BIND_POINT_TELEPORT.readImpl (CM_BIND_POINT_TELEPORT.java:25-31): readC action; action 1 only: readD locId, readQ kinah */
+	static std::vector<uint8_t> buildCM_BIND_POINT_TELEPORT(uint8_t action, int32_t locId = 0, int64_t kinah = 0);
+
+	// ---- M5e's progression packets (m5e-plan.md §2.11, G-02), each the Java readImpl field order ----
+	/** MovementMask.GLIDE and FALL (MovementMask.java:16, 21): what buildCM_MOVE_GLIDE writes, GlideFlag.NONE (0) its default flag */
+	static constexpr int8_t MOVE_GLIDE = 0x04;
+	static constexpr int8_t MOVE_FALL = 0x08;
+	/**
+	 * CM_MOVE with the glide bit (CM_MOVE.java:40-66): x, y, z, heading, type = GLIDE | `extraType`, then - type has no POSITION|MANUAL pair,
+	 * so no target point - readC glideFlag (and readUC geyserLocationId only for GlideFlag.GEYSER, which this builder refuses: a geyser is a
+	 * windstream). runImpl calls FlyController.switchToGliding (CM_MOVE.java:95-98), which refuses a non-Daeva with STR_GLIDE_ONLY_DEVA_CAN
+	 * (FlyController.java:137-141); a later move with the FALL bit ends the glide (onStopGliding, :157-159)
+	 * @throws std::invalid_argument for a type carrying POSITION and MANUAL or VEHICLE, or a geyser flag
+	 */
+	static std::vector<uint8_t> buildCM_MOVE_GLIDE(float x, float y, float z, int8_t heading, int8_t extraType = 0, uint8_t glideFlag = 0);
+	/**
+	 * CM_TOGGLE_SKILL_DEACTIVATE.readImpl (CM_TOGGLE_SKILL_DEACTIVATE.java:24-28): readUH skillId, then two readH the server drops (written 0).
+	 * runImpl removes the effect of a toggle or a stance and audits anything else (:31-42)
+	 */
+	static std::vector<uint8_t> buildCM_TOGGLE_SKILL_DEACTIVATE(uint16_t skillId);
+	/**
+	 * CM_USE_CHARGE_SKILL.readImpl reads nothing (CM_USE_CHARGE_SKILL.java:20-21): an empty body. runImpl releases the casting charge skill
+	 * with the time since its cast started (:24-31)
+	 */
+	static std::vector<uint8_t> buildCM_USE_CHARGE_SKILL();
+	/** SummonMode ids (SummonMode.java:8-11): what CM_SUMMON_COMMAND's mode byte selects */
+	static constexpr uint8_t SUMMON_ATTACK = 0;
+	static constexpr uint8_t SUMMON_GUARD = 1;
+	static constexpr uint8_t SUMMON_REST = 2;
+	static constexpr uint8_t SUMMON_RELEASE = 3;
+	/** CM_SUMMON_COMMAND.readImpl (CM_SUMMON_COMMAND.java:26-31): readUC mode, two readD the server drops (written 0), readD targetObjId */
+	static std::vector<uint8_t> buildCM_SUMMON_COMMAND(uint8_t mode, int32_t targetObjectId = 0);
+	/**
+	 * CM_SUMMON_ATTACK.readImpl (CM_SUMMON_ATTACK.java:30-36): readD summonObjId, readD targetObjId, readC unk1, readUH time, readC unk3 (both
+	 * unknowns written 0). A summon is driven by its master's client: SummonsService.doMode's ATTACK only sets the mode
+	 * (SummonController.attackMode), each hit is one of these, which runImpl turns into the summon's attackTarget(target, time) (:39-50)
+	 */
+	static std::vector<uint8_t> buildCM_SUMMON_ATTACK(int32_t summonObjectId, int32_t targetObjectId, uint16_t time = 0);
+};
+
+} // namespace aion::clientprotocol

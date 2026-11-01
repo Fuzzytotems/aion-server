@@ -19,14 +19,14 @@
 #include <span>
 #include <vector>
 
-#include "decoders/QuestDecoders.h"
+#include "aion/clientprotocol/decoders/QuestDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** SM_NEARBY_QUESTS.writeImpl (SM_NEARBY_QUESTS.java:22-31), field by field: the wire ints as given */
 std::vector<uint8_t> nearbyBytes(const std::vector<int32_t>& wire) {
@@ -357,4 +357,4 @@ TEST(QuestDecodersTest, ThePrologueQuestsAreTheJavaHandlers) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

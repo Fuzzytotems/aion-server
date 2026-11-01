@@ -6,14 +6,14 @@
 #include <cstdint>
 #include <vector>
 
-#include "decoders/PetKiskDecoders.h"
+#include "aion/clientprotocol/decoders/PetKiskDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** SM_PET.writeAppearance: writeH(1), writeC(0) x 3, writeD(decoration), writeD(0) x 2 */
 PacketWriter& appearance(PacketWriter& w, int32_t decoration) {
@@ -122,4 +122,4 @@ TEST(PetKiskDecodersTest, KiskUpdate) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

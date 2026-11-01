@@ -10,14 +10,14 @@
 #include <string_view>
 #include <vector>
 
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** AionServerPacket.writeS(String, int): fixedLength chars plus the terminating NUL char, NUL padded */
 void fixedS(PacketWriter& writer, std::string_view text, size_t fixedLength) {
@@ -843,4 +843,4 @@ TEST(PacketDecodersTest, BodyReaderReportsThePacketAndTheOffset) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

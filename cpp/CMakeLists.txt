@@ -42,6 +42,7 @@ if(AION_BUILD_TESTS)
 endif()
 
 add_subdirectory(commons)
+add_subdirectory(client-protocol)
 add_subdirectory(login-server)
 option(AION_BUILD_CHAT_SERVER "Build the chat server port (cpp/chat-server)" ON)
 if(AION_BUILD_CHAT_SERVER)

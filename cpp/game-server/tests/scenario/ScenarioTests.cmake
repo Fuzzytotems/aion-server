@@ -1,6 +1,6 @@
 # CTest registrations of the M5a scenario harness and of the M5a gate itself (chunk P5-SC, owned through its test directory tests/scenario;
 # m5a-plan.md §5.10, F-06). Included by game-server/CMakeLists.txt inside if(AION_BUILD_TESTS), after the wiring of aion_gs_scenario_tests
-# (login-server/tests/support include directory, aion_loginserver_crypto, the dependencies on aion_game_server and aion_login_server, and the
+# (login-server/tests/support include directory, aion_client_protocol, the dependencies on aion_game_server and aion_login_server, and the
 # compile definitions AION_GAME_SERVER_EXECUTABLE, AION_LOGIN_SERVER_EXECUTABLE, AION_LOGINSERVER_JAVA_DIR, AION_GAMESERVER_JAVA_DIR,
 # AION_SCENARIO_OUTPUT_DIR).
 #

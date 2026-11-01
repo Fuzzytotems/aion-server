@@ -3,7 +3,8 @@
 #include <algorithm>
 #include <utility>
 
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "ScenarioDecoders.h"
 
 namespace aion::gameserver::scenario {
 

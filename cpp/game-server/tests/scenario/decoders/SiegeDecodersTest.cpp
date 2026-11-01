@@ -8,14 +8,14 @@
 #include <span>
 #include <vector>
 
-#include "decoders/SiegeDecoders.h"
+#include "aion/clientprotocol/decoders/SiegeDecoders.h"
+#include "aion/clientprotocol/PacketWriter.h"
 
 #include "NetworkTestSupport.h"
 
-namespace aion::gameserver::scenario::decoders {
+namespace aion::clientprotocol::decoders {
 namespace {
 
-using network::test::PacketWriter;
 
 /** a body one byte short and one byte long both fail: the decoder consumes the body exactly */
 template <class Decode>
@@ -174,4 +174,4 @@ TEST(SiegeDecodersTest, AfterSiegeLocInfoAndNpcAssembler) {
 }
 
 } // namespace
-} // namespace aion::gameserver::scenario::decoders
+} // namespace aion::clientprotocol::decoders

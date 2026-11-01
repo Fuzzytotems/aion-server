@@ -12,7 +12,8 @@
 
 #include "FakeServerSocket.h"
 #include "GameSession.h"
-#include "decoders/PacketDecoders.h"
+#include "aion/clientprotocol/decoders/PacketDecoders.h"
+#include "ScenarioDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 

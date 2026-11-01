@@ -49,6 +49,20 @@ class RealTree(unittest.TestCase):
         for op, wire, _, _ in generated:
             self.assertEqual(opcodes.decode_client_opcode(int(wire, 16), 207), int(op))
 
+    def test_client_protocol_table_matches_the_game_server_tables(self):
+        client = self.outputs[opcodes.CLIENT_OPCODES_OUT]
+        rows = re.findall(r'^\t\{(\d+), 0x([0-9A-F]{4}), "(\w+)", "[^"]*", PacketDirection::(\w+)\},$', client, re.M)
+        server_rows = [(int(op), int(wire, 16), name) for op, wire, name, d in rows if d == 'SERVER_TO_CLIENT']
+        client_rows = [(int(op), int(wire, 16), name) for op, wire, name, d in rows if d == 'CLIENT_TO_SERVER']
+        self.assertEqual(len(server_rows), 237)
+        self.assertEqual(len(client_rows), 186)
+        header = self.outputs[opcodes.SERVER_OPCODES_OUT]
+        expected = re.findall(r'^\t\{(\d+), 0x([0-9A-F]{4}), "(SM_\w+)", "[^"]*"\},$', header, re.M)
+        self.assertEqual(server_rows, [(int(op), int(wire, 16), name) for op, wire, name in expected])
+        info = self.outputs[opcodes.CLIENT_INFO_OUT]
+        expected = re.findall(r'^AION_CLIENT_PACKET_INFO\((\d+), 0x([0-9A-F]{4}), (CM_\w+), ', info, re.M)
+        self.assertEqual(client_rows, [(int(op), int(wire, 16), name) for op, wire, name in expected])
+
 
 if __name__ == '__main__':
     unittest.main()
