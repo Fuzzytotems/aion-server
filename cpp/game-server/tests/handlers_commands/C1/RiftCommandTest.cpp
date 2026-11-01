@@ -69,5 +69,20 @@ TEST_F(RiftCommandTest, AnUnknownIdIsRefused) {
 	EXPECT_EQ(client()->sentBytes(), info("Invalid number: \"eltnen\"")) << "Integer.parseInt's NumberFormatException (ChatCommand.run)";
 }
 
+// C++-dev only (owner, 2026-10-31): open all and close all go through every world that has rift locations; with none, nothing changes
+TEST_F(RiftCommandTest, OpenAllAndCloseAllWithNoLocationsChangeNothing) {
+	Player& admin = gm();
+	handlers::admincommands::Rift rift;
+	EXPECT_TRUE(rift.process(admin, args({"open", "ALL", "g"})));
+	EXPECT_EQ(client()->sentBytes(), info("Rifts are already open.")) << "all is not parsed as an id";
+	client()->clearSent();
+	EXPECT_TRUE(rift.process(admin, args({"close", "all"})));
+	EXPECT_EQ(client()->sentBytes(), info("Rifts were already closed."));
+	const std::string syntax = rift.getSyntaxInfo(); // parseSyntaxInfo's formatting of each line
+	for (const char* part : {"[color:open;1 1 1] [color:all;1 1 1] [[color:g;1 1 1]] - Opens the rifts in every zone.",
+	                         "[color:close;1 1 1] [color:all;1 1 1] - Closes the rifts in every zone."})
+		EXPECT_NE(syntax.find(part), std::string::npos) << part << " in " << syntax;
+}
+
 } // namespace
 } // namespace aion::gameserver::network::aion::clientpackets::testing
