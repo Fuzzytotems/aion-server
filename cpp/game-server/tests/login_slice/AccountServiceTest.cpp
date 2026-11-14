@@ -118,17 +118,30 @@ TEST_F(AccountServiceTest, RemoveDeletedCharactersDeletesExpiredCharacters) {
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM players WHERE id = 1032"), 1);
 }
 
+// The play kit's crash of 2026-11-14: a client deleted its account's only character and logged in again after the deletion time. The
+// warehouse reload ran while the loop still held the account, and C11 ("bindOwner() after the owner was published") stopped the server.
 TEST_F(AccountServiceTest, RemovingTheLastCharacterReloadsTheEmptiedAccountWarehouse) {
-	if (runtime::LIVE_COUNTS_ENABLED) // AION_CHECKED builds
-		GTEST_SKIP() << "PlayerStorage(Account&, type) binds its owner with OwnedPart::bindOwner, which checked builds reject for a published account "
-						"(C11 terminates): a new account warehouse for a loaded account needs a P4-13 fix (docs/deviations/P5-00.md)";
 	insertCharacter(1041, "Last", 12);
 	execute("UPDATE players SET deletion_date = '2001-01-01 00:00:00' WHERE id = 1041");
+	// no item templates in the slice: the row is only checked in the database (loading it logs a missing template and skips it)
+	execute("INSERT INTO inventory (item_unique_id, item_id, item_count, item_owner, slot, item_location) VALUES (104101, 182400001, 500, 12, 0, 2)");
 	Ref<Account> account = AccountService::loadAccount(12);
 	model::items::storage::Storage* warehouseBefore = &account->getAccountWarehouse();
 	SLICE_SKIP_IF_UNPORTED(AccountService::removeDeletedCharacters(*account));
 	EXPECT_TRUE(account->isEmpty());
 	EXPECT_NE(&account->getAccountWarehouse(), warehouseBefore) << "InventoryDAO.deleteAccountWH, then a new warehouse";
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM inventory WHERE item_owner = 12 AND item_location = 2"), 0);
+}
+
+/** The same through getAccount, the login server's path (CM_ACCOUNT_AUTH_RESPONSE), with only getAccount's reference to the account. */
+TEST_F(AccountServiceTest, GetAccountOfAnAccountWhoseLastCharacterExpiredGivesAnEmptyAccount) {
+	insertCharacter(1043, "Gone", 14);
+	execute("UPDATE players SET deletion_date = '2001-01-01 00:00:00' WHERE id = 1043");
+	Ref<model::account::AccountTime> accountTime = model::account::AccountTime::create();
+	Ref<Account> account = AccountService::getAccount(14, "emptied", 0, *accountTime, 0, 0, "");
+	EXPECT_TRUE(account->isEmpty());
+	EXPECT_EQ(account->getAccountWarehouse().size(), 0);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM players WHERE id = 1043"), 0);
 }
 
 /**
