@@ -10,7 +10,6 @@
 #include "aion/commons/database/ResultSet.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Numbers.h"
-#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/dao/detail/DaoSupport.h"
 #include "aion/gameserver/dao/detail/UsedIds.h"
 #include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
@@ -73,14 +72,16 @@ void PlayerPetsDAO::insertPlayerPet(model::gameobjects::player::Player& player, 
 	try {
 		auto con = DatabaseFactory::getConnection();
 		auto stmt = con->prepareStatement(
-			"INSERT INTO player_pets(id, player_id, template_id, decoration, name, despawn_time, expire_time) VALUES(?, ?, ?, ?, ?, ?, ?)");
+			"INSERT INTO player_pets(id, player_id, template_id, decoration, color, face, head, name, expire_time) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)");
 		stmt->setInt(1, petCommonData.getObjectId());
 		stmt->setInt(2, player.getObjectId());
 		stmt->setInt(3, petCommonData.getTemplateId());
 		stmt->setInt(4, petCommonData.getDecoration());
-		stmt->setString(5, petCommonData.getName());
-		stmt->setTimestamp(6, petCommonData.getDespawnTime());
-		stmt->setInt(7, petCommonData.getExpireTime());
+		stmt->setInt(5, petCommonData.getColor());
+		stmt->setInt(6, petCommonData.getFace());
+		stmt->setInt(7, petCommonData.getHead());
+		stmt->setString(8, petCommonData.getName());
+		stmt->setInt(9, petCommonData.getExpireTime());
 		stmt->execute();
 	} catch (const std::exception& e) {
 		log.error("Error inserting new pet #" + std::to_string(petCommonData.getObjectId()) + ", name: " + petCommonData.getName(), e);
@@ -110,6 +111,9 @@ std::vector<runtime::Ref<model::gameobjects::player::PetCommonData>> PlayerPetsD
 				PetCommonData::create(rs->getInt("id"), rs->getInt("template_id"), player.getObjectId(), rs->getInt("expire_time"));
 			petCommonData->setName(rs->getString("name"));
 			petCommonData->setDecoration(rs->getInt("decoration"));
+			petCommonData->setColor(rs->getInt("color"));
+			petCommonData->setFace(rs->getInt("face"));
+			petCommonData->setHead(rs->getInt("head"));
 			if (petCommonData->getFeedProgress()) {
 				petCommonData->getFeedProgress()->setHungryLevel(services::toypet::petHungryLevelFromId(rs->getInt("hungry_level")));
 				petCommonData->getFeedProgress()->setData(rs->getInt("feed_progress"));
@@ -124,14 +128,6 @@ std::vector<runtime::Ref<model::gameobjects::player::PetCommonData>> PlayerPetsD
 				}
 			}
 			petCommonData->setBirthday(rs->getTimestamp("birthday"));
-			petCommonData->setStartMoodTime(rs->getLong("mood_started"));
-			petCommonData->setShuggleCounter(rs->getInt("counter"));
-			petCommonData->setMoodCdStarted(rs->getLong("mood_cd_started"));
-			petCommonData->setGiftCdStarted(rs->getLong("gift_cd_started"));
-			std::optional<commons::database::Timestamp> ts = rs->getTimestamp("despawn_time");
-			if (!ts)
-				ts = detail::toTimestamp(commons::utils::currentTimeMillis());
-			petCommonData->setDespawnTime(ts);
 			pets.push_back(std::move(petCommonData));
 		}
 	} catch (const std::exception& e) {
@@ -150,25 +146,6 @@ void PlayerPetsDAO::updatePetName(model::gameobjects::player::PetCommonData& pet
 	} catch (const std::exception& e) {
 		log.error("Error update pet #" + std::to_string(petCommonData.getObjectId()), e);
 	}
-}
-
-bool PlayerPetsDAO::savePetMoodData(model::gameobjects::player::PetCommonData& petCommonData) {
-	try {
-		auto con = DatabaseFactory::getConnection();
-		auto stmt = con->prepareStatement(
-			"UPDATE player_pets SET mood_started = ?, counter = ?, mood_cd_started = ?, gift_cd_started = ?, despawn_time = ? WHERE id = ?");
-		stmt->setLong(1, petCommonData.getMoodStartTime());
-		stmt->setInt(2, petCommonData.getShuggleCounter());
-		stmt->setLong(3, petCommonData.getMoodCdStarted());
-		stmt->setLong(4, petCommonData.getGiftCdStarted());
-		stmt->setTimestamp(5, petCommonData.getDespawnTime());
-		stmt->setInt(6, petCommonData.getObjectId());
-		stmt->execute();
-	} catch (const std::exception& e) {
-		log.error("Error updating mood for pet #" + std::to_string(petCommonData.getObjectId()), e);
-		return false;
-	}
-	return true;
 }
 
 std::vector<int32_t> PlayerPetsDAO::getUsedIDs() {

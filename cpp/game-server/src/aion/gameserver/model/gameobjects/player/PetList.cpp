@@ -45,6 +45,10 @@ void PetList::loadPets(Player& player) {
 	std::vector<runtime::Ref<PetCommonData>> playerPets = getPlayerPets(player);
 	runtime::Ptr<PetCommonData> lastUsedPet;
 	for (const runtime::Ref<PetCommonData>& pet : playerPets) {
+		// Interim (docs/deviations/P4-12.md, upstream sync foundation): player_pets has no despawn_time since f16e03ad3, whose rework drops the
+		// last used pet. Until wave 5 ports it, a loaded pet gets the time the Java 51d7a19cb DAO gave a NULL despawn_time: now
+		if (!pet->getDespawnTime())
+			pet->setDespawnTime(commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis())));
 		registerExpirable(*pet, player);
 		pets.put(pet->getTemplateId(), pet); // the client only sends template ids for spawn/dismiss, so we cannot support multiple same pets
 		if (!lastUsedPet || pet->getDespawnTime().value() > lastUsedPet->getDespawnTime().value())

@@ -31,6 +31,9 @@ private:
 	const int32_t templateId;
 	const int32_t masterObjectId;
 	runtime::Field<int32_t> decoration{};
+	runtime::Field<int32_t> color{};
+	runtime::Field<int32_t> face{};
+	runtime::Field<int32_t> head{};
 	runtime::Field<std::string> name{};
 	// fieldmap.toml: Java compares it with null (PetCommonData.java getBirthday), hub-headers.md §6 nullable Timestamp field
 	runtime::Field<std::optional<commons::database::Timestamp>> birthday{};
@@ -42,13 +45,15 @@ public:
 private:
 	runtime::Field<bool> cancelFeed{false};
 	runtime::Field<int64_t> refeedTime{};
+	// the mood fields of Java 51d7a19cb, kept in memory only since player_pets lost their columns (f16e03ad3, wave 5 ports the new mood)
 	runtime::Field<int64_t> startMoodTime{};
 	runtime::Field<int32_t> shuggleCounter{};
 	runtime::Field<int32_t> lastSentPoints{};
 	runtime::Field<int64_t> moodCdStarted{};
 	runtime::Field<int64_t> giftCdStarted{};
 	const int32_t expireTime;
-	// fieldmap.toml: null until the DAO sets it (Timestamp column), hub-headers.md §6 nullable Timestamp field
+	// fieldmap.toml: null until set, hub-headers.md §6 nullable Timestamp field. Java 68eccc7b1 has neither this field nor the column (the pet
+	// rework f16e03ad3); until wave 5 ports the rework it is kept in memory only, set by PetList (load, addPet) and PetController.onDelete
 	runtime::Field<std::optional<commons::database::Timestamp>> despawnTime{};
 	runtime::Field<bool> isLooting_{false};
 	runtime::Field<bool> isSelling_{false};
@@ -74,6 +79,18 @@ public:
 	int32_t getDecoration() const { return decoration.get(); }
 
 	void setDecoration(int32_t value) { decoration.set(value); }
+
+	int32_t getColor() const { return color.get(); }
+
+	void setColor(int32_t value) { color.set(value); }
+
+	int32_t getFace() const { return face.get(); }
+
+	void setFace(int32_t value) { face.set(value); }
+
+	int32_t getHead() const { return head.get(); }
+
+	void setHead(int32_t value) { head.set(value); }
 
 	std::string getName() const { return name.get(); }
 
