@@ -1,8 +1,8 @@
 {
 	"format": "aion-staticdata-totals",
 	"version": 1,
-	"elements": 2105496,
-	"attributes": 6660945,
+	"elements": 2142352,
+	"attributes": 6684614,
 	"byTag": {
 		"abnormal": {
 			"count": 61,
@@ -117,7 +117,7 @@
 			}
 		},
 		"actions": {
-			"count": 41020,
+			"count": 41028,
 			"attributes": {}
 		},
 		"activateenslave": {
@@ -206,11 +206,12 @@
 			"attributes": {}
 		},
 		"alias_pos": {
-			"count": 10,
+			"count": 6,
 			"attributes": {
-				"x": 10,
-				"y": 10,
-				"z": 10
+				"h": 6,
+				"x": 6,
+				"y": 6,
+				"z": 6
 			}
 		},
 		"alwaysblock": {
@@ -702,11 +703,11 @@
 			}
 		},
 		"bound_radius": {
-			"count": 63266,
+			"count": 63280,
 			"attributes": {
-				"front": 63266,
-				"side": 63266,
-				"upper": 63266
+				"front": 63280,
+				"side": 63280,
+				"upper": 63280
 			}
 		},
 		"bounds": {
@@ -842,11 +843,11 @@
 			}
 		},
 		"center": {
-			"count": 90,
+			"count": 82,
 			"attributes": {
-				"x": 90,
-				"y": 90,
-				"z": 90
+				"x": 82,
+				"y": 82,
+				"z": 82
 			}
 		},
 		"chain": {
@@ -985,15 +986,15 @@
 			"attributes": {}
 		},
 		"cond": {
-			"count": 106,
+			"count": 115,
 			"attributes": {
 				"can_die": 15,
-				"cond_type": 80,
+				"cond_type": 89,
 				"delay": 26,
 				"despawn_time": 26,
-				"hp_below": 36,
+				"hp_below": 38,
 				"npc_id": 6,
-				"range": 38
+				"range": 40
 			}
 		},
 		"conditions": {
@@ -1137,20 +1138,6 @@
 			"count": 1,
 			"attributes": {}
 		},
-		"curing_object": {
-			"count": 10,
-			"attributes": {
-				"map_id": 10,
-				"range": 10,
-				"x": 10,
-				"y": 10,
-				"z": 10
-			}
-		},
-		"curing_objects": {
-			"count": 1,
-			"attributes": {}
-		},
 		"curse": {
 			"count": 30,
 			"attributes": {
@@ -1210,10 +1197,12 @@
 			}
 		},
 		"decomposable": {
-			"count": 4125,
+			"count": 4233,
 			"attributes": {
-				"item_id": 4125,
-				"selectable": 187
+				"item_id": 4233,
+				"only_one": 64,
+				"override": 106,
+				"selectable": 319
 			}
 		},
 		"decomposable_items": {
@@ -1221,7 +1210,7 @@
 			"attributes": {}
 		},
 		"decompose": {
-			"count": 4125,
+			"count": 4127,
 			"attributes": {}
 		},
 		"deform": {
@@ -1556,17 +1545,17 @@
 			}
 		},
 		"drop": {
-			"count": 3512,
+			"count": 3511,
 			"attributes": {
 				"chance": 2550,
-				"each_member": 107,
-				"item_id": 3512,
+				"each_member": 106,
+				"item_id": 3511,
 				"max_amount": 332,
 				"min_amount": 303
 			}
 		},
 		"drop_group": {
-			"count": 772,
+			"count": 771,
 			"attributes": {
 				"level_based_chance_reduction": 285,
 				"max_items": 35,
@@ -1651,7 +1640,7 @@
 			}
 		},
 		"enchant": {
-			"count": 1247,
+			"count": 1252,
 			"attributes": {
 				"chance": 52,
 				"count": 1195,
@@ -2686,23 +2675,20 @@
 			"attributes": {}
 		},
 		"item": {
-			"count": 261321,
+			"count": 298499,
 			"attributes": {
 				"buy_limit": 1426,
-				"chance": 76,
-				"count": 154,
+				"chance": 42934,
+				"count": 12863,
 				"frenzy_count": 28,
-				"id": 100802,
+				"id": 137980,
 				"item_id": 28,
 				"level": 4325,
 				"maxLevel": 415,
-				"max_count": 1056,
 				"minLevel": 415,
-				"min_count": 2500,
 				"normal_count": 28,
 				"parts": 89,
-				"player_classes": 3658,
-				"race": 876,
+				"race": 366,
 				"sell_limit": 1426,
 				"skill": 4300
 			}
@@ -2758,35 +2744,36 @@
 			"attributes": {}
 		},
 		"item_template": {
-			"count": 102009,
+			"count": 102011,
 			"attributes": {
 				"activate_combat": 121,
-				"activate_count": 26680,
-				"activate_target": 24008,
+				"activate_count": 26682,
+				"activate_target": 24010,
 				"attack_type": 17850,
-				"cName": 102009,
+				"cName": 102011,
 				"can_exceed_enchant": 12065,
-				"casting_delay": 6103,
-				"desc": 101979,
+				"casting_delay": 6105,
+				"desc": 101981,
+				"doping_pet_usable": 1124,
 				"enchant_name": 51,
 				"enchant_type": 41,
 				"exceed_enchant_skill": 11977,
 				"expire_time": 2616,
-				"id": 102009,
-				"item_group": 82178,
+				"id": 102011,
+				"item_group": 82186,
 				"item_type": 8384,
-				"level": 102009,
+				"level": 102011,
 				"m_slots": 46844,
-				"mask": 102009,
+				"mask": 102011,
 				"max_enchant": 46424,
 				"max_enchant_bonus": 6164,
 				"max_stack_count": 28619,
 				"max_tampering": 2331,
-				"name": 102009,
+				"name": 102011,
 				"option_slot_bonus": 12312,
 				"pack_count": 3160,
-				"price": 102009,
-				"quality": 102009,
+				"price": 102011,
+				"quality": 102011,
 				"race": 17569,
 				"restrict": 50371,
 				"restrict_max": 480,
@@ -2812,12 +2799,8 @@
 			}
 		},
 		"items": {
-			"count": 8278,
-			"attributes": {
-				"chance": 2498,
-				"maxlevel": 156,
-				"minlevel": 159
-			}
+			"count": 6,
+			"attributes": {}
 		},
 		"itemset": {
 			"count": 558,
@@ -2947,11 +2930,25 @@
 			}
 		},
 		"level": {
-			"count": 8,
+			"count": 208,
 			"attributes": {
+				"delay_time": 100,
+				"exp": 100,
+				"exp_limit": 100,
+				"get_max_from_all_user": 100,
+				"get_max_reduce_amount": 100,
+				"get_max_reduce_interval": 100,
 				"icon": 8,
 				"level": 8,
+				"lvl": 200,
 				"upgrade_chance": 7
+			}
+		},
+		"level_diff_mod": {
+			"count": 101,
+			"attributes": {
+				"level_diff": 101,
+				"mods": 101
 			}
 		},
 		"levels": {
@@ -3064,15 +3061,14 @@
 			}
 		},
 		"map": {
-			"count": 185,
+			"count": 174,
 			"attributes": {
-				"beginner_twin_count": 14,
 				"cName": 161,
-				"death_level": 161,
+				"cool_time": 17,
 				"drop_type": 161,
 				"except_buff": 17,
 				"flags": 161,
-				"id": 185,
+				"id": 174,
 				"instance": 110,
 				"max_user": 15,
 				"name": 149,
@@ -3080,12 +3076,11 @@
 				"prison": 2,
 				"pve_attack_ratio": 72,
 				"pve_defend_ratio": 72,
-				"twin_count": 14,
+				"twin_count": 19,
 				"water_level": 161,
-				"weather_count": 24,
 				"world_size": 161,
 				"world_type": 54,
-				"zone_count": 24
+				"zone_count": 13
 			}
 		},
 		"massive_loot": {
@@ -3161,6 +3156,10 @@
 			"attributes": {
 				"color": 19
 			}
+		},
+		"mentee_exp_limit_table": {
+			"count": 1,
+			"attributes": {}
 		},
 		"merc_zone": {
 			"count": 33,
@@ -3521,24 +3520,24 @@
 			"attributes": {}
 		},
 		"npc_skill": {
-			"count": 43706,
+			"count": 42245,
 			"attributes": {
-				"cd": 2027,
-				"chain_id": 848,
+				"cd": 1787,
+				"chain_id": 807,
 				"conjunction": 4,
-				"id": 43706,
-				"is_post_spawn": 199,
-				"lv": 43705,
+				"id": 42245,
+				"is_post_spawn": 208,
+				"lv": 42244,
 				"max_chain_time": 14,
-				"max_hp": 1150,
-				"max_time": 9,
-				"min_hp": 544,
-				"min_time": 37,
-				"next_chain_id": 887,
-				"next_skill_time": 1156,
-				"prio": 246,
-				"prob": 43661,
-				"target": 449
+				"max_hp": 798,
+				"max_time": 15,
+				"min_hp": 537,
+				"min_time": 74,
+				"next_chain_id": 853,
+				"next_skill_time": 1059,
+				"prio": 288,
+				"prob": 42200,
+				"target": 445
 			}
 		},
 		"npc_skill_templates": {
@@ -3546,9 +3545,9 @@
 			"attributes": {}
 		},
 		"npc_skills": {
-			"count": 11266,
+			"count": 11178,
 			"attributes": {
-				"npc_ids": 11266
+				"npc_ids": 11178
 			}
 		},
 		"npc_teleporter": {
@@ -3567,9 +3566,7 @@
 				"flag_type": 1632,
 				"floatcorpse": 2721,
 				"group_drop": 63287,
-				"height": 63257,
 				"hpgauge": 63287,
-				"item_upgrade": 2,
 				"level": 63287,
 				"name": 63287,
 				"name_id": 63287,
@@ -3642,7 +3639,9 @@
 		"onetimeboostskillattack": {
 			"count": 10,
 			"attributes": {
+				"acc_flat": 1,
 				"count": 10,
+				"dmg_flat": 5,
 				"duration2": 10,
 				"e": 10,
 				"effectid": 10,
@@ -3790,6 +3789,10 @@
 			"count": 9,
 			"attributes": {}
 		},
+		"party_exp_mod_table": {
+			"count": 1,
+			"attributes": {}
+		},
 		"passive": {
 			"count": 834,
 			"attributes": {
@@ -3813,10 +3816,10 @@
 			}
 		},
 		"percentage": {
-			"count": 182,
+			"count": 184,
 			"attributes": {
 				"isIndividual": 47,
-				"percent": 182,
+				"percent": 184,
 				"skillId": 51
 			}
 		},
@@ -3942,17 +3945,17 @@
 			"attributes": {}
 		},
 		"point": {
-			"count": 49652,
+			"count": 49668,
 			"attributes": {
-				"x": 49652,
-				"y": 49652
+				"x": 49668,
+				"y": 49668
 			}
 		},
 		"points": {
-			"count": 3594,
+			"count": 3595,
 			"attributes": {
-				"bottom": 3594,
-				"top": 3594
+				"bottom": 3595,
+				"top": 3595
 			}
 		},
 		"poison": {
@@ -4035,7 +4038,7 @@
 		"portal_loc": {
 			"count": 405,
 			"attributes": {
-				"h": 209,
+				"h": 211,
 				"loc_id": 405,
 				"world_id": 405,
 				"x": 405,
@@ -4275,6 +4278,14 @@
 				"result_item_id": 2198
 			}
 		},
+		"pvp_exp_mod_table": {
+			"count": 1,
+			"attributes": {}
+		},
+		"pvp_exp_table": {
+			"count": 1,
+			"attributes": {}
+		},
 		"quest": {
 			"count": 8199,
 			"attributes": {
@@ -4381,14 +4392,6 @@
 		"random_bonuses": {
 			"count": 1,
 			"attributes": {}
-		},
-		"random_item": {
-			"count": 614,
-			"attributes": {
-				"max_count": 132,
-				"min_count": 134,
-				"type": 614
-			}
 		},
 		"randommoveloc": {
 			"count": 15,
@@ -4511,6 +4514,14 @@
 			"attributes": {
 				"id": 30,
 				"start_npc_ids": 30
+			}
+		},
+		"remain": {
+			"count": 14,
+			"attributes": {
+				"duration": 14,
+				"name": 14,
+				"probability": 14
 			}
 		},
 		"remodel": {
@@ -4795,12 +4806,12 @@
 			}
 		},
 		"routestep": {
-			"count": 112765,
+			"count": 112865,
 			"attributes": {
 				"rest_time": 226,
-				"x": 112765,
-				"y": 112765,
-				"z": 112765
+				"x": 112865,
+				"y": 112865,
+				"z": 112865
 			}
 		},
 		"sale": {
@@ -4873,6 +4884,16 @@
 				"id": 17
 			}
 		},
+		"set": {
+			"count": 8659,
+			"attributes": {
+				"chance": 400,
+				"max_level": 332,
+				"min_level": 324,
+				"player_classes": 2254,
+				"race": 1634
+			}
+		},
 		"set_quest_status": {
 			"count": 1,
 			"attributes": {
@@ -4913,7 +4934,7 @@
 			}
 		},
 		"shield": {
-			"count": 442,
+			"count": 434,
 			"attributes": {
 				"basiclvl": 233,
 				"critprobmod1": 5,
@@ -4930,13 +4951,9 @@
 				"hopa": 81,
 				"hopb": 165,
 				"hoptype": 211,
-				"id": 8,
-				"map": 8,
-				"name": 8,
 				"noresist": 395,
 				"percent": 297,
 				"preeffect": 134,
-				"radius": 8,
 				"value": 434
 			}
 		},
@@ -4949,32 +4966,28 @@
 				"hoptype": 1
 			}
 		},
-		"shields": {
-			"count": 1,
-			"attributes": {}
-		},
 		"shout": {
-			"count": 3789,
+			"count": 3785,
 			"attributes": {
 				"param": 3,
 				"pattern": 1164,
 				"poll_delay": 7,
-				"skill_no": 1464,
-				"string_id": 3789,
-				"when": 3789
+				"skill_no": 1461,
+				"string_id": 3785,
+				"when": 3785
 			}
 		},
 		"shout_group": {
-			"count": 739,
+			"count": 738,
 			"attributes": {
-				"client_ai": 739
+				"client_ai": 738
 			}
 		},
 		"shout_npcs": {
-			"count": 982,
+			"count": 981,
 			"attributes": {
-				"npc_ids": 982,
-				"restrict_world": 665
+				"npc_ids": 981,
+				"restrict_world": 664
 			}
 		},
 		"siege_location": {
@@ -5030,6 +5043,14 @@
 			"count": 68,
 			"attributes": {
 				"siege_id": 68
+			}
+		},
+		"sign": {
+			"count": 20,
+			"attributes": {
+				"duration": 20,
+				"name": 20,
+				"probability": 20
 			}
 		},
 		"signet": {
@@ -5223,12 +5244,13 @@
 				"critprobmod2": 12,
 				"delta": 1,
 				"e": 65,
-				"element": 4,
 				"hoptype": 62,
 				"hp_percent": 63,
 				"mode": 9,
 				"mp_percent": 14,
 				"noresist": 1,
+				"prob": 5,
+				"prob_delta": 4,
 				"shared": 1,
 				"value": 65
 			}
@@ -5355,15 +5377,15 @@
 			}
 		},
 		"spawn": {
-			"count": 28488,
+			"count": 28498,
 			"attributes": {
 				"custom": 614,
-				"difficult_id": 289,
+				"difficult_id": 305,
 				"h": 3053,
 				"handler": 1634,
-				"npc_id": 25394,
+				"npc_id": 25404,
 				"pool": 138,
-				"respawn_time": 19936,
+				"respawn_time": 19938,
 				"type": 3094,
 				"x": 3094,
 				"y": 3094,
@@ -5507,20 +5529,20 @@
 			}
 		},
 		"spot": {
-			"count": 138949,
+			"count": 138988,
 			"attributes": {
 				"aerial_spawn": 1135,
 				"ai": 1205,
 				"anchor": 124,
-				"h": 106627,
-				"random_walk": 19946,
+				"h": 106629,
+				"random_walk": 19947,
 				"state": 234,
 				"static_id": 4849,
 				"walker_id": 5816,
 				"walker_index": 405,
-				"x": 138949,
-				"y": 138949,
-				"z": 138949
+				"x": 138988,
+				"y": 138988,
+				"z": 138988
 			}
 		},
 		"stagger": {
@@ -5743,7 +5765,8 @@
 			"count": 980,
 			"attributes": {
 				"addeffect": 23,
-				"chance": 83,
+				"chance": 91,
+				"chance_delta": 8,
 				"skill_id": 980
 			}
 		},
@@ -5768,13 +5791,13 @@
 			}
 		},
 		"summonGroup": {
-			"count": 220,
+			"count": 222,
 			"attributes": {
-				"distance": 145,
+				"distance": 147,
 				"h": 67,
 				"maxCount": 3,
-				"minCount": 65,
-				"npcId": 220,
+				"minCount": 67,
+				"npcId": 222,
 				"schedule": 8,
 				"x": 75,
 				"y": 75,
@@ -5917,17 +5940,6 @@
 				"noresist": 2
 			}
 		},
-		"table": {
-			"count": 110,
-			"attributes": {
-				"after": 27,
-				"before": 32,
-				"code": 110,
-				"name": 108,
-				"rank": 110,
-				"zone_id": 110
-			}
-		},
 		"tail": {
 			"count": 17,
 			"attributes": {
@@ -5947,7 +5959,7 @@
 			}
 		},
 		"tampering": {
-			"count": 13,
+			"count": 14,
 			"attributes": {}
 		},
 		"target": {
@@ -5992,8 +6004,7 @@
 		"targetteleport": {
 			"count": 11,
 			"attributes": {
-				"alias_location": 2,
-				"distance": 11,
+				"alias_location": 4,
 				"e": 11,
 				"hopa": 5,
 				"hopb": 5,
@@ -6238,7 +6249,7 @@
 			"attributes": {}
 		},
 		"uselimits": {
-			"count": 29189,
+			"count": 29191,
 			"attributes": {
 				"gender": 456,
 				"guild_level": 37,
@@ -6250,8 +6261,8 @@
 				"recommend_rank": 482,
 				"ride_usable": 16,
 				"usearea": 294,
-				"usedelay": 7764,
-				"usedelayid": 23502
+				"usedelay": 7766,
+				"usedelayid": 23504
 			}
 		},
 		"utility": {
@@ -6278,7 +6289,8 @@
 			"attributes": {
 				"defends_race": 2,
 				"id": 2,
-				"offence_race": 2
+				"offence_race": 2,
+				"zones": 2
 			}
 		},
 		"vortex_spawn": {
@@ -6294,12 +6306,12 @@
 			}
 		},
 		"walker_template": {
-			"count": 6449,
+			"count": 6450,
 			"attributes": {
 				"formation": 1505,
 				"loop_type": 322,
 				"pool": 1506,
-				"route_id": 6449,
+				"route_id": 6450,
 				"rows": 1134
 			}
 		},
@@ -6358,6 +6370,20 @@
 			}
 		},
 		"weather": {
+			"count": 62,
+			"attributes": {
+				"code": 62,
+				"duration": 62,
+				"hours": 26,
+				"months": 6,
+				"name": 62,
+				"occur_prob": 62,
+				"priority": 62,
+				"state": 47,
+				"zone": 62
+			}
+		},
+		"weather_maps": {
 			"count": 1,
 			"attributes": {}
 		},
@@ -6365,6 +6391,16 @@
 			"count": 5,
 			"attributes": {
 				"mapid": 5
+			}
+		},
+		"windstream_point": {
+			"count": 891,
+			"attributes": {
+				"entry": 5,
+				"exit": 259,
+				"x": 891,
+				"y": 891,
+				"z": 891
 			}
 		},
 		"windstreams": {
@@ -6465,16 +6501,16 @@
 			}
 		},
 		"zone": {
-			"count": 3978,
+			"count": 3979,
 			"attributes": {
-				"area_type": 3978,
+				"area_type": 3979,
 				"flags": 2382,
-				"mapid": 3978,
-				"name": 3978,
+				"mapid": 3979,
+				"name": 3979,
 				"priority": 2166,
 				"siege_id": 38,
 				"town_id": 50,
-				"zone_type": 3978
+				"zone_type": 3979
 			}
 		},
 		"zones": {
@@ -6486,8 +6522,8 @@
 		{
 			"import": "items/item_templates.xml",
 			"files": 1,
-			"elements": 703793,
-			"attributes": 2454839,
+			"elements": 703813,
+			"attributes": 2455997,
 			"root": "item_templates"
 		},
 		{
@@ -6542,8 +6578,8 @@
 		{
 			"import": "ai",
 			"files": 2,
-			"elements": 560,
-			"attributes": 1099,
+			"elements": 564,
+			"attributes": 1107,
 			"root": "ai_templates"
 		},
 		{
@@ -6596,24 +6632,17 @@
 			"root": "cosmetic_items"
 		},
 		{
-			"import": "curing_objects/curing_objects.xml",
-			"files": 1,
-			"elements": 11,
-			"attributes": 50,
-			"root": "curing_objects"
-		},
-		{
 			"import": "custom_drop/custom_drop.xml",
 			"files": 1,
-			"elements": 4459,
-			"attributes": 7330,
+			"elements": 4457,
+			"attributes": 7328,
 			"root": "custom_drop"
 		},
 		{
-			"import": "decomposable_items/decomposable_items.xml",
-			"files": 1,
-			"elements": 26315,
-			"attributes": 29032,
+			"import": "decomposable_items",
+			"files": 2,
+			"elements": 63374,
+			"attributes": 115714,
 			"root": "decomposable_items"
 		},
 		{
@@ -6661,8 +6690,8 @@
 		{
 			"import": "flypath_template.xml",
 			"files": 1,
-			"elements": 209,
-			"attributes": 2080,
+			"elements": 1100,
+			"attributes": 5017,
 			"root": "flypath_template"
 		},
 		{
@@ -6794,15 +6823,15 @@
 		{
 			"import": "npc_shouts/npc_shouts.xml",
 			"files": 1,
-			"elements": 5511,
-			"attributes": 12602,
+			"elements": 5505,
+			"attributes": 12588,
 			"root": "npc_shouts"
 		},
 		{
 			"import": "npc_skills",
-			"files": 25,
-			"elements": 55111,
-			"attributes": 150270,
+			"files": 26,
+			"elements": 53571,
+			"attributes": 145131,
 			"root": "npc_skill_templates"
 		},
 		{
@@ -6822,15 +6851,15 @@
 		{
 			"import": "npc_walker",
 			"files": 13,
-			"elements": 119215,
-			"attributes": 349437,
+			"elements": 119316,
+			"attributes": 349738,
 			"root": "npc_walker"
 		},
 		{
 			"import": "npcs",
 			"files": 1,
-			"elements": 448810,
-			"attributes": 1611572,
+			"elements": 448824,
+			"attributes": 1548355,
 			"root": "npc_templates"
 		},
 		{
@@ -6876,6 +6905,34 @@
 			"root": "player_experience_table"
 		},
 		{
+			"import": "exp_mod_table/pvp_exp_table.xml",
+			"files": 1,
+			"elements": 101,
+			"attributes": 600,
+			"root": "pvp_exp_table"
+		},
+		{
+			"import": "exp_mod_table/pvp_exp_mod_table.xml",
+			"files": 1,
+			"elements": 51,
+			"attributes": 100,
+			"root": "pvp_exp_mod_table"
+		},
+		{
+			"import": "exp_mod_table/party_exp_mod_table.xml",
+			"files": 1,
+			"elements": 52,
+			"attributes": 102,
+			"root": "party_exp_mod_table"
+		},
+		{
+			"import": "exp_mod_table/mentee_exp_limit_table.xml",
+			"files": 1,
+			"elements": 101,
+			"attributes": 200,
+			"root": "mentee_exp_limit_table"
+		},
+		{
 			"import": "player_initial_data.xml",
 			"files": 1,
 			"elements": 93,
@@ -6900,7 +6957,7 @@
 			"import": "portals/portal_loc.xml",
 			"files": 1,
 			"elements": 406,
-			"attributes": 2234,
+			"attributes": 2236,
 			"root": "portal_locs"
 		},
 		{
@@ -6974,13 +7031,6 @@
 			"root": "siege_locations"
 		},
 		{
-			"import": "siege/siege_shields.xml",
-			"files": 1,
-			"elements": 17,
-			"attributes": 56,
-			"root": "shields"
-		},
-		{
 			"import": "skills/motion_times.xml",
 			"files": 1,
 			"elements": 9590,
@@ -6998,7 +7048,7 @@
 			"import": "skills/skill_templates.xml",
 			"files": 1,
 			"elements": 145014,
-			"attributes": 512711,
+			"attributes": 512729,
 			"root": "skill_data"
 		},
 		{
@@ -7011,8 +7061,8 @@
 		{
 			"import": "spawns",
 			"files": 211,
-			"elements": 154828,
-			"attributes": 568017,
+			"elements": 154877,
+			"attributes": 568165,
 			"root": "spawns"
 		},
 		{
@@ -7068,7 +7118,7 @@
 			"import": "vortex/dimensional_vortex.xml",
 			"files": 1,
 			"elements": 9,
-			"attributes": 36,
+			"attributes": 38,
 			"root": "dimensional_vortex"
 		},
 		{
@@ -7081,9 +7131,9 @@
 		{
 			"import": "weather_table.xml",
 			"files": 1,
-			"elements": 135,
-			"attributes": 569,
-			"root": "weather"
+			"elements": 110,
+			"attributes": 579,
+			"root": "weather_maps"
 		},
 		{
 			"import": "windstreams/windstreams.xml",
@@ -7096,7 +7146,7 @@
 			"import": "world_maps.xml",
 			"files": 1,
 			"elements": 165,
-			"attributes": 1801,
+			"attributes": 1648,
 			"root": "world_maps"
 		},
 		{
@@ -7109,15 +7159,15 @@
 		{
 			"import": "zones",
 			"files": 149,
-			"elements": 57609,
-			"attributes": 128577,
+			"elements": 57627,
+			"attributes": 128615,
 			"root": "zones"
 		},
 		{
 			"import": "skills/alias_locations.xml",
 			"files": 1,
-			"elements": 13,
-			"attributes": 34,
+			"elements": 9,
+			"attributes": 28,
 			"root": "alias_locations"
 		},
 		{
@@ -7129,12 +7179,19 @@
 		}
 	],
 	"namespaceAttributes": {
-		"xsi:noNamespaceSchemaLocation": 63
+		"xsi:noNamespaceSchemaLocation": 65
 	},
 	"skippedRoots": [
 		{
 			"file": "ai/spawn_helpers.xml",
 			"tag": "ai_templates",
+			"attributes": [
+				"xsi:noNamespaceSchemaLocation"
+			]
+		},
+		{
+			"file": "decomposable_items/decomposable_items.xml",
+			"tag": "decomposable_items",
 			"attributes": [
 				"xsi:noNamespaceSchemaLocation"
 			]
@@ -7743,6 +7800,13 @@
 		},
 		{
 			"file": "npc_skills/guard_skills.xml",
+			"tag": "npc_skill_templates",
+			"attributes": [
+				"xsi:noNamespaceSchemaLocation"
+			]
+		},
+		{
+			"file": "npc_skills/instances/300170000_Beshmundir_Temple.xml",
 			"tag": "npc_skill_templates",
 			"attributes": [
 				"xsi:noNamespaceSchemaLocation"

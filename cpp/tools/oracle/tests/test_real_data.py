@@ -76,18 +76,19 @@ class RealStaticDataTest(unittest.TestCase):
 
 	def test_anchor_counts(self):
 		values = {line["javaLine"]: line["values"] for line in self.result["counts"]["lines"]}
-		anchors = {315: [161], 321: [102009], 324: [63287], 335: [13570], 342: [8043], 345: [6449], 347: [3978], 350: [12494], 391: [2450]}
+		# the data of the upstream sync 2026-11 (Java 68eccc7b1, StaticData.java log lines 314-405)
+		anchors = {314: [161], 324: [102011], 327: [63287], 338: [13570], 345: [8043], 348: [6450], 350: [3979], 353: [12494], 392: [2450]}
 		for java_line, expected in anchors.items():
 			self.assertEqual(values[java_line], expected, java_line)
 		self.assertEqual(self.result["counts"]["extras"]["xml_quests"]["value"], 4184)
-		self.assertEqual(sum(len(v) for v in values.values()), 92)
+		self.assertEqual(sum(len(v) for v in values.values()), 95)
 		by_tag = self.result["totals"]["byTag"]
-		self.assertEqual(by_tag["item_template"]["count"], 102009)
+		self.assertEqual(by_tag["item_template"]["count"], 102011)
 		self.assertEqual(by_tag["npc_template"]["count"], 63287)
-		self.assertEqual(by_tag["routestep"]["count"], 112765)
+		self.assertEqual(by_tag["routestep"]["count"], 112865)
 		imports = {h["import"]: h for h in self.result["totals"]["byImport"]}
 		self.assertEqual((imports["spawns"]["files"], imports["zones"]["files"], imports["npc_walker"]["files"]), (211, 149, 13))
-		self.assertEqual(imports["npc_walker"]["elements"], 1 + 6449 + 112765)
+		self.assertEqual(imports["npc_walker"]["elements"], 1 + 6450 + 112865)
 
 	def test_census_finds_the_known_present_empty_values(self):
 		paths = self.result["census"]["paths"]
@@ -137,14 +138,15 @@ class RealStaticDataTest(unittest.TestCase):
 			source = lines[java_line - 1]
 			m = re.match(r'\s*log\.info\((.*)\);\s*$', source)
 			self.assertIsNotNone(m, f"StaticData.java:{java_line} is not a log.info statement")
-			expr = re.sub(r"\s*\+\s*\(.*\)$", ' + X + ""', m.group(1))
-			java_template = re.sub(r'"\s*\+\s*[^"]+?\s*\+\s*"', "{}", expr)
-			self.assertEqual(java_template, f'"{template}"', f"StaticData.java:{java_line}")
+			# since 68eccc7b1 the messages are SLF4J templates: the first argument is the string literal with {} placeholders
+			java_template = re.match(r'(".*?")\s*,', m.group(1))
+			self.assertIsNotNone(java_template, f"StaticData.java:{java_line}")
+			self.assertEqual(java_template.group(1), f'"{template}"', f"StaticData.java:{java_line}")
 
 	def test_xsd_check_on_real_schema(self):
 		p = "com.aionemu.gameserver."
-		attributes = {"id": True, "cName": True, "name": False, "name_id": False, "twin_count": False, "beginner_twin_count": False,
-		              "max_user": False, "prison": False, "instance": False, "death_level": True, "water_level": True, "world_type": False,
+		attributes = {"id": True, "cName": True, "name": False, "name_id": False, "twin_count": False, "cool_time": False,
+		              "max_user": False, "prison": False, "instance": False, "water_level": True, "world_type": False,
 		              "world_size": False, "drop_type": False, "except_buff": False, "flags": False, "pve_attack_ratio": False,
 		              "pve_defend_ratio": False}  # WorldMapTemplate.java
 		props = [{"javaName": n, "node": "attribute", "xmlName": n, "required": r} for n, r in attributes.items()]
@@ -163,9 +165,9 @@ class RealStaticDataTest(unittest.TestCase):
 
 	def test_xsd_inventory(self):
 		inventory = load_schemas(DATA).inventory()
-		self.assertEqual(inventory["files"], 96)
-		self.assertEqual(inventory["counts"]["xs:complexType"], 744)
-		self.assertEqual(inventory["counts"]["xs:attribute"], 1429)
+		self.assertEqual(inventory["files"], 98)
+		self.assertEqual(inventory["counts"]["xs:complexType"], 746)
+		self.assertEqual(inventory["counts"]["xs:attribute"], 1453)
 		self.assertEqual(inventory["namesDefinedDifferently"], [])
 
 
