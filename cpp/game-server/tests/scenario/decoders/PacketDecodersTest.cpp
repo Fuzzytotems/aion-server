@@ -43,7 +43,7 @@ Appearance sampleAppearance() {
 	uint8_t value = 11;
 	for (uint8_t* field : {&a.face, &a.hair, &a.deco, &a.tattoo, &a.faceContour, &a.expression, &a.jawLine, &a.forehead, &a.eyeHeight, &a.eyeSpace,
 				 &a.eyeWidth, &a.eyeSize, &a.eyeShape, &a.eyeAngle, &a.browHeight, &a.browAngle, &a.browShape, &a.nose, &a.noseBridge, &a.noseWidth,
-				 &a.noseTip, &a.cheek, &a.lipHeight, &a.mouthSize, &a.lipSize, &a.smile, &a.lipShape, &a.jawHeight, &a.chinJut, &a.earShape, &a.headSize,
+				 &a.noseTip, &a.cheek, &a.lipHeight, &a.mouthSize, &a.lipSize, &a.smile, &a.lipShape, &a.chinHeight, &a.cheekBones, &a.earShape, &a.headSize,
 				 &a.neck, &a.neckLength, &a.shoulderSize, &a.torso, &a.chest, &a.waist, &a.hips, &a.armThickness, &a.handSize, &a.legThickness,
 				 &a.footSize, &a.facialRate, &a.armLength, &a.legLength, &a.shoulders, &a.faceShape})
 		*field = value++;
@@ -59,7 +59,7 @@ void appearanceBytes(PacketWriter& writer, const Appearance& a) {
 	writer.C(a.eyeHeight).C(a.eyeSpace).C(a.eyeWidth).C(a.eyeSize).C(a.eyeShape).C(a.eyeAngle);
 	writer.C(a.browHeight).C(a.browAngle).C(a.browShape);
 	writer.C(a.nose).C(a.noseBridge).C(a.noseWidth).C(a.noseTip);
-	writer.C(a.cheek).C(a.lipHeight).C(a.mouthSize).C(a.lipSize).C(a.smile).C(a.lipShape).C(a.jawHeight).C(a.chinJut).C(a.earShape).C(a.headSize);
+	writer.C(a.cheek).C(a.lipHeight).C(a.mouthSize).C(a.lipSize).C(a.smile).C(a.lipShape).C(a.chinHeight).C(a.cheekBones).C(a.earShape).C(a.headSize);
 	writer.C(a.neck).C(a.neckLength).C(a.shoulderSize);
 	writer.C(a.torso).C(a.chest).C(a.waist).C(a.hips);
 	writer.C(a.armThickness).C(a.handSize).C(a.legThickness);

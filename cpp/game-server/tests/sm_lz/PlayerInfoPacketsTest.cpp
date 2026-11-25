@@ -77,8 +77,8 @@ void setAppearance(model::gameobjects::player::PlayerAppearance& a) {
 	a.setLipSize(26);
 	a.setSmile(27);
 	a.setLipShape(28);
-	a.setJawHeigh(29);
-	a.setChinJut(30);
+	a.setChinHeight(29);
+	a.setCheekBones(30);
 	a.setEarShape(31);
 	a.setHeadSize(32);
 	a.setNeck(33);
