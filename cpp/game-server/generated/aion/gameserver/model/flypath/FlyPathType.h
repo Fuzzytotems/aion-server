@@ -11,9 +11,9 @@ namespace aion::gameserver::model::flypath {
 
 /** Java enum com.aionemu.gameserver.model.flypath.FlyPathType: constants in ordinal order (EnumTraits: names and XML lexical forms). Constructor data and methods are hand-written free functions in a companion header. */
 enum class FlyPathType : uint8_t {
-	GEYSER,
-	ONE_WAY,
-	TWO_WAY,
+	WIND_BOX,
+	WIND_PATH,
+	MOVING_COLLISION,
 };
 
 } // namespace aion::gameserver::model::flypath
@@ -24,14 +24,14 @@ template <>
 struct EnumTraits<::aion::gameserver::model::flypath::FlyPathType> {
 	static constexpr std::string_view javaName = "FlyPathType";
 	static constexpr std::array<std::string_view, 3> names{
-	  "GEYSER",
-	  "ONE_WAY",
-	  "TWO_WAY",
+	  "WIND_BOX",
+	  "WIND_PATH",
+	  "MOVING_COLLISION",
 	};
 	static constexpr std::array<EnumEntry<::aion::gameserver::model::flypath::FlyPathType>, 3> xmlSorted{{
-	  {"GEYSER", ::aion::gameserver::model::flypath::FlyPathType::GEYSER},
-	  {"ONE_WAY", ::aion::gameserver::model::flypath::FlyPathType::ONE_WAY},
-	  {"TWO_WAY", ::aion::gameserver::model::flypath::FlyPathType::TWO_WAY},
+	  {"MOVING_COLLISION", ::aion::gameserver::model::flypath::FlyPathType::MOVING_COLLISION},
+	  {"WIND_BOX", ::aion::gameserver::model::flypath::FlyPathType::WIND_BOX},
+	  {"WIND_PATH", ::aion::gameserver::model::flypath::FlyPathType::WIND_PATH},
 	}};
 };
 static_assert(verifyEnumTraits<::aion::gameserver::model::flypath::FlyPathType>());

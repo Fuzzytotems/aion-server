@@ -49,12 +49,6 @@ bool XmlBinding<::aion::gameserver::model::templates::npc::NpcTemplate>::attribu
 				return true;
 			}
 			break;
-		case "height"_xh:
-			if (name == "height") {
-				c.assign(o.height, value);
-				return true;
-			}
-			break;
 		case "rank"_xh:
 			if (name == "rank") {
 				c.assign(o.rank, value);
@@ -167,13 +161,6 @@ bool XmlBinding<::aion::gameserver::model::templates::npc::NpcTemplate>::attribu
 			if (name == "npc_id") {
 				o.setXmlUid(value);
 				c.registerXmlId(value, o);
-				return true;
-			}
-			break;
-		case "item_upgrade"_xh:
-			if (name == "item_upgrade") {
-				static_cast<void>(value); // not bound by Java, ignored like JAXB (xmlgen.toml [ignore_attributes]: 2 npc_template)
-				c.ignoreAttribute(); // BindStats counts it as ignored
 				return true;
 			}
 			break;

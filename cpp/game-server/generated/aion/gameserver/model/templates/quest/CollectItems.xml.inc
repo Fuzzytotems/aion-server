@@ -5,4 +5,7 @@
 
 protected:
 	std::vector<::aion::gameserver::model::templates::quest::CollectItem> collectItem; // @XmlElement(name = "collect_item")
-	std::optional<bool> startCheck; // @XmlAttribute(name = "start_check")
+	bool startCheck = false; // @XmlAttribute(name = "start_check")
+
+public:
+	bool getStartCheck() const { return startCheck; }

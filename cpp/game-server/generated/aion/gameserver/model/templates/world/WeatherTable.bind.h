@@ -17,7 +17,10 @@ struct XmlBinding<::aion::gameserver::model::templates::world::WeatherTable> {
 	static constexpr std::string_view CLASS_NAME = "WeatherTable";
 	static bool attribute(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, std::string_view name, std::string_view value);
 	static bool element(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, pugi::xml_node e, std::string_view name);
+	static void reserve(::aion::gameserver::model::templates::world::WeatherTable& o, const ChildCounts& counts);
 	static void finish(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, const XmlParent& parent);
+	/** calls the hand-written WeatherTable::afterUnmarshal (also for subclasses without their own hook) */
+	static void afterUnmarshal(::aion::gameserver::model::templates::world::WeatherTable& o, LoadContext& ctx, const XmlParent& parent);
 };
 
 } // namespace aion::gameserver::xml

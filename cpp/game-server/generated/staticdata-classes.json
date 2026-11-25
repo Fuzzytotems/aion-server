@@ -3,14 +3,6 @@
 	"version": 1,
 	"classes": [
 		{
-			"fqn": "com.aionemu.gameserver.configs.ingameshop.InGameShopProperty",
-			"binaryName": "com.aionemu.gameserver.configs.ingameshop.InGameShopProperty",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::configs::ingameshop::InGameShopProperty",
-			"header": "aion/gameserver/configs/ingameshop/InGameShopProperty.h",
-			"runtimeMutable": []
-		},
-		{
 			"fqn": "com.aionemu.gameserver.configs.schedule.RiftSchedule",
 			"binaryName": "com.aionemu.gameserver.configs.schedule.RiftSchedule",
 			"kind": "behaviour",
@@ -176,14 +168,6 @@
 			"kind": "behaviour",
 			"cppQualifiedName": "::aion::gameserver::dataholders::CubeExpandData",
 			"header": "aion/gameserver/dataholders/CubeExpandData.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.dataholders.CuringObjectsData",
-			"binaryName": "com.aionemu.gameserver.dataholders.CuringObjectsData",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::dataholders::CuringObjectsData",
-			"header": "aion/gameserver/dataholders/CuringObjectsData.h",
 			"runtimeMutable": []
 		},
 		{
@@ -427,6 +411,22 @@
 			"runtimeMutable": []
 		},
 		{
+			"fqn": "com.aionemu.gameserver.dataholders.MenteeExpLimitTable",
+			"binaryName": "com.aionemu.gameserver.dataholders.MenteeExpLimitTable",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::dataholders::MenteeExpLimitTable",
+			"header": "aion/gameserver/dataholders/MenteeExpLimitTable.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.dataholders.MenteeExpLimitTable.Row",
+			"binaryName": "com.aionemu.gameserver.dataholders.MenteeExpLimitTable$Row",
+			"kind": "data",
+			"cppQualifiedName": "::aion::gameserver::dataholders::MenteeExpLimitTable_Row",
+			"header": "aion/gameserver/dataholders/MenteeExpLimitTable_Row.h",
+			"runtimeMutable": []
+		},
+		{
 			"fqn": "com.aionemu.gameserver.dataholders.MotionData",
 			"binaryName": "com.aionemu.gameserver.dataholders.MotionData",
 			"kind": "behaviour",
@@ -480,6 +480,22 @@
 			"kind": "behaviour",
 			"cppQualifiedName": "::aion::gameserver::dataholders::PanelSkillsData",
 			"header": "aion/gameserver/dataholders/PanelSkillsData.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.dataholders.PartyExpModTable",
+			"binaryName": "com.aionemu.gameserver.dataholders.PartyExpModTable",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::dataholders::PartyExpModTable",
+			"header": "aion/gameserver/dataholders/PartyExpModTable.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.dataholders.PartyExpModTable.Row",
+			"binaryName": "com.aionemu.gameserver.dataholders.PartyExpModTable$Row",
+			"kind": "data",
+			"cppQualifiedName": "::aion::gameserver::dataholders::PartyExpModTable_Row",
+			"header": "aion/gameserver/dataholders/PartyExpModTable_Row.h",
 			"runtimeMutable": []
 		},
 		{
@@ -587,6 +603,38 @@
 			"runtimeMutable": []
 		},
 		{
+			"fqn": "com.aionemu.gameserver.dataholders.PvpExpModTable",
+			"binaryName": "com.aionemu.gameserver.dataholders.PvpExpModTable",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::dataholders::PvpExpModTable",
+			"header": "aion/gameserver/dataholders/PvpExpModTable.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.dataholders.PvpExpModTable.Row",
+			"binaryName": "com.aionemu.gameserver.dataholders.PvpExpModTable$Row",
+			"kind": "data",
+			"cppQualifiedName": "::aion::gameserver::dataholders::PvpExpModTable_Row",
+			"header": "aion/gameserver/dataholders/PvpExpModTable_Row.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.dataholders.PvpExpTable",
+			"binaryName": "com.aionemu.gameserver.dataholders.PvpExpTable",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::dataholders::PvpExpTable",
+			"header": "aion/gameserver/dataholders/PvpExpTable.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.dataholders.PvpExpTable.Row",
+			"binaryName": "com.aionemu.gameserver.dataholders.PvpExpTable$Row",
+			"kind": "data",
+			"cppQualifiedName": "::aion::gameserver::dataholders::PvpExpTable_Row",
+			"header": "aion/gameserver/dataholders/PvpExpTable_Row.h",
+			"runtimeMutable": []
+		},
+		{
 			"fqn": "com.aionemu.gameserver.dataholders.QuestsData",
 			"binaryName": "com.aionemu.gameserver.dataholders.QuestsData",
 			"kind": "behaviour",
@@ -624,14 +672,6 @@
 			"kind": "behaviour",
 			"cppQualifiedName": "::aion::gameserver::dataholders::RoadData",
 			"header": "aion/gameserver/dataholders/RoadData.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.dataholders.ShieldData",
-			"binaryName": "com.aionemu.gameserver.dataholders.ShieldData",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::dataholders::ShieldData",
-			"header": "aion/gameserver/dataholders/ShieldData.h",
 			"runtimeMutable": []
 		},
 		{
@@ -1264,14 +1304,6 @@
 			"runtimeMutable": []
 		},
 		{
-			"fqn": "com.aionemu.gameserver.model.templates.curingzones.CuringTemplate",
-			"binaryName": "com.aionemu.gameserver.model.templates.curingzones.CuringTemplate",
-			"kind": "data",
-			"cppQualifiedName": "::aion::gameserver::model::templates::curingzones::CuringTemplate",
-			"header": "aion/gameserver/model/templates/curingzones/CuringTemplate.h",
-			"runtimeMutable": []
-		},
-		{
 			"fqn": "com.aionemu.gameserver.model.templates.event.AtreianPassport",
 			"binaryName": "com.aionemu.gameserver.model.templates.event.AtreianPassport",
 			"kind": "data",
@@ -1381,6 +1413,14 @@
 			"kind": "behaviour",
 			"cppQualifiedName": "::aion::gameserver::model::templates::flypath::FlyPathEntry",
 			"header": "aion/gameserver/model/templates/flypath/FlyPathEntry.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.model.templates.flypath.WindstreamPoint",
+			"binaryName": "com.aionemu.gameserver.model.templates.flypath.WindstreamPoint",
+			"kind": "data",
+			"cppQualifiedName": "::aion::gameserver::model::templates::flypath::WindstreamPoint",
+			"header": "aion/gameserver/model/templates/flypath/WindstreamPoint.h",
 			"runtimeMutable": []
 		},
 		{
@@ -1792,22 +1832,6 @@
 			"runtimeMutable": []
 		},
 		{
-			"fqn": "com.aionemu.gameserver.model.templates.ingameshop.IGCategory",
-			"binaryName": "com.aionemu.gameserver.model.templates.ingameshop.IGCategory",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::model::templates::ingameshop::IGCategory",
-			"header": "aion/gameserver/model/templates/ingameshop/IGCategory.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.ingameshop.IGSubCategory",
-			"binaryName": "com.aionemu.gameserver.model.templates.ingameshop.IGSubCategory",
-			"kind": "data",
-			"cppQualifiedName": "::aion::gameserver::model::templates::ingameshop::IGSubCategory",
-			"header": "aion/gameserver/model/templates/ingameshop/IGSubCategory.h",
-			"runtimeMutable": []
-		},
-		{
 			"fqn": "com.aionemu.gameserver.model.templates.instance_bonusatrr.InstanceBonusAttr",
 			"binaryName": "com.aionemu.gameserver.model.templates.instance_bonusatrr.InstanceBonusAttr",
 			"kind": "behaviour",
@@ -1840,11 +1864,27 @@
 			"runtimeMutable": []
 		},
 		{
-			"fqn": "com.aionemu.gameserver.model.templates.item.DecomposableItemInfo",
-			"binaryName": "com.aionemu.gameserver.model.templates.item.DecomposableItemInfo",
-			"kind": "data",
-			"cppQualifiedName": "::aion::gameserver::model::templates::item::DecomposableItemInfo",
-			"header": "aion/gameserver/model/templates/item/DecomposableItemInfo.h",
+			"fqn": "com.aionemu.gameserver.model.templates.item.DecomposableItem",
+			"binaryName": "com.aionemu.gameserver.model.templates.item.DecomposableItem",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::model::templates::item::DecomposableItem",
+			"header": "aion/gameserver/model/templates/item/DecomposableItem.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.model.templates.item.DecomposableSet",
+			"binaryName": "com.aionemu.gameserver.model.templates.item.DecomposableSet",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::model::templates::item::DecomposableSet",
+			"header": "aion/gameserver/model/templates/item/DecomposableSet.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.model.templates.item.DecomposedItem",
+			"binaryName": "com.aionemu.gameserver.model.templates.item.DecomposedItem",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::model::templates::item::DecomposedItem",
+			"header": "aion/gameserver/model/templates/item/DecomposedItem.h",
 			"runtimeMutable": []
 		},
 		{
@@ -1861,14 +1901,6 @@
 			"kind": "data",
 			"cppQualifiedName": "::aion::gameserver::model::templates::item::ExtraInventory",
 			"header": "aion/gameserver/model/templates/item/ExtraInventory.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.item.ExtractedItemsCollection",
-			"binaryName": "com.aionemu.gameserver.model.templates.item.ExtractedItemsCollection",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::model::templates::item::ExtractedItemsCollection",
-			"header": "aion/gameserver/model/templates/item/ExtractedItemsCollection.h",
 			"runtimeMutable": []
 		},
 		{
@@ -1917,30 +1949,6 @@
 			"kind": "data",
 			"cppQualifiedName": "::aion::gameserver::model::templates::item::MultiReturnItem",
 			"header": "aion/gameserver/model/templates/item/MultiReturnItem.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.item.RandomItem",
-			"binaryName": "com.aionemu.gameserver.model.templates.item.RandomItem",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::model::templates::item::RandomItem",
-			"header": "aion/gameserver/model/templates/item/RandomItem.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.item.ResultedItem",
-			"binaryName": "com.aionemu.gameserver.model.templates.item.ResultedItem",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::model::templates::item::ResultedItem",
-			"header": "aion/gameserver/model/templates/item/ResultedItem.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.item.ResultedItemsCollection",
-			"binaryName": "com.aionemu.gameserver.model.templates.item.ResultedItemsCollection",
-			"kind": "behaviour",
-			"cppQualifiedName": "::aion::gameserver::model::templates::item::ResultedItemsCollection",
-			"header": "aion/gameserver/model/templates/item/ResultedItemsCollection.h",
 			"runtimeMutable": []
 		},
 		{
@@ -2674,7 +2682,7 @@
 		{
 			"fqn": "com.aionemu.gameserver.model.templates.materials.MaterialTemplate",
 			"binaryName": "com.aionemu.gameserver.model.templates.materials.MaterialTemplate",
-			"kind": "data",
+			"kind": "behaviour",
 			"cppQualifiedName": "::aion::gameserver::model::templates::materials::MaterialTemplate",
 			"header": "aion/gameserver/model/templates/materials/MaterialTemplate.h",
 			"runtimeMutable": []
@@ -2770,7 +2778,7 @@
 		{
 			"fqn": "com.aionemu.gameserver.model.templates.pet.PetBuff",
 			"binaryName": "com.aionemu.gameserver.model.templates.pet.PetBuff",
-			"kind": "behaviour",
+			"kind": "data",
 			"cppQualifiedName": "::aion::gameserver::model::templates::pet::PetBuff",
 			"header": "aion/gameserver/model/templates/pet/PetBuff.h",
 			"runtimeMutable": []
@@ -2962,7 +2970,7 @@
 		{
 			"fqn": "com.aionemu.gameserver.model.templates.quest.QuestKill",
 			"binaryName": "com.aionemu.gameserver.model.templates.quest.QuestKill",
-			"kind": "behaviour",
+			"kind": "data",
 			"cppQualifiedName": "::aion::gameserver::model::templates::quest::QuestKill",
 			"header": "aion/gameserver/model/templates/quest/QuestKill.h",
 			"runtimeMutable": []
@@ -3133,22 +3141,6 @@
 			"kind": "data",
 			"cppQualifiedName": "::aion::gameserver::model::templates::road::RoadTemplate",
 			"header": "aion/gameserver/model/templates/road/RoadTemplate.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.shield.ShieldPoint",
-			"binaryName": "com.aionemu.gameserver.model.templates.shield.ShieldPoint",
-			"kind": "data",
-			"cppQualifiedName": "::aion::gameserver::model::templates::shield::ShieldPoint",
-			"header": "aion/gameserver/model/templates/shield/ShieldPoint.h",
-			"runtimeMutable": []
-		},
-		{
-			"fqn": "com.aionemu.gameserver.model.templates.shield.ShieldTemplate",
-			"binaryName": "com.aionemu.gameserver.model.templates.shield.ShieldTemplate",
-			"kind": "data",
-			"cppQualifiedName": "::aion::gameserver::model::templates::shield::ShieldTemplate",
-			"header": "aion/gameserver/model/templates/shield/ShieldTemplate.h",
 			"runtimeMutable": []
 		},
 		{
@@ -3642,6 +3634,14 @@
 			"runtimeMutable": []
 		},
 		{
+			"fqn": "com.aionemu.gameserver.model.templates.world.WeatherPhase",
+			"binaryName": "com.aionemu.gameserver.model.templates.world.WeatherPhase",
+			"kind": "behaviour",
+			"cppQualifiedName": "::aion::gameserver::model::templates::world::WeatherPhase",
+			"header": "aion/gameserver/model/templates/world/WeatherPhase.h",
+			"runtimeMutable": []
+		},
+		{
 			"fqn": "com.aionemu.gameserver.model.templates.world.WeatherTable",
 			"binaryName": "com.aionemu.gameserver.model.templates.world.WeatherTable",
 			"kind": "behaviour",
@@ -3700,7 +3700,7 @@
 		{
 			"fqn": "com.aionemu.gameserver.model.templates.zone.Points",
 			"binaryName": "com.aionemu.gameserver.model.templates.zone.Points",
-			"kind": "behaviour",
+			"kind": "data",
 			"cppQualifiedName": "::aion::gameserver::model::templates::zone::Points",
 			"header": "aion/gameserver/model/templates/zone/Points.h",
 			"runtimeMutable": []
@@ -5588,7 +5588,7 @@
 		{
 			"fqn": "com.aionemu.gameserver.skillengine.effect.SubEffect",
 			"binaryName": "com.aionemu.gameserver.skillengine.effect.SubEffect",
-			"kind": "data",
+			"kind": "behaviour",
 			"cppQualifiedName": "::aion::gameserver::skillengine::effect::SubEffect",
 			"header": "aion/gameserver/skillengine/effect/SubEffect.h",
 			"runtimeMutable": []
@@ -6314,14 +6314,6 @@
 			"runtimeMutable": []
 		},
 		{
-			"fqn": "com.aionemu.gameserver.model.templates.item.RandomType",
-			"binaryName": "com.aionemu.gameserver.model.templates.item.RandomType",
-			"kind": "enum",
-			"cppQualifiedName": "::aion::gameserver::model::templates::item::RandomType",
-			"header": "aion/gameserver/model/templates/item/RandomType.h",
-			"runtimeMutable": []
-		},
-		{
 			"fqn": "com.aionemu.gameserver.model.templates.item.actions.StorageType",
 			"binaryName": "com.aionemu.gameserver.model.templates.item.actions.StorageType",
 			"kind": "enum",
@@ -6567,6 +6559,14 @@
 			"kind": "enum",
 			"cppQualifiedName": "::aion::gameserver::model::templates::walker::WalkerTemplate_LoopType",
 			"header": "aion/gameserver/model/templates/walker/WalkerTemplate_LoopType.h",
+			"runtimeMutable": []
+		},
+		{
+			"fqn": "com.aionemu.gameserver.model.templates.world.WeatherState",
+			"binaryName": "com.aionemu.gameserver.model.templates.world.WeatherState",
+			"kind": "enum",
+			"cppQualifiedName": "::aion::gameserver::model::templates::world::WeatherState",
+			"header": "aion/gameserver/model/templates/world/WeatherState.h",
 			"runtimeMutable": []
 		},
 		{

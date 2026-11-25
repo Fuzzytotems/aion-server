@@ -8,7 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"

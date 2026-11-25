@@ -5,6 +5,8 @@
 // The hand-written FlyPathEntry.h includes this header before the class definition.
 
 #include <cstdint>
+#include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/model/templates/flypath/WindstreamPoint.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"

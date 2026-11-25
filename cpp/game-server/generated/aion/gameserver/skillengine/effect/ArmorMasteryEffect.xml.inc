@@ -8,3 +8,6 @@ public:
 
 private:
 	std::optional<::aion::gameserver::model::templates::item::enums::ItemSubType> armorType; // @XmlAttribute(name = "armor")
+
+public:
+	std::optional<::aion::gameserver::model::templates::item::enums::ItemSubType> getArmorType() const { return armorType; }

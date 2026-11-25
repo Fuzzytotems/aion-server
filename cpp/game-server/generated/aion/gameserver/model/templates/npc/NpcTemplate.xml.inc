@@ -9,7 +9,6 @@ private:
 	int32_t titleId = 0; // @XmlAttribute(name = "title_id")
 	std::string name; // @XmlAttribute(name = "name")
 	std::optional<::aion::gameserver::model::templates::npc::GroupDropType> groupDrop; // @XmlAttribute(name = "group_drop")
-	float height = 1.0f; // @XmlAttribute(name = "height") Java: = 1
 	std::unique_ptr<::aion::gameserver::model::templates::stats::StatsTemplate> statsTemplate; // @XmlElement(name = "stats")
 	::aion::gameserver::runtime::Ref<::aion::gameserver::model::items::NpcEquippedGear> equipment; // @XmlElement(name = "equipment") class adapter NpcEquippedGearAdapter
 	std::unique_ptr<::aion::gameserver::model::templates::stats::KiskStatsTemplate> kiskStatsTemplate; // @XmlElement(name = "kisk_stats")
@@ -38,7 +37,6 @@ private:
 
 public:
 	int32_t getTitleId() const { return titleId; }
-	float getHeight() const { return height; }
 	::aion::gameserver::runtime::Ptr<::aion::gameserver::model::items::NpcEquippedGear> getEquipment() const { return equipment; }
 	int8_t getLevel() const { return level; }
 	const ::aion::gameserver::model::templates::stats::StatsTemplate* getStatsTemplate() const { return statsTemplate.get(); }

@@ -23,6 +23,12 @@ bool XmlBinding<::aion::gameserver::skillengine::effect::SubEffect>::attribute(:
 				return true;
 			}
 			break;
+		case "chance_delta"_xh:
+			if (name == "chance_delta") {
+				c.assign(o.chanceDelta, value);
+				return true;
+			}
+			break;
 		case "addeffect"_xh:
 			if (name == "addeffect") {
 				c.assign(o.addEffect, value);

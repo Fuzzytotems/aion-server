@@ -27,6 +27,12 @@ bool XmlBinding<::aion::gameserver::model::templates::zone::ZoneTemplate>::attri
 				return true;
 			}
 			break;
+		case "name"_xh:
+			if (name == "name") {
+				c.assign(o.name, value);
+				return true;
+			}
+			break;
 		case "mapid"_xh:
 			if (name == "mapid") {
 				c.assign(o.mapid, value);
@@ -54,12 +60,6 @@ bool XmlBinding<::aion::gameserver::model::templates::zone::ZoneTemplate>::attri
 		case "zone_type"_xh:
 			if (name == "zone_type") {
 				c.assign(o.zoneType, value);
-				return true;
-			}
-			break;
-		case "name"_xh:
-			if (name == "name") {
-				o.setXmlName(value);
 				return true;
 			}
 			break;

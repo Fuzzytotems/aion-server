@@ -17,6 +17,7 @@ enum class CreatureSeeState : uint8_t {
 	SEARCH5,
 	SEARCH10,
 	SEARCH20,
+	SEARCH_GM_INVISIBLE,
 };
 
 } // namespace aion::gameserver::model::gameobjects::state
@@ -26,21 +27,23 @@ namespace aion::gameserver::xml {
 template <>
 struct EnumTraits<::aion::gameserver::model::gameobjects::state::CreatureSeeState> {
 	static constexpr std::string_view javaName = "CreatureSeeState";
-	static constexpr std::array<std::string_view, 6> names{
+	static constexpr std::array<std::string_view, 7> names{
 	  "NORMAL",
 	  "SEARCH1",
 	  "SEARCH2",
 	  "SEARCH5",
 	  "SEARCH10",
 	  "SEARCH20",
+	  "SEARCH_GM_INVISIBLE",
 	};
-	static constexpr std::array<EnumEntry<::aion::gameserver::model::gameobjects::state::CreatureSeeState>, 6> xmlSorted{{
+	static constexpr std::array<EnumEntry<::aion::gameserver::model::gameobjects::state::CreatureSeeState>, 7> xmlSorted{{
 	  {"NORMAL", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::NORMAL},
 	  {"SEARCH1", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::SEARCH1},
 	  {"SEARCH10", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::SEARCH10},
 	  {"SEARCH2", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::SEARCH2},
 	  {"SEARCH20", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::SEARCH20},
 	  {"SEARCH5", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::SEARCH5},
+	  {"SEARCH_GM_INVISIBLE", ::aion::gameserver::model::gameobjects::state::CreatureSeeState::SEARCH_GM_INVISIBLE},
 	}};
 };
 static_assert(verifyEnumTraits<::aion::gameserver::model::gameobjects::state::CreatureSeeState>());

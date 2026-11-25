@@ -9,12 +9,14 @@ private:
 	std::optional<int32_t> skillLearn; // @XmlAttribute(name = "skillLearn")
 	::aion::gameserver::model::Race race = ::aion::gameserver::model::Race::PC_ALL; // @XmlAttribute(name = "race") Java: = Race.PC_ALL
 	int32_t minLevel = 0; // @XmlAttribute(name = "minLevel", required = true)
+	int32_t skillLevel = 1; // @XmlAttribute(name = "skillLevel") Java: = 1
 	bool autolearn = false; // @XmlAttribute(name = "autolearn")
 	int8_t stigma = 0; // @XmlAttribute(name = "stigma") Java: = 0
 
 public:
 	std::optional<::aion::gameserver::model::PlayerClass> getClassId() const { return classId; }
 	int32_t getSkillId() const { return skillId; }
+	int32_t getSkillLevel() const { return skillLevel; }
 	int32_t getMinLevel() const { return minLevel; }
 	::aion::gameserver::model::Race getRace() const { return race; }
 	bool isAutolearn() const { return autolearn; }

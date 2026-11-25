@@ -10,6 +10,11 @@ protected:
 	std::unique_ptr<::aion::gameserver::model::templates::zone::Semisphere> semisphere; // @XmlElement(name = "semisphere")
 	int32_t flags = -1; // @XmlAttribute(name = "flags") Java: = -1
 	int32_t priority = 0; // @XmlAttribute(name = "priority")
+
+private:
+	std::string name; // @XmlAttribute(name = "name")
+
+protected:
 	int32_t mapid = 0; // @XmlAttribute(name = "mapid")
 	std::optional<std::vector<int32_t>> siegeId; // @XmlAttribute(name = "siege_id")
 
@@ -19,6 +24,7 @@ private:
 protected:
 	::aion::gameserver::model::templates::zone::AreaType areaType = ::aion::gameserver::model::templates::zone::AreaType::POLYGON; // @XmlAttribute(name = "area_type") Java: = AreaType.POLYGON
 	::aion::gameserver::model::templates::zone::ZoneClassName zoneType = ::aion::gameserver::model::templates::zone::ZoneClassName::SUB; // @XmlAttribute(name = "zone_type") Java: = ZoneClassName.SUB
+	void setXmlName(std::string value) { name = std::move(value); }
 
 public:
 	const ::aion::gameserver::model::templates::zone::Points* getPoints() const { return points.get(); }
@@ -26,12 +32,10 @@ public:
 	const ::aion::gameserver::model::templates::zone::Sphere* getSphere() const { return sphere.get(); }
 	const ::aion::gameserver::model::templates::zone::Semisphere* getSemisphere() const { return semisphere.get(); }
 	int32_t getPriority() const { return priority; }
+	const std::string& getName() const { return name; }
 	int32_t getMapid() const { return mapid; }
 	::aion::gameserver::model::templates::zone::AreaType getAreaType() const { return areaType; }
 	::aion::gameserver::model::templates::zone::ZoneClassName getZoneType() const { return zoneType; }
 	const std::optional<std::vector<int32_t>>& getSiegeId() const { return siegeId; }
 	int32_t getFlags() const { return flags; }
 	int32_t getTownId() const { return townId; }
-
-protected:
-	void setXmlName(std::string_view name); // hand-written, @XmlAttribute setXmlName(...)

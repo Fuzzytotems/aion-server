@@ -252,6 +252,12 @@ bool XmlBinding<::aion::gameserver::model::templates::item::ItemTemplate>::attri
 				return true;
 			}
 			break;
+		case "doping_pet_usable"_xh:
+			if (name == "doping_pet_usable") {
+				c.assign(o.dopingPetUsable, value);
+				return true;
+			}
+			break;
 		case "id"_xh:
 			if (name == "id") {
 				o.setXmlUid(value);

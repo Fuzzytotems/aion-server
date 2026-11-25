@@ -54,6 +54,7 @@ private:
 	std::unique_ptr<::aion::gameserver::model::templates::item::Idian> idianAction; // @XmlElement(name = "idian")
 	bool canExceedEnchant_ = false; // @XmlAttribute(name = "can_exceed_enchant")
 	std::optional<::aion::gameserver::model::templates::item::ExceedEnchantSkillSetType> exceedEnchantSkill; // @XmlAttribute(name = "exceed_enchant_skill")
+	bool dopingPetUsable = false; // @XmlAttribute(name = "doping_pet_usable")
 
 public:
 	int32_t getMask() const { return mask; }
@@ -96,6 +97,7 @@ public:
 	const std::string& getEnchantName() const { return enchantName; }
 	bool canExceedEnchant() const { return canExceedEnchant_; }
 	std::optional<::aion::gameserver::model::templates::item::ExceedEnchantSkillSetType> getExceedEnchantSkill() const { return exceedEnchantSkill; }
+	bool isDopingPetUsable() const { return dopingPetUsable; }
 
 private:
 	void setXmlUid(std::string_view uid); // hand-written, @XmlAttribute setXmlUid(...)

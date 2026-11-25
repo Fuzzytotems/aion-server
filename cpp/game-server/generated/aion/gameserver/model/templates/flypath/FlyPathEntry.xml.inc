@@ -14,6 +14,7 @@ private:
 	float endZ = 0.0f; // @XmlAttribute(name = "ez", required = true)
 	int32_t eworld = 0; // @XmlAttribute(name = "eworld", required = true)
 	float time = 0.0f; // @XmlAttribute(name = "time", required = true)
+	std::vector<::aion::gameserver::model::templates::flypath::WindstreamPoint> windstreamPoints; // @XmlElement(name = "windstream_point")
 
 public:
 	int32_t getId() const { return id; }

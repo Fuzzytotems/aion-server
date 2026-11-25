@@ -10,9 +10,11 @@ namespace aion::gameserver::skillengine::model {
 /** Java com.aionemu.gameserver.skillengine.model.SignetData (data-only: generated completely). */
 struct SignetData : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t level = 0; // @XmlAttribute(name = "lvl", required = true)
-	int32_t addEffectProb = 1; // @XmlAttribute(name = "add_effect_prob", required = true) Java: = 1
+	int32_t carveProb = 100; // @XmlAttribute(name = "carve_prob") Java: = 100
+	int32_t addEffectProb = 1; // @XmlAttribute(name = "add_effect_prob") Java: = 1
 	float damageMultiplier = 0.0f; // @XmlAttribute(name = "dmg_multi", required = true)
 	int32_t getLevel() const { return level; }
+	int32_t getCarveProb() const { return carveProb; }
 	int32_t getAddEffectProb() const { return addEffectProb; }
 	float getDamageMultiplier() const { return damageMultiplier; }
 };

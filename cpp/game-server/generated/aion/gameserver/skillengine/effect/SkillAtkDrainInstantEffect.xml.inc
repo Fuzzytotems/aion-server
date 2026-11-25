@@ -9,3 +9,5 @@ public:
 private:
 	int32_t hpPercent = 0; // @XmlAttribute(name = "hp_percent")
 	int32_t mpPercent = 0; // @XmlAttribute(name = "mp_percent")
+	int32_t prob = 100; // @XmlAttribute(name = "prob") Java: = 100
+	int32_t probDelta = 0; // @XmlAttribute(name = "prob_delta")
