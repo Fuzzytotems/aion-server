@@ -49,7 +49,33 @@ runtime::Ref<Account> AccountService::getAccount(int32_t accountId, std::string_
 	return account;
 }
 
+namespace {
+
+/** The account warehouse of loadAccountWarehouse, before its items are loaded */
+std::unique_ptr<model::items::storage::Storage> newAccountWarehouse(Account& account) {
+	return std::make_unique<model::items::storage::PlayerStorage>(account, model::items::storage::StorageType::ACCOUNT_WAREHOUSE);
+}
+
+std::unique_ptr<model::items::storage::Storage> loadInto(Account& account, std::unique_ptr<model::items::storage::Storage> wh) {
+	dao::InventoryDAO::loadStorage(account.getId(), *wh);
+	dao::ItemStoneListDAO::load(wh->getItems());
+	return wh;
+}
+
+} // namespace
+
 void AccountService::removeDeletedCharacters(Account& account) {
+	// C++: the warehouse that replaces the emptied one is created before the loop, and loaded where Java loads it. PlayerStorage(Account&)
+	// binds the account as its owner, which C11 rejects once anything else holds the account; in the loop the iterator's snapshot and pad
+	// hold it, and after it.remove() the removed PlayerAccountData (a part) holds it until the Reclaimer frees it. Only an account whose
+	// characters all have a deletion date can be emptied (docs/deviations/P5-00.md).
+	std::unique_ptr<model::items::storage::Storage> emptiedWarehouse;
+	bool allDeleting = !account.isEmpty();
+	for (const runtime::Ptr<PlayerAccountData>& pad : account)
+		allDeleting = allDeleting && pad->getDeletionDate();
+	if (allDeleting)
+		emptiedWarehouse = newAccountWarehouse(account);
+
 	/* Removes chars that should be removed */
 	for (auto it = account.iterator(); it.hasNext();) {
 		runtime::Ptr<PlayerAccountData> pad = it.next();
@@ -67,7 +93,7 @@ void AccountService::removeDeletedCharacters(Account& account) {
 			}
 			if (account.isEmpty()) {
 				dao::InventoryDAO::deleteAccountWH(account.getId());
-				account.setAccountWarehouse(loadAccountWarehouse(account));
+				account.setAccountWarehouse(loadInto(account, std::move(emptiedWarehouse)));
 				break;
 			}
 		}
@@ -95,11 +121,7 @@ std::unique_ptr<PlayerAccountData> AccountService::loadPlayerAccountData(Account
 }
 
 std::unique_ptr<model::items::storage::Storage> AccountService::loadAccountWarehouse(Account& account) {
-	std::unique_ptr<model::items::storage::Storage> wh =
-		std::make_unique<model::items::storage::PlayerStorage>(account, model::items::storage::StorageType::ACCOUNT_WAREHOUSE);
-	dao::InventoryDAO::loadStorage(account.getId(), *wh);
-	dao::ItemStoneListDAO::load(wh->getItems());
-	return wh;
+	return loadInto(account, newAccountWarehouse(account));
 }
 
 } // namespace aion::gameserver::services
