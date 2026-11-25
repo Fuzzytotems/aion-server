@@ -138,8 +138,9 @@ TEST_F(PlayerDaoTest, PlayerQueriesById) {
 TEST_F(PlayerDaoTest, CommonDataRoundTrip) {
 	insertPlayer(20, "Loaded", 200, "ASMODIANS", 0, "PRIEST");
 	execute("UPDATE players SET note = 'a note', title_id = 5, bonus_title_id = 6, quest_expands = 1, npc_expands = 2, item_expands = 3, "
-			"wh_npc_expands = 4, wh_bonus_expands = 5, mailbox_letters = 7, dp = 300, soul_sickness = 2, reposte_energy = 99, world_owner = 8, "
-			"mentor_flag_time = 9, last_transfer_time = 10, gender = 'FEMALE', online = 1, last_online = '2025-09-15 10:11:12', heading = -3 WHERE id = 20");
+			"wh_npc_expands = 4, wh_bonus_expands = 5, mailbox_letters = 7, dp = 300, soul_sickness = 2, reposte_energy = 99, pvp_exp = 5000000000, "
+			"world_owner = 8, mentor_flag_time = 9, last_transfer_time = 10, gender = 'FEMALE', online = 1, last_online = '2025-09-15 10:11:12', "
+			"heading = -3 WHERE id = 20");
 	// PlayerCommonData.setExp reads the experience table
 	std::string table = "<player_experience_table>";
 	for (int32_t level = 0; level <= 80; level++)
@@ -159,6 +160,7 @@ TEST_F(PlayerDaoTest, CommonDataRoundTrip) {
 	EXPECT_EQ(cd->getMailboxLetters(), 7);
 	EXPECT_EQ(cd->getDeathCount(), 2);
 	EXPECT_EQ(cd->getCurrentReposeEnergy(), 99);
+	EXPECT_EQ(cd->getPvpExp(), 5000000000) << "pvp_exp (d725054e1) is a bigint";
 	EXPECT_EQ(cd->getWorldOwnerId(), 8);
 	EXPECT_EQ(cd->getMentorFlagTime(), 9);
 	EXPECT_EQ(cd->getHeading(), -3);
@@ -204,12 +206,14 @@ TEST_F(PlayerDaoTest, NewPlayerIsSavedAndStored) {
 
 	f.commonData->setNote("stored note");
 	f.commonData->setTitleId(400);
+	f.commonData->setPvpExp(4000000000);
 	// storePlayer reads the position of the spawned player (Java: PlayerService.getPlayer sets it)
 	f.player->setPosition(world::WorldPosition::create(220010000, 11.0f, 21.0f, 31.0f, 13));
 	SKIP_IF_UNPORTED(static_cast<void>(f.player->getWorldId()));
 	PlayerDAO::storePlayer(*f.player);
 	EXPECT_EQ(queryString("SELECT note FROM players WHERE id = 30"), "stored note");
 	EXPECT_EQ(queryLong("SELECT title_id FROM players WHERE id = 30"), 400);
+	EXPECT_EQ(queryLong("SELECT pvp_exp FROM players WHERE id = 30"), 4000000000);
 	EXPECT_EQ(queryString("SELECT CONCAT(world_id, ',', x, ',', heading) FROM players WHERE id = 30"), "220010000,11,13") << "the position, not the common data";
 
 	PlayerDAO::onlinePlayer(*f.player, true);

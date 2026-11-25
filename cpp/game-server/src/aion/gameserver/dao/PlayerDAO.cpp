@@ -71,7 +71,7 @@ void PlayerDAO::storePlayer(model::gameobjects::player::Player& player) {
 	try {
 		auto con = DatabaseFactory::getConnection();
 		auto stmt = con->prepareStatement(
-			"UPDATE players SET name=?, exp=?, recoverexp=?, x=?, y=?, z=?, heading=?, world_id=?, gender=?, race=?, player_class=?, quest_expands=?, npc_expands=?, item_expands=?, wh_npc_expands=?, wh_bonus_expands=?, note=?, title_id=?, bonus_title_id=?, dp=?, soul_sickness=?, mailbox_letters=?, reposte_energy=?, mentor_flag_time=?, world_owner=? WHERE id=?");
+			"UPDATE players SET name=?, exp=?, recoverexp=?, x=?, y=?, z=?, heading=?, world_id=?, gender=?, race=?, player_class=?, quest_expands=?, npc_expands=?, item_expands=?, wh_npc_expands=?, wh_bonus_expands=?, note=?, title_id=?, bonus_title_id=?, dp=?, soul_sickness=?, mailbox_letters=?, reposte_energy=?, pvp_exp=?, mentor_flag_time=?, world_owner=? WHERE id=?");
 		runtime::Ptr<PlayerCommonData> pcd = player.getCommonData();
 		stmt->setString(1, pcd->getName());
 		stmt->setLong(2, pcd->getExp());
@@ -98,9 +98,10 @@ void PlayerDAO::storePlayer(model::gameobjects::player::Player& player) {
 		int32_t mails = mailBox ? mailBox->size() : pcd->getMailboxLetters();
 		stmt->setInt(22, mails);
 		stmt->setLong(23, pcd->getCurrentReposeEnergy());
-		stmt->setInt(24, pcd->getMentorFlagTime());
-		stmt->setInt(25, pcd->getWorldOwnerId());
-		stmt->setInt(26, player.getObjectId());
+		stmt->setLong(24, pcd->getPvpExp());
+		stmt->setInt(25, pcd->getMentorFlagTime());
+		stmt->setInt(26, pcd->getWorldOwnerId());
+		stmt->setInt(27, player.getObjectId());
 		stmt->execute();
 	} catch (const std::exception& e) {
 		log.error("Error saving " + player.toString(), e);
@@ -186,6 +187,7 @@ runtime::Ref<model::gameobjects::player::PlayerCommonData> PlayerDAO::loadPlayer
 			cd->setDp(resultSet->getInt("dp"));
 			cd->setDeathCount(resultSet->getInt("soul_sickness"));
 			cd->setCurrentReposeEnergy(resultSet->getLong("reposte_energy"));
+			cd->setPvpExp(resultSet->getLong("pvp_exp"));
 			cd->setX(resultSet->getFloat("x"));
 			cd->setY(resultSet->getFloat("y"));
 			cd->setZ(resultSet->getFloat("z"));
