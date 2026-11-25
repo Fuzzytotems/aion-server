@@ -29,6 +29,12 @@ bool XmlBinding<::aion::gameserver::skillengine::model::SkillAliasPosition>::att
 				return true;
 			}
 			break;
+		case "h"_xh:
+			if (name == "h") {
+				c.assign(o.h, value);
+				return true;
+			}
+			break;
 	}
 	return false;
 }

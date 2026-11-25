@@ -4,7 +4,6 @@
 // Declarations used by the member block CollectItems.xml.inc of com.aionemu.gameserver.model.templates.quest.CollectItems.
 // The hand-written CollectItems.h includes this header before the class definition.
 
-#include <optional>
 #include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"

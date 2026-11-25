@@ -18,8 +18,6 @@ struct XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>
 	static bool attribute(::aion::gameserver::model::templates::world::WorldMapTemplate& o, BindContext& c, std::string_view name, std::string_view value);
 	static bool element(::aion::gameserver::model::templates::world::WorldMapTemplate& o, BindContext& c, pugi::xml_node e, std::string_view name);
 	static void finish(::aion::gameserver::model::templates::world::WorldMapTemplate& o, BindContext& c, const XmlParent& parent);
-	/** calls the hand-written WorldMapTemplate::afterUnmarshal (also for subclasses without their own hook) */
-	static void afterUnmarshal(::aion::gameserver::model::templates::world::WorldMapTemplate& o, LoadContext& ctx, const XmlParent& parent);
 };
 
 } // namespace aion::gameserver::xml

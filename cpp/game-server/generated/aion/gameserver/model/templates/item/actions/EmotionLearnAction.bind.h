@@ -17,8 +17,6 @@ struct XmlBinding<::aion::gameserver::model::templates::item::actions::EmotionLe
 	static constexpr std::string_view CLASS_NAME = "EmotionLearnAction";
 	static bool attribute(::aion::gameserver::model::templates::item::actions::EmotionLearnAction& o, BindContext& c, std::string_view name, std::string_view value);
 	static void finish(::aion::gameserver::model::templates::item::actions::EmotionLearnAction& o, BindContext& c, const XmlParent& parent);
-	/** calls the hand-written EmotionLearnAction::afterUnmarshal (also for subclasses without their own hook) */
-	static void afterUnmarshal(::aion::gameserver::model::templates::item::actions::EmotionLearnAction& o, LoadContext& ctx, const XmlParent& parent);
 };
 
 } // namespace aion::gameserver::xml

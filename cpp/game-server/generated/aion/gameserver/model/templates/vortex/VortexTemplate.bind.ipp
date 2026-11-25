@@ -32,6 +32,12 @@ bool XmlBinding<::aion::gameserver::model::templates::vortex::VortexTemplate>::a
 				return true;
 			}
 			break;
+		case "zones"_xh:
+			if (name == "zones") {
+				c.assignList(o.zones, value);
+				return true;
+			}
+			break;
 	}
 	return false;
 }

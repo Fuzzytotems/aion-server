@@ -42,6 +42,12 @@ bool XmlBinding<::aion::gameserver::skillengine::effect::CarveSignetEffect>::att
 				return true;
 			}
 			break;
+		case "prob_delta"_xh:
+			if (name == "prob_delta") {
+				c.assign(o.probDelta, value);
+				return true;
+			}
+			break;
 	}
 	return XmlBinding<::aion::gameserver::skillengine::effect::DamageEffect>::attribute(o, c, name, value);
 }

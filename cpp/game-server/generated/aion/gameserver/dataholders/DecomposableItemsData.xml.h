@@ -7,5 +7,5 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
-#include "aion/gameserver/model/templates/item/DecomposableItemInfo.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"

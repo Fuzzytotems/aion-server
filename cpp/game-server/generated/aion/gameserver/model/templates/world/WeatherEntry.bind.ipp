@@ -6,44 +6,75 @@
 #include <string_view>
 
 #include "aion/gameserver/model/templates/world/WeatherEntry.bind.h"
+#include "aion/gameserver/model/templates/world/WeatherPhase.bind.h"
 
 namespace aion::gameserver::xml {
 
 bool XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::attribute(::aion::gameserver::model::templates::world::WeatherEntry& o, BindContext& c, std::string_view name, std::string_view value) {
 	switch (nameHash(name)) {
-		case "zone_id"_xh:
-			if (name == "zone_id") {
-				c.assign(o.zoneId, value);
-				return true;
-			}
-			break;
 		case "code"_xh:
 			if (name == "code") {
-				c.assign(o.weatherCode, value);
-				return true;
-			}
-			break;
-		case "rank"_xh:
-			if (name == "rank") {
-				c.assign(o.rank, value);
+				c.assign(o.code, value);
 				return true;
 			}
 			break;
 		case "name"_xh:
 			if (name == "name") {
-				c.assign(o.weatherName, value);
+				c.assign(o.name, value);
 				return true;
 			}
 			break;
-		case "before"_xh:
-			if (name == "before") {
-				c.assign(o.isBefore_, value);
+		case "zone"_xh:
+			if (name == "zone") {
+				c.assign(o.zoneId, value);
 				return true;
 			}
 			break;
-		case "after"_xh:
-			if (name == "after") {
-				c.assign(o.isAfter_, value);
+		case "priority"_xh:
+			if (name == "priority") {
+				c.assign(o.priority, value);
+				return true;
+			}
+			break;
+		case "months"_xh:
+			if (name == "months") {
+				c.assign(o.months, value);
+				return true;
+			}
+			break;
+		case "hours"_xh:
+			if (name == "hours") {
+				c.assign(o.hours, value);
+				return true;
+			}
+			break;
+		case "occur_prob"_xh:
+			if (name == "occur_prob") {
+				c.assign(o.occurProbability, value);
+				return true;
+			}
+			break;
+		case "occur_delay"_xh:
+			if (name == "occur_delay") {
+				c.assign(o.occurDelay, value);
+				return true;
+			}
+			break;
+		case "duration"_xh:
+			if (name == "duration") {
+				c.assign(o.duration, value);
+				return true;
+			}
+			break;
+		case "duration_ex"_xh:
+			if (name == "duration_ex") {
+				c.assign(o.durationEx, value);
+				return true;
+			}
+			break;
+		case "state"_xh:
+			if (name == "state") {
+				c.assign(o.state, value);
 				return true;
 			}
 			break;
@@ -51,12 +82,42 @@ bool XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::attr
 	return false;
 }
 
-void XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::finish(::aion::gameserver::model::templates::world::WeatherEntry&, BindContext& c, const XmlParent&) {
-	c.checkRequiredAttributes({"zone_id", "code", "rank"});
+bool XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::element(::aion::gameserver::model::templates::world::WeatherEntry& o, BindContext& c, pugi::xml_node e, std::string_view name) {
+	switch (nameHash(name)) {
+		case "sign"_xh:
+			if (name == "sign") {
+				c.bindSingle(o.sign, e);
+				return true;
+			}
+			break;
+		case "remain"_xh:
+			if (name == "remain") {
+				c.bindSingle(o.remain, e);
+				return true;
+			}
+			break;
+		case "sub"_xh:
+			if (name == "sub") {
+				c.bindList(o.subWeathers, e);
+				return true;
+			}
+			break;
+	}
+	return false;
 }
 
-std::unique_ptr<::aion::gameserver::model::templates::world::WeatherEntry> XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::create() {
-	return std::unique_ptr<::aion::gameserver::model::templates::world::WeatherEntry>(new ::aion::gameserver::model::templates::world::WeatherEntry());
+void XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::reserve(::aion::gameserver::model::templates::world::WeatherEntry& o, const ChildCounts& counts) {
+	o.subWeathers.reserve(counts["sub"]);
+}
+
+void XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::finish(::aion::gameserver::model::templates::world::WeatherEntry& o, BindContext& c, const XmlParent& parent) {
+	c.checkRequiredAttributes({"code", "name", "zone", "priority", "occur_prob", "duration"});
+	if (c.hooksEnabled())
+		XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::afterUnmarshal(o, c.load(), parent);
+}
+
+void XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>::afterUnmarshal(::aion::gameserver::model::templates::world::WeatherEntry& o, LoadContext& ctx, const XmlParent& parent) {
+	o.afterUnmarshal(ctx, parent);
 }
 
 } // namespace aion::gameserver::xml

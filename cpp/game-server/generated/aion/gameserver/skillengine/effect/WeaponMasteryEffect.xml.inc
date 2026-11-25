@@ -8,3 +8,6 @@ public:
 
 private:
 	std::optional<::aion::gameserver::model::templates::item::enums::ItemGroup> itemGroup; // @XmlAttribute(name = "weapon")
+
+public:
+	std::optional<::aion::gameserver::model::templates::item::enums::ItemGroup> getItemGroup() const { return itemGroup; }

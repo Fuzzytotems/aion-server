@@ -4,5 +4,6 @@
 
 #include "aion/gameserver/model/templates/world/AiInfo.bind.ipp"
 #include "aion/gameserver/model/templates/world/WeatherEntry.bind.ipp"
+#include "aion/gameserver/model/templates/world/WeatherPhase.bind.ipp"
 #include "aion/gameserver/model/templates/world/WeatherTable.bind.ipp"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.bind.ipp"

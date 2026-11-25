@@ -44,12 +44,13 @@ enum class AbnormalState : uint8_t {
 	HIDE,
 	INVULNERABLE_WING,
 	SANCTUARY,
+	ANY_STUN,
 	CANT_ATTACK_STATE,
 	STANCE_OFF,
 	CANT_MOVE_STATE,
 	DISMOUNT_RIDE,
 	AUTOMATICALLY_STANDUP,
-	ANY_STUN,
+	CANCEL_ITEM_USE,
 };
 
 } // namespace aion::gameserver::skillengine::effect
@@ -59,7 +60,7 @@ namespace aion::gameserver::xml {
 template <>
 struct EnumTraits<::aion::gameserver::skillengine::effect::AbnormalState> {
 	static constexpr std::string_view javaName = "AbnormalState";
-	static constexpr std::array<std::string_view, 39> names{
+	static constexpr std::array<std::string_view, 40> names{
 	  "NONE",
 	  "POISON",
 	  "BLEED",
@@ -93,19 +94,21 @@ struct EnumTraits<::aion::gameserver::skillengine::effect::AbnormalState> {
 	  "HIDE",
 	  "INVULNERABLE_WING",
 	  "SANCTUARY",
+	  "ANY_STUN",
 	  "CANT_ATTACK_STATE",
 	  "STANCE_OFF",
 	  "CANT_MOVE_STATE",
 	  "DISMOUNT_RIDE",
 	  "AUTOMATICALLY_STANDUP",
-	  "ANY_STUN",
+	  "CANCEL_ITEM_USE",
 	};
-	static constexpr std::array<EnumEntry<::aion::gameserver::skillengine::effect::AbnormalState>, 39> xmlSorted{{
+	static constexpr std::array<EnumEntry<::aion::gameserver::skillengine::effect::AbnormalState>, 40> xmlSorted{{
 	  {"ANY_STUN", ::aion::gameserver::skillengine::effect::AbnormalState::ANY_STUN},
 	  {"AUTOMATICALLY_STANDUP", ::aion::gameserver::skillengine::effect::AbnormalState::AUTOMATICALLY_STANDUP},
 	  {"BIND", ::aion::gameserver::skillengine::effect::AbnormalState::BIND},
 	  {"BLEED", ::aion::gameserver::skillengine::effect::AbnormalState::BLEED},
 	  {"BLIND", ::aion::gameserver::skillengine::effect::AbnormalState::BLIND},
+	  {"CANCEL_ITEM_USE", ::aion::gameserver::skillengine::effect::AbnormalState::CANCEL_ITEM_USE},
 	  {"CANT_ATTACK_STATE", ::aion::gameserver::skillengine::effect::AbnormalState::CANT_ATTACK_STATE},
 	  {"CANT_MOVE_OR_ATTACK", ::aion::gameserver::skillengine::effect::AbnormalState::CANT_MOVE_OR_ATTACK},
 	  {"CANT_MOVE_STATE", ::aion::gameserver::skillengine::effect::AbnormalState::CANT_MOVE_STATE},

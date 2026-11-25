@@ -5,7 +5,6 @@
 // The hand-written WeatherTable.h includes this header before the class definition.
 
 #include <cstdint>
-#include <memory>
 #include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"

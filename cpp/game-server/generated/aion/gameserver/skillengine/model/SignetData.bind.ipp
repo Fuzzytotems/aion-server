@@ -17,6 +17,12 @@ bool XmlBinding<::aion::gameserver::skillengine::model::SignetData>::attribute(:
 				return true;
 			}
 			break;
+		case "carve_prob"_xh:
+			if (name == "carve_prob") {
+				c.assign(o.carveProb, value);
+				return true;
+			}
+			break;
 		case "add_effect_prob"_xh:
 			if (name == "add_effect_prob") {
 				c.assign(o.addEffectProb, value);

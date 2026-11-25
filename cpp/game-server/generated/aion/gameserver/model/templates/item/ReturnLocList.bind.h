@@ -16,8 +16,6 @@ template <>
 struct XmlBinding<::aion::gameserver::model::templates::item::ReturnLocList> {
 	static constexpr std::string_view CLASS_NAME = "ReturnLocList";
 	static bool attribute(::aion::gameserver::model::templates::item::ReturnLocList& o, BindContext& c, std::string_view name, std::string_view value);
-	static bool element(::aion::gameserver::model::templates::item::ReturnLocList& o, BindContext& c, pugi::xml_node e, std::string_view name);
-	static void reserve(::aion::gameserver::model::templates::item::ReturnLocList& o, const ChildCounts& counts);
 };
 
 } // namespace aion::gameserver::xml

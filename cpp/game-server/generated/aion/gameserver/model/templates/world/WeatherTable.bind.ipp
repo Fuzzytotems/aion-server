@@ -11,40 +11,37 @@
 namespace aion::gameserver::xml {
 
 bool XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::attribute(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, std::string_view name, std::string_view value) {
-	switch (nameHash(name)) {
-		case "weather_count"_xh:
-			if (name == "weather_count") {
-				c.assign(o.weatherCount, value);
-				return true;
-			}
-			break;
-		case "zone_count"_xh:
-			if (name == "zone_count") {
-				c.assign(o.zoneCount, value);
-				return true;
-			}
-			break;
-		case "id"_xh:
-			if (name == "id") {
-				c.assign(o.mapId, value);
-				return true;
-			}
-			break;
+	if (name == "zone_count") {
+		c.assign(o.zoneCount, value);
+		return true;
 	}
-	return false;
-}
-
-bool XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::element(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, pugi::xml_node e, std::string_view name) {
-	if (name == "table") {
-		c.bindList(o.zoneData, e);
+	if (name == "id") {
+		c.assign(o.mapId, value);
 		return true;
 	}
 	return false;
 }
 
-void XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::finish(::aion::gameserver::model::templates::world::WeatherTable&, BindContext& c, const XmlParent&) {
-	c.checkRequiredAttributes({"weather_count", "zone_count", "id"});
-	c.checkRequiredElements({"table"});
+bool XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::element(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, pugi::xml_node e, std::string_view name) {
+	if (name == "weather") {
+		c.bindList(o.entries, e);
+		return true;
+	}
+	return false;
+}
+
+void XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::reserve(::aion::gameserver::model::templates::world::WeatherTable& o, const ChildCounts& counts) {
+	o.entries.reserve(counts["weather"]);
+}
+
+void XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::finish(::aion::gameserver::model::templates::world::WeatherTable& o, BindContext& c, const XmlParent& parent) {
+	c.checkRequiredAttributes({"zone_count", "id"});
+	if (c.hooksEnabled())
+		XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::afterUnmarshal(o, c.load(), parent);
+}
+
+void XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>::afterUnmarshal(::aion::gameserver::model::templates::world::WeatherTable& o, LoadContext& ctx, const XmlParent& parent) {
+	o.afterUnmarshal(ctx, parent);
 }
 
 } // namespace aion::gameserver::xml

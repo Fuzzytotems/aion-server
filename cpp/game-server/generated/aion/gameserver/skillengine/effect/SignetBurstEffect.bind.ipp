@@ -30,6 +30,12 @@ bool XmlBinding<::aion::gameserver::skillengine::effect::SignetBurstEffect>::att
 				return true;
 			}
 			break;
+		case "add_effect_prob_multi_delta"_xh:
+			if (name == "add_effect_prob_multi_delta") {
+				c.assign(o.addEffectProbMultiplierDelta, value);
+				return true;
+			}
+			break;
 	}
 	return XmlBinding<::aion::gameserver::skillengine::effect::DamageEffect>::attribute(o, c, name, value);
 }

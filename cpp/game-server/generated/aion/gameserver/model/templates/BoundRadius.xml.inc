@@ -4,9 +4,9 @@
 	friend struct ::aion::gameserver::xml::XmlBinding<::aion::gameserver::model::templates::BoundRadius>;
 
 private:
-	float front = 0.0f; // @XmlAttribute(name = "front")
-	float side = 0.0f; // @XmlAttribute(name = "side")
-	float upper = 0.0f; // @XmlAttribute(name = "upper")
+	float front = 0.25f; // @XmlAttribute(name = "front") Java: = 0.25f
+	float side = 0.25f; // @XmlAttribute(name = "side") Java: = 0.25f
+	float upper = 2.0f; // @XmlAttribute(name = "upper") Java: = 2f
 
 public:
 	float getFront() const { return front; }

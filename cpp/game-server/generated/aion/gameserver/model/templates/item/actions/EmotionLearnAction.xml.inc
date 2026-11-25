@@ -12,6 +12,3 @@ private:
 
 public:
 	int32_t getEmotionId() const { return emotionId; }
-
-protected:
-	void afterUnmarshal(::aion::gameserver::xml::LoadContext& ctx, const ::aion::gameserver::xml::XmlParent& parent); // hand-written
