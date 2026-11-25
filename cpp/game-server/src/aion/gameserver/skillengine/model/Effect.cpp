@@ -41,6 +41,7 @@
 #include "aion/gameserver/services/event/Event.h"
 #include "aion/gameserver/skillengine/SkillEngine.h"
 #include "aion/gameserver/skillengine/effect/AbstractAbsoluteStatEffect.h"
+#include "aion/gameserver/skillengine/effect/AbstractOverTimeEffect.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
 #include "aion/gameserver/skillengine/effect/EffectTemplate.h"
 #include "aion/gameserver/skillengine/effect/EffectType.h"
@@ -868,7 +869,12 @@ int32_t Effect::calculateEffectsDuration() {
 int64_t Effect::calculateTemplateDuration() {
 	// retail sets the first effect duration > 0 as the skill duration, ignoring longer durations of other effects (see 620 Armor of Attrition)
 	for (const EffectTemplate* et : javaOrderedValues(successEffects)) {
-		int64_t effectDuration = et->getDuration2() + static_cast<int64_t>(et->getDuration1()) * getSkillLevel(); // some event skills would produce an int overflow
+		// C++ (upstream sync foundation, docs/deviations/P5-02b.md): upstream 01a5602f1 removed the AbstractOverTimeEffect.getDuration2 override
+		// (duration2 + 1000), so the generated accessor is no longer virtual; until wave 3 ports the tick rounding, the old value is kept here
+		int32_t duration2 = dynamic_cast<const effect::AbstractOverTimeEffect*>(et) != nullptr
+			? static_cast<const effect::AbstractOverTimeEffect*>(et)->getDuration2PlusOneSecond()
+			: et->getDuration2();
+		int64_t effectDuration = duration2 + static_cast<int64_t>(et->getDuration1()) * getSkillLevel(); // some event skills would produce an int overflow
 		if (effectDuration > 0) {
 			if (et->getRandomTime() > 0)
 				effectDuration -= commons::utils::Rnd::get(0, et->getRandomTime());

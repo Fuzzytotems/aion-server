@@ -21,7 +21,6 @@
 #include "aion/gameserver/dataholders/ConquerorAndProtectorData.h"
 #include "aion/gameserver/dataholders/CosmeticItemsData.h"
 #include "aion/gameserver/dataholders/CubeExpandData.h"
-#include "aion/gameserver/dataholders/CuringObjectsData.h"
 #include "aion/gameserver/dataholders/CustomDrop.h"
 #include "aion/gameserver/dataholders/DecomposableItemsData.h"
 #include "aion/gameserver/dataholders/EnchantData.h"
@@ -65,6 +64,10 @@
 #include "aion/gameserver/dataholders/PetFeedData.h"
 #include "aion/gameserver/dataholders/PetSkillData.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.h"
+#include "aion/gameserver/dataholders/PvpExpTable.h"
+#include "aion/gameserver/dataholders/PvpExpModTable.h"
+#include "aion/gameserver/dataholders/PartyExpModTable.h"
+#include "aion/gameserver/dataholders/MenteeExpLimitTable.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
 #include "aion/gameserver/dataholders/Portal2Data.h"
 #include "aion/gameserver/dataholders/PortalLocData.h"
@@ -73,7 +76,6 @@
 #include "aion/gameserver/dataholders/RideData.h"
 #include "aion/gameserver/dataholders/RiftData.h"
 #include "aion/gameserver/dataholders/RoadData.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SiegeLocationData.h"
 #include "aion/gameserver/dataholders/SignetDataTemplates.h"
 #include "aion/gameserver/dataholders/SkillAliasLocationData.h"
@@ -104,7 +106,6 @@
 #include "aion/gameserver/dataholders/detail/StaticDataRegistry.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
-#include "aion/gameserver/model/templates/item/actions/DecomposeAction.h"
 #include "aion/gameserver/model/templates/mail/Mails.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 
@@ -132,7 +133,7 @@ void DataManager::init() {
 	options.parallelParse = true;
 	xml::LoadContext context(options);
 	std::unique_ptr<StaticData> data = loadStaticData(context, MAIN_XML_FILE);
-	// Java: xmlValidationTask = data.getValidationTask() (always null in C++); data.waitForAfterUnmarshalTasksToFinish() (the tasks ran inline)
+	// Java: xmlValidationTask = data.getValidationTask() (always null in C++)
 
 	// subsequent data processing: Java assigns the DataManager fields first; C++ post-processes the unpublished holders and publishes afterwards
 	postProcess(*data);
@@ -172,7 +173,6 @@ void DataManager::postProcess(StaticData& data) {
 	require(data.globalDropData, "GLOBAL_DROP_DATA").processRules(npcTemplates);
 	require(data.tradeListData, "TRADE_LIST_DATA").validateBuyLists(npcTemplates);
 	require(data.skillData, "SKILL_DATA").validateMotions(require(data.motionData, "MOTION_DATA"));
-	model::templates::item::actions::DecomposeAction::validateRandomItemIds(*data.itemData);
 }
 
 void DataManager::publish(StaticData& data) {
@@ -186,6 +186,10 @@ void DataManager::publish(StaticData& data) {
 	publishIfLoaded(MATERIAL_DATA, data.materiaData);
 	publishIfLoaded(MAP_WEATHER_DATA, data.mapWeatherData);
 	publishIfLoaded(PLAYER_EXPERIENCE_TABLE, data.playerExperienceTable);
+	publishIfLoaded(PVP_EXP_TABLE, data.pvpExpTable);
+	publishIfLoaded(PVP_EXP_MOD_TABLE, data.pvpExpModTable);
+	publishIfLoaded(PARTY_EXP_MOD_TABLE, data.partyExpModTable);
+	publishIfLoaded(MENTEE_EXP_LIMIT_TABLE, data.menteeExpLimitTable);
 	publishIfLoaded(ABSOLUTE_STATS_DATA, data.absoluteStatsData);
 	publishIfLoaded(ITEM_CLEAN_UP, data.itemCleanup);
 	publishIfLoaded(ITEM_DATA, data.itemData);
@@ -223,7 +227,6 @@ void DataManager::publish(StaticData& data) {
 	publishIfLoaded(RIFT_DATA, data.riftData);
 	publishIfLoaded(BASE_DATA, data.baseData);
 	publishIfLoaded(FLY_RING_DATA, data.flyRingData);
-	publishIfLoaded(SHIELD_DATA, data.shieldData);
 	publishIfLoaded(PET_DATA, data.petData);
 	publishIfLoaded(PET_FEED_DATA, data.petFeedData);
 	publishIfLoaded(PET_DOPING_DATA, data.petDopingData);
@@ -252,7 +255,6 @@ void DataManager::publish(StaticData& data) {
 	publishIfLoaded(HOUSE_DATA, data.houseData);
 	publishIfLoaded(HOUSE_BUILDING_DATA, data.houseBuildingData);
 	publishIfLoaded(HOUSE_PARTS_DATA, data.housePartsData);
-	publishIfLoaded(CURING_OBJECTS_DATA, data.curingObjectsData);
 	publishIfLoaded(HOUSE_NPCS_DATA, data.houseNpcsData);
 	publishIfLoaded(SYSTEM_MAIL_TEMPLATES, data.systemMailTemplates);
 	publishIfLoaded(CHALLENGE_DATA, data.challengeData);

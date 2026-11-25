@@ -13,7 +13,7 @@
 namespace aion::gameserver::dataholders::detail {
 
 /**
- * C++ only: Java `JAXBUtil.deserialize(new File(path), T.class)` for the JAXB roots outside static data (configs/ingameshop, configs/schedule):
+ * C++ only: Java `JAXBUtil.deserialize(new File(path), T.class)` for the JAXB roots outside static data (configs/schedule):
  * binds the root element of the file strictly with hooks (the XmlValidationHandler of JAXBUtil turns binding errors into exceptions; like the
  * static data loader, C++ also rejects unknown attributes). Include it only in the translation unit that also includes T's .bind.h.
  *

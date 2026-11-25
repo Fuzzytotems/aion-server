@@ -133,11 +133,13 @@ bool AbstractMaterialSkillActor::matchActConditions(const model::templates::mate
 			services::GameTimeService::getInstance().getGameTime()->getDayTime() == utils::time::gametime::DayTime::NIGHT)
 			return true;
 		if (condition == MaterialActCondition::SUNNY) { // sunny actually means "not raining" (fireplaces don't burn during rain)
+			// C++ interim (docs/deviations/P4-10.md): the weather entries of upstream 374336b3b have no name prefix or "before" flag; a weather is
+			// rain when its state is RAIN or SNOW (Java 68eccc7b1 WeatherService.isRainingAt), clear sky is nullptr
 			const model::templates::world::WeatherEntry* weatherEntry = services::WeatherService::getInstance().findWeatherEntry(*creature);
-			if (weatherEntry == nullptr)
-				throw runtime::NullPointerException("WeatherService.findWeatherEntry returned null"); // Java dereferences it
-			bool isRain = !weatherEntry->getWeatherName().empty() && weatherEntry->getWeatherName().starts_with("RAIN");
-			if (!isRain || weatherEntry->isBefore()) // before means "before" the weather (e.g. clouds before rain)
+			bool isRain = weatherEntry != nullptr && weatherEntry->getState().has_value() &&
+				(*weatherEntry->getState() == model::templates::world::WeatherState::RAIN ||
+				 *weatherEntry->getState() == model::templates::world::WeatherState::SNOW);
+			if (!isRain)
 				return true;
 		}
 	}

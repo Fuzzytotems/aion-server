@@ -5,7 +5,7 @@
 namespace aion::gameserver::model::templates {
 
 const BoundRadius* VisibleObjectTemplate::getBoundRadius() const {
-	return &BoundRadius::DEFAULT;
+	return &BoundRadius::ZERO; // upstream da540feec: ZERO (DEFAULT is the creature cylinder now)
 }
 
 } // namespace aion::gameserver::model::templates

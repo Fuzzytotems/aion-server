@@ -9,7 +9,7 @@ namespace aion::gameserver::model::templates::materials {
 enum class MaterialActCondition : std::uint8_t;
 class MaterialSkill;
 enum class MaterialTarget : std::uint8_t;
-struct MaterialTemplate;
+class MaterialTemplate;
 class MeshList;
 class MeshMaterial;
 

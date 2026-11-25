@@ -41,7 +41,6 @@ public:
 	static inline xml::HolderRef<ChestData> CHEST_DATA;
 	static inline xml::HolderRef<CosmeticItemsData> COSMETIC_ITEMS_DATA;
 	static inline xml::HolderRef<CubeExpandData> CUBEEXPANDER_DATA;
-	static inline xml::HolderRef<CuringObjectsData> CURING_OBJECTS_DATA;
 	static inline xml::HolderRef<CustomDrop> CUSTOM_NPC_DROP;
 	static inline xml::HolderRef<DecomposableItemsData> DECOMPOSABLE_ITEMS_DATA;
 	static inline xml::HolderRef<EnchantData> ENCHANT_DATA;
@@ -85,6 +84,10 @@ public:
 	static inline xml::HolderRef<PetFeedData> PET_FEED_DATA;
 	static inline xml::HolderRef<PetSkillData> PET_SKILL_DATA;
 	static inline xml::HolderRef<PlayerExperienceTable> PLAYER_EXPERIENCE_TABLE;
+	static inline xml::HolderRef<PvpExpTable> PVP_EXP_TABLE;
+	static inline xml::HolderRef<PvpExpModTable> PVP_EXP_MOD_TABLE;
+	static inline xml::HolderRef<PartyExpModTable> PARTY_EXP_MOD_TABLE;
+	static inline xml::HolderRef<MenteeExpLimitTable> MENTEE_EXP_LIMIT_TABLE;
 	static inline xml::HolderRef<PlayerInitialData> PLAYER_INITIAL_DATA;
 	static inline xml::HolderRef<Portal2Data> PORTAL2_DATA;
 	static inline xml::HolderRef<PortalLocData> PORTAL_LOC_DATA;
@@ -94,7 +97,6 @@ public:
 	static inline xml::HolderRef<RiftData> RIFT_DATA;
 	static inline xml::HolderRef<RoadData> ROAD_DATA;
 	static inline xml::HolderRef<ConquerorAndProtectorData> CONQUEROR_AND_PROTECTOR_DATA;
-	static inline xml::HolderRef<ShieldData> SHIELD_DATA;
 	static inline xml::HolderRef<SiegeLocationData> SIEGE_LOCATION_DATA;
 	static inline xml::HolderRef<SkillChargeData> SKILL_CHARGE_DATA;
 	static inline xml::HolderRef<SkillData> SKILL_DATA;
@@ -153,7 +155,7 @@ public:
 	 * C++ only, the first part of init() (Java XmlDataLoader.loadStaticData plus the JAXB unmarshal of StaticData): loads the imports of
 	 * `staticDataXml` into `context` with the holder registry of the StaticData fields, resolves the IDREFs, moves every loaded holder into a new
 	 * StaticData, keeps the objects the context retired (LoadContext::takeRetired, lenient mode) alive for the life of the process like published
-	 * holders, and logs the 90 "Loaded N ..." lines (StaticData.afterUnmarshal). Nothing is published. Needs a TaskScope.
+	 * holders, and logs the 92 "Loaded N ..." lines (StaticData.afterUnmarshal). Nothing is published. Needs a TaskScope.
 	 *
 	 * @throws xml::StaticDataException for binding errors
 	 */
@@ -162,7 +164,7 @@ public:
 	/**
 	 * C++ only, the second part of init(): the post-processing Java runs on the published fields, in Java order, on the unpublished `data`
 	 * (static-data.md §3.3): ItemData.cleanup, GlobalDropData.processRules and TradeListData.validateBuyLists with the npc templates,
-	 * SkillData.validateMotions and DecomposeAction.validateRandomItemIds.
+	 * and SkillData.validateMotions (upstream d254ea172 removed DecomposeAction.validateRandomItemIds: DecomposedItem validates its item on load).
 	 */
 	static void postProcess(StaticData& data);
 

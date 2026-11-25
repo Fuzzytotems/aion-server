@@ -4,8 +4,8 @@
 
 namespace aion::gameserver::model::templates::item {
 
-/** Java com.aionemu.gameserver.model.templates.item.ReturnLocList. @author ginho1 */
-class ReturnLocList : public ::aion::gameserver::model::templates::item::ResultedItemsCollection {
+/** Java com.aionemu.gameserver.model.templates.item.ReturnLocList (no superclass since upstream d254ea172). @author ginho1 */
+class ReturnLocList : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/item/ReturnLocList.xml.inc"
 public:
 	/** Java returns the int index as float */

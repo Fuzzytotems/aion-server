@@ -1,43 +1,46 @@
 #include "aion/gameserver/dataholders/DecomposableItemsData.h"
 
+#include <string>
+
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+
 namespace aion::gameserver::dataholders {
 
-using model::templates::item::DecomposableItemInfo;
-using model::templates::item::ExtractedItemsCollection;
-using model::templates::item::ResultedItem;
+using model::templates::item::DecomposableItem;
 
-void DecomposableItemsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
-	decomposableItemsInfo.clear();
-	for (const DecomposableItemInfo& template_ : decomposableItemsTemplates) {
-		const std::vector<ExtractedItemsCollection>& itemGroups = template_.getItemsCollections();
-		if (!itemGroups.empty()) { // Java: itemGroups != null
-			if (template_.isIsSelectable())
-				selectableDecomposables.insert_or_assign(template_.getItemId(), &itemGroups[0].getItems());
+// Java DecomposableItemsData.java:28-49
+void DecomposableItemsData::afterUnmarshal(xml::LoadContext& ctx, const xml::XmlParent& /*parent*/) {
+	std::unordered_map<int32_t, const DecomposableItem*> byId;
+	std::unordered_map<int32_t, const DecomposableItem*> overrides;
+	for (const DecomposableItem& template_ : decomposableItems) {
+		std::unordered_map<int32_t, const DecomposableItem*>& target = template_.isOverride() ? overrides : byId;
+		if (!target.try_emplace(template_.getItemId(), &template_).second) {
+			if (template_.isOverride())
+				ctx.fail("Duplicate decomposable override item " + std::to_string(template_.getItemId()));
 			else
-				decomposableItemsInfo.insert_or_assign(template_.getItemId(), &itemGroups);
+				ctx.fail("Duplicate decomposable item " + std::to_string(template_.getItemId()) + " (override=\"true\" missing?)");
 		}
 	}
-	// Java: decomposableItemsTemplates = null (the C++ indexes point into the storage, which stays)
+	// the files of the folder are merged in no particular order, so the custom entries replace the retail ones only after all are read
+	for (const auto& [itemId, item] : overrides)
+		byId.insert_or_assign(itemId, item);
+	std::erase_if(byId, [](const auto& entry) { return entry.second->getSets().empty(); });
+	decomposableItemById = std::move(byId);
+	overrideCount_ = static_cast<int32_t>(overrides.size());
+	// Java: decomposableItems = null (the C++ index points into the storage, which stays)
 }
 
 int32_t DecomposableItemsData::size() const {
-	return static_cast<int32_t>(decomposableItemsInfo.size());
+	return static_cast<int32_t>(decomposableItemById.size());
 }
 
-std::optional<std::vector<const ResultedItem*>> DecomposableItemsData::getSelectableItems(int32_t itemId) const {
-	auto it = selectableDecomposables.find(itemId);
-	if (it == selectableDecomposables.end())
-		return std::nullopt;
-	std::vector<const ResultedItem*> items;
-	items.reserve(it->second->size());
-	for (const ResultedItem& item : *it->second)
-		items.push_back(&item);
-	return items;
+int32_t DecomposableItemsData::overrideCount() const {
+	return overrideCount_;
 }
 
-const std::vector<ExtractedItemsCollection>* DecomposableItemsData::getInfoByItemId(int32_t itemId) const {
-	auto it = decomposableItemsInfo.find(itemId);
-	return it != decomposableItemsInfo.end() ? it->second : nullptr;
+const DecomposableItem* DecomposableItemsData::get(int32_t itemId) const {
+	auto it = decomposableItemById.find(itemId);
+	return it != decomposableItemById.end() ? it->second : nullptr;
 }
 
 } // namespace aion::gameserver::dataholders

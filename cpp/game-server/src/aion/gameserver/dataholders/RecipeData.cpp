@@ -38,6 +38,11 @@ const RecipeTemplate* RecipeData::getRecipeTemplateById(int32_t id) const {
 	return it != recipeData.end() ? it->second : nullptr;
 }
 
+int32_t RecipeData::getMaxProductionCount(int32_t recipeId) const {
+	const RecipeTemplate* template_ = getRecipeTemplateById(recipeId);
+	return template_ == nullptr || !template_->getMaxProductionCount().has_value() ? 0 : *template_->getMaxProductionCount();
+}
+
 const std::vector<const RecipeTemplate*>& RecipeData::getRecipeTemplates() const {
 	return recipesInHashOrder;
 }

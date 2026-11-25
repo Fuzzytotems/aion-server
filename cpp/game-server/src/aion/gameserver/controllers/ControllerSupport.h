@@ -224,6 +224,8 @@ constexpr int32_t getAbnormalStateId(skillengine::effect::AbnormalState state) n
 			return getAbnormalStateId(AbnormalState::PARALYZE) | getAbnormalStateId(AbnormalState::SLEEP) | getAbnormalStateId(AbnormalState::FEAR) | getAbnormalStateId(AbnormalState::STUN) | getAbnormalStateId(AbnormalState::STAGGER) | getAbnormalStateId(AbnormalState::OPENAERIAL) | getAbnormalStateId(AbnormalState::SPIN) | getAbnormalStateId(AbnormalState::DEFORM) | getAbnormalStateId(AbnormalState::PULLED) | getAbnormalStateId(AbnormalState::CONFUSE);
 		case AbnormalState::ANY_STUN:
 			return getAbnormalStateId(AbnormalState::SPIN) | getAbnormalStateId(AbnormalState::STUN) | getAbnormalStateId(AbnormalState::STUMBLE) | getAbnormalStateId(AbnormalState::STAGGER);
+		case AbnormalState::CANCEL_ITEM_USE: // upstream cc61fb239
+			return getAbnormalStateId(AbnormalState::ANY_STUN) | getAbnormalStateId(AbnormalState::PARALYZE) | getAbnormalStateId(AbnormalState::SLEEP) | getAbnormalStateId(AbnormalState::CHARM) | getAbnormalStateId(AbnormalState::FEAR) | getAbnormalStateId(AbnormalState::CONFUSE) | getAbnormalStateId(AbnormalState::PETRIFICATION) | getAbnormalStateId(AbnormalState::OPENAERIAL) | getAbnormalStateId(AbnormalState::PULLED);
 	}
 	return 0;
 }

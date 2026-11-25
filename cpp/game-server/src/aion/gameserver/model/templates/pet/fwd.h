@@ -7,7 +7,7 @@
 namespace aion::gameserver::model::templates::pet {
 
 enum class FoodType : std::uint8_t;
-class PetBuff;
+struct PetBuff;
 class PetDopingBag;
 struct PetDopingEntry;
 struct PetFeedResult;

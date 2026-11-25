@@ -27,8 +27,8 @@ void MentorMonsterHuntData::register_(QuestEngine& questEngine) const {
 			Monster m;
 			if (qk.getKillCount() > 0)
 				m.setEndVar(qk.getKillCount());
-			// Java: `if (qk.getNpcIds() != null)` - QuestKill.getNpcIds never answers null (an empty list without npc_ids), so always
-			m.addNpcIds(qk.getNpcIds());
+			if (qk.getNpcIds().has_value()) // Java: qk.getNpcIds() != null (null without npc_ids since upstream 15eaf77b6)
+				m.addNpcIds(*qk.getNpcIds());
 			if (qk.getVar() > 0)
 				m.setVar(qk.getVar());
 			if (qk.getQuestStep() > 0)

@@ -33,7 +33,7 @@ public:
 	 */
 	virtual std::string getName() const = 0;
 
-	/** @return BoundRadius::DEFAULT unless a subclass has its own */
+	/** @return the cylinder of this object, or BoundRadius::ZERO if it has no size of its own */
 	virtual const BoundRadius* getBoundRadius() const;
 };
 

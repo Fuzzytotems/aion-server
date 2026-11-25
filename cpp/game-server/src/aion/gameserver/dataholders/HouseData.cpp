@@ -51,4 +51,9 @@ int32_t HouseData::size() const {
 	return static_cast<int32_t>(lands.size());
 }
 
+void HouseData::addAllManagerNpcIdsToSet(std::unordered_set<int32_t>& npcIds) const {
+	for (const HousingLand& land : lands)
+		npcIds.insert(land.getManagerNpcId());
+}
+
 } // namespace aion::gameserver::dataholders

@@ -25,8 +25,8 @@ void NpcTemplate::setXmlUid(std::string_view uid) {
 }
 
 const BoundRadius* NpcTemplate::getBoundRadius() const {
-	// Java comment: all npcs should have BR in xml
-	return boundRadius != nullptr ? boundRadius.get() : VisibleObjectTemplate::getBoundRadius();
+	// A few NPCs have no bounds in the data; the client expects the default cylinder instead of a zero one.
+	return boundRadius != nullptr ? boundRadius.get() : &BoundRadius::DEFAULT;
 }
 
 const std::vector<int32_t>* NpcTemplate::getFuncDialogIds() const {

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/PetData.xml.h"
+#include "aion/gameserver/dataholders/fwd.h"
 
 namespace aion::gameserver::dataholders {
 
@@ -22,6 +23,8 @@ private:
 	std::unordered_map<int32_t, const model::templates::pet::PetTemplate*> petData;
 	/** C++ only: petData.keySet() in Java's HashMap iteration order */
 	std::vector<int32_t> petIdsInHashOrder;
+
+	void validatePetIds(xml::LoadContext& ctx, const ItemData& itemData) const;
 
 public:
 	int32_t size() const;

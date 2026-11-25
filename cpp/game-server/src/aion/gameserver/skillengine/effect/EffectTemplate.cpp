@@ -251,8 +251,9 @@ void EffectTemplate::calculateSubEffect(model::Effect& effect) const {
 		return;
 	}
 
-	// chance to trigger subeffect
-	if (commons::utils::Rnd::chance() >= static_cast<float>(subEffect->getChance()))
+	// chance to trigger subeffect (C++, upstream sync foundation: SubEffect.getChance takes the skill level since upstream 6c6eee658, whose
+	// chance_delta the new data uses; the rest of the 6c6eee658 sub effect changes stays for wave 3, docs/deviations/P5-03.md)
+	if (commons::utils::Rnd::chance() >= static_cast<float>(subEffect->getChance(effect.getSkillLevel())))
 		return;
 
 	// a missing template (null) goes on to the Effect constructor, whose skillTemplate.getReqDispelCount() throws Java's NullPointerException in

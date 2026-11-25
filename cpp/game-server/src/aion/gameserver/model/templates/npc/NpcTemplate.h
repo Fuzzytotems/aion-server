@@ -27,7 +27,7 @@ public:
 	/** @return the aggro range, at least 10 */
 	int32_t getMinimumShoutRange() const { return aggrorange < 10 ? 10 : aggrorange; }
 
-	/** @return the bound radius of the xml, VisibleObjectTemplate::getBoundRadius() (BoundRadius::DEFAULT) if there is none */
+	/** @return the bound radius of the xml, BoundRadius::DEFAULT if there is none */
 	const BoundRadius* getBoundRadius() const override;
 
 	/** @return the type, NpcTemplateType::NONE if absent */

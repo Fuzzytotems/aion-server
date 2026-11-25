@@ -43,6 +43,7 @@
 #include "aion/gameserver/dao/PlayerTitleListDAO.h"
 #include "aion/gameserver/dao/PortalCooldownsDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
 #include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/account/PlayerAccountData.h"
@@ -266,7 +267,7 @@ Ref<Player> PlayerService::getPlayer(int32_t playerObjId, Ptr<Account> account) 
 		runtime::Ptr<model::gameobjects::player::emotion::EmotionList> emotions = player->getEmotions();
 		if (emotions == nullptr) // Java: player.getEmotions().add on null
 			throw runtime::NullPointerException("Player.getEmotions()");
-		for (int32_t emotionId : model::templates::item::actions::EmotionLearnAction::getLearnableEmotionIds())
+		for (int32_t emotionId : dataholders::DataManager::ITEM_DATA->getLearnableEmotionIds())
 			emotions->add(emotionId, 0, false);
 	}
 

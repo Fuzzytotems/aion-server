@@ -12,6 +12,7 @@
 #include "aion/gameserver/controllers/observer/ItemUseObserver.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/DecomposableItemsData.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.h"
 #include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
@@ -84,7 +85,10 @@ void Decompose::execute(Player& player, std::span<const std::string> params) {
 				break; // parity: (the same statement)
 		}
 	}
-	if (decomposeAction == nullptr || DataManager::DECOMPOSABLE_ITEMS_DATA->getSelectableItems(item->getItemId()) != std::nullopt) { // exclude selectable decomposables
+	// C++ interim (upstream sync foundation, docs/deviations/C1.md): the selectable check reads the DecomposableItem of upstream d254ea172
+	// (Java 68eccc7b1: decomposableItem == null || decomposableItem.isSelectable()); the rest of the command stays at 51d7a19cb until wave 5
+	const model::templates::item::DecomposableItem* decomposableItem = DataManager::DECOMPOSABLE_ITEMS_DATA->get(item->getItemId());
+	if (decomposeAction == nullptr || decomposableItem == nullptr || decomposableItem->isSelectable()) { // exclude selectable decomposables
 		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_DECOMPOSE_ITEM_IT_CAN_NOT_BE_DECOMPOSED(item->getItemTemplate()->getL10n()));
 		return;
 	}
