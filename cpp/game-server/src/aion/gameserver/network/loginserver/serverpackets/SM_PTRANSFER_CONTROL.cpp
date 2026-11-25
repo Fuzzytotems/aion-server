@@ -1,6 +1,7 @@
 #include "aion/gameserver/network/loginserver/serverpackets/SM_PTRANSFER_CONTROL.h"
 
 #include <chrono>
+#include <unordered_map>
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
@@ -303,10 +304,12 @@ void SM_PTRANSFER_CONTROL::writeImpl(LoginServerConnection* con, commons::utils:
 		case RECIPE_INFORMATION: {
 			writeD(buf, this->taskId);
 			runtime::Ptr<model::gameobjects::player::RecipeList> rec = this->player->getRecipeList();
-			std::vector<int32_t> recipes = rec->getRecipeList().snapshot();
+			// Java 51d7a19cb layout (the ids only) until wave 5 ports e5c133836, which adds each recipe's production count (writeC) here and in
+			// CMT_CHARACTER_INFORMATION; the ids come from the production-limit map of the sync foundation (docs/deviations/P4-12.md)
+			std::unordered_map<int32_t, int32_t> recipes = rec->getRecipes();
 			writeD(buf, static_cast<int32_t>(recipes.size()));
-			for (int32_t id : recipes) {
-				writeD(buf, id);
+			for (const auto& recipe : recipes) {
+				writeD(buf, recipe.first);
 			}
 		} break;
 		case QUEST_INFORMATION: {
