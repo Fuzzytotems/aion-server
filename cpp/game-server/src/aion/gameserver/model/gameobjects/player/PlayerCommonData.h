@@ -64,6 +64,7 @@ private:
 	runtime::Field<bool> noExp{false};
 	runtime::Field<int64_t> reposeCurrent{};
 	runtime::Field<int64_t> reposeMax{};
+	runtime::Field<int64_t> pvpExp{};
 	runtime::Field<int64_t> salvationPoint{};
 	runtime::Field<int32_t> mentorFlagTime{};
 	runtime::Field<int32_t> worldOwnerId{};
@@ -134,6 +135,11 @@ public:
 	int64_t getCurrentReposeEnergy() const { return reposeCurrent.get(); }
 
 	int64_t getMaxReposeEnergy() const { return reposeMax.get(); }
+
+	/** @return The accumulated PvP XP that limits how much more PvP XP the player can gain. */
+	int64_t getPvpExp() const { return pvpExp.get(); }
+
+	void setPvpExp(int64_t value) { pvpExp.set(value); }
 
 	/** sets the exp and level value */
 	void setExp(int64_t exp);
