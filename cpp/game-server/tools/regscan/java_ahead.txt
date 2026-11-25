@@ -1,0 +1,16 @@
+# Java cross-check errors of aion_gs_regscan that the game server tolerates while the Java tree is ahead of the C++ port (--java-ahead, README.md).
+# Format: <path suffix> | <message>    ('#' starts a comment). An entry that no longer matches an error fails the scan, so the wave that ports
+# the change removes its lines. Added by the upstream sync foundation (Java 68eccc7b1, docs/design/upstream-sync-2026-11.md).
+
+# 205076446 (wave 6): FollowingNpcAI registers @AIName(ZoneChecker.FOLLOWING_AI_NAME), a constant the scanner does not resolve
+handlers/ai/FollowingNpcAI.cpp | Java class ai.FollowingNpcAI registers no @AIName
+ai/FollowingNpcAI.java | @AIName without a string value
+ai/FollowingNpcAI.java | unsupported @AIName arguments (expected literal values)
+
+# 4617c9fd2 (wave 4): @ZoneNameAnnotation became @ZoneHandlerArea({...}) without a quest id
+handlers/zone/_1012SensoryArea.cpp | Java class zone._1012SensoryArea registers no @ZoneNameAnnotation
+handlers/zone/pvpZones/PvPAreaZone.cpp | Java class zone.pvpZones.PvPAreaZone registers no @ZoneNameAnnotation
+
+# 2ee52b1d3 (wave 4) removed CM_POSITION_SELF, e5c133836 (wave 5) removed CM_SHOW_BLOCKLIST from AionClientPacketFactory
+clientpackets/CM_POSITION_SELF.cpp | CM_POSITION_SELF is not in the client packet table of AionClientPacketFactory.java
+clientpackets/CM_SHOW_BLOCKLIST.cpp | CM_SHOW_BLOCKLIST is not in the client packet table of AionClientPacketFactory.java

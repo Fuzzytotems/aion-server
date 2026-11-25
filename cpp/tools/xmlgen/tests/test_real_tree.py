@@ -34,19 +34,20 @@ class RealTreeTest(unittest.TestCase):
         self.assertEqual(len(classes), 744)
         jaxb_enums = [e for e in self.ir['enums'] if not e['core']]
         self.assertEqual(len(jaxb_enums), 115, '87 annotated enums plus the unannotated enums of bound properties')
-        self.assertEqual(len(self.ir['enums']) - len(jaxb_enums), 141, 'S0a: the other 142 enums of game-server/src minus [hand_written_enums]')
-        self.assertEqual(self.cm.model.hand_written_enums, ['com.aionemu.gameserver.configs.main.SecurityConfig.MultiClientingRestrictionMode'])
+        # upstream sync 2026-11 (68eccc7b1): 165 other enums of game-server/src minus the 10 [hand_written_enums]
+        self.assertEqual(len(self.ir['enums']) - len(jaxb_enums), 155, 'S0a: the other enums of game-server/src minus [hand_written_enums]')
+        self.assertEqual(len(self.cm.model.hand_written_enums), 10, 'the core enums kept at 51d7a19cb by the upstream sync foundation')
         self.assertEqual(kinds['choiceList'], 12, '12 @XmlElements lists')
         self.assertEqual(sum(len(p['choices']) for c in classes for p in c['properties'] if p.get('choices')), 287)
         self.assertEqual(kinds['wrapper'], 8)
-        self.assertEqual(kinds['xmlListAttribute'] + kinds['xmlListElement'], 28)
+        self.assertEqual(kinds['xmlListAttribute'] + kinds['xmlListElement'], 30)
         self.assertEqual(kinds['adapter'], 7)
-        self.assertEqual(kinds['methodSetter'], 3)
+        self.assertEqual(kinds['methodSetter'], 2)
         self.assertEqual(kinds['idref'], 2)
         self.assertEqual(sum(1 for c in classes for p in c['properties'] if p['implicit']), 31 - 3, '31 implicit fields, 3 denied')
-        self.assertEqual(sum(1 for c in classes if c['afterUnmarshal']), 111)
+        self.assertEqual(sum(1 for c in classes if c['afterUnmarshal']), 114)
         holders = next(c for c in classes if c['xmlRootElement'] == 'static_data')['properties']
-        self.assertEqual(len(holders), 92)
+        self.assertEqual(len(holders), 94)
         self.assertEqual(self.cm.policy.unused_entries(), [])
 
     @unittest.skipUnless(os.path.isdir(STATIC_DATA), 'static data not found')
@@ -119,7 +120,7 @@ class RealTreeTest(unittest.TestCase):
     def test_static_data_holder_table(self):
         table = self.files['aion/gameserver/dataholders/StaticDataHolders.xml.h']
         self.assertIn('X("world_maps", ::aion::gameserver::dataholders::WorldMapsData, worldMapsData)', table)
-        self.assertEqual(table.count('\tX('), 92)
+        self.assertEqual(table.count('\tX('), 94)
 
 
 class EnumValueWalker:
