@@ -22,7 +22,6 @@ public:
 	static void removePlayerPet(int32_t petObjectId);
 	static std::vector<runtime::Ref<model::gameobjects::player::PetCommonData>> getPlayerPets(model::gameobjects::player::Player& player);
 	static void updatePetName(model::gameobjects::player::PetCommonData& petCommonData);
-	static bool savePetMoodData(model::gameobjects::player::PetCommonData& petCommonData);
 	static std::vector<int32_t> getUsedIDs();
 };
 

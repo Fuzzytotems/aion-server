@@ -29,6 +29,8 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/PetData.bind.h"
+#include "aion/gameserver/dataholders/PetData.h"
 #include "aion/gameserver/model/account/PlayerAccountData.h"
 #include "aion/gameserver/model/gameobjects/BrokerItem.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
@@ -213,6 +215,37 @@ TEST_F(LegionHouseItemDaoTest, PetUpdatesWithoutTemplates) {
 	EXPECT_TRUE(PlayerPetsDAO::getUsedIDs().empty());
 	auto f = makePlayer(1, 1, "Owner");
 	EXPECT_TRUE(PlayerPetsDAO::getPlayerPets(*f.player).empty());
+}
+
+TEST_F(LegionHouseItemDaoTest, PetAppearanceRoundTrip) {
+	// PetCommonData's constructor reads the pet template (a merchant pet: no feed or doping data needed)
+	PublishedHolder petData(dataholders::DataManager::PET_DATA,
+		bindXml<dataholders::PetData>(R"(<pets><pet id="900010" name="merchant test pet" nameid="1600041" condition_reward="0">)"
+									  R"(<petfunction id="1" type="MERCHANT" rate_price="20"/>)"
+									  R"(<petstats reaction="brave" run_speed="6.0" walk_speed="1.132" height="1.0"/></pet></pets>)"));
+	insertPlayer(1, "Owner", 1);
+	auto f = makePlayer(1, 1, "Owner");
+	Ref<model::gameobjects::player::PetCommonData> pet;
+	SKIP_IF_UNPORTED(pet = model::gameobjects::player::PetCommonData::create(71, 900010, 1, 0));
+	pet->setDecoration(3);
+	pet->setColor(0x00aabbcc);
+	pet->setFace(2);
+	pet->setHead(4);
+	pet->setName("Spot");
+	PlayerPetsDAO::insertPlayerPet(*f.player, *pet);
+	EXPECT_EQ(queryString("SELECT CONCAT(decoration, ',', color, ',', face, ',', head, ',', name, ',', expire_time) FROM player_pets WHERE id = 71"),
+		"3,11189196,2,4,Spot,0")
+		<< "color, face and head of the pet rework (f16e03ad3)";
+
+	std::vector<Ref<model::gameobjects::player::PetCommonData>> pets = PlayerPetsDAO::getPlayerPets(*f.player);
+	ASSERT_EQ(pets.size(), 1u);
+	EXPECT_EQ(pets[0]->getObjectId(), 71);
+	EXPECT_EQ(pets[0]->getDecoration(), 3);
+	EXPECT_EQ(pets[0]->getColor(), 0x00aabbcc);
+	EXPECT_EQ(pets[0]->getFace(), 2);
+	EXPECT_EQ(pets[0]->getHead(), 4);
+	EXPECT_EQ(pets[0]->getName(), "Spot");
+	EXPECT_FALSE(pets[0]->getDespawnTime()) << "player_pets has no despawn_time since f16e03ad3: PetList.loadPets sets it";
 }
 
 TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
