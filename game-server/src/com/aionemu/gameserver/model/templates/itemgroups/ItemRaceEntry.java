@@ -1,15 +1,10 @@
 package com.aionemu.gameserver.model.templates.itemgroups;
 
-import javax.xml.bind.Unmarshaller;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlSeeAlso;
-import javax.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.Unmarshaller;
+import jakarta.xml.bind.annotation.*;
 
 import com.aionemu.gameserver.dataholders.DataManager;
 import com.aionemu.gameserver.dataholders.ItemData;
-import com.aionemu.gameserver.dataholders.StaticData;
 import com.aionemu.gameserver.dataholders.loadingutils.StaticDataListener;
 import com.aionemu.gameserver.model.Chance;
 import com.aionemu.gameserver.model.Race;
@@ -48,8 +43,7 @@ public class ItemRaceEntry implements Chance {
 	private Race race = Race.PC_ALL;
 
 	void afterUnmarshal(Unmarshaller u, Object parent) {
-		StaticData staticData = StaticDataListener.get(u);
-		ItemData itemData = staticData != null ? staticData.itemData : DataManager.ITEM_DATA;
+		ItemData itemData = StaticDataListener.getItemData(u);
 		ItemTemplate itemTemplate = itemData.getItemTemplate(id);
 		if (itemTemplate == null)
 			throw new IllegalArgumentException("BonusItemGroup item ID " + id + " is invalid");

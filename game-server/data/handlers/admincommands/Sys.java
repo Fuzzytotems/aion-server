@@ -24,8 +24,9 @@ public class Sys extends AdminCommand {
 			<info> - Shows general system information.
 			<memory> [gc] - Shows memory usage statistics and optionally runs the garbage collector.
 			<threadpool> - Shows thread pool manager info.
-			<restart|shutdown> [delay] - Restarts or shuts down the server after the specified delay in seconds (default: uses delay from config).
-			""");
+			<restart|shutdown> [delay] - Restarts or shuts down the server after the specified delay in seconds (default: uses delay from config). The \
+			delay is skipped when no players%s are online.
+			""".formatted(ShutdownConfig.INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE ? " or only staff" : ""));
 	}
 
 	@Override
@@ -39,14 +40,14 @@ public class Sys extends AdminCommand {
 			sendInfo(player, "System information at: " + ServerTime.now().format(DateTimeFormatter.ofPattern("H:mm:ss")));
 			sendInfo(player, VersionInfo.commons.toString(GSConfig.TIME_ZONE_ID));
 			sendInfo(player, GameServer.versionInfo.toString(GSConfig.TIME_ZONE_ID));
-			sendInfo(player, SystemInfo.getSystemInfo());
+			sendInfo(player, String.join("\n", SystemInfo.getSystemInfo()));
 		} else if ("memory".equalsIgnoreCase(params[0])) {
 			if (params.length > 1 && "gc".equalsIgnoreCase(params[1])) {
 				long time = System.currentTimeMillis();
 				System.gc();
 				sendInfo(player, "Garbage collection took " + (System.currentTimeMillis() - time) + " ms");
 			}
-			sendInfo(player, SystemInfo.getMemoryInfo());
+			sendInfo(player, String.join("\n", SystemInfo.getMemoryInfo()));
 		} else if ("threadpool".equalsIgnoreCase(params[0])) {
 			List<String> stats = ThreadPoolManager.getInstance().getStats();
 			for (String stat : stats) {

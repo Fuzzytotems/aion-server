@@ -21,6 +21,7 @@ import com.aionemu.gameserver.model.gameobjects.player.Mailbox;
 import com.aionemu.gameserver.model.gameobjects.player.Player;
 import com.aionemu.gameserver.model.gameobjects.player.PlayerCommonData;
 import com.aionemu.gameserver.model.team.legion.LegionRank;
+import com.aionemu.gameserver.world.World;
 
 /**
  * Class that is responsible for storing/loading player data
@@ -39,15 +40,34 @@ public class PlayerDAO {
 			rs.next();
 			return rs.getInt("cnt") > 0;
 		} catch (SQLException e) {
-			log.error("Can't check if name " + name + " is used, returning positive result", e);
+			log.error("Can't check if name {} is used, returning positive result", name, e);
 			return true;
 		}
+	}
+
+	/**
+	 * An open world twin is stored as a world id of its own, so that the player returns to the same channel after a relog.
+	 */
+	private static int toStoredWorldId(Player player) {
+		int worldId = player.getWorldId();
+		if (!World.getInstance().isValidTwinId(worldId, player.getInstanceId()))
+			return worldId;
+		return worldId + player.getInstanceId() - 1;
+	}
+
+	/**
+	 * Splits the stored world id back into the map id and the channel. Everything else in the server only knows the map id.
+	 */
+	private static void applyStoredWorldId(PlayerCommonData cd, int storedWorldId) {
+		int channel = storedWorldId % 100;
+		cd.setMapId(storedWorldId - channel);
+		cd.setInstanceId(channel + 1);
 	}
 
 	public static void storePlayer(Player player) {
 		try (Connection con = DatabaseFactory.getConnection();
 				 PreparedStatement stmt = con.prepareStatement(
-					 "UPDATE players SET name=?, exp=?, recoverexp=?, x=?, y=?, z=?, heading=?, world_id=?, gender=?, race=?, player_class=?, quest_expands=?, npc_expands=?, item_expands=?, wh_npc_expands=?, wh_bonus_expands=?, note=?, title_id=?, bonus_title_id=?, dp=?, soul_sickness=?, mailbox_letters=?, reposte_energy=?, mentor_flag_time=?, world_owner=? WHERE id=?")) {
+					 "UPDATE players SET name=?, exp=?, recoverexp=?, x=?, y=?, z=?, heading=?, world_id=?, gender=?, race=?, player_class=?, quest_expands=?, npc_expands=?, item_expands=?, wh_npc_expands=?, wh_bonus_expands=?, note=?, title_id=?, bonus_title_id=?, dp=?, soul_sickness=?, mailbox_letters=?, reposte_energy=?, pvp_exp=?, mentor_flag_time=?, world_owner=? WHERE id=?")) {
 			PlayerCommonData pcd = player.getCommonData();
 			stmt.setString(1, pcd.getName());
 			stmt.setLong(2, pcd.getExp());
@@ -56,7 +76,7 @@ public class PlayerDAO {
 			stmt.setFloat(5, player.getY());
 			stmt.setFloat(6, player.getZ());
 			stmt.setInt(7, player.getHeading());
-			stmt.setInt(8, player.getWorldId());
+			stmt.setInt(8, toStoredWorldId(player));
 			stmt.setString(9, pcd.getGender().toString());
 			stmt.setString(10, pcd.getRace().toString());
 			stmt.setString(11, pcd.getPlayerClass().toString());
@@ -74,12 +94,13 @@ public class PlayerDAO {
 			int mails = mailBox != null ? mailBox.size() : pcd.getMailboxLetters();
 			stmt.setInt(22, mails);
 			stmt.setLong(23, pcd.getCurrentReposeEnergy());
-			stmt.setInt(24, pcd.getMentorFlagTime());
-			stmt.setInt(25, pcd.getWorldOwnerId());
-			stmt.setInt(26, player.getObjectId());
+			stmt.setLong(24, pcd.getPvpExp());
+			stmt.setInt(25, pcd.getMentorFlagTime());
+			stmt.setInt(26, pcd.getWorldOwnerId());
+			stmt.setInt(27, player.getObjectId());
 			stmt.execute();
 		} catch (Exception e) {
-			log.error("Error saving " + player, e);
+			log.error("Error saving {}", player, e);
 		}
 	}
 
@@ -107,7 +128,7 @@ public class PlayerDAO {
 			stmt.setInt(17, player.getWhBonusExpands());
 			stmt.execute();
 		} catch (Exception e) {
-			log.error("Error saving new " + player, e);
+			log.error("Error saving new {}", player, e);
 			return false;
 		}
 		return true;
@@ -123,7 +144,7 @@ public class PlayerDAO {
 					playerObjId = rset.getInt("id");
 			}
 		} catch (Exception e) {
-			log.error("Could not restore playerId data for player name: " + name + " from DB: " + e.getMessage(), e);
+			log.error("Could not restore playerId data for player name: {} from DB: {}", name, e.getMessage(), e);
 		}
 
 		if (playerObjId == 0) {
@@ -158,11 +179,12 @@ public class PlayerDAO {
 					cd.setDp(resultSet.getInt("dp"));
 					cd.setDeathCount(resultSet.getInt("soul_sickness"));
 					cd.setCurrentReposeEnergy(resultSet.getLong("reposte_energy"));
+					cd.setPvpExp(resultSet.getLong("pvp_exp"));
 					cd.setX(resultSet.getFloat("x"));
 					cd.setY(resultSet.getFloat("y"));
 					cd.setZ(resultSet.getFloat("z"));
 					cd.setHeading(resultSet.getByte("heading"));
-					cd.setMapId(resultSet.getInt("world_id"));
+					applyStoredWorldId(cd, resultSet.getInt("world_id"));
 					cd.setWorldOwnerId(resultSet.getInt("world_owner"));
 					cd.setMentorFlagTime(resultSet.getInt("mentor_flag_time"));
 					cd.setLastTransferTime(resultSet.getLong("last_transfer_time"));
@@ -170,7 +192,7 @@ public class PlayerDAO {
 				}
 			}
 		} catch (Exception e) {
-			log.error("Could not load PlayerCommonData data for player: " + playerObjId, e);
+			log.error("Could not load PlayerCommonData data for player: {}", playerObjId, e);
 		}
 		return null;
 	}
@@ -307,7 +329,7 @@ public class PlayerDAO {
 			if (rs.next())
 				return rs.getBoolean("online");
 		} catch (SQLException e) {
-			log.error("Can't get online state of player " + playerId, e);
+			log.error("Can't get online state of player {}", playerId, e);
 		}
 		return false;
 	}
@@ -405,7 +427,7 @@ public class PlayerDAO {
 			stmt.setInt(2, recipientCommonData.getPlayerObjId());
 			stmt.execute();
 		} catch (Exception e) {
-			log.error("Error saving playerName: " + recipientCommonData.getPlayerObjId() + " " + recipientCommonData.getName(), e);
+			log.error("Error saving playerName: {} {}", recipientCommonData.getPlayerObjId(), recipientCommonData.getName(), e);
 		}
 	}
 
@@ -483,7 +505,7 @@ public class PlayerDAO {
 					oldLevel = rs.getInt("old_level");
 			}
 		} catch (Exception e) {
-			log.error("Error reading old_level for player: " + playerObjectId, e);
+			log.error("Error reading old_level for player: {}", playerObjectId, e);
 		}
 		return oldLevel;
 	}
@@ -495,7 +517,7 @@ public class PlayerDAO {
 			stmt.setInt(2, playerObjectId);
 			stmt.execute();
 		} catch (Exception e) {
-			log.error("Error storing old_level: " + level + " for player: " + playerObjectId, e);
+			log.error("Error storing old_level: {} for player: {}", level, playerObjectId, e);
 		}
 	}
 

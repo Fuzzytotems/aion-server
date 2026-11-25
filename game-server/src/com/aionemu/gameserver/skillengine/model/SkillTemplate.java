@@ -1,6 +1,6 @@
 package com.aionemu.gameserver.skillengine.model;
 
-import javax.xml.bind.annotation.*;
+import jakarta.xml.bind.annotation.*;
 
 import com.aionemu.gameserver.controllers.attack.AttackStatus;
 import com.aionemu.gameserver.dataholders.DataManager;
@@ -247,6 +247,16 @@ public class SkillTemplate implements L10n {
 
 	public boolean isCharge() {
 		return activationAttribute == ActivationAttribute.CHARGE;
+	}
+
+	/**
+	 * @return True if the client may cast this skill; retail allows only the activation types 1, 2, 4 and 32 (toggle, active, maintain, charge).
+	 */
+	public boolean isCastableByClient() {
+		return switch (activationAttribute) {
+			case TOGGLE, ACTIVE, MAINTAIN, CHARGE -> true;
+			default -> false;
+		};
 	}
 
 	public EffectTemplate getEffectTemplate(int position) {

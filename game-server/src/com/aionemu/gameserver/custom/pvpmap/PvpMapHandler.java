@@ -178,7 +178,7 @@ public class PvpMapHandler extends GeneralInstanceHandler {
 	private void scheduleRandomBossDespawn() {
 		tasks.add(ThreadPoolManager.getInstance().schedule(() -> {
 			Npc boss = (Npc) instance.getObject(currentRandomBossObjId);
-			if (boss != null && !boss.getLifeStats().isAboutToDie() && !boss.isDead()) {
+			if (boss != null && !boss.isDeadOrDoomed()) {
 				boss.getController().delete();
 				currentRandomBossObjId = 0;
 			}
@@ -206,14 +206,14 @@ public class PvpMapHandler extends GeneralInstanceHandler {
 	private void startTeleportation(Player p, boolean isLeaving) {
 		ActionObserver observer = getAllObserver(p);
 		PacketSendUtility.broadcastPacket(p, new SM_BIND_POINT_TELEPORT(1, p.getObjectId(), 1, 0), true);
-		p.getObserveController().attach(observer);
+		p.getObserveController().addObserver(observer);
 
 		p.getController().addTask(TaskId.SKILL_USE, ThreadPoolManager.getInstance().schedule(() -> {
 			PacketSendUtility.broadcastPacket(p, new SM_BIND_POINT_TELEPORT(3, p.getObjectId(), 1, 0), true);
 			ThreadPoolManager.getInstance().schedule(() -> {
 				p.getObserveController().removeObserver(observer);
 				p.getController().cancelTask(TaskId.SKILL_USE);
-				if (!p.getController().isInCombat() && !p.getLifeStats().isAboutToDie() && !p.isDead()) {
+				if (!p.getController().isInCombat() && !p.isDeadOrDoomed()) {
 					if (isLeaving) {
 						removePlayer(p);
 					} else {
@@ -229,10 +229,10 @@ public class PvpMapHandler extends GeneralInstanceHandler {
 	}
 
 	private ActionObserver getAllObserver(final Player p) {
-		return new ItemUseObserver() {
+		return new ItemUseObserver(p) {
 
 			@Override
-			public void abort() {
+			protected void onAbort() {
 				BindPointTeleportService.cancelTeleport(p, 1);
 			}
 		};
@@ -265,7 +265,7 @@ public class PvpMapHandler extends GeneralInstanceHandler {
 	}
 
 	private boolean checkState(Player p) {
-		return !p.getController().isInCombat() && !p.getLifeStats().isAboutToDie() && !p.isDead() && !p.isLooting() && !p.isInGlidingState()
+		return !p.getController().isInCombat() && !p.isDeadOrDoomed() && !p.isLooting() && !p.isInGlidingState()
 			&& !p.isFlying() && !p.isUsingFlightTransporterOrWindstream() && !p.isInPlayerMode(PlayerMode.RIDE) && !p.hasStore()
 			&& p.getCastingSkill() == null && !p.getEffectController().isInAnyAbnormalState(AbnormalState.CANT_ATTACK_STATE)
 			&& !p.getEffectController().isInAnyAbnormalState(AbnormalState.ROOT);
@@ -823,7 +823,7 @@ public class PvpMapHandler extends GeneralInstanceHandler {
 
 	private String getZoneNameL10n(Player player) {
 		for (ZoneInstance zone : player.findZones()) {
-			int zoneNameL10nId = getZoneNameL10nId(zone.getAreaTemplate().getZoneName().name());
+			int zoneNameL10nId = getZoneNameL10nId(zone.getZoneTemplate().getName());
 			if (zoneNameL10nId > 0) {
 				return ChatUtil.l10n(zoneNameL10nId);
 			}

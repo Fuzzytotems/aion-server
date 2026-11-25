@@ -2,12 +2,11 @@ package com.aionemu.gameserver.dataholders;
 
 import java.util.*;
 
-import javax.xml.bind.Unmarshaller;
-import javax.xml.bind.annotation.*;
+import jakarta.xml.bind.Unmarshaller;
+import jakarta.xml.bind.annotation.*;
 
 import org.slf4j.LoggerFactory;
 
-import com.aionemu.gameserver.dataholders.loadingutils.StaticDataListener;
 import com.aionemu.gameserver.model.DialogAction;
 import com.aionemu.gameserver.model.TribeClass;
 import com.aionemu.gameserver.model.gameobjects.Npc;
@@ -39,16 +38,12 @@ public class NpcData {
 	private final Set<Integer> functionDialogIds = new HashSet<>();
 
 	void afterUnmarshal(Unmarshaller u, Object parent) {
-		StaticDataListener.registerForAsyncExecutionOrRun(u, this::init);
-	}
-
-	private void init() {
 		for (NpcTemplate npc : npcs) {
 			npcData.put(npc.getTemplateId(), npc);
 			if (npc.getFuncDialogIds() != null) {
 				for (Integer dialogActionId : npc.getFuncDialogIds()) {
 					if (DialogAction.nameOf(dialogActionId) == null)
-						LoggerFactory.getLogger(NpcData.class).warn("Unknown dialog action " + dialogActionId + " for Npc " + npc.getTemplateId());
+						LoggerFactory.getLogger(NpcData.class).warn("Unknown dialog action {} for Npc {}", dialogActionId, npc.getTemplateId());
 				}
 			}
 			if (npc.getTribe() != TribeClass.PET && npc.getTribe() != TribeClass.PET_DARK) { // summons and siege weapons have fixed stats

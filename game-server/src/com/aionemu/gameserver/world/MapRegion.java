@@ -3,15 +3,16 @@ package com.aionemu.gameserver.world;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import com.aionemu.gameserver.ai.event.AIEventType;
 import com.aionemu.gameserver.model.gameobjects.Creature;
 import com.aionemu.gameserver.model.gameobjects.VisibleObject;
 import com.aionemu.gameserver.model.gameobjects.player.Player;
+import com.aionemu.gameserver.model.templates.flypath.FlightPath;
 import com.aionemu.gameserver.model.templates.zone.ZoneClassName;
 import com.aionemu.gameserver.utils.ThreadPoolManager;
 import com.aionemu.gameserver.world.zone.ZoneInstance;
-import com.aionemu.gameserver.world.zone.ZoneName;
 
 /**
  * Just some part of map.
@@ -22,7 +23,7 @@ public class MapRegion {
 
 	private static final Comparator<ZoneInstance> zoneComparator = Comparator.comparing((ZoneInstance z) -> z.getZoneTemplate().getZoneType())
 		.thenComparingInt(z -> z.getZoneTemplate().getPriority())
-		.thenComparingInt(z -> z.getZoneTemplate().getName().id());
+		.thenComparingInt(z -> z.getZoneTemplate().getName().hashCode());
 
 	private final int regionId;
 	private final WorldMapInstance parent;
@@ -143,14 +144,18 @@ public class MapRegion {
 	}
 
 	public void revalidateZones(Creature creature) {
+		// the position along a flight transporter's path isn't validated, so zones are only left until the player lands
+		boolean onFlightTransporter = creature instanceof Player player && player.isUsingFlightPath(FlightPath.Type.FLIGHT_TRANSPORTER);
 		ZoneClassName zoneType = null;
 		boolean enteredPriorityZone = false;
 		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
+			if (zone.isIgnored(creature))
+				continue;
 			if (zoneType != zone.getZoneTemplate().getZoneType()) {
 				zoneType = zone.getZoneTemplate().getZoneType();
 				enteredPriorityZone = false;
 			}
-			if (!creature.isSpawned() || enteredPriorityZone || !zone.revalidate(creature)) {
+			if (!creature.isSpawned() || enteredPriorityZone || onFlightTransporter || !zone.revalidate(creature)) {
 				zone.onLeave(creature);
 				continue;
 			}
@@ -171,6 +176,29 @@ public class MapRegion {
 		return z;
 	}
 
+	/**
+	 * @return The zone of the given type at the given position, null when there is none.
+	 */
+	public ZoneInstance findZone(ZoneClassName zoneType, float x, float y, float z) {
+		return findZone(zone -> zone.getZoneTemplate().getZoneType() == zoneType, x, y, z);
+	}
+
+	private ZoneInstance findZone(Predicate<ZoneInstance> filter, float x, float y, float z) {
+		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
+			if (filter.test(zone) && zone.isInsideCoordinate(x, y, z))
+				return zone;
+		}
+		return null;
+	}
+
+	private ZoneInstance findZone(Predicate<ZoneInstance> filter, Creature creature) {
+		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
+			if (filter.test(zone) && zone.isInsideCreature(creature))
+				return zone;
+		}
+		return null;
+	}
+
 	public boolean onDie(Creature attacker, Creature target) {
 		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
 			if (zone.isInsideCreature(target)) {
@@ -181,39 +209,24 @@ public class MapRegion {
 		return false;
 	}
 
-	public boolean isInsideZone(ZoneName zoneName, float x, float y, float z) {
-		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
-			if (zone.getZoneTemplate().getName() != zoneName)
-				continue;
-			return zone.isInsideCordinate(x, y, z);
-		}
-		return false;
+	public boolean isInsideZone(String zoneName, float x, float y, float z) {
+		return findZone(zone -> zone.matches(zoneName), x, y, z) != null;
 	}
 
-	public boolean isInsideZone(ZoneName zoneName, Creature creature) {
-		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
-			if (zone.getZoneTemplate().getName() == zoneName)
-				return zone.isInsideCreature(creature);
-		}
-		return false;
+	public boolean isInsideZone(ZoneClassName zoneType, float x, float y, float z) {
+		return findZone(zoneType, x, y, z) != null;
+	}
+
+	public boolean isInsideZone(String zoneName, Creature creature) {
+		return findZone(zone -> zone.matches(zoneName), creature) != null;
 	}
 
 	/**
 	 * Item use zones always have the same names instances, while we have unique names; Thus, a special check for item use.
 	 */
-	public boolean isInsideItemUseZone(ZoneName zoneName, Creature creature) {
-		boolean checkFortresses = "_ABYSS_CASTLE_AREA_".equals(zoneName.name()); // some items have this special zonename in uselimits
-		for (ZoneInstance zone : zonesSortedByTypeAndPriority) {
-			if (checkFortresses) {
-				if (zone.getZoneTemplate().getZoneType() != ZoneClassName.FORT)
-					continue;
-			} else if (!zone.getZoneTemplate().getXmlName().startsWith(zoneName.toString())) {
-				continue;
-			}
-			if (zone.isInsideCreature(creature))
-				return true;
-		}
-		return false;
+	public boolean isInsideItemUseZone(String zoneName, Creature creature) {
+		boolean checkFortresses = "_ABYSS_CASTLE_AREA_".equals(zoneName); // some items have this special zonename in uselimits
+		return findZone(zone -> checkFortresses ? zone.getZoneTemplate().getZoneType() == ZoneClassName.FORT : zone.getZoneTemplate().getName().startsWith(zoneName), creature) != null;
 	}
 
 	public int getZoneCount() {

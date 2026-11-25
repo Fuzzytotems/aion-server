@@ -2,7 +2,6 @@ package com.aionemu.gameserver.controllers;
 
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -17,6 +16,8 @@ import com.aionemu.gameserver.ai.event.AIEventType;
 import com.aionemu.gameserver.controllers.attack.AttackResult;
 import com.aionemu.gameserver.controllers.attack.AttackStatus;
 import com.aionemu.gameserver.controllers.attack.AttackUtil;
+import com.aionemu.gameserver.controllers.attack.ShieldDamage;
+import com.aionemu.gameserver.controllers.observer.MaterialSkillUsage;
 import com.aionemu.gameserver.controllers.observer.TerrainZoneCollisionMaterialActor;
 import com.aionemu.gameserver.dataholders.DataManager;
 import com.aionemu.gameserver.model.EmotionType;
@@ -64,7 +65,8 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 
 	private static final Logger log = LoggerFactory.getLogger(CreatureController.class);
 	private volatile TerrainZoneCollisionMaterialActor actor;
-	private final ConcurrentHashMap<Integer, Future<?>> tasks = new ConcurrentHashMap<>();
+	private MaterialSkillUsage materialSkillUsage;
+	private final ConcurrentHashMap<TaskId, Future<?>> tasks = new ConcurrentHashMap<>();
 
 	@Override
 	public void notSee(VisibleObject object, ObjectDeleteAnimation animation) {
@@ -264,7 +266,6 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 		applyGodStoneEffect(attacker, attacker.getEquipment().getOffHandWeapon(), false);
 	}
 
-	@SuppressWarnings("lossy-conversions")
 	private void applyGodStoneEffect(Player attacker, Item weapon, boolean isMainHandWeapon) {
 		if (weapon == null || !weapon.hasGodStone())
 			return;
@@ -307,9 +308,13 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 	public void attackTarget(Creature target, int time, boolean skipChecks) {
 		boolean addAttackObservers = true;
 		if (!skipChecks
-			&& (target == null || getOwner().isDead() || getOwner().getLifeStats().isAboutToDie() || !getOwner().canAttack() || !getOwner().isSpawned())) {
+			&& (target == null || getOwner().isDeadOrDoomed() || !getOwner().canAttack() || !getOwner().isSpawned())) {
 			return;
 		}
+		if (getOwner() instanceof Player player)
+			player.blockQuitting();
+		if (target instanceof Player player)
+			player.blockQuitting();
 
 		// Calculate and apply damage
 		AttackHandAnimation attackHandAnimation = AttackHandAnimation.MAIN_HAND;
@@ -353,10 +358,16 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 			getOwner().getObserveController().notifyAttackObservers(target, 0);
 		}
 
-		if (time == 0)
+		List<ShieldDamage> shieldDamages = attackResult.stream().flatMap(result -> result.getShieldDamages().stream()).toList();
+		if (time == 0) {
+			ShieldDamage.applyAll(shieldDamages, true);
 			target.getController().onAttack(getOwner(), damage, firstAttackStatus, criticalProcEffect);
-		else
-			ThreadPoolManager.getInstance().schedule(new DelayedOnAttack(target, getOwner(), damage, firstAttackStatus, criticalProcEffect), time);
+			ShieldDamage.applyAll(shieldDamages, false);
+		} else {
+			boolean lethalHitLatched = target.getLifeStats().latchLethalHit(getOwner(), damage);
+			ThreadPoolManager.getInstance().schedule(
+				new DelayedOnAttack(target, getOwner(), damage, firstAttackStatus, criticalProcEffect, shieldDamages, lethalHitLatched), time);
+		}
 	}
 
 	/**
@@ -366,16 +377,27 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 	}
 
 	public boolean hasTask(TaskId taskId) {
-		return tasks.containsKey(taskId.ordinal());
+		return tasks.containsKey(taskId);
 	}
 
 	public boolean hasScheduledTask(TaskId taskId) {
-		Future<?> task = tasks.get(taskId.ordinal());
+		Future<?> task = tasks.get(taskId);
 		return task != null && !task.isDone();
 	}
 
+	public Future<?> getTask(TaskId taskId) {
+		return tasks.get(taskId);
+	}
+
 	public Future<?> getAndRemoveTask(TaskId taskId) {
-		return tasks.remove(taskId.ordinal());
+		return tasks.remove(taskId);
+	}
+
+	/**
+	 * @return True if the given task was still registered under this id and has been removed.
+	 */
+	public boolean removeTask(TaskId taskId, Future<?> task) {
+		return tasks.remove(taskId, task);
 	}
 
 	public Future<?> cancelTask(TaskId taskId) {
@@ -387,7 +409,7 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 	}
 
 	public boolean cancelTaskIfPresent(TaskId taskId, Future<?> task) {
-		if (tasks.remove(taskId.ordinal(), task)) {
+		if (tasks.remove(taskId, task)) {
 			task.cancel(false);
 			return true;
 		}
@@ -398,11 +420,11 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 	 * If task already exist - it will be canceled
 	 */
 	public void addTask(TaskId taskId, Future<?> task) {
-		tasks.compute(taskId.ordinal(), (k, oldTask) -> {
+		tasks.compute(taskId, (_, oldTask) -> {
 			if (oldTask != null) {
 				oldTask.cancel(false);
 				if (taskId == TaskId.DESPAWN) {
-					log.warn("Despawn task for " + getOwner() + " was cancelled and replaced with another one, possibly delaying the intended despawn time.");
+					log.warn("Despawn task for {} was cancelled and replaced with another one, possibly delaying the intended despawn time", getOwner());
 				}
 			}
 			return task;
@@ -413,8 +435,7 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 	 * Cancel all tasks associated with this controller
 	 */
 	public void cancelAllTasks() {
-		for (Entry<Integer, Future<?>> e : tasks.entrySet()) {
-			Future<?> task = e.getValue();
+		for (Future<?> task : tasks.values()) {
 			if (task != null)
 				task.cancel(false);
 		}
@@ -460,7 +481,7 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 				return skill.useSkill();
 			}
 		} catch (Exception ex) {
-			log.error("Exception during skill use: " + skillId, ex);
+			log.error("Exception during skill use: {}", skillId, ex);
 		}
 		return false;
 	}
@@ -485,7 +506,7 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 			if (skill != null)
 				return skill.useSkill();
 		} catch (Exception ex) {
-			log.error("Could not use charge skill " + startSkill.getSkillId() + " with charge time " + chargeTimeMillis, ex);
+			log.error("Could not use charge skill {} with charge time {}", startSkill.getSkillId(), chargeTimeMillis, ex);
 		} finally {
 			startSkill.cancelCast();
 		}
@@ -533,6 +554,12 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 	public void cancelUseItem() {
 	}
 
+	public synchronized MaterialSkillUsage getOrCreateMaterialSkillUsage() {
+		if (materialSkillUsage == null)
+			materialSkillUsage = new MaterialSkillUsage();
+		return materialSkillUsage;
+	}
+
 	@Override
 	public void onAfterSpawn() {
 		super.onAfterSpawn();
@@ -563,21 +590,36 @@ public abstract class CreatureController<T extends Creature> extends VisibleObje
 		private int finalDamage;
 		private AttackStatus attackStatus;
 		private Effect criticalProcEffect;
+		private final List<ShieldDamage> shieldDamages;
+		private final boolean lethalHitLatched;
 
-		private DelayedOnAttack(Creature target, Creature creature, int finalDamage, AttackStatus attackStatus, Effect criticalProcEffect) {
+		private DelayedOnAttack(Creature target, Creature creature, int finalDamage, AttackStatus attackStatus, Effect criticalProcEffect,
+			List<ShieldDamage> shieldDamages, boolean lethalHitLatched) {
 			this.target = target;
 			this.creature = creature;
 			this.finalDamage = finalDamage;
 			this.attackStatus = attackStatus;
 			this.criticalProcEffect = criticalProcEffect;
+			this.shieldDamages = shieldDamages;
+			this.lethalHitLatched = lethalHitLatched;
 		}
 
 		@Override
 		public void run() {
-			target.getController().onAttack(creature, finalDamage, attackStatus, criticalProcEffect);
-			target = null;
-			creature = null;
-			criticalProcEffect = null;
+			try {
+				ShieldDamage.applyAll(shieldDamages, true); // reflected damage hits the attacker before the hit itself lands
+				target.getController().onAttack(creature, finalDamage, attackStatus, criticalProcEffect);
+			} finally {
+				try {
+					ShieldDamage.applyAll(shieldDamages, false); // protected damage
+				} finally {
+					if (lethalHitLatched)
+						target.getLifeStats().releaseLethalHit();
+					target = null;
+					creature = null;
+					criticalProcEffect = null;
+				}
+			}
 		}
 
 	}

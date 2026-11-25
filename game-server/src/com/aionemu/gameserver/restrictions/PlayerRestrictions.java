@@ -15,6 +15,7 @@ import com.aionemu.gameserver.model.team.TeamMember;
 import com.aionemu.gameserver.model.team.TemporaryPlayerTeam;
 import com.aionemu.gameserver.model.team.alliance.PlayerAlliance;
 import com.aionemu.gameserver.model.team.group.PlayerGroup;
+import com.aionemu.gameserver.model.templates.item.ItemType;
 import com.aionemu.gameserver.model.templates.item.ItemUseLimits;
 import com.aionemu.gameserver.model.templates.item.actions.ItemActions;
 import com.aionemu.gameserver.model.templates.panels.SkillPanel;
@@ -32,7 +33,7 @@ import com.aionemu.gameserver.skillengine.model.SkillType;
 import com.aionemu.gameserver.skillengine.model.TransformType;
 import com.aionemu.gameserver.utils.PacketSendUtility;
 import com.aionemu.gameserver.utils.audit.AuditLogger;
-import com.aionemu.gameserver.world.zone.ZoneName;
+import com.aionemu.gameserver.world.WorldMapType;
 
 /**
  * @author lord_rex, Sippolo
@@ -48,6 +49,13 @@ public class PlayerRestrictions {
 		return true;
 	}
 
+	/**
+	 * @return true while the player glides or rides a flight path, the two stances in which the client greys out most actions
+	 */
+	public static boolean isGlidingOrUsingFlightPath(Player player) {
+		return player.isInGlidingState() || player.isUsingFlightTransporterOrWindstream();
+	}
+
 	public static boolean canUseSkill(Player player, Skill skill) {
 		if (player.isInPrison()) {
 			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_MSG_ACCUSE_TARGET_IS_NOT_VALID());
@@ -56,7 +64,12 @@ public class PlayerRestrictions {
 		VisibleObject target = player.getTarget();
 		SkillTemplate template = skill.getSkillTemplate();
 
-		if (!checkFly(player) || player.getLifeStats().isAboutToDie() || player.isDead()) {
+		if (player.isInGlidingState()) { // a cast does not start on a glide
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_FLYING_DISABLE_2());
+			return false;
+		}
+
+		if (!checkFly(player) || player.isDeadOrDoomed()) {
 			return false;
 		}
 
@@ -209,7 +222,7 @@ public class PlayerRestrictions {
 			return false;
 		}
 
-		if (!player.isSpawned() || player.getLifeStats().isAboutToDie() || player.isDead())
+		if (!player.isSpawned() || player.isDeadOrDoomed())
 			return false;
 
 		if (!checkFly(player))
@@ -224,7 +237,7 @@ public class PlayerRestrictions {
 			return false;
 		}
 
-		if (!(target instanceof Creature creature) || creature.isDead() || creature.getLifeStats().isAboutToDie()) {
+		if (!(target instanceof Creature creature) || creature.isDeadOrDoomed() || !player.canTarget(creature)) {
 			PacketSendUtility.sendPacket(player, SM_ATTACK_RESPONSE.STOP_INVALID_TARGET(player.getGameStats().getAttackCounter()));
 			return false;
 		}
@@ -283,8 +296,25 @@ public class PlayerRestrictions {
 			return false;
 		}
 
-		if (player.getLifeStats().isAboutToDie() || player.isDead())
+		if (player.isDeadOrDoomed())
 			return false;
+
+		// the client is in the teleport animation and stays in the world until it confirms the teleport
+		if (player.getController().hasTask(TaskId.TELEPORT))
+			return false;
+
+		// TODO: exempt cash items when cash_item is imported into ItemTemplate
+		if (player.getWorldId() == WorldMapType.LIVE_PARTY_CONCERT_HALL.getId()
+			&& item.getItemTemplate().getItemType() == ItemType.NORMAL) {
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_ITEM_IS_NOT_USABLE());
+			return false;
+		}
+
+		// gliding and riding a windstream or a flight transporter are the two states in which the client does not allow using items
+		if (isGlidingOrUsingFlightPath(player)) {
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_FLYING_DISABLE_1());
+			return false;
+		}
 
 		if (player.getEffectController().isInAnyAbnormalState(AbnormalState.CANT_ATTACK_STATE)) {
 			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_SKILL_CAN_NOT_USE_ITEM_WHILE_IN_ABNORMAL_STATE());
@@ -308,12 +338,6 @@ public class PlayerRestrictions {
 			return false;
 		}
 
-		// Checked before the "no actions" fallback below so a race mismatch reports correctly even without one
-		if (item.getItemTemplate().getRace() != Race.PC_ALL && item.getItemTemplate().getRace() != player.getRace()) {
-			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_INVALID_RACE());
-			return false;
-		}
-
 		ItemActions itemActions = item.getItemTemplate().getActions();
 		if (itemActions == null || itemActions.getItemActions().isEmpty()) {
 			if (!QuestEngine.getInstance().isRegisteredQuestItem(item.getItemId())) {
@@ -322,9 +346,8 @@ public class PlayerRestrictions {
 			}
 		}
 
-		ItemUseLimits limits = item.getItemTemplate().getUseLimits();
-		if (limits.getGenderPermitted() != null && limits.getGenderPermitted() != player.getGender()) {
-			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_INVALID_GENDER());
+		if (item.getItemTemplate().hasAreaRestriction() && !player.isInsideItemUseZone(item.getItemTemplate().getUseArea())) {
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_INVALID_LOCATION());
 			return false;
 		}
 
@@ -335,7 +358,7 @@ public class PlayerRestrictions {
 
 		int requiredLevel = item.getItemTemplate().getRequiredLevel(player.getPlayerClass());
 		if (requiredLevel > player.getLevel()) {
-			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(item.getL10n(), requiredLevel));
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(requiredLevel, item.getL10n()));
 			return false;
 		}
 
@@ -345,22 +368,24 @@ public class PlayerRestrictions {
 			return false;
 		}
 
-		if (item.getItemTemplate().hasAreaRestriction()) {
-			ZoneName restriction = item.getItemTemplate().getUseArea();
-			if (!player.isInsideItemUseZone(restriction)) {
-				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_SKILL_CAN_NOT_USE_ITEM_IN_CURRENT_POSITION());
-				return false;
-			}
+		if (item.getItemTemplate().getRace() != Race.PC_ALL && item.getItemTemplate().getRace() != player.getRace()) {
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_INVALID_RACE());
+			return false;
+		}
+
+		ItemUseLimits limits = item.getItemTemplate().getUseLimits();
+		if (limits.getGenderPermitted() != null && limits.getGenderPermitted() != player.getGender()) {
+			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_CANNOT_USE_ITEM_INVALID_GENDER());
+			return false;
 		}
 
 		if (item.getItemTemplate().getActivationRace() != null) {
-			// TODO: check retail messages
-			if (!(player.getTarget() instanceof Creature)) {
+			if (!(player.getTarget() instanceof Creature target)) {
 				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_ITEM_CANT_FIND_VALID_TARGET());
 				return false;
 			}
-			if (((Creature) player.getTarget()).getRace() != item.getItemTemplate().getActivationRace()) {
-				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_SKILL_CANT_CAST_TO_CURRENT_TARGET());
+			if (target.getRace() != item.getItemTemplate().getActivationRace()) {
+				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_MSG_WRONG_TARGET_RACE(item.getL10n()));
 				return false;
 			}
 		}
@@ -369,6 +394,8 @@ public class PlayerRestrictions {
 	}
 
 	public static boolean canChangeEquip(Player player) {
+		if (player.getController().hasTask(TaskId.TELEPORT)) // the client is in the teleport animation
+			return false;
 		if (player.isInPrison()) {
 			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_MSG_ACCUSE_TARGET_IS_NOT_VALID());
 			return false;
