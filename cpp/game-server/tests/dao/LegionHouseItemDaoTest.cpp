@@ -1,5 +1,5 @@
 // Round trips of the legion, mail, pet, housing and item DAOs (P4-14) against a fresh aion_gs.sql database: legions (emblem blobs, generated
-// history keys, IN lists), legion members, legion dominion participants, letters, pets, houses, bids, house scripts (UTF-16LE + zlib), inventory
+// history keys, IN lists), legion members, legion dominion participants, letters, pets, houses, bids, house scripts (zlib blocks), inventory
 // (visible equipment joined with god stones), item stones (batches in a transaction) and registered house items.
 
 #include <gtest/gtest.h>
@@ -229,22 +229,10 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	EXPECT_TRUE(HouseBidsDAO::deleteHouseBids(900));
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_bids"), 1);
 
+	// Since Java 46e8d00b9 the scripts are stored as the client's compressed block (blob) with its uncompressed size. The block is the UTF-16LE
+	// script compressed with zlib (level 6); the expected bytes are Python's zlib.compress(xml.encode('utf-16-le'), 6), an independent oracle of
+	// Java's Deflater
 	const std::string xml = "<scripts><script id=\"1\">\xC3\xA9</script></scripts>";
-	HouseScriptsDAO::storeScript(900, 1, xml);
-	HouseScriptsDAO::storeScript(900, 2, "");
-	HouseScriptsDAO::storeScript(900, 1, xml); // ON DUPLICATE KEY UPDATE
-	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 2);
-	EXPECT_EQ(queryString("SELECT script FROM house_scripts WHERE script_id = 1"), xml);
-
-	HouseScriptsDAO::deleteScript(900, 2);
-	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
-	HouseScriptsDAO::storeScript(902, 3, "<other/>");
-	HouseScriptsDAO::storeScript(902, 4, "<other/>");
-	HouseScriptsDAO::deleteScriptsForHouse(902);
-	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
-
-	// getPlayerScripts compresses the UTF-16LE bytes with zlib (level 6); the expected bytes are Python's zlib.compress(xml.encode('utf-16-le'), 6),
-	// an independent oracle of Java's Deflater. PlayerScripts.set validates the script by decompressing it again.
 	const std::string expectedHex = "789cb361286648662862c86428602801b2ed186c50441480740a832d8312832110db31bc04caeba3a8b0c31001990200d2d01009";
 	std::vector<uint8_t> utf16Bytes;
 	for (char16_t c : commons::utils::StringUtils::toUtf16(xml)) {
@@ -255,6 +243,28 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	for (size_t i = 0; i < expectedHex.size(); i += 2)
 		compressedOracle.push_back(static_cast<uint8_t>(std::stoi(expectedHex.substr(i, 2), nullptr, 16)));
 	ASSERT_EQ(utils::xml::CompressUtil::compress(utf16Bytes), compressedOracle);
+	const int32_t uncompressedSize = static_cast<int32_t>(utf16Bytes.size());
+	Ref<runtime::Array<int8_t>> block = detail::toArray(compressedOracle);
+	Ref<runtime::Array<int8_t>> empty = detail::toArray(std::vector<uint8_t>{0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01}); // zlib of ""
+
+	HouseScriptsDAO::storeScript(900, 1, empty, 0);
+	HouseScriptsDAO::storeScript(900, 2, runtime::Array<int8_t>::make(0), 0); // an empty block is an empty blob
+	HouseScriptsDAO::storeScript(900, 1, block, uncompressedSize); // ON DUPLICATE KEY UPDATE replaces script and uncompressed_size
+	HouseScriptsDAO::storeScript(900, 3, nullptr, 0); // Java setBytes(3, null): the NOT NULL column refuses the row, the error is logged
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 2);
+	EXPECT_EQ(queryString("SELECT LOWER(HEX(script)) FROM house_scripts WHERE script_id = 1"), expectedHex);
+	EXPECT_EQ(queryLong("SELECT uncompressed_size FROM house_scripts WHERE script_id = 1"), uncompressedSize);
+	EXPECT_EQ(queryLong("SELECT LENGTH(script) FROM house_scripts WHERE script_id = 2"), 0);
+
+	HouseScriptsDAO::deleteScript(900, 2);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
+	HouseScriptsDAO::storeScript(902, 3, block, uncompressedSize);
+	HouseScriptsDAO::storeScript(902, 4, block, uncompressedSize);
+	HouseScriptsDAO::deleteScriptsForHouse(902);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
+
+	// getPlayerScripts hands the stored block and size to PlayerScripts.set, which validates the block (by decompressing it, until wave 2 ports
+	// Java's zlibStreamLength) and keeps it
 	try {
 		static_cast<void>(utils::xml::CompressUtil::decompress(compressedOracle));
 	} catch (const commons::utils::IllegalArgumentException& e) {
@@ -264,12 +274,18 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	SKIP_IF_UNPORTED(scripts = HouseScriptsDAO::getPlayerScripts(900));
 	Ptr<model::house::PlayerScript> script = scripts->get(1);
 	ASSERT_TRUE(script);
-	EXPECT_EQ(script->uncompressedSize(), static_cast<int32_t>(utf16Bytes.size())) << "UTF-16LE byte count";
+	EXPECT_EQ(script->uncompressedSize(), uncompressedSize) << "UTF-16LE byte count";
 	ASSERT_TRUE(script->compressedBytes());
 	std::vector<uint8_t> compressed;
 	for (int8_t value : script->compressedBytes()->snapshot())
 		compressed.push_back(static_cast<uint8_t>(value));
 	EXPECT_EQ(compressed, compressedOracle);
+
+	// a block that does not inflate to its declared size is not loaded
+	execute("UPDATE house_scripts SET uncompressed_size = uncompressed_size + 2 WHERE house_id = 900 AND script_id = 1");
+	scripts = HouseScriptsDAO::getPlayerScripts(900);
+	ASSERT_TRUE(scripts->get(1));
+	EXPECT_FALSE(scripts->get(1)->compressedBytes()) << "the script slot stays empty";
 
 	HouseScriptsDAO::deleteScriptsForHouse(900);
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 0);
