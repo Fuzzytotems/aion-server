@@ -1,6 +1,5 @@
 #include "aion/gameserver/dao/HouseScriptsDAO.h"
 
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -8,10 +7,9 @@
 #include "aion/commons/database/PreparedStatement.h"
 #include "aion/commons/database/ResultSet.h"
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/commons/utils/StringUtils.h"
+#include "aion/gameserver/dao/detail/DaoSupport.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerScripts.h"
 #include "aion/gameserver/runtime/fields/Array.h"
-#include "aion/gameserver/utils/xml/CompressUtil.h"
 
 namespace aion::gameserver::dao {
 
@@ -19,22 +17,23 @@ using commons::database::DatabaseFactory;
 
 namespace {
 
-constexpr std::string_view INSERT_QUERY = "INSERT INTO `house_scripts` (`house_id`,`script_id`,`script`) VALUES (?,?,?) ON DUPLICATE KEY UPDATE house_id=VALUES(house_id), script_id=VALUES(script_id), script=VALUES(script)";
+constexpr std::string_view INSERT_QUERY = "INSERT INTO `house_scripts` (`house_id`,`script_id`,`script`,`uncompressed_size`) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE script=VALUES(script), uncompressed_size=VALUES(uncompressed_size)";
 constexpr std::string_view DELETE_QUERY = "DELETE FROM `house_scripts` WHERE `house_id`=? AND `script_id`=?";
 constexpr std::string_view DELETE_ALL_QUERY = "DELETE FROM `house_scripts` WHERE `house_id`=?";
-constexpr std::string_view SELECT_QUERY = "SELECT `script_id`, `script` FROM `house_scripts` WHERE `house_id`=? ORDER BY `date_added`";
+constexpr std::string_view SELECT_QUERY = "SELECT `script_id`, `script`, `uncompressed_size` FROM `house_scripts` WHERE `house_id`=? ORDER BY `date_added`";
 
 } // namespace
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dao.HouseScriptsDAO");
 
-void HouseScriptsDAO::storeScript(int32_t houseId, int32_t scriptId, std::string_view scriptXML) {
+void HouseScriptsDAO::storeScript(int32_t houseId, int32_t scriptId, runtime::Ptr<runtime::Array<int8_t>> compressedXML, int32_t uncompressedSize) {
 	try {
 		auto con = DatabaseFactory::getConnection();
 		auto stmt = con->prepareStatement(INSERT_QUERY);
 		stmt->setInt(1, houseId);
 		stmt->setInt(2, scriptId);
-		stmt->setString(3, scriptXML);
+		stmt->setBytes(3, detail::toBytes(compressedXML)); // Java setBytes(3, null) binds NULL, which the NOT NULL column refuses
+		stmt->setInt(4, uncompressedSize);
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
 		log.error("Could not save script data for houseId: {}", houseId, e);
@@ -49,7 +48,8 @@ runtime::Ref<model::gameobjects::player::PlayerScripts> HouseScriptsDAO::getPlay
 		stmt->setInt(1, houseId);
 		auto rset = stmt->executeQuery();
 		while (rset->next()) {
-			addScript(*scripts, rset->getInt("script_id"), rset->getString("script"));
+			scripts->set(rset->getInt("script_id"), detail::toArray(rset->getObject<std::vector<uint8_t>>("script")), rset->getInt("uncompressed_size"),
+				false);
 		}
 	} catch (const std::exception& e) {
 		log.error("Could not restore script data for houseId: {}", houseId, e);
@@ -77,27 +77,6 @@ void HouseScriptsDAO::deleteScriptsForHouse(int32_t houseId) {
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
 		log.error("Could not delete script for houseId: {}", houseId, e);
-	}
-}
-
-bool HouseScriptsDAO::addScript(model::gameobjects::player::PlayerScripts& scripts, int32_t id, std::string_view scriptXML) {
-	// Java: scriptXML == null || scriptXML.isEmpty() (getString returns "" for SQL NULL)
-	if (scriptXML.empty()) {
-		return scripts.set(id, runtime::Array<int8_t>::make(0), 0, false);
-	} else {
-		// Java: scriptXML.getBytes(StandardCharsets.UTF_16LE)
-		const std::u16string utf16 = commons::utils::StringUtils::toUtf16(scriptXML);
-		std::vector<uint8_t> bytes;
-		bytes.reserve(utf16.size() * 2);
-		for (char16_t c : utf16) {
-			bytes.push_back(static_cast<uint8_t>(c & 0xFF));
-			bytes.push_back(static_cast<uint8_t>(c >> 8));
-		}
-		std::vector<uint8_t> compressed = utils::xml::CompressUtil::compress(bytes);
-		runtime::Ref<runtime::Array<int8_t>> compressedBytes = runtime::Array<int8_t>::make(static_cast<int32_t>(compressed.size()));
-		for (size_t i = 0; i < compressed.size(); ++i)
-			(*compressedBytes)[static_cast<int32_t>(i)].set(static_cast<int8_t>(compressed[i]));
-		return scripts.set(id, compressedBytes, static_cast<int32_t>(bytes.size()), false);
 	}
 }
 
