@@ -127,7 +127,7 @@ std::vector<uint8_t> cubeSize(StorageType type, int32_t itemsCount) {
 /** An item row as the inventory DAO loads it: count, expire time and location, everything else 0 */
 Ref<Item> loadedItem(int32_t objId, int32_t itemId, int64_t count, int32_t expireTime, StorageType location) {
 	return Item::create(objId, itemId, count, std::nullopt, 0, "", expireTime, 0, false, false, 0, model::items::storage::getId(location), 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 }
 
 /** A fresh ExpireTimerTask: its constructor schedules run() on the installed DeterministicExecutor (500-550 ms, then every 1,000 ms) */

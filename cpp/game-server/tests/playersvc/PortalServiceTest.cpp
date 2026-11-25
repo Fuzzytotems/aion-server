@@ -222,7 +222,7 @@ protected:
 		ASSERT_EQ(actor.player->getLevel(), level);
 		if (kinah > 0) {
 			runtime::Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(420501, KINAH, kinah, std::nullopt, 0, "", 0, 0, false, false, 0,
-				model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+				model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 			actor.player->getInventory().onLoadHandler(*item);
 			items.push_back(item);
 		}
@@ -234,7 +234,7 @@ protected:
 	/** A stack of the item in the cube, loaded as the DAO loads it (no packet) */
 	void carry(int32_t itemId, int64_t count) {
 		runtime::Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(420502, itemId, count, std::nullopt, 0, "", 0, 0, false, false, 0,
-			model::items::storage::getId(model::items::storage::StorageType::CUBE), 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(model::items::storage::StorageType::CUBE), 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 		player().getInventory().onLoadHandler(*item);
 		items.push_back(item);
 	}

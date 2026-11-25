@@ -225,7 +225,7 @@ protected:
 	/** An item row of the cube as the inventory DAO loads it (onLoadHandler: no packet) */
 	void holdInCube(int32_t objId, int32_t itemId, int64_t count) {
 		Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, false, false, 0,
-			model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 		f.player->getInventory().onLoadHandler(*item);
 		items.push_back(item);
 	}

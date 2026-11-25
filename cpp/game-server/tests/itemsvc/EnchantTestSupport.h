@@ -524,7 +524,7 @@ protected:
 		player().setSkillList(model::skill::PlayerSkillList::create(
 			{model::skill::PlayerSkillEntry::create(37, 1, 0, model::gameobjects::Persistable_PersistentState::UPDATED)}));
 		Ref<Item> sword = Item::create(objId, itemId, 1, std::nullopt, 0, "", 0, 0, true, false, 1, model::items::storage::getId(StorageType::CUBE),
-			enchant, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+			enchant, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 		items.push_back(sword);
 		player().getEquipment().onLoadHandler(*sword);
 		EXPECT_EQ(player().getEquipment().getMainHandWeapon().get(), sword.get()) << "the sword is equipped in the main hand";
@@ -534,7 +534,7 @@ protected:
 	/** An item of the template with the columns the DAO would load, in the cube, not yet in any storage */
 	Ref<Item> itemRow(int32_t objId, int32_t itemId, int64_t count, int32_t enchant = 0, int32_t optionalSockets = 0, bool amplified = false) {
 		Ref<Item> item = Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, false, false, 0,
-			model::items::storage::getId(StorageType::CUBE), enchant, 0, 0, 0, optionalSockets, 0, 0, 0, 0, 0, 0, 0, amplified, 0, 0);
+			model::items::storage::getId(StorageType::CUBE), enchant, 0, 0, 0, optionalSockets, 0, 0, 0, 0, 0, 0, 0, amplified, 0, 0, 0);
 		items.push_back(item);
 		return item;
 	}

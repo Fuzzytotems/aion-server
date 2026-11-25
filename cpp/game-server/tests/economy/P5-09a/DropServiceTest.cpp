@@ -427,7 +427,7 @@ TEST_F(DropServiceTest, ALimitOneItemIsRefusedToALooterWhoHoldsOne) {
 
 	// the keeper's diary is in his regular warehouse (an inventory row as the DAO loads it: onLoadHandler, no packet)
 	Ref<model::gameobjects::Item> stored = model::gameobjects::Item::create(900001, NAMUS_DIARY, 1, std::nullopt, 0, "", 0, 0, false, false, 0,
-		model::items::storage::getId(model::items::storage::StorageType::REGULAR_WAREHOUSE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		model::items::storage::getId(model::items::storage::StorageType::REGULAR_WAREHOUSE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 	keeper.getStorage(model::items::storage::getId(model::items::storage::StorageType::REGULAR_WAREHOUSE))->onLoadHandler(*stored);
 	Npc& third = corpseWithADiary(keeper);
 	service.requestDropItem(keeper, third.getObjectId(), 1);

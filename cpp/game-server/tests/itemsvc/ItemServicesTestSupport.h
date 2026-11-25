@@ -413,7 +413,7 @@ inline std::vector<uint8_t> itemUsageAnimation(int32_t playerObjId, int32_t item
 /** An item row as the inventory DAO loads it: count, location and slot, everything else 0 */
 inline Ref<Item> loadedItem(int32_t objId, int32_t itemId, int64_t count, StorageType location, int64_t slot = 0, bool equipped = false) {
 	return Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, equipped, false, slot, model::items::storage::getId(location), 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 }
 
 /**

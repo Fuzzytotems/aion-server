@@ -341,6 +341,7 @@ TEST_F(LegionHouseItemDaoTest, InventoryItemsInsertUpdateDeleteAndLoad) {
 		armor->setItemLocation(model::items::storage::getId(StorageType::CUBE));
 		shared->setItemLocation(model::items::storage::getId(StorageType::ACCOUNT_WAREHOUSE));
 		weapon->setItemColor(0x112233);
+		weapon->setRankLimitExpireTime(1760000000);
 		for (const Ref<Item>& item : {weapon, armor, shared})
 			item->setPersistentState(Persistable::PersistentState::NEW);
 	});
@@ -356,16 +357,18 @@ TEST_F(LegionHouseItemDaoTest, InventoryItemsInsertUpdateDeleteAndLoad) {
 	EXPECT_TRUE(loadedWeapon->isEquipped());
 	EXPECT_EQ(loadedWeapon->getEquipmentSlot(), mainHand);
 	EXPECT_EQ(loadedWeapon->getItemColor(), 0x112233);
+	EXPECT_EQ(loadedWeapon->getRankLimitExpireTime(), 1760000000) << "rank_limit_expire_time (cc61fb239)";
 	EXPECT_EQ(loadedWeapon->getItemLocation(), model::items::storage::getId(StorageType::CUBE));
 	EXPECT_EQ(loadedWeapon->getPersistentState(), Persistable::PersistentState::UPDATED);
 	EXPECT_EQ(InventoryDAO::loadItems(77, StorageType::ACCOUNT_WAREHOUSE).size(), 1u);
 
 	// update and delete in one store call (three batches, each committed)
 	weapon->setEquipped(false);
-	weapon->setPersistentState(Persistable::PersistentState::UPDATE_REQUIRED);
+	weapon->setRankLimitExpireTime(0);
+	EXPECT_EQ(weapon->getPersistentState(), Persistable::PersistentState::UPDATE_REQUIRED) << "Java setRankLimitExpireTime";
 	armor->setPersistentState(Persistable::PersistentState::DELETED);
 	EXPECT_TRUE(InventoryDAO::store({Ptr<Item>(weapon), Ptr<Item>(armor)}, std::optional<int32_t>(1), std::nullopt, std::nullopt));
-	EXPECT_EQ(queryLong("SELECT is_equipped FROM inventory WHERE item_unique_id = 500"), 0);
+	EXPECT_EQ(queryString("SELECT CONCAT(is_equipped, ',', rank_limit_expire_time) FROM inventory WHERE item_unique_id = 500"), "0,0");
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM inventory WHERE item_unique_id = 501"), 0);
 
 	// the account id is null: getItemOwnerId unboxes it (Java NullPointerException), the insert batch fails and store returns false

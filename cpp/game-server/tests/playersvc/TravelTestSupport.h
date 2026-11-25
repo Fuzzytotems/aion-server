@@ -363,7 +363,7 @@ protected:
 		f.player->setQuestStateList(model::gameobjects::player::QuestStateList::create());
 		if (kinah > 0) {
 			runtime::Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(objectId + 1, KINAH, kinah, std::nullopt, 0, "", 0, 0, false, false, 0,
-				model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+				model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 			f.player->getInventory().onLoadHandler(*item); // the DAO's load: no packet
 			items.push_back(item);
 		}

@@ -347,7 +347,7 @@ TEST_F(EnchantServiceTest, TheEnchantBonusOfAnItemRaisesItsMaximum) {
 		SCOPED_TRACE(c.expected);
 		Item& stones = inCube(objId++, ALPHA_ENCHANTMENT_STONE, 1);
 		Ref<Item> sword = Item::create(objId++, TRAINING_SWORD, 1, std::nullopt, 0, "", 0, 0, false, false, 0,
-			model::items::storage::getId(StorageType::CUBE), 10, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(StorageType::CUBE), 10, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 		items.push_back(sword);
 		storage(StorageType::CUBE).onLoadHandler(*sword);
 		ASSERT_EQ(sword->getEnchantBonus(), 2);
@@ -418,7 +418,7 @@ TEST_F(EnchantServiceTest, AnEquippedEnchantedSwordGetsTheStatsOfItsLevel) {
 	// the Training Sword is in no set of item_sets.xml, so an empty holder answers isItemSet() as the shipped one does
 	dataholders::DataManager::ITEM_SET_DATA.publish(std::make_unique<dataholders::ItemSetData>());
 	Ref<Item> sword = Item::create(829501, TRAINING_SWORD, 1, std::nullopt, 0, "", 0, 0, true, false, 1,
-		model::items::storage::getId(StorageType::CUBE), 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		model::items::storage::getId(StorageType::CUBE), 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 	items.push_back(sword);
 	// a loaded player has its skill list before its equipment (PlayerService.java:116): Equipment.onLoadHandler keeps a sword only for a player
 	// with one of its skills (Equipment.java:437-440, 303-314; ItemGroup.java:16, SWORD requires 37 or 44)
@@ -453,7 +453,7 @@ TEST_F(EnchantServiceTest, AnEquippedSwordEnchantedByTheActTakesTheStatsOfItsNew
 	player().setSkillList(model::skill::PlayerSkillList::create(
 		{model::skill::PlayerSkillEntry::create(37, 1, 0, model::gameobjects::Persistable_PersistentState::UPDATED)}));
 	Ref<Item> sword = Item::create(829601, TRAINING_SWORD, 1, std::nullopt, 0, "", 0, 0, true, false, 1,
-		model::items::storage::getId(StorageType::CUBE), 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		model::items::storage::getId(StorageType::CUBE), 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 	items.push_back(sword);
 	player().getEquipment().onLoadHandler(*sword);
 	ASSERT_EQ(player().getEquipment().getMainHandWeapon().get(), sword.get());
@@ -618,7 +618,7 @@ TEST_F(EnchantServiceTest, AStoneSocketedIntoAnEquippedSwordAddsItsStatsAtOnce) 
 	player().setSkillList(model::skill::PlayerSkillList::create(
 		{model::skill::PlayerSkillEntry::create(37, 1, 0, model::gameobjects::Persistable_PersistentState::UPDATED)}));
 	Ref<Item> sword = Item::create(826201, TRAINING_SWORD, 1, std::nullopt, 0, "", 0, 0, true, false, 1,
-		model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 	items.push_back(sword);
 	player().getEquipment().onLoadHandler(*sword);
 	ASSERT_EQ(player().getEquipment().getMainHandWeapon().get(), sword.get());
