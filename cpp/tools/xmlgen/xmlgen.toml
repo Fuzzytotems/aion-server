@@ -8,7 +8,6 @@ roots = [
 	"dataholders.StaticData",
 	"dataholders.SpawnsData.UnprocessedSpawns",
 	"dataholders.PlayerExperienceTable",
-	"configs.ingameshop.InGameShopProperty",
 	"configs.schedule.RiftSchedule",
 	"configs.schedule.SiegeSchedules",
 	"configs.schedule.WorldRaidSchedules",
@@ -21,7 +20,16 @@ core_enums = true
 
 # Core enums whose C++ definition is already hand-written (nested in a ported class); they are not generated.
 [hand_written_enums]
-"configs.main.SecurityConfig.MultiClientingRestrictionMode" = "defined in configs/main/SecurityConfig.h (P4-01, a std::atomic config field)"
+"controllers.observer.ObserverType" = "kept at 51d7a19cb by hand (ObserverType.h): upstream cc61fb239 changed its constants; wave 5 ports it"
+"model.ActionState" = "kept at 51d7a19cb by hand (ActionState.h): upstream cc61fb239 changed its constants; wave 5 ports it"
+"model.TaskId" = "kept at 51d7a19cb by hand (TaskId.h): upstream a17e66f10, cc61fb239 changed its constants; wave 2 ports it"
+"model.gameobjects.PetAction" = "kept at 51d7a19cb by hand (PetAction.h): upstream f16e03ad3 changed its constants; wave 5 ports it"
+"model.gameobjects.player.CustomPlayerState" = "kept at 51d7a19cb by hand (CustomPlayerState.h): upstream 2ee52b1d3, 9b15b6df8 changed its constants; wave 4 ports it"
+"model.gameobjects.state.CreatureState" = "kept at 51d7a19cb by hand (CreatureState.h): upstream cc61fb239 changed its constants; wave 5 ports it"
+"model.instance.StageType" = "kept at 51d7a19cb by hand (StageType.h): upstream 1af948baf changed its constants; wave 6 ports it"
+"model.templates.zone.ZoneType" = "kept at 51d7a19cb by hand (ZoneType.h): upstream 206f9b5db changed its constants; wave 4 ports it"
+"services.item.ItemPacketService.ItemUpdateType" = "kept at 51d7a19cb by hand (ItemPacketService_ItemUpdateType.h): upstream e5c133836 changed its constants; wave 5 ports it"
+"world.WorldMapType" = "kept at 51d7a19cb by hand (WorldMapType.h): upstream 374336b3b, f16e03ad3 changed its constants; wave 4 ports it"
 
 [before_unmarshal_allowed]
 "dataholders.StaticData" = "installs the StaticDataListener, which LoadContext replaces (XmlBinding.h, Hooks)"
@@ -82,7 +90,6 @@ reason = "hand-written RefCounted NpcEquippedGear (K4: Npc.overriddenEquipment s
 [ignore_attributes]
 "model.templates.item.ItemTemplate.cName" = "client name, 102009 item_template"
 "model.templates.QuestTemplate.quest_zone" = "7469 quest"
-"model.templates.npc.NpcTemplate.item_upgrade" = "2 npc_template"
 "model.templates.teleport.TelelocationTemplate.name" = "284 teleloc_template"
 "skillengine.effect.PetOrderUseUltraSkillEffect.ultra_skill" = "13 petorderuseultraskill"
 
@@ -94,7 +101,6 @@ reason = "hand-written RefCounted NpcEquippedGear (K4: Npc.overriddenEquipment s
 "model.templates.housing.BuildingCapabilities.exterior" = "house_lands/land/caps: 0 of 20"
 "model.templates.teleport.TeleportLocation.price" = "npc_teleporter/.../telelocation: 536 of 544"
 "model.templates.walker.RouteStep.restTime" = "npc_walker/walker_template/routestep: 226 of 112765"
-"skillengine.model.SignetData.addEffectProb" = "signet_data_templates/.../signet_data: 6 of 24"
 "skillengine.effect.EffectTemplate.duration2" = "skill_data effects of 108 kinds, e.g. skillatk: 0 of 2413"
 "skillengine.effect.CarveSignetEffect.signetIncrement" = "carvesignet: 17 of 113"
 "skillengine.effect.CarveSignetEffect.prob" = "carvesignet: 39 of 113"
@@ -111,5 +117,8 @@ reason = "hand-written RefCounted NpcEquippedGear (K4: Npc.overriddenEquipment s
 # Optional enum properties whose data contains values that are not constants of the enum. JAXB's enum leaf returns null for an unknown lexical
 # value without a validation event, so Java loads the data with the property null; the binder stores std::nullopt and warns once instead
 # of failing (found by tests/test_real_tree.py, which checks every enum value of the data against the enum tables).
+[optional_strings]
+"model.templates.world.WeatherEntry.months" = "upstream 374336b3b: a weather without months may start all year round, an empty months never (WeatherEntry.afterUnmarshal)"
+
 [lenient_enums]
 "skillengine.model.SkillTemplate.counterSkill" = "skills/skill_templates.xml: 30 comma lists (BLOCK,RESIST 22, RESIST,PARRY 6, RESIST,DODGE 2); Java counterSkill == null"

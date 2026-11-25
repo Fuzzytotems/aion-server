@@ -6,6 +6,7 @@
 #       [CLIENTPACKETS_ROOT <dir>]               include root that contains aion/gameserver/network/aion/clientpackets (e.g. game-server/src)
 #       [JAVA_HANDLERS <dir>]                    ../game-server/data/handlers: Java cross-checks and the missing-key report
 #       [JAVA_CLIENT_PACKET_FACTORY <file>]      AionClientPacketFactory.java: AION_CLIENT_PACKET classes must be in its table
+#       [JAVA_AHEAD <file>]                      Java cross-check errors tolerated while the Java tree is ahead of the port (--java-ahead)
 #       [HANDLER_LIBRARIES <target>...]          libraries that define the factories (linked PUBLIC by the registry libraries)
 #       [OUT_DIR <dir>]                          default: ${CMAKE_CURRENT_BINARY_DIR}/<name>
 #   )
@@ -50,7 +51,7 @@ set(AION_GS_REGISTRY_npcids_ENTRY int32_t)
 set(AION_GS_REGISTRY_npcids_ACCESSOR npcIdsSpawnedByHandlers)
 
 function(aion_gs_add_registries name)
-	cmake_parse_arguments(ARG "" "HANDLERS_ROOT;CLIENTPACKETS_ROOT;JAVA_HANDLERS;JAVA_CLIENT_PACKET_FACTORY;OUT_DIR" "HANDLER_LIBRARIES" ${ARGN})
+	cmake_parse_arguments(ARG "" "HANDLERS_ROOT;CLIENTPACKETS_ROOT;JAVA_HANDLERS;JAVA_CLIENT_PACKET_FACTORY;JAVA_AHEAD;OUT_DIR" "HANDLER_LIBRARIES" ${ARGN})
 	if(ARG_UNPARSED_ARGUMENTS)
 		message(FATAL_ERROR "aion_gs_add_registries(${name}): unknown arguments ${ARG_UNPARSED_ARGUMENTS}")
 	endif()
@@ -84,6 +85,10 @@ function(aion_gs_add_registries name)
 	if(ARG_JAVA_CLIENT_PACKET_FACTORY)
 		list(APPEND tool_args --java-client-packet-factory "${ARG_JAVA_CLIENT_PACKET_FACTORY}")
 		list(APPEND scanned "${ARG_JAVA_CLIENT_PACKET_FACTORY}")
+	endif()
+	if(ARG_JAVA_AHEAD)
+		list(APPEND tool_args --java-ahead "${ARG_JAVA_AHEAD}")
+		list(APPEND scanned "${ARG_JAVA_AHEAD}")
 	endif()
 
 	set(real_sources)

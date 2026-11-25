@@ -30,9 +30,9 @@ aion_gs_chunks_settings(
 # P4-01: the 33 config classes, game-server property transformers (CronExpression lives in P4-02b's services/cron)
 aion_gs_chunk(P4-01 TARGET aion_gs_configs PHASE 4
 	GLOBS "aion/gameserver/configs/**"
-	EXCLUDE "aion/gameserver/configs/ingameshop/**" "aion/gameserver/configs/schedule/**"
+	EXCLUDE "aion/gameserver/configs/schedule/**"
 	JAVA "src/com/aionemu/gameserver/configs/**"
-	JAVA_EXCLUDE "src/com/aionemu/gameserver/configs/ingameshop/**" "src/com/aionemu/gameserver/configs/schedule/**"
+	JAVA_EXCLUDE "src/com/aionemu/gameserver/configs/schedule/**"
 	DEPENDS aion_gs_runtime aion_gs_geomath aion_commons_configuration
 	TESTS configs)
 
@@ -174,21 +174,23 @@ aion_gs_chunk(P4-07b TARGET aion_gs_templates PHASE 4
 aion_gs_chunk(P4-08 LEASE PHASE 4
 	TEST_SUPPORT skills)
 
-# P4-09: the 97 holders, StaticData, DataManager, and the JAXB roots of config/ingameshop and config/schedule (they need the static data runtime)
+# P4-09: the holders, StaticData, DataManager, and the JAXB roots of config/schedule (they need the static data runtime; config/ingameshop was
+# removed upstream in 222076cb5)
 aion_gs_chunk(P4-09 TARGET aion_gs_dataholders PHASE 4
-	GLOBS "aion/gameserver/dataholders/**" "aion/gameserver/configs/{ingameshop,schedule}/**"
+	GLOBS "aion/gameserver/dataholders/**" "aion/gameserver/configs/schedule/**"
 	EXCLUDE "aion/gameserver/dataholders/loadingutils/**"
-	JAVA "src/com/aionemu/gameserver/dataholders/**" "src/com/aionemu/gameserver/configs/{ingameshop,schedule}/**"
+	JAVA "src/com/aionemu/gameserver/dataholders/**" "src/com/aionemu/gameserver/configs/schedule/**"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/dataholders/loadingutils/**")
 
-# P4-10: world, zones, knownlist, spawnengine, GeoService facade, Respawn/Weather/GameTime services, movement task managers and their bases
+# P4-10: world, zones, knownlist, spawnengine, GeoService facade, Respawn/Weather/GameTime services (and services/weather, upstream 374336b3b),
+# movement task managers and their bases
 aion_gs_chunk(P4-10 TARGET aion_gs_world PHASE 4
 	GLOBS "aion/gameserver/world/**" "aion/gameserver/spawnengine/**" "aion/gameserver/model/flypath/**"
-		"aion/gameserver/services/{GameTimeService,RespawnService,WeatherService}.*"
+		"aion/gameserver/services/{GameTimeService,RespawnService,WeatherService}.*" "aion/gameserver/services/weather/**"
 		"aion/gameserver/taskmanager/{AbstractPeriodicTaskManager,AbstractFIFOPeriodicTaskManager}.*"
 		"aion/gameserver/taskmanager/tasks/{MoveTaskManager,PlayerMoveTaskManager,MovementNotifyTask}.*"
 	JAVA "src/com/aionemu/gameserver/world/**" "src/com/aionemu/gameserver/spawnengine/**" "src/com/aionemu/gameserver/model/flypath/**"
-		"src/com/aionemu/gameserver/services/{GameTimeService,RespawnService,WeatherService}.java"
+		"src/com/aionemu/gameserver/services/{GameTimeService,RespawnService,WeatherService}.java" "src/com/aionemu/gameserver/services/weather/**"
 		"src/com/aionemu/gameserver/taskmanager/{AbstractPeriodicTaskManager,AbstractFIFOPeriodicTaskManager}.java"
 		"src/com/aionemu/gameserver/taskmanager/tasks/{MoveTaskManager,PlayerMoveTaskManager,MovementNotifyTask}.java"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/world/zone/handler/ZoneHandlerClassListener.java")
@@ -348,16 +350,16 @@ aion_gs_chunk(P5-07 TARGET aion_gs_itemsvc PHASE 5
 		"src/com/aionemu/gameserver/services/{LimitedItemTradeService,UpgradeArcadeService}.java"
 		"src/com/aionemu/gameserver/taskmanager/tasks/TemporaryTradeTimeTask.java")
 
-# P5-08: services.player (rest), teleport, revive, recall, kisk, duel, pvp, skill learn, class change, dialog, social, summons, abyss, toypet,
+# P5-08: services.player (rest), teleport, revive, recall, kisk, duel, pvp (and the PvP EXP limits, upstream d725054e1), skill learn, class change, dialog, social, summons, abyss, toypet,
 # life stats restore, punishment, ban
 aion_gs_chunk(P5-08 TARGET aion_gs_playersvc PHASE 5
 	GLOBS "aion/gameserver/services/{player,teleport,summons,abyss,toypet,ban}/**" "aion/gameserver/model/summons/**"
 		"aion/gameserver/services/{ClassChangeService,DialogService,DuelService,KiskService,LifeStatsRestoreService,PunishmentService}.*"
-		"aion/gameserver/services/{PvpService,RecallService,SkillLearnService,SocialService}.*"
+		"aion/gameserver/services/{PvpService,PvpExpLimitService,RecallService,SkillLearnService,SocialService}.*"
 	EXCLUDE "aion/gameserver/services/player/{PlayerService,PlayerEnterWorldService,PlayerLeaveWorldService}.*"
 	JAVA "src/com/aionemu/gameserver/services/{player,teleport,summons,abyss,toypet,ban}/**" "src/com/aionemu/gameserver/model/summons/**"
 		"src/com/aionemu/gameserver/services/{ClassChangeService,DialogService,DuelService,KiskService,LifeStatsRestoreService,PunishmentService}.java"
-		"src/com/aionemu/gameserver/services/{PvpService,RecallService,SkillLearnService,SocialService}.java"
+		"src/com/aionemu/gameserver/services/{PvpService,PvpExpLimitService,RecallService,SkillLearnService,SocialService}.java"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/services/player/{PlayerService,PlayerEnterWorldService,PlayerLeaveWorldService}.java")
 
 # P5-09a / P5-09b / P5-09c: the economy (drop, mail, craft, reward, trade/exchange/private store, broker, recipe, passport, bonus/faction packs,
