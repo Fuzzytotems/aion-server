@@ -162,7 +162,7 @@ protected:
 	/** `count` of the scroll `itemId` in the actor's cube, loaded as the DAO does */
 	runtime::Ref<model::gameobjects::Item> giveScroll(int32_t itemId, int64_t count) {
 		runtime::Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(420150, itemId, count, std::nullopt, 0, "", 0, 0, false, false, 0,
-			model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 		player().getInventory().onLoadHandler(*item);
 		items.push_back(item);
 		return item;

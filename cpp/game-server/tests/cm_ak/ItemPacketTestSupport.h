@@ -247,7 +247,7 @@ inline std::vector<uint8_t> cubeSize(StorageType type, int32_t itemsCount) {
 /** An item row as the inventory DAO loads it: count, location and slot, everything else 0 */
 inline runtime::Ref<Item> loadedItem(int32_t objId, int32_t itemId, int64_t count, StorageType location, int64_t slot = 0, bool equipped = false) {
 	return Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, equipped, false, slot, model::items::storage::getId(location), 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 }
 
 /** The world holders a map instance reads, published once per process by whichever fixture of the executable runs first */

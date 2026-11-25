@@ -411,7 +411,7 @@ TEST_F(MailServiceTest, AnUntradeableItemTakesItsDispositionItems) {
 TEST_F(MailServiceTest, APackedItemNeedsNoDispositionAndIsUnpacked) {
 	goOnline(partner());
 	runtime::Ref<Item> shield = Item::create(STACK, SQUAD_LEADERS_SHIELD, 1, std::nullopt, 0, "", 0, 0, false, false, 0,
-		model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* packCount */ 1, false, 0, 0);
+		model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* packCount */ 1, false, 0, 0, 0);
 	a().getInventory().onLoadHandler(*shield);
 	given.push_back(shield);
 	give(a(), OTHER_ITEM, COURIER_PASS_ABYSS_FABLED, 4);
@@ -430,7 +430,7 @@ TEST_F(MailServiceTest, APackedItemNeedsNoDispositionAndIsUnpacked) {
 TEST_F(MailServiceTest, AnUnpackedItemIsNotPackedAgain) {
 	goOnline(partner());
 	runtime::Ref<Item> shield = Item::create(STACK, SQUAD_LEADERS_SHIELD, 1, std::nullopt, 0, "", 0, 0, false, false, 0,
-		model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* packCount */ -1, false, 0, 0);
+		model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* packCount */ -1, false, 0, 0, 0);
 	a().getInventory().onLoadHandler(*shield);
 	given.push_back(shield);
 	give(a(), OTHER_ITEM, COURIER_PASS_ABYSS_FABLED, 4);
@@ -746,7 +746,7 @@ TEST_F(MailServiceTest, AnItemTheCubeHoldsAlreadyStaysInTheLetter) {
 TEST_F(MailServiceTest, AnExpiredItemIsDeletedInsteadOfTaken) {
 	MAIL_REQUIRE_DATABASE();
 	runtime::Ref<Item> expired = Item::create(600001, MINOR_LIFE_POTION, 5, std::nullopt, 0, "", /* expireTime */ 1, 0, false, false, 0,
-		MAILBOX_LOCATION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		MAILBOX_LOCATION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 	execute("INSERT INTO inventory (item_unique_id, item_id, item_count, item_owner, item_location) VALUES (600001, 162000002, 5, 710202, " +
 		std::to_string(MAILBOX_LOCATION) + ")");
 	runtime::Ref<Letter> letter = putLetter(700001, expired, 0, 1000);

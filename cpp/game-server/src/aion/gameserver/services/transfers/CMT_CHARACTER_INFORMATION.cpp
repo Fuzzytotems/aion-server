@@ -276,7 +276,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 		// plume Bonus is lost
 		runtime::Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(newId, itemId, itemCnt, itemColor, colorExpires, itemCreator,
 			itemExpireTime, itemActivationCnt, itemEquipped, itemSoulBound, equipSlot, location, enchant, enchantBonus, skinId, fusionId, optSocket,
-			optFusion, charge, tuneCount, bonusStatsId, fusionedItemBonusStatsId, tempering, packCount, itemAmplified, buffSkill, 0);
+			optFusion, charge, tuneCount, bonusStatsId, fusionedItemBonusStatsId, tempering, packCount, itemAmplified, buffSkill, 0, 0);
 		if (!manastones.empty())
 			for (const std::array<int32_t, 2>& stone : manastones)
 				item::ItemSocketService::addManaStone(runtime::Ptr<model::gameobjects::Item>(item), stone[0], stone[1], false);

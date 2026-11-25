@@ -70,6 +70,7 @@ private:
 	runtime::Field<int32_t> enchantLevel{};
 	runtime::Field<int32_t> enchantBonus{};
 	const int32_t expireTime; // Java: = 0, set by the constructors
+	runtime::Field<int32_t> rankLimitExpireTime{0};
 	runtime::Field<int32_t> temporaryExchangeTime{0};
 	runtime::Field<int64_t> repurchasePrice{};
 	runtime::Field<int32_t> activationCount{0};
@@ -101,7 +102,7 @@ protected:
 		int32_t expireTime, int32_t activationCount, bool isEquipped, bool isSoulBound, int64_t equipmentSlot, int32_t itemLocation, int32_t enchant,
 		int32_t enchantBonus, int32_t itemSkin, int32_t fusionedItem, int32_t optionalSockets, int32_t fusionedItemOptionalSockets, int32_t charge,
 		int32_t tuneCount, int32_t statBonusId, int32_t fusionedItemStatBonusId, int32_t tempering, int32_t packCount, bool isAmplified, int32_t buffSkill,
-		int32_t rndPlumeBonusValue);
+		int32_t rndPlumeBonusValue, int32_t rankLimitExpireTime);
 
 	~Item() override;
 
@@ -118,7 +119,7 @@ public:
 		std::string_view itemCreator, int32_t expireTime, int32_t activationCount, bool isEquipped, bool isSoulBound, int64_t equipmentSlot,
 		int32_t itemLocation, int32_t enchant, int32_t enchantBonus, int32_t itemSkin, int32_t fusionedItem, int32_t optionalSockets,
 		int32_t fusionedItemOptionalSockets, int32_t charge, int32_t tuneCount, int32_t statBonusId, int32_t fusionedItemStatBonusId, int32_t tempering,
-		int32_t packCount, bool isAmplified, int32_t buffSkill, int32_t rndPlumeBonusValue);
+		int32_t packCount, bool isAmplified, int32_t buffSkill, int32_t rndPlumeBonusValue, int32_t rankLimitExpireTime);
 
 	/** C++ only: Expirable and StatOwner are held by Ref (hub-headers.md §9.2); retains the item itself. */
 	void retain() const noexcept override { runtime::RefCounted::retain(); }
@@ -321,6 +322,14 @@ public:
 
 	/** @return Returns the expireTime. */
 	int32_t getExpireTime() override { return expireTime; }
+
+	/**
+	 * @return Seconds since the epoch at which this item is taken off because its owner no longer has the abyss rank for it, 0 if it is not on
+	 *         notice.
+	 */
+	int32_t getRankLimitExpireTime() const { return rankLimitExpireTime.get(); }
+
+	void setRankLimitExpireTime(int32_t rankLimitExpireTime);
 
 	/** @return Returns the temporaryExchangeTime. */
 	int32_t getTemporaryExchangeTime() const { return temporaryExchangeTime.get(); }

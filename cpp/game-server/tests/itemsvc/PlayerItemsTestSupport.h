@@ -367,7 +367,7 @@ protected:
 	/** An item row of the template with the columns the DAO would load (tune_count as given), not yet in any storage */
 	Ref<Item> itemRow(int32_t objId, int32_t itemId, int64_t count, int32_t tuneCount = 0, bool equipped = false) {
 		Ref<Item> item = Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, equipped, false, 0,
-			model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0, 0);
 		items.push_back(item);
 		return item;
 	}

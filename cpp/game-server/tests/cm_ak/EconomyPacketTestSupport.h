@@ -625,7 +625,7 @@ protected:
 	Item& storedTuned(int32_t objId, int32_t itemId, int32_t tuneCount) {
 		runtime::Ref<Item> item =
 			Item::create(objId, itemId, 1, std::nullopt, 0, "", 0, 0, false, false, 0, model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0,
-				0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0);
+				0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0, 0);
 		storage(StorageType::CUBE).onLoadHandler(*item);
 		items.push_back(item);
 		return *item;
