@@ -38,8 +38,6 @@ public class AdminConfig {
 	public static byte GM_PANEL;
 	@Property(key = "gameserver.administration.gm_skills", defaultValue = "8")
 	public static byte GM_SKILLS;
-	@Property(key = "gameserver.administration.flight.free_fly", defaultValue = "1")
-	public static byte FREE_FLIGHT;
 	@Property(key = "gameserver.administration.flight.unlimited_time", defaultValue = "1")
 	public static byte UNLIMITED_FLIGHT_TIME;
 	@Property(key = "gameserver.administration.auto_res", defaultValue = "1")
@@ -58,8 +56,6 @@ public class AdminConfig {
 	public static byte HOUSE_SHOW_ADDRESS;
 	@Property(key = "gameserver.administration.dialog_info", defaultValue = "9")
 	public static byte DIALOG_INFO;
-	@Property(key = "gameserver.administration.enchant_info", defaultValue = "9")
-	public static byte ENCHANT_INFO;
 	@Property(key = "gameserver.administration.zone_info", defaultValue = "9")
 	public static byte ZONE_INFO;
 	@Property(key = "gameserver.administration.audit_info", defaultValue = "9")

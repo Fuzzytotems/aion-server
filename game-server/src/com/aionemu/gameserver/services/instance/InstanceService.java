@@ -57,7 +57,7 @@ public class InstanceService {
 		if (autoDestroy)
 			instance.setEmptyInstanceTask(ThreadPoolManager.getInstance().scheduleAtFixedRate(new EmptyInstanceCheckerTask(instance), 60000, 60000));
 
-		log.info("Created new instance: " + worldId + " [" + instance.getInstanceId() + "] owner:" + ownerId + " difficultyId:" + difficultyId);
+		log.info("Created new instance: {} [{}] owner:{} difficultyId:{}", worldId, instance.getInstanceId(), ownerId, difficultyId);
 		return instance;
 	}
 
@@ -91,7 +91,7 @@ public class InstanceService {
 
 		map.removeWorldMapInstance(instanceId);
 
-		log.info("Destroying " + instance);
+		log.info("Destroying {}", instance);
 
 		TemporarySpawnEngine.onInstanceDestroy(instance); // first unregister all temporary spawns, then despawn mobs
 		for (VisibleObject obj : instance) {
@@ -135,7 +135,8 @@ public class InstanceService {
 	}
 
 	private static WorldMapInstance getOrCreatePersonalInstance(int worldId, int ownerId) {
-		if (ownerId == 0 || !WorldMapType.getWorld(worldId).isPersonal())
+		WorldMapType worldMapType = WorldMapType.getWorld(worldId);
+		if (ownerId == 0 || worldMapType == null || !worldMapType.isPersonal())
 			return null;
 
 		for (WorldMapInstance instance : World.getInstance().getWorldMap(worldId)) {
@@ -177,17 +178,14 @@ public class InstanceService {
 		private boolean canDestroyInstance() {
 			if (!worldMapInstance.getPlayersInside().isEmpty())
 				return false;
-			return worldMapInstance.isPersonal() || isRegisteredTeamDisbanded() || System.currentTimeMillis() > calculateDestroyTime() - 1000;
-		}
-
-		private boolean isRegisteredTeamDisbanded() {
-			GeneralTeam<?, ?> registeredTeam = worldMapInstance.getRegisteredTeam();
-			return registeredTeam != null && registeredTeam.isDisbanded();
+			return System.currentTimeMillis() > calculateDestroyTime() - 1000;
 		}
 
 		private long calculateDestroyTime() {
 			long lastActivity = Math.max(taskStartTime, worldMapInstance.getLastPlayerLeaveTime());
-			return lastActivity + getDestroyDelaySeconds(worldMapInstance) * 1000;
+			// the delay must be at least a few seconds to account for players teleporting within the instance (despawn removes them temporarily from it)
+			int delaySeconds = Math.max(10, getDestroyDelaySeconds(worldMapInstance));
+			return lastActivity + delaySeconds * 1000L;
 		}
 
 		@Override
@@ -208,6 +206,8 @@ public class InstanceService {
 	}
 
 	public static void onLeaveInstance(Player player) {
+		// the ascension morph only exists in the quest instances that turn it on
+		player.setAscensionMorphed(false);
 		WorldMapInstance instance = player.getWorldMapInstance();
 		instance.getInstanceHandler().onLeaveInstance(player);
 		if (instance.getRegisteredCount() > 0) {
@@ -236,6 +236,13 @@ public class InstanceService {
 	}
 
 	public static int getDestroyDelaySeconds(WorldMapInstance worldMapInstance) {
+		if (worldMapInstance.isPersonal() || isRegisteredTeamDisbanded(worldMapInstance))
+			return 0;
 		return worldMapInstance.getMaxPlayers() == 1 ? InstanceConfig.SOLO_INSTANCE_DESTROY_DELAY_SECONDS : InstanceConfig.INSTANCE_DESTROY_DELAY_SECONDS;
+	}
+
+	private static boolean isRegisteredTeamDisbanded(WorldMapInstance worldMapInstance) {
+		GeneralTeam<?, ?> registeredTeam = worldMapInstance.getRegisteredTeam();
+		return registeredTeam != null && registeredTeam.isDisbanded();
 	}
 }

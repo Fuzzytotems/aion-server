@@ -47,6 +47,7 @@ public class SummonsService {
 		if (!summon.registerRelease(release))
 			return;
 		summon.getController().cancelCurrentSkill(null);
+		summon.getController().onReleaseStart();
 		summon.setMode(SummonMode.RELEASE);
 		summon.getObserveController().notifySummonReleaseObservers();
 		new ReleaseSummonTask(summon, release).scheduleOrRun();
@@ -88,7 +89,7 @@ public class SummonsService {
 				PacketSendUtility.sendPacket(master, SM_SYSTEM_MESSAGE.STR_SKILL_SUMMON_UNSUMMON_BY_TOO_DISTANCE());
 			else
 				PacketSendUtility.sendPacket(master, SM_SYSTEM_MESSAGE.STR_SKILL_SUMMON_UNSUMMONED(summon.getL10n()));
-			PacketSendUtility.sendPacket(master, new SM_SUMMON_PANEL_REMOVE(summon.getSummonedBySkillId()));
+			PacketSendUtility.sendPacket(master, new SM_RESET_SKILL_COOLDOWN(summon.getSummonedBySkillId()));
 			PacketSendUtility.sendPacket(master, new SM_SUMMON_OWNER_REMOVE(summon.getObjectId()));
 			if (!addedMasterHate)
 				scheduleAddMasterHate(summon);
@@ -191,8 +192,11 @@ public class SummonsService {
 		if (unsummonType == UnsummonType.COMMAND) {
 			if (summon.isReleaseUncancelable())
 				return;
-			if (summonMode == SummonMode.ATTACK && !summon.getController().canAttack(targetObjId))
+			if (summonMode == SummonMode.ATTACK && !summon.getController().canAttack(targetObjId)) {
+				PacketSendUtility.sendPacket(summon.getMaster(), SM_SYSTEM_MESSAGE.STR_SKILL_SUMMON_IS_NOT_VALID());
+				PacketSendUtility.sendPacket(summon.getMaster(), new SM_SUMMON_UPDATE(summon));
 				return; // don't cancel a pending release for an order that won't be carried out
+			}
 			// UNK leaves the summons mode untouched, so it must not take back a pending release either
 			if (summonMode == SummonMode.ATTACK || summonMode == SummonMode.GUARD || summonMode == SummonMode.REST)
 				summon.cancelReleaseByMaster();

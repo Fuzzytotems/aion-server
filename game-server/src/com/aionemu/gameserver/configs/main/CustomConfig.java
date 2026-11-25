@@ -33,6 +33,12 @@ public class CustomConfig {
 	public static int LEVEL_TO_WHISPER;
 
 	/**
+	 * Maximum number of macros per character
+	 */
+	@Property(key = "gameserver.macros.limit", defaultValue = "12")
+	public static int MACROS_LIMIT;
+
+	/**
 	 * Time in days after which an item in broker will be unregistered (client cannot display more than 255 days)
 	 */
 	@Property(key = "gameserver.broker.registration_expiration_days", defaultValue = "8")
@@ -281,4 +287,18 @@ public class CustomConfig {
 	 */
 	@Property(key = "gameserver.pvp.cumulative_resist.count_summon_effects", defaultValue = "false")
 	public static boolean COUNT_SUMMON_EFFECTS_FOR_CUMULATIVE_RESIST;
+
+	/**
+	 * Death and damage of a hit still happen at the hit time (the moment the client shows the impact). True keeps a creature that will die from a hit
+	 * already in flight fully controllable until the hit lands; false keeps the retail behavior, where it is treated as dead for actions and
+	 * targeting from the end of the cast and cannot be healed until the hit lands.
+	 */
+	@Property(key = "gameserver.combat.death_at_hittime", defaultValue = "false")
+	public static boolean DEATH_AT_HITTIME;
+
+	/**
+	 * Don't despawn the pet on death
+	 */
+	@Property(key = "gameserver.pet.keep_on_death", defaultValue = "false")
+	public static boolean KEEP_PET_ON_DEATH;
 }

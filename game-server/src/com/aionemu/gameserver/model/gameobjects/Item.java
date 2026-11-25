@@ -1,6 +1,9 @@
 package com.aionemu.gameserver.model.gameobjects;
 
-import java.util.*;
+import java.util.Comparator;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +19,6 @@ import com.aionemu.gameserver.model.items.storage.IStorage;
 import com.aionemu.gameserver.model.items.storage.ItemStorage;
 import com.aionemu.gameserver.model.items.storage.StorageType;
 import com.aionemu.gameserver.model.stats.calc.StatOwner;
-import com.aionemu.gameserver.model.stats.calc.functions.StatFunction;
 import com.aionemu.gameserver.model.templates.L10n;
 import com.aionemu.gameserver.model.templates.item.GodstoneInfo;
 import com.aionemu.gameserver.model.templates.item.Improvement;
@@ -25,6 +27,7 @@ import com.aionemu.gameserver.model.templates.item.ItemUseLimits;
 import com.aionemu.gameserver.model.templates.item.bonuses.StatBonusType;
 import com.aionemu.gameserver.model.templates.item.enums.EquipType;
 import com.aionemu.gameserver.network.aion.serverpackets.SM_SYSTEM_MESSAGE;
+import com.aionemu.gameserver.network.aion.serverpackets.SM_UPDATE_PLAYER_APPEARANCE;
 import com.aionemu.gameserver.utils.PacketSendUtility;
 
 /**
@@ -55,11 +58,11 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 	private int enchantLevel;
 	private int enchantBonus;
 	private int expireTime = 0;
+	private int rankLimitExpireTime = 0;
 	private int temporaryExchangeTime = 0;
 	private long repurchasePrice;
 	private int activationCount = 0;
 	private ChargeInfo conditioningInfo;
-	private List<StatFunction> currentModifiers;
 	private int tuneCount = 0;
 	private RandomBonusEffect bonusStatsEffect;
 	private RandomBonusEffect fusionedItemBonusStatsEffect;
@@ -104,7 +107,7 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 	public Item(int objId, int itemId, long itemCount, Integer itemColor, int colorExpires, String itemCreator, int expireTime, int activationCount,
 		boolean isEquipped, boolean isSoulBound, long equipmentSlot, int itemLocation, int enchant, int enchantBonus, int itemSkin, int fusionedItem,
 		int optionalSockets, int fusionedItemOptionalSockets, int charge, int tuneCount, int statBonusId, int fusionedItemStatBonusId, int tempering,
-		int packCount, boolean isAmplified, int buffSkill, int rndPlumeBonusValue) {
+		int packCount, boolean isAmplified, int buffSkill, int rndPlumeBonusValue, int rankLimitExpireTime) {
 		super(objId);
 
 		this.itemTemplate = Objects.requireNonNull(DataManager.ITEM_DATA.getItemTemplate(itemId), () -> "Missing template for item " + itemId);
@@ -133,6 +136,7 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 		this.isAmplified = isAmplified;
 		this.buffSkill = buffSkill;
 		this.rndPlumeBonusValue = rndPlumeBonusValue;
+		this.rankLimitExpireTime = rankLimitExpireTime;
 		if (itemTemplate.getStatBonusSetId() != 0 && statBonusId > 0) {
 			setBonusStats(statBonusId, false);
 		}
@@ -466,7 +470,7 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 	public void addGodStone(int itemId, int activatedCount) {
 		GodstoneInfo godstoneInfo = DataManager.ITEM_DATA.getItemTemplate(itemId).getGodstoneInfo();
 		if (godstoneInfo == null) {
-			log.warn("Item " + itemId + " has no godstone info");
+			log.warn("Item {} has no godstone info", itemId);
 			return;
 		}
 		if (godStone != null)
@@ -668,6 +672,23 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 		return expireTime;
 	}
 
+	public void setExpireTime(int expireTime) {
+		this.expireTime = expireTime;
+		setPersistentState(PersistentState.UPDATE_REQUIRED);
+	}
+
+	/**
+	 * @return Seconds since the epoch at which this item is taken off because its owner no longer has the abyss rank for it, 0 if it is not on notice.
+	 */
+	public int getRankLimitExpireTime() {
+		return rankLimitExpireTime;
+	}
+
+	public void setRankLimitExpireTime(int rankLimitExpireTime) {
+		this.rankLimitExpireTime = rankLimitExpireTime;
+		setPersistentState(PersistentState.UPDATE_REQUIRED);
+	}
+
 	/**
 	 * @return Returns the temporaryExchangeTime.
 	 */
@@ -691,8 +712,9 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 
 	@Override
 	public void onExpire(Player player) {
-		if (isEquipped())
-			player.getEquipment().unEquipItem(getObjectId());
+		if (isEquipped() && player.getEquipment().unEquipItem(getObjectId(), false) != null)
+			PacketSendUtility.broadcastPacket(player,
+				new SM_UPDATE_PLAYER_APPEARANCE(player.getObjectId(), player.getEquipment().getEquippedForAppearance()), true);
 
 		for (StorageType i : StorageType.values()) {
 			if (i == StorageType.LEGION_WAREHOUSE)
@@ -786,16 +808,6 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 		return null;
 	}
 
-	public List<StatFunction> getCurrentModifiers() {
-		if (currentModifiers == null)
-			currentModifiers = new ArrayList<>();
-		return currentModifiers;
-	}
-
-	public void setCurrentModifiers(List<StatFunction> currentModifiers) {
-		getCurrentModifiers().clear();
-		getCurrentModifiers().addAll(currentModifiers);
-	}
 
 	public IdianStone getIdianStone() {
 		return idianStone;
@@ -818,8 +830,7 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 	 */
 	public void setBonusStats(int statBonusId, boolean validate) {
 		if (validate && isEquipped)
-			log.warn(getItemId() + " was equipped while switching bonus stats from " + getBonusStatsId() + " to " + statBonusId,
-				new IllegalStateException());
+			log.warn("{} was equipped while switching bonus stats from {} to {}", getItemId(), getBonusStatsId(), statBonusId, new IllegalStateException());
 		if (statBonusId == 0)
 			bonusStatsEffect = null;
 		else
@@ -860,7 +871,7 @@ public class Item extends AionObject implements Expirable, StatOwner, Persistabl
 	 */
 	public void setFusionedItemBonusStats(int statBonusId, boolean validate) {
 		if (validate && isEquipped)
-			log.warn(getItemId() + " was equipped while switching fusioned bonus stats from " + getFusionedItemBonusStatsId() + " to " + statBonusId,
+			log.warn("{} was equipped while switching fusioned bonus stats from {} to {}", getItemId(), getFusionedItemBonusStatsId(), statBonusId,
 				new IllegalStateException());
 		if (statBonusId == 0)
 			fusionedItemBonusStatsEffect = null;

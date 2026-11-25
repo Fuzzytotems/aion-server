@@ -10,7 +10,6 @@ import com.aionemu.gameserver.configs.Config;
 import com.aionemu.gameserver.dataholders.*;
 import com.aionemu.gameserver.model.gameobjects.player.Player;
 import com.aionemu.gameserver.model.templates.event.EventTemplate;
-import com.aionemu.gameserver.model.templates.npcskill.NpcSkillTemplates;
 import com.aionemu.gameserver.questEngine.QuestEngine;
 import com.aionemu.gameserver.questEngine.handlers.models.XMLQuest;
 import com.aionemu.gameserver.services.event.EventService;
@@ -60,11 +59,9 @@ public class Reload extends AdminCommand {
 			DataManager.SKILL_DATA = JAXBUtil.deserialize(xml, SkillData.class, "./data/static_data/static_data.xsd");
 			sendInfo(admin, DataManager.SKILL_DATA.size() + " skills loaded.");
 		} else if (params[0].equalsIgnoreCase("npcskills")) {
-			List<NpcSkillTemplates> templates = new ArrayList<>();
 			Collection<File> files = XmlUtil.listFiles("./data/static_data/npc_skills", true);
-			JAXBUtil.deserialize(files, NpcSkillData.class, "./data/static_data/static_data.xsd")
-				.forEach(e -> templates.addAll(e.getAllNpcSkillTemplates()));
-			DataManager.NPC_SKILL_DATA.setNpcSkillTemplates(templates);
+			List<NpcSkillData> skillData = JAXBUtil.deserialize(files, NpcSkillData.class, "./data/static_data/static_data.xsd");
+			DataManager.NPC_SKILL_DATA.setSkillData(skillData);
 			sendInfo(admin, DataManager.NPC_SKILL_DATA.size() + " NPC skills loaded.");
 		} else if (params[0].equalsIgnoreCase("items")) {
 			File xml = new File("./data/static_data/items/item_templates.xml");
@@ -98,8 +95,9 @@ public class Reload extends AdminCommand {
 			long rewards = DataManager.UPGRADE_ARCADE_DATA.getRewards().stream().mapToLong(l -> l.getArcadeRewardItems().size()).sum();
 			sendInfo(admin, rewards + " upgrade arcade rewards loaded.");
 		} else if (params[0].equalsIgnoreCase("decomposables")) {
-			File xml = new File("./data/static_data/decomposable_items/decomposable_items.xml");
-			DataManager.DECOMPOSABLE_ITEMS_DATA = JAXBUtil.deserialize(xml, DecomposableItemsData.class, "./data/static_data/decomposable_items/decomposable_items.xsd");
+			Collection<File> files = XmlUtil.listFiles("./data/static_data/decomposable_items", true);
+			DataManager.DECOMPOSABLE_ITEMS_DATA.setData(
+				JAXBUtil.deserialize(files, DecomposableItemsData.class, "./data/static_data/decomposable_items/decomposable_items.xsd"));
 			sendInfo(admin, DataManager.DECOMPOSABLE_ITEMS_DATA.size() + " item bundles reloaded.");
 		} else
 			sendInfo(admin);
