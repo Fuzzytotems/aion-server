@@ -1,7 +1,6 @@
 package com.aionemu.gameserver.ai.manager;
 
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import com.aionemu.gameserver.ai.AILogger;
@@ -82,7 +81,7 @@ public class SkillAttackManager {
 				NpcSkillTemplate temp = skill.getTemplate();
 				int range = template.getProperties().getFirstTargetRange() == 0 ? Integer.MAX_VALUE : template.getProperties().getFirstTargetRange();
 				VisibleObject newTarget = switch (temp.getTarget()) {
-					case FRIEND -> owner.getKnownList().findObject(o -> o.isVisible() && o.get() instanceof Npc npc && !npc.isDead() && !npc.getLifeStats().isAboutToDie() && !owner.isEnemy(npc)
+					case FRIEND -> owner.getKnownList().findObject(o -> o.isVisible() && o.get() instanceof Npc npc && !npc.isDeadOrDoomed() && !owner.isEnemy(npc)
 							&& PositionUtil.isInRange(owner, npc, range, false) && GeoService.getInstance().canSee(owner, npc));
 					case ME -> owner;
 					case MOST_HATED -> owner.getAggroList().getTarget(AggroTarget.MOST_HATED);
@@ -139,32 +138,23 @@ public class SkillAttackManager {
 
 			NpcSkillEntry lastSkill = owner.getGameStats().getLastSkill();
 			if (lastSkill != null && lastSkill.hasChain() && lastSkill.canUseNextChain(owner)) {
-				List<NpcSkillEntry> chainSkills = skillList.getChainSkills(lastSkill);
-				if (chainSkills.size() > 1) {
-					if (chainSkills.stream().anyMatch(cs -> cs.getPriority() > 0)) {
-						chainSkills.sort(Comparator.comparingInt(NpcSkillEntry::getPriority).reversed());
-					} else {
-						Collections.shuffle(chainSkills);
-					}
-				}
-				for (NpcSkillEntry entry : chainSkills) {
-					if (entry != null && isReady(owner, entry)) {
+				List<NpcSkillEntry> chainSkillsSortedByPrio = skillList.getChainSkillsSortedByPriority(lastSkill);
+				if (chainSkillsSortedByPrio.size() > 1 && chainSkillsSortedByPrio.getFirst().getPriority() == 0) // all skills have the default priority
+					Collections.shuffle(chainSkillsSortedByPrio);
+				for (NpcSkillEntry entry : chainSkillsSortedByPrio) {
+					if (isReady(owner, entry)) {
 						return getNpcSkillEntryIfNotTooFarAway(owner, entry);
 					}
 				}
 			}
 
-			int[] priorities = skillList.getPriorities();
-			if (priorities != null) {
-				for (int priority : priorities) {
-					List<NpcSkillEntry> skillsByPriority = skillList.getSkillsByPriority(priority);
-					if (skillsByPriority.size() > 1)
-						Collections.shuffle(skillsByPriority);
-
-					for (NpcSkillEntry entry : skillsByPriority) {
-						if (entry.getChainId() == 0 && isReady(owner, entry)) {
-							return getNpcSkillEntryIfNotTooFarAway(owner, entry);
-						}
+			for (int priority : skillList.getPriorities()) {
+				List<NpcSkillEntry> skillsByPriority = skillList.getSkillsSortedByPriority(priority);
+				if (skillsByPriority.size() > 1)
+					Collections.shuffle(skillsByPriority);
+				for (NpcSkillEntry entry : skillsByPriority) {
+					if (entry.getChainId() == 0 && isReady(owner, entry)) {
+						return getNpcSkillEntryIfNotTooFarAway(owner, entry);
 					}
 				}
 			}
@@ -183,9 +173,11 @@ public class SkillAttackManager {
 
 	// check for bind/silence/fear/stun etc debuffs on npc
 	private static boolean isReady(Npc owner, NpcSkillEntry entry) {
-		if (owner.isDead() || owner.getLifeStats().isAboutToDie())
+		if (owner.isDeadOrDoomed())
 			return false;
 		if (cantUseSkill(entry, owner))
+			return false;
+		if (owner.getSkillCoolDown(entry.getSkillId()) > System.currentTimeMillis())
 			return false;
 		if (!entry.isReady(owner.getLifeStats().getHpPercentage(), System.currentTimeMillis() - owner.getGameStats().getFightStartingTime()))
 			return false;

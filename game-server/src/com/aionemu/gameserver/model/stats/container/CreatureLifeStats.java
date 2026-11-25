@@ -3,7 +3,9 @@ package com.aionemu.gameserver.model.stats.container;
 import java.util.Objects;
 import java.util.concurrent.Future;
 
+import com.aionemu.gameserver.configs.main.CustomConfig;
 import com.aionemu.gameserver.model.gameobjects.Creature;
+import com.aionemu.gameserver.model.gameobjects.player.Player;
 import com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS;
 import com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.LOG;
 import com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.TYPE;
@@ -18,16 +20,22 @@ import com.aionemu.gameserver.utils.PacketSendUtility;
 public abstract class CreatureLifeStats<T extends Creature> {
 
 	private int currentHp;
+	private int cachedMaxHp;
 	private int currentMp;
-	private int killingBlow; // for long animation skills that will kill - last damage
+	private int cachedMaxMp;
+	/**
+	 * Number of hits in flight that were lethal when they were calculated. Every hit that raised it lowers it again when it lands or is dropped,
+	 * whatever the outcome.
+	 */
+	private int pendingLethalHits;
 	protected final T owner;
 	protected final Object restoreLock = new Object();
 	protected Future<?> lifeRestoreTask;
 
-	public CreatureLifeStats(T owner, int currentHp, int currentMp) {
+	public CreatureLifeStats(T owner) {
 		this.owner = owner;
-		this.currentHp = currentHp;
-		this.currentMp = currentMp;
+		currentHp = cachedMaxHp = getMaxHp();
+		currentMp = cachedMaxMp = getMaxMp();
 	}
 
 	public T getOwner() {
@@ -54,16 +62,49 @@ public abstract class CreatureLifeStats<T extends Creature> {
 		return currentHp == 0;
 	}
 
-	public boolean isAboutToDie() {
-		return killingBlow != 0;
+	/**
+	 * @return True if the creature is dead or a lethal hit is already on its way. Such a creature must neither act nor be targeted normally.
+	 */
+	public boolean isDeadOrDoomed() {
+		return isDead() || isDoomed();
 	}
 
-	public void setKillingBlow(int killingBlow) {
-		this.killingBlow = killingBlow;
+	/**
+	 * @return True if an in-flight hit is lethal and this creature is treated as dead before the hit lands. A doomed creature cannot act, cannot be
+	 *         targeted by single target skills and cannot be healed, so the hit is certain to kill it. Always false when
+	 *         {@link CustomConfig#DEATH_AT_HITTIME} is enabled.
+	 */
+	public boolean isDoomed() {
+		return pendingLethalHits > 0;
 	}
 
-	private void unsetIsAboutToDie() {
-		this.killingBlow = 0;
+	/**
+	 * Marks this creature as doomed if the given damage will kill it. Must be called when the damage is calculated, and a successful call must be
+	 * paired with {@link #releaseLethalHit()} once the damage has landed or was dropped.
+	 *
+	 * @return True if the hit was latched and must be released later
+	 */
+	public boolean latchLethalHit(Creature attacker, int damage) {
+		if (CustomConfig.DEATH_AT_HITTIME || damage <= 0 || getOwner().isInvulnerable())
+			return false;
+		if (getOwner() instanceof Player player && player.isDueling(attacker)) // losing a duel is not death, the loser stays controllable
+			return false;
+		synchronized (this) {
+			if (isDead() || damage < currentHp)
+				return false;
+			pendingLethalHits++;
+			return true;
+		}
+	}
+
+	/**
+	 * Releases a latch taken by {@link #latchLethalHit(Creature, int)}, after its damage was applied or dropped.
+	 */
+	public void releaseLethalHit() {
+		synchronized (this) {
+			if (pendingLethalHits > 0) // death resets the count, so hits which land on a dead creature find it at 0
+				pendingLethalHits--;
+		}
 	}
 
 	/**
@@ -87,10 +128,8 @@ public abstract class CreatureLifeStats<T extends Creature> {
 
 	public int reduceHp(TYPE type, int value, int skillId, LOG log, Creature attacker, boolean criticalHit) {
 		Objects.requireNonNull(attacker, "attacker");
-		if (getOwner().isInvulnerable()) {
-			unsetIsAboutToDie();
+		if (getOwner().isInvulnerable())
 			return currentHp;
-		}
 
 		int previousHp, newHp;
 		synchronized (this) {
@@ -102,14 +141,14 @@ public abstract class CreatureLifeStats<T extends Creature> {
 			currentHp = newHp = Math.clamp(currentHp - value, minHp, currentHp);
 			if (isDead()) {
 				currentMp = 0;
-				unsetIsAboutToDie();
+				pendingLethalHits = 0;
 			}
 		}
 
 		if (newHp != previousHp || skillId != 0)
 			sendAttackStatusPacketUpdate(type, previousHp - newHp, skillId, log, criticalHit);
 		if (newHp != previousHp)
-			onHpChanged(previousHp, newHp, attacker);
+			onHpChanged(type, previousHp, newHp, attacker);
 		return newHp;
 	}
 
@@ -133,13 +172,13 @@ public abstract class CreatureLifeStats<T extends Creature> {
 				return 0;
 
 			previousMp = currentMp;
-			currentMp = newMp = Math.min(currentMp, Math.max(currentMp - value, 0));
+			currentMp = newMp = Math.clamp(currentMp - value, 0, currentMp);
 		}
 
 		if (newMp != previousMp || skillId != 0)
 			sendAttackStatusPacketUpdate(type, previousMp - newMp, skillId, log);
 		if (newMp != previousMp)
-			onMpChanged(previousMp, newMp);
+			onMpChanged(type, previousMp, newMp);
 		return newMp;
 	}
 
@@ -173,7 +212,7 @@ public abstract class CreatureLifeStats<T extends Creature> {
 		if (value < 0) // some skills reduce hp via a negative heal (e.g. 3732 Spirit Absorption)
 			return reduceHp(type, -value, skillId, log, effector);
 
-		if (getOwner().getEffectController().isAbnormalSet(AbnormalState.DISEASE))
+		if (getOwner().getEffectController().isAbnormalSet(AbnormalState.DISEASE) || isDoomed()) // a doomed creature cannot be healed
 			return currentHp;
 
 		int previousHp, newHp;
@@ -183,14 +222,12 @@ public abstract class CreatureLifeStats<T extends Creature> {
 
 			previousHp = currentHp;
 			currentHp = newHp = Math.min(currentHp + value, getMaxHp());
-			if (killingBlow != 0 && newHp > killingBlow)
-				unsetIsAboutToDie();
 		}
 
 		if (newHp != previousHp || skillId != 0)
 			sendAttackStatusPacketUpdate(type, newHp - previousHp, skillId, log);
 		if (newHp != previousHp)
-			onHpChanged(previousHp, newHp, effector == null ? getOwner() : effector);
+			onHpChanged(type, previousHp, newHp, effector == null ? getOwner() : effector);
 		return newHp;
 	}
 
@@ -217,7 +254,7 @@ public abstract class CreatureLifeStats<T extends Creature> {
 		if (newMp != previousMp || skillId != 0)
 			sendAttackStatusPacketUpdate(type, newMp - previousMp, skillId, log);
 		if (newMp != previousMp)
-			onMpChanged(previousMp, newMp);
+			onMpChanged(type, previousMp, newMp);
 		return currentMp;
 	}
 
@@ -276,8 +313,14 @@ public abstract class CreatureLifeStats<T extends Creature> {
 	 * to game or player level up
 	 */
 	public void synchronizeWithMaxStats() {
-		currentHp = getMaxHp();
-		currentMp = getMaxMp();
+		synchronized (this) {
+			cachedMaxHp = getMaxHp();
+			cachedMaxMp = getMaxMp();
+		}
+		if (currentHp != cachedMaxHp)
+			setCurrentHp(cachedMaxHp);
+		if (currentMp != cachedMaxMp)
+			setCurrentMp(cachedMaxMp);
 	}
 
 	/**
@@ -309,13 +352,13 @@ public abstract class CreatureLifeStats<T extends Creature> {
 		return (int) (100f * currentMp / getMaxMp());
 	}
 
-	protected void onHpChanged(int previousHp, int newHp, Creature effector) {
+	protected void onHpChanged(TYPE type, int previousHp, int newHp, Creature effector) {
 		if (newHp == 0)
 			getOwner().getController().onDie(effector);
 		getOwner().getObserveController().notifyHPChangeObservers(newHp);
 	}
 
-	protected void onMpChanged(int previousMp, int newMp) {
+	protected void onMpChanged(TYPE type, int previousMp, int newMp) {
 	}
 
 	public int getMaxFp() {
@@ -351,14 +394,19 @@ public abstract class CreatureLifeStats<T extends Creature> {
 		int previousHp, newHp;
 		synchronized (this) {
 			previousHp = currentHp;
-			currentHp = newHp = Math.max(0, Math.min(hp, getMaxHp()));
-			if (killingBlow != 0 && (newHp == 0 || newHp > killingBlow))
-				unsetIsAboutToDie();
+			int maxHp = getMaxHp();
+			currentHp = newHp = Math.clamp(hp, 0, maxHp);
+			if (previousHp == 0 || newHp == 0) {
+				cachedMaxHp = maxHp;
+				cachedMaxMp = getMaxMp();
+			}
+			if (newHp == 0)
+				pendingLethalHits = 0;
 		}
 		if (newHp != previousHp) {
 			// broadcast current hp percentage to others
 			PacketSendUtility.broadcastToSightedPlayers(owner, new SM_ATTACK_STATUS(owner, TYPE.HP, 0, 0, LOG.REGULAR));
-			onHpChanged(previousHp, newHp, effector);
+			onHpChanged(TYPE.HP, previousHp, newHp, effector);
 		}
 	}
 
@@ -368,11 +416,11 @@ public abstract class CreatureLifeStats<T extends Creature> {
 			if (isDead())
 				return;
 			previousMp = currentMp;
-			currentMp = newMp = Math.max(0, Math.min(value, getMaxMp()));
+			currentMp = newMp = Math.clamp(value, 0, getMaxMp());
 		}
 		if (newMp != previousMp) {
 			PacketSendUtility.broadcastToSightedPlayers(owner, new SM_ATTACK_STATUS(owner, TYPE.HEAL_MP, 0, 0, LOG.MPHEAL));
-			onMpChanged(previousMp, newMp);
+			onMpChanged(TYPE.HEAL_MP, previousMp, newMp);
 		}
 	}
 
@@ -383,4 +431,38 @@ public abstract class CreatureLifeStats<T extends Creature> {
 		setCurrentMp((int) ((long) getMaxMp() * mpPercent / 100));
 	}
 
+	public void onStatsChange(Effect effect) {
+		if (isDead())
+			return;
+		checkMaxHPChanged(effect == null ? owner : effect.getEffector());
+		checkMaxMPChanged();
+	}
+
+	private void checkMaxHPChanged(Creature effector) {
+		int newHp;
+		synchronized (this) {
+			newHp = currentHp;
+			int currentMaxHp = getMaxHp();
+			if (cachedMaxHp != currentMaxHp) {
+				newHp = Math.max(1, Math.round((long) currentHp * currentMaxHp / (float) cachedMaxHp));
+				cachedMaxHp = currentMaxHp;
+			}
+		}
+		if (newHp != currentHp)
+			setCurrentHp(newHp, effector);
+	}
+
+	private void checkMaxMPChanged() {
+		int newMp;
+		synchronized (this) {
+			newMp = currentMp;
+			int currentMaxMp = getMaxMp();
+			if (cachedMaxMp != currentMaxMp) {
+				newMp = Math.max(1, Math.round((long) currentMp * currentMaxMp / (float) cachedMaxMp));
+				cachedMaxMp = currentMaxMp;
+			}
+		}
+		if (newMp != currentMp)
+			setCurrentMp(newMp);
+	}
 }

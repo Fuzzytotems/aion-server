@@ -47,7 +47,6 @@ import com.aionemu.gameserver.utils.ThreadPoolManager;
 import com.aionemu.gameserver.utils.stats.StatFunctions;
 import com.aionemu.gameserver.world.World;
 import com.aionemu.gameserver.world.geo.GeoService;
-import com.aionemu.gameserver.world.zone.ZoneInstance;
 
 /**
  * This class is for controlling Npc's
@@ -152,7 +151,7 @@ public class NpcController extends CreatureController<Npc> {
 			owner.getPosition().getWorldMapInstance().getInstanceHandler().onDie(owner);
 			owner.getAi().onGeneralEvent(AIEventType.DIED);
 		} catch (Exception e) {
-			log.error("onDie() exception for " + owner + ":", e);
+			log.error("onDie() exception for {}:", owner, e);
 		}
 
 		super.onDie(lastAttacker);
@@ -175,10 +174,10 @@ public class NpcController extends CreatureController<Npc> {
 			int npcObjId = owner.getObjectId();
 			Set<DropItem> drops = DropRegistrationService.getInstance().getCurrentDropMap().get(npcObjId);
 			if (drops != null && !drops.isEmpty()) {
-				PacketSendUtility.sendPacket(lootingPet.getMaster(), new SM_PET(PetSpecialFunction.AUTOLOOT, true, npcObjId));
+				PacketSendUtility.sendPacket(lootingPet.getMaster(), SM_PET.specialFunction(PetSpecialFunction.AUTOLOOT, true, npcObjId));
 				for (DropItem dropItem : drops.toArray(new DropItem[drops.size()])) // array copy since the drops get removed on retrieval
 					DropService.getInstance().requestDropItem(lootingPet.getMaster(), npcObjId, dropItem.getIndex(), true);
-				PacketSendUtility.sendPacket(lootingPet.getMaster(), new SM_PET(PetSpecialFunction.AUTOLOOT, false, npcObjId));
+				PacketSendUtility.sendPacket(lootingPet.getMaster(), SM_PET.specialFunction(PetSpecialFunction.AUTOLOOT, false, npcObjId));
 			}
 		}
 	}
@@ -295,7 +294,7 @@ public class NpcController extends CreatureController<Npc> {
 		if (attacker instanceof Summon && attacker.isSpawned())
 			actingCreature = attacker;
 		else
-			actingCreature = attacker.getActingCreature();
+			actingCreature = attacker.getMaster();
 
 		super.onAttack(actingCreature, effect, type, damage, notifyAttack, logId, attackStatus, hopType);
 
@@ -315,13 +314,6 @@ public class NpcController extends CreatureController<Npc> {
 	public void onStopMove() {
 		super.onStopMove();
 		MoveTaskManager.getInstance().removeCreature(getOwner());
-	}
-
-	@Override
-	public void onEnterZone(ZoneInstance zoneInstance) {
-		if (zoneInstance.getAreaTemplate().getZoneName() == null) {
-			log.error("No name found for a Zone in the map " + zoneInstance.getAreaTemplate().getWorldId());
-		}
 	}
 
 	@Override

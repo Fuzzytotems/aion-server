@@ -1,7 +1,12 @@
 package com.aionemu.gameserver;
 
 import java.lang.management.ManagementFactory;
+import java.time.Duration;
+import java.util.List;
 import java.util.TimeZone;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
@@ -14,7 +19,6 @@ import com.aionemu.commons.logging.Logging;
 import com.aionemu.commons.network.NioServer;
 import com.aionemu.commons.network.ServerCfg;
 import com.aionemu.commons.utils.concurrent.UncaughtExceptionHandler;
-import com.aionemu.commons.utils.info.SystemInfo;
 import com.aionemu.commons.utils.info.VersionInfo;
 import com.aionemu.gameserver.ai.AIEngine;
 import com.aionemu.gameserver.cache.HTMLCache;
@@ -22,7 +26,6 @@ import com.aionemu.gameserver.configs.Config;
 import com.aionemu.gameserver.configs.main.CleaningConfig;
 import com.aionemu.gameserver.configs.main.CustomConfig;
 import com.aionemu.gameserver.configs.main.GSConfig;
-import com.aionemu.gameserver.configs.main.GeoDataConfig;
 import com.aionemu.gameserver.configs.network.NetworkConfig;
 import com.aionemu.gameserver.custom.instance.CustomInstanceService;
 import com.aionemu.gameserver.custom.pvpmap.PvpMapService;
@@ -33,7 +36,9 @@ import com.aionemu.gameserver.instance.InstanceEngine;
 import com.aionemu.gameserver.model.GameEngine;
 import com.aionemu.gameserver.model.Race;
 import com.aionemu.gameserver.model.siege.Influence;
+import com.aionemu.gameserver.network.aion.AionConnection;
 import com.aionemu.gameserver.network.aion.GameConnectionFactoryImpl;
+import com.aionemu.gameserver.network.aion.serverpackets.SM_QUIT_RESPONSE;
 import com.aionemu.gameserver.network.chatserver.ChatServer;
 import com.aionemu.gameserver.network.loginserver.LoginServer;
 import com.aionemu.gameserver.questEngine.QuestEngine;
@@ -49,9 +54,11 @@ import com.aionemu.gameserver.services.instance.PeriodicInstanceManager;
 import com.aionemu.gameserver.services.player.PlayerLimitService;
 import com.aionemu.gameserver.services.transfers.PlayerTransferService;
 import com.aionemu.gameserver.spawnengine.SpawnEngine;
+import com.aionemu.gameserver.taskmanager.AbstractPeriodicTaskManager;
 import com.aionemu.gameserver.taskmanager.tasks.housing.AuctionAutoFillTask;
 import com.aionemu.gameserver.taskmanager.tasks.housing.AuctionEndTask;
 import com.aionemu.gameserver.taskmanager.tasks.housing.MaintenanceTask;
+import com.aionemu.gameserver.utils.PacketSendUtility;
 import com.aionemu.gameserver.utils.ThreadPoolManager;
 import com.aionemu.gameserver.utils.chathandlers.ChatProcessor;
 import com.aionemu.gameserver.utils.cron.ThreadPoolManagerRunnableRunner;
@@ -69,12 +76,13 @@ import com.aionemu.gameserver.world.zone.ZoneService;
  */
 public class GameServer {
 
+	private static final long START_TIME_NANOS = System.nanoTime();
+	public static final int START_TIME_SECONDS = (int) (ManagementFactory.getRuntimeMXBean().getStartTime() / 1000);
+
 	static {
 		Logging.init(); // must run before instantiating any logger
 	}
 	private static final Logger log = LoggerFactory.getLogger(GameServer.class);
-
-	public static final int START_TIME_SECONDS = (int) (ManagementFactory.getRuntimeMXBean().getStartTime() / 1000);
 	public static final VersionInfo versionInfo = new VersionInfo(GameServer.class);
 
 	private static NioServer nioServer;
@@ -92,17 +100,15 @@ public class GameServer {
 	static void main() {
 		JAXBUtil.preLoadContextAsync(StaticData.class); // do this early so DataManager doesn't need to wait as long
 		initUtilityServicesAndConfig();
-
-		IDFactory.getInstance();
-
+		CompletableFuture<Void> databaseInit = CompletableFuture.runAsync(GameServer::initDatabase); // connect to the database while static data is being loaded
 		DataManager.getInstance();
+		awaitDatabaseInit(databaseInit);
 
 		Stream.of(QuestEngine.getInstance(), AIEngine.getInstance(), InstanceEngine.getInstance(), ChatProcessor.getInstance(), ZoneService.getInstance(),
 			GeoService.getInstance()).parallel().forEach(GameEngine::init);
 		// ZoneService.getInstance().saveMaterialZones();
 
 		World.getInstance();
-		GameTimeService.getInstance();
 
 		DropRegistrationService.getInstance();
 
@@ -122,6 +128,7 @@ public class GameServer {
 		MaintenanceTask.getInstance();
 		ChallengeTaskService.getInstance();
 
+		AbstractPeriodicTaskManager.startAll();
 		SpawnEngine.spawnAll();
 		TownService.getInstance();
 		FlyRingService.getInstance();
@@ -156,8 +163,6 @@ public class GameServer {
 		AtreianPassportService.getInstance();
 		CronJobService.getInstance();
 
-		if (!GeoDataConfig.GEO_MATERIALS_ENABLE)
-			CuringZoneService.getInstance();
 		RoadService.getInstance();
 		HTMLCache.getInstance();
 		AbyssRankingCache.getInstance();
@@ -176,18 +181,12 @@ public class GameServer {
 		CustomInstanceService.getInstance();
 		DataManager.waitForValidationToFinishAndShutdownOnFail();
 
-		System.gc();
-
-		VersionInfo.logAll(versionInfo, GSConfig.TIME_ZONE_ID);
-		SystemInfo.logAll();
-
 		nioServer = initNioServer();
 		Runtime.getRuntime().addShutdownHook(ShutdownHook.getInstance());
-		log.info("Game server started in " + (System.currentTimeMillis() / 1000 - START_TIME_SECONDS) + " seconds.");
-
 		LoginServer.getInstance().connect(nioServer);
 		if (GSConfig.ENABLE_CHAT_SERVER)
 			ChatServer.getInstance().connect(nioServer);
+		Logging.logStartupStats(GameServer.class, START_TIME_NANOS, versionInfo, GSConfig.TIME_ZONE_ID);
 	}
 
 	/**
@@ -205,11 +204,10 @@ public class GameServer {
 	/**
 	 * Initialize all helper services, that are not directly related to aion gs, which includes:
 	 * <ul>
-	 * <li>Database factory</li>
 	 * <li>Thread pool</li>
 	 * <li>Cron service</li>
 	 * </ul>
-	 * This method also initializes {@link Config}
+	 * This method also initializes {@link Config}. The database is initialized asynchronously, see {@link #initDatabase()}.
 	 */
 	private static void initUtilityServicesAndConfig() {
 		// Set default uncaught exception handler
@@ -217,11 +215,6 @@ public class GameServer {
 
 		PropertyTransformers.register(new CronExpressionTransformer());
 		Config.load();
-		// Second should be database factory
-		DatabaseFactory.init();
-		PlayerDAO.setAllPlayersOffline();
-		if (CleaningConfig.CLEANING_ENABLE)
-			DatabaseCleaningService.deletePlayersOnInactiveAccounts();
 
 		// Initialize thread pools
 		ThreadPoolManager.getInstance();
@@ -230,15 +223,56 @@ public class GameServer {
 		CronService.initSingleton(ThreadPoolManagerRunnableRunner.class, TimeZone.getTimeZone(GSConfig.TIME_ZONE_ID));
 	}
 
+	private static void initDatabase() {
+		DatabaseFactory.init();
+		PlayerDAO.setAllPlayersOffline();
+		if (CleaningConfig.CLEANING_ENABLE)
+			DatabaseCleaningService.deletePlayersOnInactiveAccounts();
+		IDFactory.getInstance(); // loads all ids in use, which can take a while on a large database
+	}
+
+	private static void awaitDatabaseInit(CompletableFuture<Void> databaseInit) {
+		try {
+			databaseInit.join();
+		} catch (CompletionException e) {
+			Throwable cause = e.getCause();
+			throw cause instanceof Error error ? error : new GameServerError(cause);
+		}
+	}
+
 	public static void shutdownNioServer() {
 		if (nioServer != null) {
+			if (forceStaffClientsToServerSelectionScreen())
+				LockSupport.parkNanos(Duration.ofMillis(200).toNanos()); // wait for login server to accept reconnections
 			nioServer.shutdown();
-			nioServer = null;
 		}
+	}
+
+	public static Stream<AionConnection> findClientConnections() {
+		return nioServer.findAllConnections().stream().filter(c -> c instanceof AionConnection).map(c -> (AionConnection) c);
+	}
+
+	private static boolean forceStaffClientsToServerSelectionScreen() {
+		List<AionConnection> staffClients = findClientConnections().filter(c -> c.getAccount() != null && c.getAccount().getAccessLevel() > 0).toList();
+		if (staffClients.isEmpty())
+			return false;
+		staffClients.forEach(c -> {
+			if (c.getState() == AionConnection.State.IN_GAME)
+				PacketSendUtility.sendPacket(c.getActivePlayer(), SM_QUIT_RESPONSE.quitToEditScreen());
+			LoginServer.getInstance().requestAuthReconnection(c.getAccount().getId(), c);
+		});
+		return true;
 	}
 
 	public static boolean isShutdownScheduled() {
 		return ShutdownHook.getInstance().isRunning();
+	}
+
+	/**
+	 * @return true while the server is starting up and has not opened its port yet
+	 */
+	public static boolean isStarting() {
+		return nioServer == null;
 	}
 
 	public static boolean isShuttingDownSoon() {
@@ -273,7 +307,7 @@ public class GameServer {
 			lock.unlock();
 		}
 
-		log.info("FACTIONS RATIO UPDATED: E " + String.format("%.1f", ELYOS_RATIO) + " % / A " + String.format("%.1f", ASMOS_RATIO) + " %");
+		log.info("FACTIONS RATIO UPDATED: E {} % / A {} %", String.format("%.1f", ELYOS_RATIO), String.format("%.1f", ASMOS_RATIO));
 	}
 
 	public static float getRatiosFor(Race race) {

@@ -30,8 +30,8 @@ import com.aionemu.gameserver.skillengine.model.Skill;
 import com.aionemu.gameserver.skillengine.model.SkillTemplate;
 import com.aionemu.gameserver.world.MapRegion;
 import com.aionemu.gameserver.world.WorldPosition;
+import com.aionemu.gameserver.world.zone.ZoneAttributes;
 import com.aionemu.gameserver.world.zone.ZoneInstance;
-import com.aionemu.gameserver.world.zone.ZoneName;
 
 /**
  * This class is representing movable objects, its base class for all in game objects that may move
@@ -56,7 +56,6 @@ public abstract class Creature extends VisibleObject {
 	private final byte[] zoneTypes = new byte[ZoneType.values().length];
 	private int skillNumber;
 	private int attackedCount;
-	private long spawnTime = System.currentTimeMillis();
 
 	public Creature(int objId, CreatureController<? extends Creature> controller, SpawnTemplate spawnTemplate, CreatureTemplate objectTemplate,
 		WorldPosition position, boolean autoReleaseObjectId) {
@@ -114,6 +113,13 @@ public abstract class Creature extends VisibleObject {
 
 	public boolean isDead() {
 		return lifeStats.isDead();
+	}
+
+	/**
+	 * @return True if the creature is dead or a lethal hit is already on its way. Such a creature must neither act nor be targeted normally.
+	 */
+	public boolean isDeadOrDoomed() {
+		return lifeStats.isDeadOrDoomed();
 	}
 
 	/**
@@ -329,18 +335,54 @@ public abstract class Creature extends VisibleObject {
 		return TribeClass.GENERAL;
 	}
 
+	public boolean isProtectionActive() {
+		return isInVisualState(CreatureVisualState.BLINKING);
+	}
+
 	@Override
 	public boolean canSee(VisibleObject object) {
 		if (object instanceof Creature creature) {
-			int visualStateExcludingBlinking = creature.getVisualState() & ~CreatureVisualState.BLINKING.getId();
-			if (visualStateExcludingBlinking <= getSeeState())
-				return true;
-			return equals(creature.getMaster()); // traps, summons, etc. should always be visible to the master
+			// spawn protected creatures stay visible, they only can't be targeted
+			return seesThrough(creature.getVisualState() & ~CreatureVisualState.BLINKING.getId()) || ignoresInvisibilityOf(creature);
 		} else if (object instanceof Pet pet) {
 			// we must prevent sending the pet's spawn packet to others before the master's, as this causes the pet to stay invisible
 			return equals(pet.getMaster()) || canSee(pet.getMaster()) && getKnownList().sees(pet.getMaster());
 		}
 		return super.canSee(object);
+	}
+
+	/**
+	 * @return True, if hide, spawn protection and GM invisibility don't prevent this creature from choosing the target, e.g. as a skill's first
+	 *         target
+	 */
+	public boolean canTarget(Creature target) {
+		return seesThrough(target.getVisualState()) || ignoresInvisibilityOf(target);
+	}
+
+	/**
+	 * @return True, if spawn protection and GM invisibility don't prevent a skill of this creature from affecting the target besides its first
+	 *         target. Hide doesn't protect from that.
+	 */
+	public boolean canAffect(Creature target) {
+		int protectedStates = CreatureVisualState.BLINKING.getId() | CreatureVisualState.GM_INVISIBLE.getId();
+		return (target.getVisualState() & protectedStates) == 0 || ignoresInvisibilityOf(target);
+	}
+
+	private boolean seesThrough(int visualState) {
+		int gmInvisible = CreatureVisualState.GM_INVISIBLE.getId();
+		if ((visualState & gmInvisible) != 0 && !isInSeeState(CreatureSeeState.SEARCH_GM_INVISIBLE))
+			return false;
+		return (visualState & ~gmInvisible) <= (getSeeState() & ~CreatureSeeState.SEARCH_GM_INVISIBLE.getId());
+	}
+
+	/**
+	 * @return True, if this creature sees the target regardless of its hide, spawn protection or GM invisibility. This applies to the target itself,
+	 *         creatures of the same master (traps, summons, etc.) and creatures whose masters are in the same team.
+	 */
+	public boolean ignoresInvisibilityOf(Creature target) {
+		Creature master = getMaster(), targetMaster = target.getMaster();
+		return master.equals(targetMaster)
+			|| master instanceof Player player && targetMaster instanceof Player targetPlayer && player.isInSameTeam(targetPlayer);
 	}
 
 	/**
@@ -360,17 +402,6 @@ public abstract class Creature extends VisibleObject {
 	 */
 	public Creature getMaster() {
 		return this;
-	}
-
-	/**
-	 * For summons it will return summon object and for <br>
-	 * servants - player object.<br>
-	 * Used to find attackable target for npcs.<br>
-	 * 
-	 * @return acting master - player in case of servants
-	 */
-	public Creature getActingCreature() {
-		return getMaster();
 	}
 
 	public boolean isSkillDisabled(SkillTemplate template) {
@@ -454,13 +485,13 @@ public abstract class Creature extends VisibleObject {
 			mapRegion.revalidateZones(this);
 	}
 
-	public boolean isInsideZone(ZoneName zoneName) {
+	public boolean isInsideZone(String zoneName) {
 		if (!isSpawned())
 			return false;
 		return getPosition().getMapRegion().isInsideZone(zoneName, this);
 	}
 
-	public boolean isInsideItemUseZone(ZoneName zoneName) {
+	public boolean isInsideItemUseZone(String zoneName) {
 		if (!isSpawned())
 			return false;
 		return getPosition().getMapRegion().isInsideItemUseZone(zoneName, this);
@@ -493,14 +524,16 @@ public abstract class Creature extends VisibleObject {
 		}
 	}
 
+	public boolean isInsideFlyZone() {
+		if (isInsideZoneType(ZoneType.NO_FLY))
+			return false;
+		return isInsideZoneType(ZoneType.FLY) || getWorldMapInstance().getTemplate().hasAttribute(ZoneAttributes.FLY);
+	}
+
 	public boolean isInsidePvPZone() {
-		synchronized (zoneTypes) {
-			if (zoneTypes[ZoneType.SIEGE.ordinal()] > 0) {
-				return true;
-			}
-			int pvpValue = zoneTypes[ZoneType.PVP.ordinal()];
-			return pvpValue == 0 || pvpValue == 2;
-		}
+		if (isInsideZoneType(ZoneType.DISABLE_PVP))
+			return false;
+		return isInsideZoneType(ZoneType.PVP) || getWorldMapInstance().getTemplate().hasAttribute(ZoneAttributes.PVP_ENABLED);
 	}
 
 	public Race getRace() {
@@ -509,10 +542,6 @@ public abstract class Creature extends VisibleObject {
 
 	public int getSkillCooldown(SkillTemplate template) {
 		return template.getCooldown();
-	}
-
-	public long getMillisSinceSpawn() {
-		return System.currentTimeMillis() - spawnTime;
 	}
 
 	public boolean isNewSpawn() {

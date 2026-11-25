@@ -1,9 +1,8 @@
 package com.aionemu.gameserver.model.templates.world;
 
-import java.util.List;
+import java.util.EnumSet;
 
-import javax.xml.bind.Unmarshaller;
-import javax.xml.bind.annotation.*;
+import jakarta.xml.bind.annotation.*;
 
 import com.aionemu.gameserver.configs.main.WorldConfig;
 import com.aionemu.gameserver.model.templates.L10n;
@@ -31,10 +30,10 @@ public class WorldMapTemplate implements L10n {
 	private int nameId;
 
 	@XmlAttribute(name = "twin_count")
-	private int twinCount;
+	private int twinCount = 1;
 
-	@XmlAttribute(name = "beginner_twin_count")
-	private int beginnerTwinCount;
+	@XmlAttribute(name = "cool_time")
+	private int channelChangeCooldownSeconds;
 
 	@XmlAttribute(name = "max_user")
 	private int maxUser;
@@ -44,9 +43,6 @@ public class WorldMapTemplate implements L10n {
 
 	@XmlAttribute(name = "instance")
 	private boolean instance = false;
-
-	@XmlAttribute(name = "death_level", required = true)
-	private int deathlevel = 0;
 
 	@XmlAttribute(name = "water_level", required = true)
 	// TODO: Move to Zone
@@ -68,17 +64,13 @@ public class WorldMapTemplate implements L10n {
 	private boolean exceptBuff = false;
 
 	@XmlAttribute(name = "flags")
-	private List<ZoneAttributes> flagValues;
+	private EnumSet<ZoneAttributes> zoneAttributes = EnumSet.noneOf(ZoneAttributes.class);
 
 	@XmlAttribute(name = "pve_attack_ratio")
 	private int pveAttackRatio = 0;
 
 	@XmlAttribute(name = "pve_defend_ratio")
 	private int pveDefendRatio = 0;
-
-
-	@XmlTransient
-	private int flags;
 
 	public int getMapId() {
 		return mapId;
@@ -97,22 +89,22 @@ public class WorldMapTemplate implements L10n {
 		return nameId;
 	}
 
+	/**
+	 * @return The number of channels the client lists for this map.
+	 */
 	public int getTwinCount() {
+		int channelCount = Math.max(1, twinCount);
 		if (WorldConfig.WORLD_MAX_TWINS_USUAL == 0)
-			return twinCount;
-		return Math.min(WorldConfig.WORLD_MAX_TWINS_USUAL, twinCount);
-	}
-
-	public int getBeginnerTwinCount() {
-		if (WorldConfig.WORLD_MAX_TWINS_BEGINNER == 0)
-			return beginnerTwinCount;
-		else if (WorldConfig.WORLD_MAX_TWINS_BEGINNER == -1) // disabled
-			return 0;
-		return Math.min(WorldConfig.WORLD_MAX_TWINS_BEGINNER, beginnerTwinCount);
+			return channelCount;
+		return Math.min(WorldConfig.WORLD_MAX_TWINS_USUAL, channelCount);
 	}
 
 	public int getMaxUser() {
 		return maxUser;
+	}
+
+	public int getChannelChangeCooldownSeconds() {
+		return channelChangeCooldownSeconds;
 	}
 
 	public boolean isPrison() {
@@ -127,10 +119,6 @@ public class WorldMapTemplate implements L10n {
 		return waterlevel;
 	}
 
-	public int getDeathLevel() {
-		return deathlevel;
-	}
-
 	public WorldType getWorldType() {
 		return worldType;
 	}
@@ -143,50 +131,8 @@ public class WorldMapTemplate implements L10n {
 		return dropWorldType;
 	}
 
-	/* Default zone attributes for the map */
-
-	public boolean isFly() {
-		return (flags & ZoneAttributes.FLY.getId()) != 0;
-	}
-
-	public boolean canGlide() {
-		return (flags & ZoneAttributes.GLIDE.getId()) != 0;
-	}
-
-	public boolean canPutKisk() {
-		return (flags & ZoneAttributes.BIND.getId()) != 0;
-	}
-
-	public boolean canRecall() {
-		return (flags & ZoneAttributes.RECALL.getId()) != 0;
-	}
-
-	public boolean canRide() {
-		return (flags & ZoneAttributes.RIDE.getId()) != 0;
-	}
-
-	public boolean canFlyRide() {
-		return (flags & ZoneAttributes.FLY_RIDE.getId()) != 0;
-	}
-
-	public boolean isPvpAllowed() {
-		return (flags & ZoneAttributes.PVP_ENABLED.getId()) != 0;
-	}
-
-	public boolean isSameRaceDuelsAllowed() {
-		return (flags & ZoneAttributes.DUEL_SAME_RACE_ENABLED.getId()) != 0;
-	}
-
-	public boolean isOtherRaceDuelsAllowed() {
-		return (flags & ZoneAttributes.DUEL_OTHER_RACE_ENABLED.getId()) != 0;
-	}
-
-	public boolean canReturnToBattle() {
-		return (flags & ZoneAttributes.NO_RETURN_BATTLE.getId()) != 0;
-	}
-
-	public int getFlags() {
-		return flags;
+	public boolean hasAttribute(ZoneAttributes attribute) {
+		return zoneAttributes.contains(attribute);
 	}
 
 	public int getPvEAttackRatio() {
@@ -197,13 +143,6 @@ public class WorldMapTemplate implements L10n {
 		return pveDefendRatio;
 	}
 
-	void afterUnmarshal(Unmarshaller u, Object parent) {
-		flags = ZoneAttributes.fromList(flagValues);
-	}
-
-	/**
-	 * @return the exceptBuff
-	 */
 	public boolean isExceptBuff() {
 		return exceptBuff;
 	}

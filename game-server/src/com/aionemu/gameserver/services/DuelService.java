@@ -13,13 +13,16 @@ import com.aionemu.gameserver.model.DuelResult;
 import com.aionemu.gameserver.model.gameobjects.player.DeniedStatus;
 import com.aionemu.gameserver.model.gameobjects.player.Player;
 import com.aionemu.gameserver.model.gameobjects.player.RequestResponseHandler;
+import com.aionemu.gameserver.model.templates.zone.ZoneClassName;
 import com.aionemu.gameserver.network.aion.serverpackets.*;
 import com.aionemu.gameserver.services.player.PlayerService;
 import com.aionemu.gameserver.skillengine.model.Skill;
 import com.aionemu.gameserver.skillengine.model.SkillTargetSlot;
 import com.aionemu.gameserver.utils.PacketSendUtility;
+import com.aionemu.gameserver.utils.PositionUtil;
 import com.aionemu.gameserver.utils.ThreadPoolManager;
 import com.aionemu.gameserver.world.World;
+import com.aionemu.gameserver.world.zone.ZoneAttributes;
 import com.aionemu.gameserver.world.zone.ZoneInstance;
 
 /**
@@ -28,15 +31,18 @@ import com.aionemu.gameserver.world.zone.ZoneInstance;
 public class DuelService {
 
 	private static final Logger log = LoggerFactory.getLogger(DuelService.class);
+	private static final int DUEL_START_DELAY_SECONDS = 3; // client countdown between accepting and the start of the fight
+	private static final int DUEL_DURATION_SECONDS = 300;
+	private static final float MAX_DUEL_DISTANCE = 25f;
 	private final ConcurrentHashMap<Integer, Integer> duels = new ConcurrentHashMap<>();
-	private final ConcurrentHashMap<Integer, Future<?>> drawTasks = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<Integer, Future<?>> duelTasks = new ConcurrentHashMap<>();
 
 	public static DuelService getInstance() {
 		return SingletonHolder.instance;
 	}
 
 	private DuelService() {
-		log.info("DuelService started.");
+		log.info("DuelService initialized");
 	}
 
 	/**
@@ -68,16 +74,13 @@ public class DuelService {
 			PacketSendUtility.sendPacket(requester, SM_SYSTEM_MESSAGE.STR_MSG_REJECTED_DUEL(targetPlayer.getName()));
 			return;
 		}
-		if (requester.isDead() || targetPlayer.isDead()) {
+		if (requester.isDead() || targetPlayer.isDead() || !requester.canTarget(targetPlayer)) {
 			PacketSendUtility.sendPacket(requester, SM_SYSTEM_MESSAGE.STR_DUEL_PARTNER_INVALID(targetPlayer.getName()));
 			return;
 		}
-		for (ZoneInstance zone : targetPlayer.findZones()) {
-			if (!zone.isOtherRaceDuelsAllowed() && !targetPlayer.getRace().equals(requester.getRace())
-				|| (!zone.isSameRaceDuelsAllowed() && targetPlayer.getRace().equals(requester.getRace()))) {
-				PacketSendUtility.sendPacket(requester, SM_SYSTEM_MESSAGE.STR_MSG_DUEL_CANT_IN_THIS_ZONE());
-				return;
-			}
+		if (!isInDuelZone(requester, targetPlayer)) {
+			PacketSendUtility.sendPacket(requester, SM_SYSTEM_MESSAGE.STR_MSG_DUEL_CANT_IN_THIS_ZONE());
+			return;
 		}
 
 		RequestResponseHandler<Player> rrh = new RequestResponseHandler<>(requester) {
@@ -89,8 +92,20 @@ public class DuelService {
 
 			@Override
 			public void acceptRequest(Player requester, Player responder) {
-				if (!isDueling(requester))
-					startDuel(requester, responder);
+				if (isDueling(requester)) {
+					closeWithdrawQuestion(requester);
+					PacketSendUtility.sendPacket(responder, SM_SYSTEM_MESSAGE.STR_DUEL_PARTNER_IN_DUEL_ALREADY(requester.getName()));
+					return;
+				}
+				if (isDueling(responder))
+					return;
+				if (!PositionUtil.isInRange(requester, responder, MAX_DUEL_DISTANCE)) {
+					closeWithdrawQuestion(requester);
+					PacketSendUtility.sendPacket(requester, SM_SYSTEM_MESSAGE.STR_DUEL_PARTNER_TOO_FAR_FOR_START(responder.getName()));
+					PacketSendUtility.sendPacket(responder, SM_SYSTEM_MESSAGE.STR_DUEL_PARTNER_TOO_FAR_FOR_START(requester.getName()));
+					return;
+				}
+				startDuel(requester, responder);
 			}
 		};
 		if (targetPlayer.getResponseRequester().putRequest(SM_QUESTION_WINDOW.STR_DUEL_DO_YOU_ACCEPT_REQUEST, rrh)) {
@@ -101,6 +116,17 @@ public class DuelService {
 		} else {
 			PacketSendUtility.sendPacket(requester, SM_SYSTEM_MESSAGE.STR_DUEL_CANT_REQUEST_WHEN_HE_IS_ASKED_QUESTION(targetPlayer.getName()));
 		}
+	}
+
+	private boolean isInDuelZone(Player requester, Player target) {
+		ZoneAttributes attribute = target.getRace() == requester.getRace() ? ZoneAttributes.DUEL_SAME_RACE_ENABLED : ZoneAttributes.DUEL_OTHER_RACE_ENABLED;
+		if (!target.getWorldMapInstance().getTemplate().hasAttribute(attribute))
+			return false;
+		for (ZoneInstance zone : target.findZones()) {
+			if (zone.getZoneTemplate().getZoneType() == ZoneClassName.DUEL && !zone.getZoneTemplate().hasZoneAttribute(attribute))
+				return false;
+		}
+		return true;
 	}
 
 	/**
@@ -158,29 +184,16 @@ public class DuelService {
 	 *          the other player
 	 */
 	private void startDuel(Player requester, Player responder) {
-		if (requester.getResponseRequester().remove(SM_QUESTION_WINDOW.STR_DUEL_DO_YOU_WITHDRAW_REQUEST))
-			PacketSendUtility.sendPacket(requester, SM_CLOSE_QUESTION_WINDOW.CLOSE_QUESTION_WINDOW());
-		PacketSendUtility.sendPacket(requester, SM_DUEL.SM_DUEL_STARTED(responder.getObjectId()));
-		PacketSendUtility.sendPacket(responder, SM_DUEL.SM_DUEL_STARTED(requester.getObjectId()));
+		closeWithdrawQuestion(requester);
+		PacketSendUtility.sendPacket(requester, SM_DUEL.duelStarted(responder.getObjectId()));
+		PacketSendUtility.sendPacket(responder, SM_DUEL.duelStarted(requester.getObjectId()));
 		registerDuel(requester.getObjectId(), responder.getObjectId());
-		createTask(requester, responder);
-		if (requester.isInAnyHide())
-			requester.getController().onHide();
-		if (responder.isInAnyHide())
-			responder.getController().onHide();
+		scheduleDuelStart(requester, responder);
 	}
 
-	/**
-	 * send SM_DELETE a second time to fix client not fading out the char (only happens when dueling with a team member of a group or alliance)
-	 */
-	public void fixTeamVisibility(Player hiddenDuelist) {
-		Integer opponentId = DuelService.getInstance().getOpponentId(hiddenDuelist);
-		if (opponentId != null) {
-			Player opponent = World.getInstance().getPlayer(opponentId);
-			if (opponent != null && opponent.getKnownList().knows(hiddenDuelist) && !opponent.getKnownList().sees(hiddenDuelist)
-				&& hiddenDuelist.isInSameTeam(opponent))
-				PacketSendUtility.sendPacket(opponent, new SM_DELETE(hiddenDuelist));
-		}
+	private void closeWithdrawQuestion(Player requester) {
+		if (requester.getResponseRequester().remove(SM_QUESTION_WINDOW.STR_DUEL_DO_YOU_WITHDRAW_REQUEST))
+			PacketSendUtility.sendPacket(requester, SM_CLOSE_QUESTION_WINDOW.CLOSE_QUESTION_WINDOW());
 	}
 
 	/**
@@ -214,7 +227,18 @@ public class DuelService {
 		});
 	}
 
-	private void createTask(Player requester, Player responder) {
+	private void scheduleDuelStart(Player requester, Player responder) {
+		// the client shows a three second countdown before the fight, so the five minute limit starts afterwards
+		Future<?> task = ThreadPoolManager.getInstance().schedule(() -> {
+			if (isDueling(requester, responder))
+				createDrawTask(requester, responder);
+		}, DUEL_START_DELAY_SECONDS, TimeUnit.SECONDS);
+
+		duelTasks.put(requester.getObjectId(), task);
+		duelTasks.put(responder.getObjectId(), task);
+	}
+
+	private void createDrawTask(Player requester, Player responder) {
 		// Schedule for draw
 		Future<?> task = ThreadPoolManager.getInstance().schedule(() -> {
 			if (isDueling(requester, responder)) {
@@ -222,10 +246,10 @@ public class DuelService {
 				onDuelEnd(DuelResult.DUEL_DRAW, responder, requester.getObjectId());
 				removeDuel(requester);
 			}
-		}, 5, TimeUnit.MINUTES); // 5 minutes battle retail like
+		}, DUEL_DURATION_SECONDS, TimeUnit.SECONDS); // 5 minutes battle
 
-		drawTasks.put(requester.getObjectId(), task);
-		drawTasks.put(responder.getObjectId(), task);
+		duelTasks.put(requester.getObjectId(), task);
+		duelTasks.put(responder.getObjectId(), task);
 	}
 
 	private void onDuelEnd(DuelResult duelResult, Player player, int opponentId) {
@@ -237,7 +261,7 @@ public class DuelService {
 			.map(AggroInfo::getAttacker)
 			.filter(attacker -> attacker.getMaster().getObjectId() == opponentId)
 			.forEach(attacker -> player.getAggroList().remove(attacker, false));
-		PacketSendUtility.sendPacket(player, SM_DUEL.SM_DUEL_RESULT(duelResult, PlayerService.getPlayerName(opponentId)));
+		PacketSendUtility.sendPacket(player, SM_DUEL.duelResult(duelResult, PlayerService.getPlayerName(opponentId)));
 	}
 
 	public Integer getOpponentId(Player player) {
@@ -275,7 +299,7 @@ public class DuelService {
 	}
 
 	private void removeAndEndTask(int playerId) {
-		Future<?> task = drawTasks.remove(playerId);
+		Future<?> task = duelTasks.remove(playerId);
 		if (task != null)
 			task.cancel(false);
 	}

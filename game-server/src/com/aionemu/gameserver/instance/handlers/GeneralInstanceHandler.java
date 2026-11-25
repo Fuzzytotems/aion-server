@@ -89,7 +89,11 @@ public class GeneralInstanceHandler implements InstanceHandler {
 	}
 
 	protected VisibleObject spawn(int npcId, float x, float y, float z, byte heading) {
-		SpawnTemplate template = SpawnEngine.newSingleTimeSpawn(mapId, npcId, x, y, z, heading);
+		return spawn(npcId, x, y, z, heading, null);
+	}
+
+	protected VisibleObject spawn(int npcId, float x, float y, float z, byte heading, String aiName) {
+		SpawnTemplate template = SpawnEngine.newSingleTimeSpawn(mapId, npcId, x, y, z, heading, null, aiName);
 		return SpawnEngine.spawnObject(template, instance.getInstanceId());
 	}
 
@@ -273,6 +277,11 @@ public class GeneralInstanceHandler implements InstanceHandler {
 	@Override
 	public boolean allowInstanceRevive() {
 		return instance.getTemplate().isInstance() && getClass() != GeneralInstanceHandler.class || instance.getTemplate().getWorldType() == WorldType.PANESTERRA;
+	}
+
+	@Override
+	public boolean showResurrectionOptionsAfterLethalFall() {
+		return false;
 	}
 
 	protected boolean isRestrictedToInstance(Item item) {

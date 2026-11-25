@@ -14,10 +14,10 @@ import com.aionemu.chatserver.model.ChatClient;
 import com.aionemu.chatserver.model.Race;
 import com.aionemu.chatserver.model.channel.Channel;
 import com.aionemu.chatserver.model.channel.ChatChannels;
+import com.aionemu.chatserver.network.aion.AionConnection;
+import com.aionemu.chatserver.network.aion.AionConnection.State;
 import com.aionemu.chatserver.network.aion.serverpackets.SM_CHANNEL_RESPONSE;
 import com.aionemu.chatserver.network.aion.serverpackets.SM_PLAYER_AUTH_RESPONSE;
-import com.aionemu.chatserver.network.netty.handler.ClientChannelHandler;
-import com.aionemu.chatserver.network.netty.handler.ClientChannelHandler.ClientChannelHandlerState;
 import com.aionemu.commons.utils.Rnd;
 
 /**
@@ -44,7 +44,9 @@ public class ChatService {
 		byte[] accountToken = md.digest();
 		byte[] token = generateToken(accountToken);
 		ChatClient chatClient = new ChatClient(playerId, token, accName, nick, race, accessLevel);
-		players.put(playerId, chatClient);
+		ChatClient oldClient = players.put(playerId, chatClient);
+		if (oldClient != null)
+			ChatChannels.leaveAll(oldClient);
 		return chatClient;
 	}
 
@@ -62,7 +64,7 @@ public class ChatService {
 	}
 
 	public void registerPlayerConnection(int playerId, byte[] token, byte[] identifier, String name, String accName,
-		ClientChannelHandler channelHandler) {
+		AionConnection connection) {
 		ChatClient chatClient = players.get(playerId);
 		if (chatClient == null)
 			log.warn("Client tried to connect but was not yet registered from game server side");
@@ -74,19 +76,18 @@ public class ChatService {
 			log.warn("Client tried to connect with character name: {} (expected: {})", name, chatClient.getName());
 		else {
 			chatClient.setIdentifier(identifier);
-			chatClient.setChannelHandler(channelHandler);
-			channelHandler.sendPacket(new SM_PLAYER_AUTH_RESPONSE());
-			channelHandler.setState(ClientChannelHandlerState.AUTHED);
-			channelHandler.setChatClient(chatClient);
+			chatClient.setConnection(connection);
+			connection.sendPacket(new SM_PLAYER_AUTH_RESPONSE());
+			connection.setState(State.AUTHED);
+			connection.setChatClient(chatClient);
 			BroadcastService.getInstance().addClient(chatClient);
 		}
 	}
 
-	public void registerPlayerWithChannel(ClientChannelHandler clientChannelHandler, int channelRequestId, String identifier) {
-		Channel channel = ChatChannels.getOrCreate(clientChannelHandler.getChatClient(), identifier);
+	public void registerPlayerWithChannel(AionConnection connection, int channelRequestId, String identifier) {
+		Channel channel = ChatChannels.join(connection.getChatClient(), identifier);
 		if (channel != null) {
-			clientChannelHandler.getChatClient().addChannel(channel);
-			clientChannelHandler.sendPacket(new SM_CHANNEL_RESPONSE(channel, channelRequestId));
+			connection.sendPacket(new SM_CHANNEL_RESPONSE(channel, channelRequestId));
 		}
 	}
 
@@ -94,9 +95,10 @@ public class ChatService {
 		ChatClient chatClient = players.remove(playerId);
 		if (chatClient != null) {
 			BroadcastService.getInstance().removeClient(chatClient);
+			ChatChannels.leaveAll(chatClient);
 			log.info("Player[id={}] logged out ", playerId);
-			if (chatClient.getChannelHandler() != null)
-				chatClient.getChannelHandler().close();
+			if (chatClient.getConnection() != null)
+				chatClient.getConnection().close();
 			else
 				log.warn("Received logout event without client authentication for player {}", playerId);
 		}

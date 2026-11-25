@@ -39,7 +39,7 @@ public class NpcSkillTemplateEntry extends NpcSkillEntry {
 
 	@Override
 	public boolean isReady(int hpPercentage, long fightingTimeInMSec) {
-		if (hasCooldown() || !chanceReady())
+		if (!chanceReady())
 			return false;
 
 		return switch (template.getConjunctionType()) {
@@ -72,11 +72,6 @@ public class NpcSkillTemplateEntry extends NpcSkillEntry {
 	}
 
 	@Override
-	public boolean hasCooldown() {
-		return template.getCooldown() > (System.currentTimeMillis() - lastTimeUsed);
-	}
-
-	@Override
 	public boolean hasPostSpawnCondition() {
 		return template.isPostSpawn();
 	}
@@ -96,7 +91,7 @@ public class NpcSkillTemplateEntry extends NpcSkillEntry {
 			case NONE -> true;
 			case HELP_FRIEND -> {
 				VisibleObject validTarget = creature.getKnownList().findObject(knownObject ->
-					knownObject.isVisible() && knownObject.get() instanceof Creature target && !target.isDead() && !target.getLifeStats().isAboutToDie()
+					knownObject.isVisible() && knownObject.get() instanceof Creature target && !target.isDeadOrDoomed()
 					&& (TribeRelationService.isSupport(creature, target) || TribeRelationService.isFriend(creature, target))
 					&& target.getLifeStats().getHpPercentage() <= condTemp.getHpBelow() && PositionUtil.isInRange(creature, target, condTemp.getRange(), false)
 					&& GeoService.getInstance().canSee(creature, target)
@@ -131,8 +126,7 @@ public class NpcSkillTemplateEntry extends NpcSkillEntry {
 	}
 
 	private boolean hasCarvedSignet(VisibleObject curTarget, SkillTemplate skillTemp, int signetLvl) {
-		if (skillTemp != null && curTarget instanceof Creature && !((Creature) curTarget).isDead()
-			&& !((Creature) curTarget).getLifeStats().isAboutToDie()) {
+		if (skillTemp != null && curTarget instanceof Creature && !((Creature) curTarget).isDeadOrDoomed()) {
 			for (EffectTemplate effectTemp : skillTemp.getEffects().getEffects()) {
 				if (effectTemp instanceof SignetBurstEffect signetEffect) {
 					String signet = signetEffect.getSignet();
@@ -150,13 +144,13 @@ public class NpcSkillTemplateEntry extends NpcSkillEntry {
 	@Override
 	public void fireOnEndCastEvents(Npc npc) {
 		NpcSkillSpawn spawn = template.getSpawn();
-		if (spawn == null || npc.isDead() || npc.getLifeStats().isAboutToDie())
+		if (spawn == null || npc.isDeadOrDoomed())
 			return;
 		if (spawn.getDelay() == 0)
 			spawnNpc(npc, spawn);
 		else
 			ThreadPoolManager.getInstance().schedule(() -> {
-				if (!npc.isDead() && !npc.getLifeStats().isAboutToDie())
+				if (!npc.isDeadOrDoomed())
 					spawnNpc(npc, spawn);
 			}, spawn.getDelay());
 	}

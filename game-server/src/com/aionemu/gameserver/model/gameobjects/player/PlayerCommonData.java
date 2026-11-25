@@ -27,6 +27,8 @@ import com.aionemu.gameserver.world.World;
  */
 public class PlayerCommonData extends CreatureTemplate {
 
+	public static final int MAX_NOTE_LENGTH = 64;
+
 	private final int playerObjId;
 	private Race race;
 	private String name;
@@ -40,6 +42,7 @@ public class PlayerCommonData extends CreatureTemplate {
 	private boolean online;
 	private String note;
 	private int mapId;
+	private int instanceId = 1;
 	private float x, y, z;
 	private byte heading;
 	private int questExpands = 0;
@@ -55,13 +58,12 @@ public class PlayerCommonData extends CreatureTemplate {
 	private boolean noExp = false;
 	private long reposeCurrent;
 	private long reposeMax;
+	private long pvpExp;
 	private long salvationPoint;
 	private int mentorFlagTime;
 	private int worldOwnerId;
 	private boolean isDaeva;
 	private boolean isInEditMode;
-
-	private BoundRadius boundRadius;
 
 	private long lastTransferTime;
 
@@ -268,6 +270,17 @@ public class PlayerCommonData extends CreatureTemplate {
 	}
 
 	/**
+	 * @return The accumulated PvP XP that limits how much more PvP XP the player can gain.
+	 */
+	public long getPvpExp() {
+		return pvpExp;
+	}
+
+	public void setPvpExp(long pvpExp) {
+		this.pvpExp = pvpExp;
+	}
+
+	/**
 	 * sets the exp and level value
 	 */
 	public void setExp(long exp) {
@@ -358,6 +371,14 @@ public class PlayerCommonData extends CreatureTemplate {
 		this.mapId = mapId;
 	}
 
+	public int getInstanceId() {
+		return instanceId;
+	}
+
+	public void setInstanceId(int instanceId) {
+		this.instanceId = instanceId;
+	}
+
 	public float getX() {
 		return x;
 	}
@@ -387,6 +408,13 @@ public class PlayerCommonData extends CreatureTemplate {
 	}
 
 	public void setHeading(byte heading) {
+		this.heading = heading;
+	}
+
+	public void setXYZH(float x, float y, float z, byte heading) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
 		this.heading = heading;
 	}
 
@@ -424,7 +452,8 @@ public class PlayerCommonData extends CreatureTemplate {
 	}
 
 	public void setNote(String note) {
-		this.note = note;
+		// The note is inlined into SM_PLAYER_INFO and other packets, which the client reads only up to 8192 bytes.
+		this.note = note == null || note.length() <= MAX_NOTE_LENGTH ? note : note.substring(0, MAX_NOTE_LENGTH);
 	}
 
 	public int getTitleId() {
@@ -512,13 +541,9 @@ public class PlayerCommonData extends CreatureTemplate {
 		return mailboxLetters;
 	}
 
-	public void setBoundingRadius(BoundRadius boundRadius) {
-		this.boundRadius = boundRadius;
-	}
-
 	@Override
 	public BoundRadius getBoundRadius() {
-		return boundRadius;
+		return BoundRadius.DEFAULT;
 	}
 
 	public void setDeathCount(int count) {
