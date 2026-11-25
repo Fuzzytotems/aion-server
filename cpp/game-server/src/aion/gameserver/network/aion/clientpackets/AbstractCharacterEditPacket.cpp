@@ -56,8 +56,8 @@ void AbstractCharacterEditPacket::readAppearance() {
 	appearance.setLipSize(readUC());
 	appearance.setSmile(readUC());
 	appearance.setLipShape(readUC());
-	appearance.setJawHeigh(readUC());
-	appearance.setChinJut(readUC());
+	appearance.setChinHeight(readUC());
+	appearance.setCheekBones(readUC());
 	appearance.setEarShape(readUC());
 	appearance.setHeadSize(readUC());
 	appearance.setNeck(readUC());

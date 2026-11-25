@@ -160,8 +160,8 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	playerAppearance->setLipSize(readUC());
 	playerAppearance->setSmile(readUC());
 	playerAppearance->setLipShape(readUC());
-	playerAppearance->setJawHeigh(readUC());
-	playerAppearance->setChinJut(readUC());
+	playerAppearance->setChinHeight(readUC());
+	playerAppearance->setCheekBones(readUC());
 	playerAppearance->setEarShape(readUC());
 	playerAppearance->setHeadSize(readUC());
 	playerAppearance->setNeck(readUC());

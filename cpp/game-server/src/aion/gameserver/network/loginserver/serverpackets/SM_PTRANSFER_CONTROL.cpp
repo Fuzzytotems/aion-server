@@ -149,8 +149,8 @@ void SM_PTRANSFER_CONTROL::writeImpl(LoginServerConnection* con, commons::utils:
 			writeC(buf, playerAppearance->getLipSize());
 			writeC(buf, playerAppearance->getSmile());
 			writeC(buf, playerAppearance->getLipShape());
-			writeC(buf, playerAppearance->getJawHeigh());
-			writeC(buf, playerAppearance->getChinJut());
+			writeC(buf, playerAppearance->getChinHeight());
+			writeC(buf, playerAppearance->getCheekBones());
 			writeC(buf, playerAppearance->getEarShape());
 			writeC(buf, playerAppearance->getHeadSize());
 			writeC(buf, playerAppearance->getNeck());

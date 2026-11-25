@@ -531,18 +531,22 @@ TEST_F(PlayerDaoTest, AppearanceRoundTrip) {
 	pa->setSkinRGB(0x00ffeedd);
 	pa->setLipRGB(12);
 	pa->setEyeRGB(13);
-	pa->setJawHeigh(34);
+	pa->setChinHeight(34);
+	pa->setCheekBones(35);
 	pa->setVoice(53);
 	pa->setHeight(1.25f);
 	EXPECT_TRUE(PlayerAppearanceDAO::store(86, *pa));
 	EXPECT_EQ(queryLong("SELECT lip_rgb FROM player_appearance WHERE player_id = 86"), 12) << "the Java parameter order (lip before eye)";
+	EXPECT_EQ(queryString("SELECT CONCAT(chin_height, ',', cheek_bones) FROM player_appearance WHERE player_id = 86"), "34,35")
+		<< "the columns jaw_height and chin_jut of Java 51d7a19cb (a519ffc7b)";
 	Ref<model::gameobjects::player::PlayerAppearance> loaded = PlayerAppearanceDAO::load(86);
 	ASSERT_TRUE(loaded);
 	EXPECT_EQ(loaded->getFace(), 1);
 	EXPECT_EQ(loaded->getSkinRGB(), 0x00ffeedd);
 	EXPECT_EQ(loaded->getLipRGB(), 12);
 	EXPECT_EQ(loaded->getEyeRGB(), 13);
-	EXPECT_EQ(loaded->getJawHeigh(), 34);
+	EXPECT_EQ(loaded->getChinHeight(), 34);
+	EXPECT_EQ(loaded->getCheekBones(), 35);
 	EXPECT_EQ(loaded->getVoice(), 53);
 	EXPECT_EQ(loaded->getHeight(), 1.25f);
 	EXPECT_EQ(PlayerAppearanceDAO::load(87)->getFace(), 0) << "no row: a default appearance";
