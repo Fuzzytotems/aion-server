@@ -553,9 +553,10 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, Player& player)
 	AtreianPassportService::getInstance().onLogin(player);
 	sendMacroList(client, player);
 	{
+		// Java 51d7a19cb; e5c133836 (wave 5) drops this packet (the client asks with CM_RECIPE_LIST) and sends the production counts
 		std::unordered_set<int32_t> recipeIds;
-		for (int32_t recipeId : player.getRecipeList()->getRecipeList().snapshot())
-			recipeIds.insert(recipeId);
+		for (const auto& recipe : player.getRecipeList()->getRecipes())
+			recipeIds.insert(recipe.first);
 		client->sendPacket(SM_RECIPE_LIST(recipeIds));
 	}
 	BrokerService::getInstance().onPlayerLogin(player);
