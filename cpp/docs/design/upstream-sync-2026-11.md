@@ -116,6 +116,27 @@ Java packet table.
 - **Gate oracles.** tools/oracle's gate oracles (m5b ... m5j, quest traces) read Java rules and data of 51d7a19cb and refuse the changed
   Java; their tests fail until the waves update them. The static data oracle (V1-V4) passes.
 
+## Foundation progress (database)
+
+Lane B, branch `lane-b/sync-foundation` (2026-11-25). The C++ game server's DAOs run on the schema of `game-server/sql/aion_gs.sql` at
+`68eccc7b1`, which the DAO tests build their database from. Per table (the DAO ports follow Java `68eccc7b1`; the deviations and deferrals
+are in the chunks' deviation docs, P4-14 for the DAOs):
+
+| Table | Commit (wave) | C++ | Left for the wave |
+|---|---|---|---|
+| `house_scripts` (`script` blob, `uncompressed_size`) | `46e8d00b9` (2) | `HouseScriptsDAO` stores and loads the compressed block; `PlayerScripts.set` hands it over | the block validation of `46e8d00b9`/`e5ea7d94e` (`zlibStreamLength`, size bounds, trailing bytes) - P4-12 |
+| `inventory.rank_limit_expire_time` | `cc61fb239` (5) | `Item.rankLimitExpireTime`, `InventoryDAO` | the abyss rank grace period that sets it - P4-11a |
+| `player_appearance` (`chin_height`, `cheek_bones`) | `a519ffc7b` (4) | renamed model fields and callers, `PlayerAppearanceDAO` | the height clamp and the byte names; `heightScale` (`183723078`) - P5-00, P4-14 |
+| `player_pets` (`color`, `face`, `head`; mood columns and `despawn_time` dropped) | `f16e03ad3` (5) | `PetCommonData` appearance fields, `PlayerPetsDAO`; the old mood and despawn time stay in memory only (`PetController`, `PetList`) | the pet rework - P4-12, P4-11b |
+| `player_recipes.production_limit` | `e5c133836` (5) | `RecipeList`'s production-limit map, `PlayerRecipesDAO` (`updateProductionLimit` too) | `decreaseProductionLimit` for crafting, the count in `SM_LEARN_RECIPE`/`SM_RECIPE_LIST`/the transfer packets, `CM_RECIPE_LIST`, `RecipeData.getMaxProductionCount` - P4-12, P4-15, P5-00 |
+| `players.pvp_exp` | `d725054e1` (5) | `PlayerCommonData.pvpExp`, `PlayerDAO` | the PvP EXP system |
+
+Not schema-driven, deferred: `PlayerDAO`'s channel in `world_id` (`0199b4b03`, wave 4), `PlayerMacrosDAO`'s macro limit (`eb35dfa5d`,
+wave 5), the DAOs' log texts (`7840be30d`, wave 1).
+
+Migration of the play kit's database: [upstream-sync-2026-11-migration.sql](upstream-sync-2026-11-migration.sql) (reviewed, not applied). Its
+schema section is needed at the cut-over of the foundation; its data section (the skill levels of `267ce6033`/`e5c133836`) goes with wave 3.
+
 ## Proposed order
 
 1. **Foundation** (the 25 XSD/SQL commits' loader, template and DAO parts, plus the data-only commits): the C++ servers load the new
