@@ -198,7 +198,7 @@ class RunOutputsTest(unittest.TestCase):
 		second = runner.output_files(runner.run(tree.root))
 		self.assertEqual(first, second)
 		self.assertEqual(sorted(first), ["census.json", "census_report.md", "static_data_counts.json", "static_data_counts.txt", "totals.json"])
-		self.assertEqual(first["static_data_counts.txt"].count("\n"), 90)
+		self.assertEqual(first["static_data_counts.txt"].count("\n"), 92)
 
 
 if __name__ == "__main__":
