@@ -48,8 +48,6 @@ public:
 
 	int32_t getWaterLevel();
 
-	int32_t getDeathLevel();
-
 	WorldType getWorldType();
 
 	int32_t getWorldSize();

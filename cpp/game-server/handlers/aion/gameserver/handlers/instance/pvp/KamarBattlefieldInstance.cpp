@@ -313,9 +313,9 @@ void KamarBattlefieldInstance::portToStartPosition(Player& player) {
 
 // Java KamarBattlefieldInstance.java:301-308
 void KamarBattlefieldInstance::onEnterZone(Player& player, ZoneInstance& zone) {
-	if (zone.getZoneTemplate()->getName() == ZoneName::get("LAMINA_301120000")) {
+	if (zone.getZoneTemplate()->getZoneName() == ZoneName::get("LAMINA_301120000")) {
 		instance->setDoorState(144, true); // crash airship
-	} else if (zone.getZoneTemplate()->getName() == ZoneName::get("SPERO_301120000")) {
+	} else if (zone.getZoneTemplate()->getZoneName() == ZoneName::get("SPERO_301120000")) {
 		instance->setDoorState(5, true); // crash airship
 	}
 }

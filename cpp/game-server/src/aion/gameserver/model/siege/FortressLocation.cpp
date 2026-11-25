@@ -6,7 +6,6 @@
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
-#include "aion/gameserver/controllers/observer/ShieldObserver.h"
 #include "aion/gameserver/model/RaceInfo.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Kisk.h"
@@ -58,22 +57,13 @@ void FortressLocation::onEnterZone(gameobjects::Creature& creature, world::zone:
 	SiegeLocation::onEnterZone(creature, zone);
 	creature.setInsideZoneType(templates::zone::ZoneType::SIEGE);
 	checkForBalanceBuff(creature, SiegeBuffAction::ADD);
-	if (isUnderShield() && getRace() != siege::getByRace(creature.getRace())) {
-		runtime::Ref<controllers::observer::ShieldObserver> observer = services::ShieldService::getInstance().createShieldObserver(*this, creature);
-		if (observer) {
-			creature.getObserveController()->addObserver(*observer);
-			shieldObservers.put(creature.getObjectId(), observer);
-		}
-	}
+	// upstream 84d3f7559 removed the sphere shields of siege_shields.xml (ShieldObserver); the geo shields (SiegeShield) remain
 }
 
 void FortressLocation::onLeaveZone(gameobjects::Creature& creature, world::zone::ZoneInstance& zone) {
 	SiegeLocation::onLeaveZone(creature, zone);
 	creature.unsetInsideZoneType(templates::zone::ZoneType::SIEGE);
 	checkForBalanceBuff(creature, SiegeBuffAction::LEAVE_ZONE_REMOVE);
-	runtime::Ptr<controllers::observer::ShieldObserver> observer = shieldObservers.remove(creature.getObjectId());
-	if (observer)
-		creature.getObserveController()->removeObserver(*observer);
 }
 
 void FortressLocation::checkForBalanceBuff(gameobjects::Creature& creature, FortressLocation::SiegeBuffAction siegeBuffAction) {

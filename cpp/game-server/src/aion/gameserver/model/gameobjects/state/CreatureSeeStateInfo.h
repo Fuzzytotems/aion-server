@@ -17,15 +17,16 @@ namespace aion::gameserver::model::gameobjects::state {
 
 namespace detail {
 /** Java constructor argument `id` in ordinal order */
-inline constexpr std::array<int32_t, 6> CREATURESEESTATE_IDS{
+inline constexpr std::array<int32_t, 7> CREATURESEESTATE_IDS{
 	0, // NORMAL
 	1, // SEARCH1
 	2, // SEARCH2
 	5, // SEARCH5
 	10, // SEARCH10
 	20, // SEARCH20
+	128, // SEARCH_GM_INVISIBLE (upstream b0a597458)
 };
-static_assert(static_cast<size_t>(CreatureSeeState::SEARCH20) + 1 == CREATURESEESTATE_IDS.size(), "one entry per CreatureSeeState constant");
+static_assert(static_cast<size_t>(CreatureSeeState::SEARCH_GM_INVISIBLE) + 1 == CREATURESEESTATE_IDS.size(), "one entry per CreatureSeeState constant");
 } // namespace detail
 
 constexpr int32_t getId(CreatureSeeState value) noexcept {

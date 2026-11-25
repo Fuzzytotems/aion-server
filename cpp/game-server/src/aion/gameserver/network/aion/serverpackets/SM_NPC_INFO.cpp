@@ -92,7 +92,7 @@ void SM_NPC_INFO::writeImpl(AionConnection* con) {
 		}
 	}
 	writeF(npcTemplate->getBoundRadius()->getMaxOfFrontAndSide());
-	writeF(npcTemplate->getHeight());
+	writeF(npcTemplate->getBoundRadius()->getUpper()); // upstream da540feec: npc templates have no height, the cylinder's upper is sent
 	writeF(detail::getMovementSpeedFloat(*npc)); // speed
 	writeH(npcTemplate->getAttackSpeed());
 	writeH(npcTemplate->getAttackSpeed());

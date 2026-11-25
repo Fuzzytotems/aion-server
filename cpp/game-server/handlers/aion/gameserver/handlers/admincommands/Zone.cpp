@@ -68,9 +68,9 @@ std::vector<runtime::Ptr<ZoneInstance>> Zone::findZones(Creature& creature, std:
 		const ZoneName* zoneName = ZoneName::get(*zoneNameFilter);
 		if (zoneName == ZoneName::NONE)
 			throw runtime::IllegalArgumentException("Invalid zone name.");
-		std::vector<runtime::Ptr<ZoneInstance>> filtered; // parity= zones = zones.stream().filter(zone -> zone.getZoneTemplate().getName() == zoneName).toList();
+		std::vector<runtime::Ptr<ZoneInstance>> filtered; // parity= zones = zones.stream().filter(zone -> zone.getZoneTemplate().getZoneName() == zoneName).toList();
 		for (const runtime::Ptr<ZoneInstance>& zone : zones) { // parity: (continued)
-			if (zone->getZoneTemplate()->getName() == zoneName) // parity: (continued)
+			if (zone->getZoneTemplate()->getZoneName() == zoneName) // parity: (continued)
 				filtered.push_back(zone); // parity: (continued)
 		} // parity: (continued)
 		zones = std::move(filtered); // parity: (continued)

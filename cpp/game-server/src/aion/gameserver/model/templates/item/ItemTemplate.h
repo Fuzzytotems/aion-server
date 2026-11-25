@@ -106,7 +106,10 @@ public:
 
 	bool hasAreaRestriction() const;
 
-	/** @return the use area, nullptr (Java null) if none or if the name is invalid */
+	/**
+	 * @return the use area, nullptr (Java null) if none or if the name is invalid. C++: still the interned ZoneName of 51d7a19cb; upstream
+	 *         4617c9fd2 returns the String (docs/deviations/P4-07a.md)
+	 */
 	const ::aion::gameserver::world::zone::ZoneName* getUseArea() const;
 
 	bool canTune() const { return maxTuneCount != 0; }

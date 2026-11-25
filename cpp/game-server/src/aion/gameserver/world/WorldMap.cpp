@@ -48,10 +48,6 @@ int32_t WorldMap::getWaterLevel() {
 	return worldMapTemplate->getWaterLevel();
 }
 
-int32_t WorldMap::getDeathLevel() {
-	return worldMapTemplate->getDeathLevel();
-}
-
 WorldType WorldMap::getWorldType() {
 	return worldMapTemplate->getWorldType();
 }

@@ -20,10 +20,8 @@ void ZoneLevelService::checkZoneLevels(model::gameobjects::player::Player& playe
 	if (player.isDead())
 		return;
 
-	if (z < static_cast<float>(world.getWorldMap(player.getWorldId())->getDeathLevel())) {
-		player.getController().die();
-		return;
-	}
+	// upstream 82a5e0cf9 removed the map death level (death_level of world_maps.xml) and this check; the drowning check below stays at 51d7a19cb
+	// until wave 4 (docs/deviations/P4-10.md)
 
 	float noseHeight = player.getPlayerAppearance()->getBoundHeight() - 0.1f;
 	if (z + noseHeight < static_cast<float>(world.getWorldMap(player.getWorldId())->getWaterLevel()))

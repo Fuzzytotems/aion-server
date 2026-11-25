@@ -7,10 +7,4 @@ const std::vector<int32_t>& ShoutList::getNpcIds() const {
 	return npcIds ? *npcIds : empty;
 }
 
-void ShoutList::makeNull() {
-	this->npcIds.reset();
-	this->npcShouts.clear();
-	this->restrictWorld.reset();
-}
-
 } // namespace aion::gameserver::model::templates::npcshout

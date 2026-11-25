@@ -1,5 +1,6 @@
-// StaticData's setValidationTask, getValidationTask, addAfterUnmarshalTask and waitForAfterUnmarshalTasksToFinish are replaced: the
-// after-unmarshal tasks run inline (LoadContext::runAfterUnmarshalTask) and there is no XSD validation at run time (static-data.md §3.4).
+// StaticData's setValidationTask and getValidationTask are replaced: the after-unmarshal tasks run inline (LoadContext::runAfterUnmarshalTask;
+// upstream 546f96bd2 removed addAfterUnmarshalTask and waitForAfterUnmarshalTasksToFinish) and there is no XSD validation at run time
+// (static-data.md §3.4).
 
 #include "aion/gameserver/dataholders/StaticData.h"
 
@@ -19,7 +20,6 @@
 #include "aion/gameserver/dataholders/ConquerorAndProtectorData.h"
 #include "aion/gameserver/dataholders/CosmeticItemsData.h"
 #include "aion/gameserver/dataholders/CubeExpandData.h"
-#include "aion/gameserver/dataholders/CuringObjectsData.h"
 #include "aion/gameserver/dataholders/CustomDrop.h"
 #include "aion/gameserver/dataholders/DecomposableItemsData.h"
 #include "aion/gameserver/dataholders/EnchantData.h"
@@ -63,6 +63,10 @@
 #include "aion/gameserver/dataholders/PetFeedData.h"
 #include "aion/gameserver/dataholders/PetSkillData.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.h"
+#include "aion/gameserver/dataholders/PvpExpTable.h"
+#include "aion/gameserver/dataholders/PvpExpModTable.h"
+#include "aion/gameserver/dataholders/PartyExpModTable.h"
+#include "aion/gameserver/dataholders/MenteeExpLimitTable.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
 #include "aion/gameserver/dataholders/Portal2Data.h"
 #include "aion/gameserver/dataholders/PortalLocData.h"
@@ -71,7 +75,6 @@
 #include "aion/gameserver/dataholders/RideData.h"
 #include "aion/gameserver/dataholders/RiftData.h"
 #include "aion/gameserver/dataholders/RoadData.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SiegeLocationData.h"
 #include "aion/gameserver/dataholders/SignetDataTemplates.h"
 #include "aion/gameserver/dataholders/SkillAliasLocationData.h"
@@ -128,6 +131,10 @@ void StaticData::logCounts() const {
 	log.info("Loaded " + n(field(materiaData, "materiaData").size()) + " material ids");
 	log.info("Loaded weather for " + n(field(mapWeatherData, "mapWeatherData").size()) + " maps");
 	log.info("Loaded " + n(field(playerExperienceTable, "playerExperienceTable").getMaxLevel()) + " player experience table entries");
+	log.info("Loaded " + n(field(pvpExpTable, "pvpExpTable").getMaxLevel()) + " pvp experience table entries");
+	log.info("Loaded " + n(field(pvpExpModTable, "pvpExpModTable").size()) + " pvp experience modifier entries");
+	log.info("Loaded " + n(field(partyExpModTable, "partyExpModTable").size()) + " party experience modifier entries");
+	log.info("Loaded " + n(field(menteeExpLimitTable, "menteeExpLimitTable").size()) + " mentee experience limit entries");
 	log.info("Loaded " + n(field(absoluteStatsData, "absoluteStatsData").size()) + " absolute stat templates");
 	log.info("Loaded " + n(field(itemCleanup, "itemCleanup").size()) + " item cleanup entries");
 	log.info("Loaded " + n(field(itemData, "itemData").size()) + " item templates");
@@ -172,12 +179,12 @@ void StaticData::logCounts() const {
 	log.info("Loaded " + n(field(riftData, "riftData").size()) + " rift entries");
 	log.info("Loaded " + n(field(baseData, "baseData").size()) + " base entries");
 	log.info("Loaded " + n(field(flyRingData, "flyRingData").size()) + " fly ring entries");
-	log.info("Loaded " + n(field(shieldData, "shieldData").size()) + " shield entries");
 	log.info("Loaded " + n(petData->size()) + " pet entries");
 	log.info("Loaded " + n(field(guideData, "guideData").size()) + " guide entries");
 	log.info("Loaded " + n(field(roadData, "roadData").size()) + " road entries");
 	log.info("Loaded " + n(field(instanceCooltimeData, "instanceCooltimeData").size()) + " instance cooltime entries");
-	log.info("Loaded " + n(field(decomposableItemsData, "decomposableItemsData").size()) + " decomposable items entries");
+	log.info("Loaded " + n(field(decomposableItemsData, "decomposableItemsData").size()) + " decomposable items entries (" +
+	         n(decomposableItemsData->overrideCount()) + " overridden)");
 	log.info("Loaded " + n(field(aiData, "aiData").size()) + " ai templates");
 	log.info("Loaded " + n(field(flyPath, "flyPath").size()) + " flypath templates");
 	log.info("Loaded " + n(field(windstreamsData, "windstreamsData").size()) + " windstream entries");
@@ -197,7 +204,6 @@ void StaticData::logCounts() const {
 	log.info("Loaded " + n(field(houseBuildingData, "houseBuildingData").size()) + " house building styles");
 	log.info("Loaded " + n(field(housePartsData, "housePartsData").size()) + " house parts");
 	log.info("Loaded " + n(field(houseNpcsData, "houseNpcsData").size()) + " house spawns");
-	log.info("Loaded " + n(field(curingObjectsData, "curingObjectsData").size()) + " curing object entries");
 	log.info("Loaded " + n(field(assemblyItemData, "assemblyItemData").size()) + " assembly items entries");
 	log.info("Loaded " + n(field(challengeData, "challengeData").size()) + " challenge tasks entries");
 	log.info("Loaded " + n(field(conquerorAndProtectorData, "conquerorAndProtectorData").size()) + " conqueror and protector entries");

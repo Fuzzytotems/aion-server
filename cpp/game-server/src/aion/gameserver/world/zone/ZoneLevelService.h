@@ -21,7 +21,7 @@ private:
 public:
 	ZoneLevelService() = delete;
 
-	/** Check water level (start drowning) and map death level (die) */
+	/** Check water level (start drowning) */
 	static void checkZoneLevels(model::gameobjects::player::Player& player);
 
 private:

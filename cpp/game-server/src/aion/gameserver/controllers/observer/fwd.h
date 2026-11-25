@@ -22,7 +22,6 @@ class FlyRingObserver;
 class ItemUseObserver;
 enum class ObserverType : std::uint8_t;
 class RoadObserver;
-class ShieldObserver;
 class StanceObserver;
 class StartMovingListener;
 class TerrainZoneCollisionMaterialActor;

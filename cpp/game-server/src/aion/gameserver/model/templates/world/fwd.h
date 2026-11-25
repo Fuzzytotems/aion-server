@@ -6,6 +6,8 @@ namespace aion::gameserver::model::templates::world {
 
 struct AiInfo;
 class WeatherEntry;
+class WeatherPhase;
+enum class WeatherState : std::uint8_t;
 class WeatherTable;
 class WorldMapTemplate;
 
