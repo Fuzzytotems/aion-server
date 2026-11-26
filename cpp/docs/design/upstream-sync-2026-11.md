@@ -116,7 +116,7 @@ Java packet table.
 - **Gate oracles.** tools/oracle's gate oracles (m5b ... m5j, quest traces) read Java rules and data of 51d7a19cb and refuse the changed
   Java; their tests fail until the waves update them. The static data oracle (V1-V4) passes.
 
-## Foundation progress (database)
+### Database (lane B, 2026-11-25)
 
 Lane B, branch `lane-b/sync-foundation` (2026-11-25). The C++ game server's DAOs run on the schema of `game-server/sql/aion_gs.sql` at
 `68eccc7b1`, which the DAO tests build their database from. Per table (the DAO ports follow Java `68eccc7b1`; the deviations and deferrals
