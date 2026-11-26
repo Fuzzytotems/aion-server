@@ -187,7 +187,7 @@ IMMUTABLE_EXTERNAL = frozenset(STRINGS | set(BOXED) | {
     'java.time.ZoneId', 'java.time.DayOfWeek', 'java.time.Month', 'java.math.BigInteger', 'java.math.BigDecimal', 'java.util.UUID',
     'java.util.regex.Pattern', 'java.util.Locale', 'java.lang.Class', 'java.util.concurrent.TimeUnit', 'java.net.InetAddress',
     'java.nio.file.Path', 'java.io.File', 'java.time.format.DateTimeFormatter', 'java.time.temporal.ChronoUnit', 'java.lang.Enum',
-    'java.lang.Record', 'java.util.Optional', 'java.util.OptionalInt', 'javax.xml.bind.JAXBContext'})
+    'java.lang.Record', 'java.util.Optional', 'java.util.OptionalInt', 'javax.xml.bind.JAXBContext', 'jakarta.xml.bind.JAXBContext'})
 # external types spelled differently in C++ (hub-headers.md §6): C++ value types, stored by value (const T / Field<T>), no externalType flag
 EXTERNAL_SPELLING = {'java.util.concurrent.TimeUnit': 'TimeUnit', 'java.util.regex.Pattern': 'std::wregex', 'java.io.File': 'std::filesystem::path',
                      'java.nio.file.Path': 'std::filesystem::path',
@@ -2481,7 +2481,7 @@ class FieldMap:
     def _k1_heuristic(self):
         seeds = []
         for ci in sorted(self.classes.values(), key=lambda c: c.cid):
-            if not any(i.name.startswith('javax.xml.bind') for i in ci.cu.imports):
+            if not any(i.name.startswith(('javax.xml.bind', 'jakarta.xml.bind')) for i in ci.cu.imports):
                 continue
             anns = [a.simple_name for a in ci.td.annotations]
             for fd in ci.td.fields:

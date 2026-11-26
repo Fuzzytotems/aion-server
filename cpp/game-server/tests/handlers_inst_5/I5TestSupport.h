@@ -35,16 +35,16 @@ inline constexpr int32_t OCCUPIED_RENTUS_BASE = 300620000;
 
 /** world_maps.xml's rows of the I5 maps under test */
 inline constexpr const char* I5_MAPS_XML = R"x(<world_maps>
-	<map id="300190000" cName="IDElim" name="Taloc's Hollow" name_id="401295" instance="true" water_level="16" death_level="0" world_type="BALAUREA" world_size="2048" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300480000" cName="IDLDF5RE_Solo" name="Sealed Danuar Mysticarium" name_id="403519" instance="true" water_level="16" death_level="90" world_size="768" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301110000" cName="IDLDF5_Under_Rune" name="Danuar Reliquary" name_id="403695" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301130000" cName="IDVritra_Base" name="Sauro Supply Base" name_id="403759" instance="true" water_level="3" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301330000" cName="IDLDF5_Under_Rune_PC" name="Lucky Danuar Reliquary" name_id="404164" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="1000" pve_defend_ratio="200"/>
-	<map id="301360000" cName="IDLDF5_Under_Rune_H" name="Infernal Danuar Reliquary" name_id="404306" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301200000" cName="IDAsteria_IU_World" name="The Nightmare Circus" name_id="404049" instance="true" water_level="20" death_level="0" world_size="1024" drop_type="NONE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="300610000" cName="IDRaksha_solo" name="Raksang Ruins" name_id="404645" instance="true" water_level="16" death_level="0" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="300280000" cName="IDYun" name="Rentus Base" name_id="401749" instance="true" water_level="3" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300620000" cName="IDYun_Hard" name="Occupied Rentus Base" name_id="404648" instance="true" water_level="3" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300190000" cName="IDElim" name="Taloc's Hollow" name_id="401295" instance="true" water_level="16" world_type="BALAUREA" world_size="2048" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300480000" cName="IDLDF5RE_Solo" name="Sealed Danuar Mysticarium" name_id="403519" instance="true" water_level="16" world_size="768" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301110000" cName="IDLDF5_Under_Rune" name="Danuar Reliquary" name_id="403695" instance="true" water_level="16" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301130000" cName="IDVritra_Base" name="Sauro Supply Base" name_id="403759" instance="true" water_level="3" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301330000" cName="IDLDF5_Under_Rune_PC" name="Lucky Danuar Reliquary" name_id="404164" instance="true" water_level="16" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="1000" pve_defend_ratio="200"/>
+	<map id="301360000" cName="IDLDF5_Under_Rune_H" name="Infernal Danuar Reliquary" name_id="404306" instance="true" water_level="16" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301200000" cName="IDAsteria_IU_World" name="The Nightmare Circus" name_id="404049" instance="true" water_level="20" world_size="1024" drop_type="NONE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300610000" cName="IDRaksha_solo" name="Raksang Ruins" name_id="404645" instance="true" water_level="16" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300280000" cName="IDYun" name="Rentus Base" name_id="401749" instance="true" water_level="3" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300620000" cName="IDYun_Hard" name="Occupied Rentus Base" name_id="404648" instance="true" water_level="3" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {

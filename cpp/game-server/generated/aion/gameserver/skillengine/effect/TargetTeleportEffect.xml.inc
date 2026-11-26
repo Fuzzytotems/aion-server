@@ -8,4 +8,3 @@ public:
 
 protected:
 	std::string loc; // @XmlAttribute(name = "alias_location")
-	int32_t distance = 0; // @XmlAttribute(name = "distance")

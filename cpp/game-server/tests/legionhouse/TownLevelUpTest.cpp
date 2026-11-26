@@ -52,10 +52,10 @@ protected:
 		dataholders::DataManager::WORLD_MAPS_DATA.resetForTests();
 		worldMaps.emplace(dataholders::DataManager::WORLD_MAPS_DATA,
 			lh::bindXml<dataholders::WorldMapsData>(
-				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 				R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>)"
-				R"(<map id="700010000" cName="Oriel" death_level="0" water_level="0" flags="BIND"/>)"
-				R"(<map id="710010000" cName="Pernon" death_level="0" water_level="0" flags="BIND"/></world_maps>)"));
+				R"(<map id="700010000" cName="Oriel" water_level="0" flags="BIND"/>)"
+				R"(<map id="710010000" cName="Pernon" water_level="0" flags="BIND"/></world_maps>)"));
 		TeamTest::SetUp();
 		townSpawns.emplace(dataholders::DataManager::TOWN_SPAWNS_DATA, lh::bindXml<dataholders::TownSpawnsData>(TOWN_SPAWNS));
 		world::geo::GeoService::getInstance().init();

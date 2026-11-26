@@ -8,6 +8,8 @@
 #include "aion/gameserver/model/items/ItemMask.h"
 #include "aion/gameserver/model/templates/item/ItemQuality.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.h"
+#include "aion/gameserver/model/templates/item/actions/ItemActions.h"
 #include "aion/gameserver/model/templates/item/enums/ItemGroup.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 
@@ -29,6 +31,14 @@ void ItemData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /
 		} else if (it.getItemGroup() == ItemGroup::SPECIAL_MANASTONE) {
 			if (commons::utils::StringUtils::toLowerCase(it.getName()).find("pvp") == std::string::npos)
 				add(ancientManastones, it, it.getLevel());
+		}
+		// Java ItemData.java (upstream f7230c5fa): the learnable emotions of the item actions; the motion types of AnimationAddAction wait for
+		// wave 5 (see the header)
+		if (it.getActions() != nullptr) {
+			for (const auto& action : it.getActions()->getItemActions()) {
+				if (const auto* emotionLearn = dynamic_cast<const model::templates::item::actions::EmotionLearnAction*>(action.get()))
+					learnableEmotionIds.insert(emotionLearn->getEmotionId());
+			}
 		}
 	}
 	itemsInHashOrder = order.values();

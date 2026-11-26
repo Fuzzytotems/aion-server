@@ -42,9 +42,9 @@ bool XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::
 				return true;
 			}
 			break;
-		case "beginner_twin_count"_xh:
-			if (name == "beginner_twin_count") {
-				c.assign(o.beginnerTwinCount, value);
+		case "cool_time"_xh:
+			if (name == "cool_time") {
+				c.assign(o.channelChangeCooldownSeconds, value);
 				return true;
 			}
 			break;
@@ -63,12 +63,6 @@ bool XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::
 		case "instance"_xh:
 			if (name == "instance") {
 				c.assign(o.instance, value);
-				return true;
-			}
-			break;
-		case "death_level"_xh:
-			if (name == "death_level") {
-				c.assign(o.deathlevel, value);
 				return true;
 			}
 			break;
@@ -104,7 +98,7 @@ bool XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::
 			break;
 		case "flags"_xh:
 			if (name == "flags") {
-				c.assignList(o.flagValues, value);
+				c.assignList(o.zoneAttributes, value);
 				return true;
 			}
 			break;
@@ -132,14 +126,8 @@ bool XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::
 	return false;
 }
 
-void XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::finish(::aion::gameserver::model::templates::world::WorldMapTemplate& o, BindContext& c, const XmlParent& parent) {
-	c.checkRequiredAttributes({"id", "cName", "death_level", "water_level"});
-	if (c.hooksEnabled())
-		XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::afterUnmarshal(o, c.load(), parent);
-}
-
-void XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::afterUnmarshal(::aion::gameserver::model::templates::world::WorldMapTemplate& o, LoadContext& ctx, const XmlParent& parent) {
-	o.afterUnmarshal(ctx, parent);
+void XmlBinding<::aion::gameserver::model::templates::world::WorldMapTemplate>::finish(::aion::gameserver::model::templates::world::WorldMapTemplate&, BindContext& c, const XmlParent&) {
+	c.checkRequiredAttributes({"id", "cName", "water_level"});
 }
 
 } // namespace aion::gameserver::xml

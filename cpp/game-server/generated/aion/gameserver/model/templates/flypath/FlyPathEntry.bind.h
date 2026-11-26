@@ -16,6 +16,8 @@ template <>
 struct XmlBinding<::aion::gameserver::model::templates::flypath::FlyPathEntry> {
 	static constexpr std::string_view CLASS_NAME = "FlyPathEntry";
 	static bool attribute(::aion::gameserver::model::templates::flypath::FlyPathEntry& o, BindContext& c, std::string_view name, std::string_view value);
+	static bool element(::aion::gameserver::model::templates::flypath::FlyPathEntry& o, BindContext& c, pugi::xml_node e, std::string_view name);
+	static void reserve(::aion::gameserver::model::templates::flypath::FlyPathEntry& o, const ChildCounts& counts);
 	static void finish(::aion::gameserver::model::templates::flypath::FlyPathEntry& o, BindContext& c, const XmlParent& parent);
 };
 

@@ -6,4 +6,7 @@
 protected:
 	std::vector<::aion::gameserver::model::templates::npcshout::NpcShout> npcShouts; // @XmlElement(name = "shout", required = true)
 	std::optional<std::vector<int32_t>> npcIds; // @XmlAttribute(name = "npc_ids", required = true)
-	std::optional<int32_t> restrictWorld; // @XmlAttribute(name = "restrict_world")
+	int32_t restrictWorld = 0; // @XmlAttribute(name = "restrict_world")
+
+public:
+	int32_t getRestrictWorld() const { return restrictWorld; }

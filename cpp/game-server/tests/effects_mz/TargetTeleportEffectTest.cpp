@@ -23,7 +23,7 @@ namespace {
 constexpr const char* TARGET_TELEPORT_SKILLS_XML =
 	R"(<skill_template skill_id="64730" name="mz target teleport" nameId="1" stack="MZ_TTELE" lvl="1" skilltype="MAGICAL" skillsubtype="DEBUFF")"
 	R"( tslot="DEBUFF" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="TARGET" first_target_range="50")"
-	R"( target_relation="ENEMY" target_type="ONLYONE" target_maxcount="1" /><effects><targetteleport distance="5" e="1" noresist="true")"
+	R"( target_relation="ENEMY" target_type="ONLYONE" target_maxcount="1" /><effects><targetteleport e="1" noresist="true")"
 	R"( hoptype="DAMAGE" /></effects></skill_template>)"
 	R"(<skill_template skill_id="64731" name="mz alias teleport" nameId="1" stack="MZ_TTELE2" lvl="1" skilltype="MAGICAL" skillsubtype="DEBUFF")"
 	R"( tslot="DEBUFF" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="TARGET" first_target_range="50")"

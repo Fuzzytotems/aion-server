@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
+#include <unordered_set>
 
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/vortex/HomePoint.h"
@@ -18,12 +20,14 @@ struct VortexTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	std::optional<::aion::gameserver::model::Race> dRace; // @XmlAttribute(name = "defends_race")
 	std::optional<::aion::gameserver::model::Race> oRace; // @XmlAttribute(name = "offence_race")
+	std::optional<std::unordered_set<std::string>> zones; // @XmlAttribute(name = "zones")
 	std::unique_ptr<::aion::gameserver::model::templates::vortex::HomePoint> home; // @XmlElement(name = "home_point")
 	std::unique_ptr<::aion::gameserver::model::templates::vortex::ResurrectionPoint> resurrection; // @XmlElement(name = "resurrection_point")
 	std::unique_ptr<::aion::gameserver::model::templates::vortex::StartPoint> start; // @XmlElement(name = "start_point")
 	int32_t getId() const { return id; }
 	std::optional<::aion::gameserver::model::Race> getDefendersRace() const { return dRace; }
 	std::optional<::aion::gameserver::model::Race> getInvadersRace() const { return oRace; }
+	const std::optional<std::unordered_set<std::string>>& getZones() const { return zones; }
 	const ::aion::gameserver::model::templates::vortex::HomePoint* getHomePoint() const { return home.get(); }
 	const ::aion::gameserver::model::templates::vortex::ResurrectionPoint* getResurrectionPoint() const { return resurrection.get(); }
 	const ::aion::gameserver::model::templates::vortex::StartPoint* getStartPoint() const { return start.get(); }

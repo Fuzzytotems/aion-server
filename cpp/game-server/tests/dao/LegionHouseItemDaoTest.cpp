@@ -1,5 +1,5 @@
 // Round trips of the legion, mail, pet, housing and item DAOs (P4-14) against a fresh aion_gs.sql database: legions (emblem blobs, generated
-// history keys, IN lists), legion members, legion dominion participants, letters, pets, houses, bids, house scripts (UTF-16LE + zlib), inventory
+// history keys, IN lists), legion members, legion dominion participants, letters, pets, houses, bids, house scripts (zlib blocks), inventory
 // (visible equipment joined with god stones), item stones (batches in a transaction) and registered house items.
 
 #include <gtest/gtest.h>
@@ -29,6 +29,8 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/PetData.bind.h"
+#include "aion/gameserver/dataholders/PetData.h"
 #include "aion/gameserver/model/account/PlayerAccountData.h"
 #include "aion/gameserver/model/gameobjects/BrokerItem.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
@@ -215,6 +217,37 @@ TEST_F(LegionHouseItemDaoTest, PetUpdatesWithoutTemplates) {
 	EXPECT_TRUE(PlayerPetsDAO::getPlayerPets(*f.player).empty());
 }
 
+TEST_F(LegionHouseItemDaoTest, PetAppearanceRoundTrip) {
+	// PetCommonData's constructor reads the pet template (a merchant pet: no feed or doping data needed)
+	PublishedHolder petData(dataholders::DataManager::PET_DATA,
+		bindXml<dataholders::PetData>(R"(<pets><pet id="900010" name="merchant test pet" nameid="1600041" condition_reward="0">)"
+									  R"(<petfunction id="1" type="MERCHANT" rate_price="20"/>)"
+									  R"(<petstats reaction="brave" run_speed="6.0" walk_speed="1.132" height="1.0"/></pet></pets>)"));
+	insertPlayer(1, "Owner", 1);
+	auto f = makePlayer(1, 1, "Owner");
+	Ref<model::gameobjects::player::PetCommonData> pet;
+	SKIP_IF_UNPORTED(pet = model::gameobjects::player::PetCommonData::create(71, 900010, 1, 0));
+	pet->setDecoration(3);
+	pet->setColor(0x00aabbcc);
+	pet->setFace(2);
+	pet->setHead(4);
+	pet->setName("Spot");
+	PlayerPetsDAO::insertPlayerPet(*f.player, *pet);
+	EXPECT_EQ(queryString("SELECT CONCAT(decoration, ',', color, ',', face, ',', head, ',', name, ',', expire_time) FROM player_pets WHERE id = 71"),
+		"3,11189196,2,4,Spot,0")
+		<< "color, face and head of the pet rework (f16e03ad3)";
+
+	std::vector<Ref<model::gameobjects::player::PetCommonData>> pets = PlayerPetsDAO::getPlayerPets(*f.player);
+	ASSERT_EQ(pets.size(), 1u);
+	EXPECT_EQ(pets[0]->getObjectId(), 71);
+	EXPECT_EQ(pets[0]->getDecoration(), 3);
+	EXPECT_EQ(pets[0]->getColor(), 0x00aabbcc);
+	EXPECT_EQ(pets[0]->getFace(), 2);
+	EXPECT_EQ(pets[0]->getHead(), 4);
+	EXPECT_EQ(pets[0]->getName(), "Spot");
+	EXPECT_FALSE(pets[0]->getDespawnTime()) << "player_pets has no despawn_time since f16e03ad3: PetList.loadPets sets it";
+}
+
 TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	execute("INSERT INTO houses (id, player_id, building_id, address) VALUES (900, 1, 10, 1001), (901, 2, 10, 1002)");
 	EXPECT_EQ(HousesDAO::getUsedIDs(), (std::vector<int32_t>{900, 901}));
@@ -229,22 +262,10 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	EXPECT_TRUE(HouseBidsDAO::deleteHouseBids(900));
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_bids"), 1);
 
+	// Since Java 46e8d00b9 the scripts are stored as the client's compressed block (blob) with its uncompressed size. The block is the UTF-16LE
+	// script compressed with zlib (level 6); the expected bytes are Python's zlib.compress(xml.encode('utf-16-le'), 6), an independent oracle of
+	// Java's Deflater
 	const std::string xml = "<scripts><script id=\"1\">\xC3\xA9</script></scripts>";
-	HouseScriptsDAO::storeScript(900, 1, xml);
-	HouseScriptsDAO::storeScript(900, 2, "");
-	HouseScriptsDAO::storeScript(900, 1, xml); // ON DUPLICATE KEY UPDATE
-	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 2);
-	EXPECT_EQ(queryString("SELECT script FROM house_scripts WHERE script_id = 1"), xml);
-
-	HouseScriptsDAO::deleteScript(900, 2);
-	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
-	HouseScriptsDAO::storeScript(902, 3, "<other/>");
-	HouseScriptsDAO::storeScript(902, 4, "<other/>");
-	HouseScriptsDAO::deleteScriptsForHouse(902);
-	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
-
-	// getPlayerScripts compresses the UTF-16LE bytes with zlib (level 6); the expected bytes are Python's zlib.compress(xml.encode('utf-16-le'), 6),
-	// an independent oracle of Java's Deflater. PlayerScripts.set validates the script by decompressing it again.
 	const std::string expectedHex = "789cb361286648662862c86428602801b2ed186c50441480740a832d8312832110db31bc04caeba3a8b0c31001990200d2d01009";
 	std::vector<uint8_t> utf16Bytes;
 	for (char16_t c : commons::utils::StringUtils::toUtf16(xml)) {
@@ -255,6 +276,28 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	for (size_t i = 0; i < expectedHex.size(); i += 2)
 		compressedOracle.push_back(static_cast<uint8_t>(std::stoi(expectedHex.substr(i, 2), nullptr, 16)));
 	ASSERT_EQ(utils::xml::CompressUtil::compress(utf16Bytes), compressedOracle);
+	const int32_t uncompressedSize = static_cast<int32_t>(utf16Bytes.size());
+	Ref<runtime::Array<int8_t>> block = detail::toArray(compressedOracle);
+	Ref<runtime::Array<int8_t>> empty = detail::toArray(std::vector<uint8_t>{0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01}); // zlib of ""
+
+	HouseScriptsDAO::storeScript(900, 1, empty, 0);
+	HouseScriptsDAO::storeScript(900, 2, runtime::Array<int8_t>::make(0), 0); // an empty block is an empty blob
+	HouseScriptsDAO::storeScript(900, 1, block, uncompressedSize); // ON DUPLICATE KEY UPDATE replaces script and uncompressed_size
+	HouseScriptsDAO::storeScript(900, 3, nullptr, 0); // Java setBytes(3, null): the NOT NULL column refuses the row, the error is logged
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 2);
+	EXPECT_EQ(queryString("SELECT LOWER(HEX(script)) FROM house_scripts WHERE script_id = 1"), expectedHex);
+	EXPECT_EQ(queryLong("SELECT uncompressed_size FROM house_scripts WHERE script_id = 1"), uncompressedSize);
+	EXPECT_EQ(queryLong("SELECT LENGTH(script) FROM house_scripts WHERE script_id = 2"), 0);
+
+	HouseScriptsDAO::deleteScript(900, 2);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
+	HouseScriptsDAO::storeScript(902, 3, block, uncompressedSize);
+	HouseScriptsDAO::storeScript(902, 4, block, uncompressedSize);
+	HouseScriptsDAO::deleteScriptsForHouse(902);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 1);
+
+	// getPlayerScripts hands the stored block and size to PlayerScripts.set, which validates the block (by decompressing it, until wave 2 ports
+	// Java's zlibStreamLength) and keeps it
 	try {
 		static_cast<void>(utils::xml::CompressUtil::decompress(compressedOracle));
 	} catch (const commons::utils::IllegalArgumentException& e) {
@@ -264,12 +307,18 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	SKIP_IF_UNPORTED(scripts = HouseScriptsDAO::getPlayerScripts(900));
 	Ptr<model::house::PlayerScript> script = scripts->get(1);
 	ASSERT_TRUE(script);
-	EXPECT_EQ(script->uncompressedSize(), static_cast<int32_t>(utf16Bytes.size())) << "UTF-16LE byte count";
+	EXPECT_EQ(script->uncompressedSize(), uncompressedSize) << "UTF-16LE byte count";
 	ASSERT_TRUE(script->compressedBytes());
 	std::vector<uint8_t> compressed;
 	for (int8_t value : script->compressedBytes()->snapshot())
 		compressed.push_back(static_cast<uint8_t>(value));
 	EXPECT_EQ(compressed, compressedOracle);
+
+	// a block that does not inflate to its declared size is not loaded
+	execute("UPDATE house_scripts SET uncompressed_size = uncompressed_size + 2 WHERE house_id = 900 AND script_id = 1");
+	scripts = HouseScriptsDAO::getPlayerScripts(900);
+	ASSERT_TRUE(scripts->get(1));
+	EXPECT_FALSE(scripts->get(1)->compressedBytes()) << "the script slot stays empty";
 
 	HouseScriptsDAO::deleteScriptsForHouse(900);
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 0);
@@ -325,6 +374,7 @@ TEST_F(LegionHouseItemDaoTest, InventoryItemsInsertUpdateDeleteAndLoad) {
 		armor->setItemLocation(model::items::storage::getId(StorageType::CUBE));
 		shared->setItemLocation(model::items::storage::getId(StorageType::ACCOUNT_WAREHOUSE));
 		weapon->setItemColor(0x112233);
+		weapon->setRankLimitExpireTime(1760000000);
 		for (const Ref<Item>& item : {weapon, armor, shared})
 			item->setPersistentState(Persistable::PersistentState::NEW);
 	});
@@ -340,16 +390,18 @@ TEST_F(LegionHouseItemDaoTest, InventoryItemsInsertUpdateDeleteAndLoad) {
 	EXPECT_TRUE(loadedWeapon->isEquipped());
 	EXPECT_EQ(loadedWeapon->getEquipmentSlot(), mainHand);
 	EXPECT_EQ(loadedWeapon->getItemColor(), 0x112233);
+	EXPECT_EQ(loadedWeapon->getRankLimitExpireTime(), 1760000000) << "rank_limit_expire_time (cc61fb239)";
 	EXPECT_EQ(loadedWeapon->getItemLocation(), model::items::storage::getId(StorageType::CUBE));
 	EXPECT_EQ(loadedWeapon->getPersistentState(), Persistable::PersistentState::UPDATED);
 	EXPECT_EQ(InventoryDAO::loadItems(77, StorageType::ACCOUNT_WAREHOUSE).size(), 1u);
 
 	// update and delete in one store call (three batches, each committed)
 	weapon->setEquipped(false);
-	weapon->setPersistentState(Persistable::PersistentState::UPDATE_REQUIRED);
+	weapon->setRankLimitExpireTime(0);
+	EXPECT_EQ(weapon->getPersistentState(), Persistable::PersistentState::UPDATE_REQUIRED) << "Java setRankLimitExpireTime";
 	armor->setPersistentState(Persistable::PersistentState::DELETED);
 	EXPECT_TRUE(InventoryDAO::store({Ptr<Item>(weapon), Ptr<Item>(armor)}, std::optional<int32_t>(1), std::nullopt, std::nullopt));
-	EXPECT_EQ(queryLong("SELECT is_equipped FROM inventory WHERE item_unique_id = 500"), 0);
+	EXPECT_EQ(queryString("SELECT CONCAT(is_equipped, ',', rank_limit_expire_time) FROM inventory WHERE item_unique_id = 500"), "0,0");
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM inventory WHERE item_unique_id = 501"), 0);
 
 	// the account id is null: getItemOwnerId unboxes it (Java NullPointerException), the insert batch fails and store returns false

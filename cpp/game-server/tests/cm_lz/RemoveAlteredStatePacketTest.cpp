@@ -270,7 +270,7 @@ TEST_F(RemoveAlteredStateRunTest, EnteringAnExceptBuffMapOffThePvpMapRemovesTheE
 
 	xml::LoadContext mapContext;
 	std::unique_ptr<dataholders::WorldMapsData> maps = xml::bindString<dataholders::WorldMapsData>(mapContext,
-		R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+		R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 		R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL" except_buff="true"/></world_maps>)");
 	runtime::Ref<world::WorldMap> exceptBuffMap = world::WorldMap::create(maps->getTemplate(et::POETA));
 	runtime::Ref<world::WorldMapInstance> exceptBuffInstance = world::WorldMap2DInstance::create(*exceptBuffMap, 1, 0, 0, [](world::WorldMapInstance& instance) {

@@ -36,6 +36,7 @@
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/effect/AbstractOverTimeEffect.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
 #include "aion/gameserver/skillengine/effect/BleedEffect.h"
 #include "aion/gameserver/skillengine/effect/SpellAttackInstantEffect.h"
@@ -349,7 +350,7 @@ TEST_F(DamageEffectsTest, BleedTicksItsReservedDamageEveryCheckTimeUntilDuration
 	npc->getObserveController()->addObserver(*dots);
 	const model::SkillTemplate* skill = bindSkill(debuffSkill(9831, BLEED_XML));
 	ASSERT_EQ(effectOf(*skill, 0).javaClassName(), "BleedEffect");
-	EXPECT_EQ(effectOf(*skill, 0).getDuration2(), 7000) << "AbstractOverTimeEffect.getDuration2: 6000 + 1000";
+	EXPECT_EQ(static_cast<const effect::AbstractOverTimeEffect&>(effectOf(*skill, 0)).getDuration2PlusOneSecond(), 7000) << "AbstractOverTimeEffect.getDuration2: 6000 + 1000";
 
 	Ref<Effect> bleed = cast(*caster, *npc, skill, 2);
 	ASSERT_TRUE(bleed->isInSuccessEffects(1));
@@ -546,8 +547,8 @@ TEST_F(DamageEffectsTest, TheOverTimeDurationAndTheFirstTickDelayWrapLikeJavasIn
 		R"(<bleed checktime="2000" value="15" duration2="2147482647" e="1" noresist="true" element="FIRE" critprobmod2="0"/>)"));
 	const model::SkillTemplate* immediate = bindSkill(debuffSkill(9853,
 		R"(<bleed checktime="2147483647" value="15" delta="1" duration2="6000" e="1" noresist="true" element="FIRE" critprobmod2="0"/>)"));
-	EXPECT_EQ(effectOf(*endless, 0).getDuration2(), -2147483296) << "2147483000 + 1000 wraps";
-	EXPECT_EQ(effectOf(*largest, 0).getDuration2(), std::numeric_limits<int32_t>::max()) << "2147482647 + 1000 does not";
+	EXPECT_EQ(static_cast<const effect::AbstractOverTimeEffect&>(effectOf(*endless, 0)).getDuration2PlusOneSecond(), -2147483296) << "2147483000 + 1000 wraps";
+	EXPECT_EQ(static_cast<const effect::AbstractOverTimeEffect&>(effectOf(*largest, 0)).getDuration2PlusOneSecond(), std::numeric_limits<int32_t>::max()) << "2147482647 + 1000 does not";
 
 	Ref<Effect> bleed = cast(*caster, *npc, endless, 2);
 	EXPECT_EQ(bleed->getDuration(), 0) << "a negative first duration: calculateTemplateDuration answers 0, no end task";

@@ -46,7 +46,6 @@ void PetController::PetUpdateTask::run() {
 			throw runtime::IllegalStateException("Pet is null");
 
 		int32_t currentPoints = 0;
-		bool saved = false;
 
 		if (pet->getCommonData()->getMoodPoints(false) < 9000) {
 			if (commons::utils::currentTimeMillis() - startTime.get() >= 60 * 1000) {
@@ -55,8 +54,7 @@ void PetController::PetUpdateTask::run() {
 					PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_PET(*pet, 4, 0));
 				}
 
-				dao::PlayerPetsDAO::savePetMoodData(*pet->getCommonData());
-				saved = true;
+				// Java 51d7a19cb saved the mood here (PlayerPetsDAO.savePetMoodData); since f16e03ad3 the mood is kept in memory only
 				startTime = commons::utils::currentTimeMillis();
 			}
 		}
@@ -65,9 +63,7 @@ void PetController::PetUpdateTask::run() {
 			PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_PET(*pet, 4, 0));
 		} else {
 			PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_PET(*pet, 3, 0));
-			// Save if it reaches 100% after player snuggles the pet, not by the scheduler itself
-			if (!saved)
-				dao::PlayerPetsDAO::savePetMoodData(*pet->getCommonData());
+			// Java 51d7a19cb saved the mood here when it reached 100% by snuggling (savePetMoodData); the columns are gone since f16e03ad3
 		}
 	} catch (const std::exception&) {
 		player->getController().cancelTask(model::TaskId::PET_UPDATE);
@@ -97,7 +93,8 @@ void PetController::onDelete() {
 
 	getOwner().getMaster()->getController().cancelTask(model::TaskId::PET_UPDATE);
 	commonData->setDespawnTime(commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis())));
-	dao::PlayerPetsDAO::savePetMoodData(*commonData);
+	// Java 51d7a19cb stored the mood and the despawn time here (PlayerPetsDAO.savePetMoodData); both stay in memory since f16e03ad3 dropped
+	// their columns, until wave 5 ports the rework (PetMoodService.onDismiss)
 	getOwner().getMaster()->setPet(nullptr);
 }
 

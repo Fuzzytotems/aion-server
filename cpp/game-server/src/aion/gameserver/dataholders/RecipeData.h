@@ -31,6 +31,9 @@ public:
 	/** @return the recipe template, nullptr (Java null) for an unknown id */
 	const model::templates::recipe::RecipeTemplate* getRecipeTemplateById(int32_t id) const;
 
+	/** upstream e5c133836: 0 for an unknown recipe or one without max_production_count */
+	int32_t getMaxProductionCount(int32_t recipeId) const;
+
 	/** Java `recipeData.values()` (HashMap iteration order) */
 	const std::vector<const model::templates::recipe::RecipeTemplate*>& getRecipeTemplates() const;
 

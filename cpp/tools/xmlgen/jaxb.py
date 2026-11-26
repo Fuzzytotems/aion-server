@@ -32,6 +32,9 @@ if _TOOLS not in sys.path:
 from gen import javasrc  # noqa: E402
 
 JAXB_PACKAGE = 'javax.xml.bind.annotation'
+# upstream 20096e5d2 moved the Java tree to Jakarta XML Binding (same annotations and semantics); both spellings are accepted
+JAXB_PACKAGES = (JAXB_PACKAGE, 'jakarta.xml.bind.annotation')
+UNMARSHALLERS = (('external', 'javax.xml.bind.Unmarshaller'), ('external', 'jakarta.xml.bind.Unmarshaller'))
 PROJECT_PREFIX = 'com.aionemu.gameserver.'
 
 CLASS_ANNOTATIONS = {'XmlRootElement', 'XmlType', 'XmlAccessorType', 'XmlTransient', 'XmlSeeAlso', 'XmlJavaTypeAdapter', 'XmlEnum'}
@@ -43,7 +46,8 @@ PRIMITIVES = {'boolean', 'byte', 'short', 'int', 'long', 'float', 'double'}
 BOXED = {'java.lang.Boolean': 'boolean', 'java.lang.Byte': 'byte', 'java.lang.Short': 'short', 'java.lang.Integer': 'int',
          'java.lang.Long': 'long', 'java.lang.Float': 'float', 'java.lang.Double': 'double'}
 LISTS = {'java.util.List', 'java.util.ArrayList', 'java.util.LinkedList', 'java.util.Collection'}
-SETS = {'java.util.Set', 'java.util.HashSet', 'java.util.LinkedHashSet'}
+# java.util.EnumSet: upstream 4617c9fd2 (WorldMapTemplate.zoneAttributes); JAXB fills the initialized EnumSet.noneOf(E.class)
+SETS = {'java.util.Set', 'java.util.HashSet', 'java.util.LinkedHashSet', 'java.util.EnumSet'}
 MAPS = {'java.util.Map', 'java.util.HashMap', 'java.util.LinkedHashMap', 'java.util.TreeMap', 'java.util.EnumMap'}
 EMPTY_COLLECTION_NEW = {'ArrayList', 'LinkedList', 'HashSet', 'LinkedHashSet', 'java.util.ArrayList', 'java.util.HashSet'}
 
@@ -415,9 +419,9 @@ class Model:
         kind, value = self.index.resolve_kind(ann.name, ctx)
         if kind in ('external', 'external_guess') and isinstance(value, str):
             pkg, _, simple = value.rpartition('.')
-            if pkg == JAXB_PACKAGE or pkg == JAXB_PACKAGE + '.adapters':
+            if pkg in JAXB_PACKAGES or pkg in tuple(p + '.adapters' for p in JAXB_PACKAGES):
                 return simple
-            if pkg.startswith('javax.xml.bind'):
+            if pkg.startswith(('javax.xml.bind', 'jakarta.xml.bind')):
                 raise self.error(ctx, f'unsupported JAXB annotation @{value}')
         return None
 
@@ -759,7 +763,7 @@ class Model:
                     raise self.error(m, f'{m.name} must be an instance method (Unmarshaller, Object)')
                 p0 = self.index.resolve_kind(m.params[0].type.name, m)
                 p1 = self.index.resolve_kind(m.params[1].type.name, m)
-                if p0 != ('external', 'javax.xml.bind.Unmarshaller') or p1 != ('external', 'java.lang.Object'):
+                if p0 not in UNMARSHALLERS or p1 != ('external', 'java.lang.Object'):
                     raise self.error(m, f'{m.name} parameters must be (Unmarshaller, Object), got {p0}, {p1}')
                 if m.name == 'afterUnmarshal':
                     cm.hook = m
@@ -1089,6 +1093,9 @@ class Model:
             name = tail[0]
             if name in EMPTY_COLLECTION_NEW and tail[-2:] == ['(', ')'] and (len(tail) == 3 or tail[1] == '<'):
                 return Init('empty_collection', text)
+        # EnumSet.noneOf(E.class): an empty set of the element enum
+        if jt.kind == 'set' and jt.fqn == 'java.util.EnumSet' and toks[:3] == ['EnumSet', '.', 'noneOf'] and toks[-3:] == ['.', 'class', ')']:
+            return Init('empty_collection', text)
         if jt.kind == 'class' and toks[:1] == ['new'] and toks[-2:] == ['(', ')']:
             kind, nfqn = self.index.resolve_kind(''.join(toks[1:-2]), f)
             if kind == 'project' and nfqn == jt.fqn:

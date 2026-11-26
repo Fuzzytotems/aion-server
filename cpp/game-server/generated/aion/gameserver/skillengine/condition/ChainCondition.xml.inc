@@ -16,4 +16,3 @@ private:
 public:
 	int32_t getAllowedActivations() const { return selfCount; }
 	const std::string& getCategory() const { return category; }
-	int32_t getTime() const { return time; }

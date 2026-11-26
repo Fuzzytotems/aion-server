@@ -59,7 +59,7 @@ constexpr int32_t MAILBOX = 700000;
 
 /** npc_templates.xml:439517-439521, verbatim: the Poeta mailbox (ai="postbox", talk distance 5, no dialog and no function dialog) */
 constexpr std::string_view MAILBOX_XML =
-	R"(<npc_template npc_id="700000" level="1" name="mailbox" name_id="350707" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="postbox" sangle="0" attack_speed="2000" hpgauge="3">
+	R"(<npc_template npc_id="700000" level="1" name="mailbox" name_id="350707" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="postbox" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="172" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" can_talk_invisible="false" />

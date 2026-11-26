@@ -17,8 +17,12 @@ public:
 
 	int32_t getValue() const override { return value; }
 
-	/** on retail these effects last one sec more than their template value of duration2 (Java int arithmetic: wraps above 2147482647) */
-	int32_t getDuration2() const override { return static_cast<int32_t>(static_cast<uint32_t>(duration2) + 1000u); }
+	/**
+	 * C++ only: the former Java getDuration2 override of 51d7a19cb, which upstream 01a5602f1 replaced by roundDurationToTicks (Effect.cpp keeps
+	 * the old duration until wave 3 ports it). On retail these effects last one sec more than their template value of duration2 (Java int
+	 * arithmetic: wraps above 2147482647).
+	 */
+	int32_t getDuration2PlusOneSecond() const { return static_cast<int32_t>(static_cast<uint32_t>(duration2) + 1000u); }
 
 	void startEffect(model::Effect& effect) const override;
 

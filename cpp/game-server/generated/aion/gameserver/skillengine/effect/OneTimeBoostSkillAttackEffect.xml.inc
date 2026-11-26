@@ -8,4 +8,11 @@ public:
 
 private:
 	int32_t count = 0; // @XmlAttribute(name = "count")
+	int32_t countDelta = 0; // @XmlAttribute(name = "count_delta")
+	int32_t dmgFlat = 0; // @XmlAttribute(name = "dmg_flat")
+	int32_t dmgFlatDelta = 0; // @XmlAttribute(name = "dmg_flat_delta")
+	int32_t accFlat = 0; // @XmlAttribute(name = "acc_flat")
+	int32_t accFlatDelta = 0; // @XmlAttribute(name = "acc_flat_delta")
+	int32_t accPercent = 0; // @XmlAttribute(name = "acc_percent")
+	int32_t accPercentDelta = 0; // @XmlAttribute(name = "acc_percent_delta")
 	std::optional<::aion::gameserver::skillengine::model::SkillType> type; // @XmlAttribute(name = "type")

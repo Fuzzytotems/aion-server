@@ -11,13 +11,61 @@
 namespace aion::gameserver::xml {
 
 bool XmlBinding<::aion::gameserver::skillengine::effect::OneTimeBoostSkillAttackEffect>::attribute(::aion::gameserver::skillengine::effect::OneTimeBoostSkillAttackEffect& o, BindContext& c, std::string_view name, std::string_view value) {
-	if (name == "count") {
-		c.assign(o.count, value);
-		return true;
-	}
-	if (name == "type") {
-		c.assign(o.type, value);
-		return true;
+	switch (nameHash(name)) {
+		case "count"_xh:
+			if (name == "count") {
+				c.assign(o.count, value);
+				return true;
+			}
+			break;
+		case "count_delta"_xh:
+			if (name == "count_delta") {
+				c.assign(o.countDelta, value);
+				return true;
+			}
+			break;
+		case "dmg_flat"_xh:
+			if (name == "dmg_flat") {
+				c.assign(o.dmgFlat, value);
+				return true;
+			}
+			break;
+		case "dmg_flat_delta"_xh:
+			if (name == "dmg_flat_delta") {
+				c.assign(o.dmgFlatDelta, value);
+				return true;
+			}
+			break;
+		case "acc_flat"_xh:
+			if (name == "acc_flat") {
+				c.assign(o.accFlat, value);
+				return true;
+			}
+			break;
+		case "acc_flat_delta"_xh:
+			if (name == "acc_flat_delta") {
+				c.assign(o.accFlatDelta, value);
+				return true;
+			}
+			break;
+		case "acc_percent"_xh:
+			if (name == "acc_percent") {
+				c.assign(o.accPercent, value);
+				return true;
+			}
+			break;
+		case "acc_percent_delta"_xh:
+			if (name == "acc_percent_delta") {
+				c.assign(o.accPercentDelta, value);
+				return true;
+			}
+			break;
+		case "type"_xh:
+			if (name == "type") {
+				c.assign(o.type, value);
+				return true;
+			}
+			break;
 	}
 	return XmlBinding<::aion::gameserver::skillengine::effect::BufEffect>::attribute(o, c, name, value);
 }

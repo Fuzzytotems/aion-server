@@ -10,7 +10,7 @@ enum class AreaType : std::uint8_t;
 class Cylinder;
 class MaterialZoneTemplate;
 class Point2D;
-class Points;
+struct Points;
 class Semisphere;
 class Sphere;
 class WorldZoneTemplate;

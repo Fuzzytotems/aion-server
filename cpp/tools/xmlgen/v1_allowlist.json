@@ -36,12 +36,6 @@
 		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
 	},
 	{
-		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
-		"kind": "attributeMissingInIr",
-		"name": "item_upgrade",
-		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
-	},
-	{
 		"class": "com.aionemu.gameserver.model.templates.teleport.TelelocationTemplate",
 		"kind": "attributeMissingInIr",
 		"name": "name",
@@ -94,12 +88,6 @@
 		"kind": "unmatchedClass",
 		"name": "*",
 		"reason": "config XML roots (config/*.xml) have no XSD under data/static_data"
-	},
-	{
-		"class": "com.aionemu.gameserver.model.templates.ingameshop.*",
-		"kind": "unmatchedClass",
-		"name": "*",
-		"reason": "in_game_shop config types (config root InGameShopProperty) have no XSD under data/static_data"
 	},
 	{
 		"class": "com.aionemu.gameserver.model.templates.rift.OpenRift",
@@ -405,18 +393,6 @@
 		"class": "com.aionemu.gameserver.model.templates.goods.GoodsList",
 		"kind": "elementMissingInXsd",
 		"name": "itemIdList",
-		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
-	},
-	{
-		"class": "com.aionemu.gameserver.model.templates.item.ReturnLocList",
-		"kind": "elementMissingInXsd",
-		"name": "item",
-		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
-	},
-	{
-		"class": "com.aionemu.gameserver.model.templates.item.ReturnLocList",
-		"kind": "elementMissingInXsd",
-		"name": "random_item",
 		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
 	},
 	{

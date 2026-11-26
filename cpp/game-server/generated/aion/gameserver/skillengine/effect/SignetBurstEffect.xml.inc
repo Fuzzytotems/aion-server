@@ -10,7 +10,7 @@ protected:
 	int32_t signetlvl = 0; // @XmlAttribute(name = "signetlvl")
 	std::string signet; // @XmlAttribute(name = "signet")
 	int32_t addEffectProbMultiplier = 0; // @XmlAttribute(name = "add_effect_prob_multi") Java: = 0
+	float addEffectProbMultiplierDelta = 0.0f; // @XmlAttribute(name = "add_effect_prob_multi_delta")
 
 public:
-	int32_t getSignetlvl() const { return signetlvl; }
 	const std::string& getSignet() const { return signet; }

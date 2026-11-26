@@ -4,7 +4,6 @@
 // Declarations used by the member block TargetTeleportEffect.xml.inc of com.aionemu.gameserver.skillengine.effect.TargetTeleportEffect.
 // The hand-written TargetTeleportEffect.h includes this header before the class definition.
 
-#include <cstdint>
 #include <string>
 #include <string_view>
 

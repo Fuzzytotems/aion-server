@@ -3,3 +3,4 @@
 // Translation unit of the XmlBinding definitions of the bound classes of com.aionemu.gameserver.model.templates.flypath.
 
 #include "aion/gameserver/model/templates/flypath/FlyPathEntry.bind.ipp"
+#include "aion/gameserver/model/templates/flypath/WindstreamPoint.bind.ipp"

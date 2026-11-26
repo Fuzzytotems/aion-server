@@ -85,19 +85,14 @@
 			"files": 1
 		},
 		{
-			"file": "curing_objects/curing_objects.xml",
-			"resolved": "curing_objects/curing_objects.xml",
-			"files": 1
-		},
-		{
 			"file": "custom_drop/custom_drop.xml",
 			"resolved": "custom_drop/custom_drop.xml",
 			"files": 1
 		},
 		{
-			"file": "decomposable_items/decomposable_items.xml",
-			"resolved": "decomposable_items/decomposable_items.xml",
-			"files": 1
+			"file": "decomposable_items",
+			"resolved": "decomposable_items",
+			"files": 2
 		},
 		{
 			"file": "enchants/enchant_templates.xml",
@@ -232,7 +227,7 @@
 		{
 			"file": "npc_skills",
 			"resolved": "npc_skills",
-			"files": 25
+			"files": 26
 		},
 		{
 			"file": "npc_teleporter.xml",
@@ -282,6 +277,26 @@
 		{
 			"file": "player_experience_table.xml",
 			"resolved": "player_experience_table.xml",
+			"files": 1
+		},
+		{
+			"file": "exp_mod_table/pvp_exp_table.xml",
+			"resolved": "exp_mod_table/pvp_exp_table.xml",
+			"files": 1
+		},
+		{
+			"file": "exp_mod_table/pvp_exp_mod_table.xml",
+			"resolved": "exp_mod_table/pvp_exp_mod_table.xml",
+			"files": 1
+		},
+		{
+			"file": "exp_mod_table/party_exp_mod_table.xml",
+			"resolved": "exp_mod_table/party_exp_mod_table.xml",
+			"files": 1
+		},
+		{
+			"file": "exp_mod_table/mentee_exp_limit_table.xml",
+			"resolved": "exp_mod_table/mentee_exp_limit_table.xml",
 			"files": 1
 		},
 		{
@@ -352,11 +367,6 @@
 		{
 			"file": "siege/siege_locations.xml",
 			"resolved": "siege/siege_locations.xml",
-			"files": 1
-		},
-		{
-			"file": "siege/siege_shields.xml",
-			"resolved": "siege/siege_shields.xml",
 			"files": 1
 		},
 		{
@@ -468,7 +478,7 @@
 	"replacedHolders": [],
 	"lines": [
 		{
-			"javaLine": 315,
+			"javaLine": 314,
 			"line": "Loaded 161 maps",
 			"values": [
 				161
@@ -478,7 +488,7 @@
 			]
 		},
 		{
-			"javaLine": 316,
+			"javaLine": 315,
 			"line": "Loaded 35 material ids",
 			"values": [
 				35
@@ -488,17 +498,17 @@
 			]
 		},
 		{
-			"javaLine": 317,
-			"line": "Loaded weather for 24 maps",
+			"javaLine": 316,
+			"line": "Loaded weather for 13 maps",
 			"values": [
-				24
+				13
 			],
 			"holders": [
-				"weather"
+				"weather_maps"
 			]
 		},
 		{
-			"javaLine": 318,
+			"javaLine": 317,
 			"line": "Loaded 66 player experience table entries",
 			"values": [
 				66
@@ -508,7 +518,47 @@
 			]
 		},
 		{
+			"javaLine": 318,
+			"line": "Loaded 100 pvp experience table entries",
+			"values": [
+				100
+			],
+			"holders": [
+				"pvp_exp_table"
+			]
+		},
+		{
 			"javaLine": 319,
+			"line": "Loaded 50 pvp experience modifier entries",
+			"values": [
+				50
+			],
+			"holders": [
+				"pvp_exp_mod_table"
+			]
+		},
+		{
+			"javaLine": 320,
+			"line": "Loaded 51 party experience modifier entries",
+			"values": [
+				51
+			],
+			"holders": [
+				"party_exp_mod_table"
+			]
+		},
+		{
+			"javaLine": 321,
+			"line": "Loaded 100 mentee experience limit entries",
+			"values": [
+				100
+			],
+			"holders": [
+				"mentee_exp_limit_table"
+			]
+		},
+		{
+			"javaLine": 322,
 			"line": "Loaded 47 absolute stat templates",
 			"values": [
 				47
@@ -518,7 +568,7 @@
 			]
 		},
 		{
-			"javaLine": 320,
+			"javaLine": 323,
 			"line": "Loaded 1 item cleanup entries",
 			"values": [
 				1
@@ -528,17 +578,17 @@
 			]
 		},
 		{
-			"javaLine": 321,
-			"line": "Loaded 102009 item templates",
+			"javaLine": 324,
+			"line": "Loaded 102011 item templates",
 			"values": [
-				102009
+				102011
 			],
 			"holders": [
 				"item_templates"
 			]
 		},
 		{
-			"javaLine": 322,
+			"javaLine": 325,
 			"line": "Loaded 539 item bonus templates",
 			"values": [
 				539
@@ -548,7 +598,7 @@
 			]
 		},
 		{
-			"javaLine": 323,
+			"javaLine": 326,
 			"line": "Loaded 5139 bonus item group templates and 787 pet food items",
 			"values": [
 				5139,
@@ -559,7 +609,7 @@
 			]
 		},
 		{
-			"javaLine": 324,
+			"javaLine": 327,
 			"line": "Loaded 63287 npc templates",
 			"values": [
 				63287
@@ -569,7 +619,7 @@
 			]
 		},
 		{
-			"javaLine": 325,
+			"javaLine": 328,
 			"line": "Loaded 174 custom npc drops",
 			"values": [
 				174
@@ -579,7 +629,7 @@
 			]
 		},
 		{
-			"javaLine": 326,
+			"javaLine": 329,
 			"line": "Loaded 14 system mail templates",
 			"values": [
 				14
@@ -589,17 +639,17 @@
 			]
 		},
 		{
-			"javaLine": 327,
-			"line": "Loaded 3789 npc shout templates",
+			"javaLine": 330,
+			"line": "Loaded 3785 npc shout templates",
 			"values": [
-				3789
+				3785
 			],
 			"holders": [
 				"npc_shouts"
 			]
 		},
 		{
-			"javaLine": 328,
+			"javaLine": 331,
 			"line": "Loaded 218 pet templates and 33 food flavours",
 			"values": [
 				218,
@@ -611,7 +661,7 @@
 			]
 		},
 		{
-			"javaLine": 329,
+			"javaLine": 332,
 			"line": "Loaded 31 pet doping templates",
 			"values": [
 				31
@@ -621,7 +671,7 @@
 			]
 		},
 		{
-			"javaLine": 330,
+			"javaLine": 333,
 			"line": "Loaded 9 pet buffs templates",
 			"values": [
 				9
@@ -631,7 +681,7 @@
 			]
 		},
 		{
-			"javaLine": 331,
+			"javaLine": 334,
 			"line": "Loaded 6 initial player templates",
 			"values": [
 				6
@@ -641,7 +691,7 @@
 			]
 		},
 		{
-			"javaLine": 332,
+			"javaLine": 335,
 			"line": "Loaded 1969 trade lists",
 			"values": [
 				1969
@@ -651,7 +701,7 @@
 			]
 		},
 		{
-			"javaLine": 333,
+			"javaLine": 336,
 			"line": "Loaded 249 npc teleporter templates",
 			"values": [
 				249
@@ -661,7 +711,7 @@
 			]
 		},
 		{
-			"javaLine": 334,
+			"javaLine": 337,
 			"line": "Loaded 284 teleport locations",
 			"values": [
 				284
@@ -671,7 +721,7 @@
 			]
 		},
 		{
-			"javaLine": 335,
+			"javaLine": 338,
 			"line": "Loaded 13570 skill templates",
 			"values": [
 				13570
@@ -681,7 +731,7 @@
 			]
 		},
 		{
-			"javaLine": 336,
+			"javaLine": 339,
 			"line": "Loaded 163 skill charge entries",
 			"values": [
 				163
@@ -691,7 +741,7 @@
 			]
 		},
 		{
-			"javaLine": 337,
+			"javaLine": 340,
 			"line": "Loaded 304 motion times",
 			"values": [
 				304
@@ -701,7 +751,7 @@
 			]
 		},
 		{
-			"javaLine": 338,
+			"javaLine": 341,
 			"line": "Loaded 4888 skill learn entries",
 			"values": [
 				4888
@@ -711,7 +761,7 @@
 			]
 		},
 		{
-			"javaLine": 339,
+			"javaLine": 342,
 			"line": "Loaded 7 cube expand entries",
 			"values": [
 				7
@@ -721,7 +771,7 @@
 			]
 		},
 		{
-			"javaLine": 340,
+			"javaLine": 343,
 			"line": "Loaded 254 warehouse expand entries",
 			"values": [
 				254
@@ -731,7 +781,7 @@
 			]
 		},
 		{
-			"javaLine": 341,
+			"javaLine": 344,
 			"line": "Loaded 129 bind point entries",
 			"values": [
 				129
@@ -741,7 +791,7 @@
 			]
 		},
 		{
-			"javaLine": 342,
+			"javaLine": 345,
 			"line": "Loaded 8043 quest data entries",
 			"values": [
 				8043
@@ -751,7 +801,7 @@
 			]
 		},
 		{
-			"javaLine": 343,
+			"javaLine": 346,
 			"line": "Loaded 756 gatherable entries",
 			"values": [
 				756
@@ -761,7 +811,7 @@
 			]
 		},
 		{
-			"javaLine": 344,
+			"javaLine": 347,
 			"line": "Loaded 300 title entries",
 			"values": [
 				300
@@ -771,17 +821,17 @@
 			]
 		},
 		{
-			"javaLine": 345,
-			"line": "Loaded 6449 walker routes",
+			"javaLine": 348,
+			"line": "Loaded 6450 walker routes",
 			"values": [
-				6449
+				6450
 			],
 			"holders": [
 				"npc_walker"
 			]
 		},
 		{
-			"javaLine": 346,
+			"javaLine": 349,
 			"line": "Loaded 12 walker group variants",
 			"values": [
 				12
@@ -791,17 +841,17 @@
 			]
 		},
 		{
-			"javaLine": 347,
-			"line": "Loaded 3978 zone entries",
+			"javaLine": 350,
+			"line": "Loaded 3979 zone entries",
 			"values": [
-				3978
+				3979
 			],
 			"holders": [
 				"zones"
 			]
 		},
 		{
-			"javaLine": 348,
+			"javaLine": 351,
 			"line": "Loaded 3239 goodslist entries",
 			"values": [
 				3239
@@ -811,7 +861,7 @@
 			]
 		},
 		{
-			"javaLine": 349,
+			"javaLine": 352,
 			"line": "Loaded 719 tribe relation entries",
 			"values": [
 				719
@@ -821,7 +871,7 @@
 			]
 		},
 		{
-			"javaLine": 350,
+			"javaLine": 353,
 			"line": "Loaded 12494 recipe entries",
 			"values": [
 				12494
@@ -831,7 +881,7 @@
 			]
 		},
 		{
-			"javaLine": 351,
+			"javaLine": 354,
 			"line": "Loaded 187 chest locations",
 			"values": [
 				187
@@ -841,7 +891,7 @@
 			]
 		},
 		{
-			"javaLine": 352,
+			"javaLine": 355,
 			"line": "Loaded 63 static door locations",
 			"values": [
 				63
@@ -851,7 +901,7 @@
 			]
 		},
 		{
-			"javaLine": 353,
+			"javaLine": 356,
 			"line": "Loaded 558 item set entries",
 			"values": [
 				558
@@ -861,7 +911,7 @@
 			]
 		},
 		{
-			"javaLine": 354,
+			"javaLine": 357,
 			"line": "Loaded 18 npc factions",
 			"values": [
 				18
@@ -871,17 +921,17 @@
 			]
 		},
 		{
-			"javaLine": 355,
-			"line": "Loaded 11931 npc skill list entries",
+			"javaLine": 358,
+			"line": "Loaded 11942 npc skill list entries",
 			"values": [
-				11931
+				11942
 			],
 			"holders": [
 				"npc_skill_templates"
 			]
 		},
 		{
-			"javaLine": 356,
+			"javaLine": 359,
 			"line": "Loaded 13 pet skill list entries",
 			"values": [
 				13
@@ -891,7 +941,7 @@
 			]
 		},
 		{
-			"javaLine": 357,
+			"javaLine": 360,
 			"line": "Loaded 70 siege location entries",
 			"values": [
 				70
@@ -901,7 +951,7 @@
 			]
 		},
 		{
-			"javaLine": 358,
+			"javaLine": 361,
 			"line": "Loaded 2 vortex entries",
 			"values": [
 				2
@@ -911,7 +961,7 @@
 			]
 		},
 		{
-			"javaLine": 359,
+			"javaLine": 362,
 			"line": "Loaded 60 rift entries",
 			"values": [
 				60
@@ -921,7 +971,7 @@
 			]
 		},
 		{
-			"javaLine": 360,
+			"javaLine": 363,
 			"line": "Loaded 42 base entries",
 			"values": [
 				42
@@ -931,7 +981,7 @@
 			]
 		},
 		{
-			"javaLine": 361,
+			"javaLine": 364,
 			"line": "Loaded 74 fly ring entries",
 			"values": [
 				74
@@ -941,17 +991,7 @@
 			]
 		},
 		{
-			"javaLine": 362,
-			"line": "Loaded 8 shield entries",
-			"values": [
-				8
-			],
-			"holders": [
-				"shields"
-			]
-		},
-		{
-			"javaLine": 363,
+			"javaLine": 365,
 			"line": "Loaded 218 pet entries",
 			"values": [
 				218
@@ -961,7 +1001,7 @@
 			]
 		},
 		{
-			"javaLine": 364,
+			"javaLine": 366,
 			"line": "Loaded 80 guide entries",
 			"values": [
 				80
@@ -971,7 +1011,7 @@
 			]
 		},
 		{
-			"javaLine": 365,
+			"javaLine": 367,
 			"line": "Loaded 8 road entries",
 			"values": [
 				8
@@ -981,7 +1021,7 @@
 			]
 		},
 		{
-			"javaLine": 366,
+			"javaLine": 368,
 			"line": "Loaded 110 instance cooltime entries",
 			"values": [
 				110
@@ -991,17 +1031,18 @@
 			]
 		},
 		{
-			"javaLine": 367,
-			"line": "Loaded 2483 decomposable items entries",
+			"javaLine": 369,
+			"line": "Loaded 4092 decomposable items entries (106 overridden)",
 			"values": [
-				2483
+				4092,
+				106
 			],
 			"holders": [
 				"decomposable_items"
 			]
 		},
 		{
-			"javaLine": 368,
+			"javaLine": 370,
 			"line": "Loaded 75 ai templates",
 			"values": [
 				75
@@ -1011,7 +1052,7 @@
 			]
 		},
 		{
-			"javaLine": 369,
+			"javaLine": 371,
 			"line": "Loaded 208 flypath templates",
 			"values": [
 				208
@@ -1021,7 +1062,7 @@
 			]
 		},
 		{
-			"javaLine": 370,
+			"javaLine": 372,
 			"line": "Loaded 5 windstream entries",
 			"values": [
 				5
@@ -1031,7 +1072,7 @@
 			]
 		},
 		{
-			"javaLine": 371,
+			"javaLine": 373,
 			"line": "Loaded 21 assembled npcs entries",
 			"values": [
 				21
@@ -1041,7 +1082,7 @@
 			]
 		},
 		{
-			"javaLine": 372,
+			"javaLine": 374,
 			"line": "Loaded 366 cosmetic items entries",
 			"values": [
 				366
@@ -1051,7 +1092,7 @@
 			]
 		},
 		{
-			"javaLine": 373,
+			"javaLine": 375,
 			"line": "Loaded 114 auto group entries",
 			"values": [
 				114
@@ -1061,7 +1102,7 @@
 			]
 		},
 		{
-			"javaLine": 374,
+			"javaLine": 376,
 			"line": "Loaded 140 spawn maps entries",
 			"values": [
 				140
@@ -1071,7 +1112,7 @@
 			]
 		},
 		{
-			"javaLine": 375,
+			"javaLine": 377,
 			"line": "Loaded 76 events",
 			"values": [
 				76
@@ -1081,7 +1122,7 @@
 			]
 		},
 		{
-			"javaLine": 376,
+			"javaLine": 378,
 			"line": "Loaded 61 skill panel entries",
 			"values": [
 				61
@@ -1091,7 +1132,7 @@
 			]
 		},
 		{
-			"javaLine": 377,
+			"javaLine": 379,
 			"line": "Loaded 16 instance Buffs entries",
 			"values": [
 				16
@@ -1101,7 +1142,7 @@
 			]
 		},
 		{
-			"javaLine": 378,
+			"javaLine": 380,
 			"line": "Loaded 1511 housing object entries",
 			"values": [
 				1511
@@ -1111,7 +1152,7 @@
 			]
 		},
 		{
-			"javaLine": 379,
+			"javaLine": 381,
 			"line": "Loaded 65 ride info entries",
 			"values": [
 				65
@@ -1121,7 +1162,7 @@
 			]
 		},
 		{
-			"javaLine": 380,
+			"javaLine": 382,
 			"line": "Loaded 137 instance exit entries",
 			"values": [
 				137
@@ -1131,7 +1172,7 @@
 			]
 		},
 		{
-			"javaLine": 381,
+			"javaLine": 383,
 			"line": "Loaded 405 portal loc entries",
 			"values": [
 				405
@@ -1141,7 +1182,7 @@
 			]
 		},
 		{
-			"javaLine": 382,
+			"javaLine": 384,
 			"line": "Loaded 466 portal templates2 entries",
 			"values": [
 				466
@@ -1151,7 +1192,7 @@
 			]
 		},
 		{
-			"javaLine": 383,
+			"javaLine": 385,
 			"line": "Loaded 20 housing lands",
 			"values": [
 				20
@@ -1161,7 +1202,7 @@
 			]
 		},
 		{
-			"javaLine": 384,
+			"javaLine": 386,
 			"line": "Loaded 9 house building styles",
 			"values": [
 				9
@@ -1171,7 +1212,7 @@
 			]
 		},
 		{
-			"javaLine": 385,
+			"javaLine": 387,
 			"line": "Loaded 276 house parts",
 			"values": [
 				276
@@ -1181,7 +1222,7 @@
 			]
 		},
 		{
-			"javaLine": 386,
+			"javaLine": 388,
 			"line": "Loaded 3094 house spawns",
 			"values": [
 				3094
@@ -1191,17 +1232,7 @@
 			]
 		},
 		{
-			"javaLine": 387,
-			"line": "Loaded 10 curing object entries",
-			"values": [
-				10
-			],
-			"holders": [
-				"curing_objects"
-			]
-		},
-		{
-			"javaLine": 388,
+			"javaLine": 389,
 			"line": "Loaded 89 assembly items entries",
 			"values": [
 				89
@@ -1211,7 +1242,7 @@
 			]
 		},
 		{
-			"javaLine": 389,
+			"javaLine": 390,
 			"line": "Loaded 122 challenge tasks entries",
 			"values": [
 				122
@@ -1221,7 +1252,7 @@
 			]
 		},
 		{
-			"javaLine": 390,
+			"javaLine": 391,
 			"line": "Loaded 6 conqueror and protector entries",
 			"values": [
 				6
@@ -1231,7 +1262,7 @@
 			]
 		},
 		{
-			"javaLine": 391,
+			"javaLine": 392,
 			"line": "Loaded 2450 town spawns",
 			"values": [
 				2450
@@ -1241,7 +1272,7 @@
 			]
 		},
 		{
-			"javaLine": 392,
+			"javaLine": 393,
 			"line": "Loaded 57 temperings",
 			"values": [
 				57
@@ -1251,7 +1282,7 @@
 			]
 		},
 		{
-			"javaLine": 393,
+			"javaLine": 394,
 			"line": "Loaded 44 enchants",
 			"values": [
 				44
@@ -1261,7 +1292,7 @@
 			]
 		},
 		{
-			"javaLine": 394,
+			"javaLine": 395,
 			"line": "Loaded 2196 global drop rules with global drop npc exclusions",
 			"values": [
 				2196
@@ -1272,7 +1303,7 @@
 			]
 		},
 		{
-			"javaLine": 395,
+			"javaLine": 396,
 			"line": "Loaded 7 multi return item entries",
 			"values": [
 				7
@@ -1282,7 +1313,7 @@
 			]
 		},
 		{
-			"javaLine": 396,
+			"javaLine": 397,
 			"line": "Loaded 73 hotspot entries",
 			"values": [
 				73
@@ -1292,7 +1323,7 @@
 			]
 		},
 		{
-			"javaLine": 397,
+			"javaLine": 398,
 			"line": "Loaded 1830 item purifications entries",
 			"values": [
 				1830
@@ -1302,7 +1333,7 @@
 			]
 		},
 		{
-			"javaLine": 398,
+			"javaLine": 399,
 			"line": "Loaded 4 upgrade arcade entries",
 			"values": [
 				4
@@ -1312,7 +1343,7 @@
 			]
 		},
 		{
-			"javaLine": 399,
+			"javaLine": 400,
 			"line": "Loaded 394 atreian passports",
 			"values": [
 				394
@@ -1322,7 +1353,7 @@
 			]
 		},
 		{
-			"javaLine": 400,
+			"javaLine": 401,
 			"line": "Loaded 48 world raid locations",
 			"values": [
 				48
@@ -1332,7 +1363,7 @@
 			]
 		},
 		{
-			"javaLine": 401,
+			"javaLine": 402,
 			"line": "Loaded 27 kill bounty templates",
 			"values": [
 				27
@@ -1342,7 +1373,7 @@
 			]
 		},
 		{
-			"javaLine": 402,
+			"javaLine": 403,
 			"line": "Loaded 6 legion dominion locations",
 			"values": [
 				6
@@ -1352,7 +1383,7 @@
 			]
 		},
 		{
-			"javaLine": 403,
+			"javaLine": 404,
 			"line": "Loaded 2 skill alias locations",
 			"values": [
 				2
@@ -1362,7 +1393,7 @@
 			]
 		},
 		{
-			"javaLine": 404,
+			"javaLine": 405,
 			"line": "Loaded 4 signet data templates",
 			"values": [
 				4

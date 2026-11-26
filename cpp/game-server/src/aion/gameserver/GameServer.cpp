@@ -54,7 +54,6 @@
 #include "aion/gameserver/services/ChallengeTaskService.h"
 #include "aion/gameserver/services/CommandsAccessService.h"
 #include "aion/gameserver/services/CronJobService.h"
-#include "aion/gameserver/services/CuringZoneService.h"
 #include "aion/gameserver/services/DatabaseCleaningService.h"
 #include "aion/gameserver/services/DebugService.h"
 #include "aion/gameserver/services/ExchangeService.h"
@@ -234,10 +233,6 @@ bool GameServer::main(StartupObserver& observer) {
 	runStep(observer, step, "AtreianPassportService.getInstance()", [] { services::AtreianPassportService::getInstance(); });
 	runStep(observer, step, "CronJobService.getInstance()", [] { services::CronJobService::getInstance(); });
 
-	runStep(observer, step, "CuringZoneService.getInstance()", [] {
-		if (!configs::main::GeoDataConfig::GEO_MATERIALS_ENABLE.load())
-			services::CuringZoneService::getInstance();
-	});
 	runStep(observer, step, "RoadService.getInstance()", [] { services::RoadService::getInstance(); });
 	runStep(observer, step, "HTMLCache.getInstance()", [] { cache::HTMLCache::getInstance(); });
 	runStep(observer, step, "AbyssRankingCache.getInstance()", [] { services::abyss::AbyssRankingCache::getInstance(); });

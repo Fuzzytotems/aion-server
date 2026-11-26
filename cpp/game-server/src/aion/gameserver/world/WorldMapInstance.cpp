@@ -8,6 +8,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/WorldConfig.h"
+#include "aion/gameserver/model/templates/zone/WorldZoneTemplate.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
@@ -292,7 +293,7 @@ std::vector<runtime::Ptr<zone::ZoneInstance>> WorldMapInstance::filterZones(int3
 			result.push_back(zoneInstance);
 			continue;
 		}
-		if (zoneInstance->getZoneTemplate()->getZoneType() == model::templates::zone::ZoneClassName::DUMMY)
+		if (zoneInstance->getZoneTemplate()->isWholeMapZone()) // 51d7a19cb: ZoneClassName.DUMMY
 			log.error("Region " + std::to_string(regionId) + " should intersect with whole map zone!!! (map=" + std::to_string(mapId) + ")");
 	}
 	return result;

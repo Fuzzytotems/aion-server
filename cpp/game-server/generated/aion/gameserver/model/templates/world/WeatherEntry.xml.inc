@@ -4,17 +4,33 @@
 	friend struct ::aion::gameserver::xml::XmlBinding<::aion::gameserver::model::templates::world::WeatherEntry>;
 
 private:
-	int32_t zoneId = 0; // @XmlAttribute(name = "zone_id", required = true)
-	int32_t weatherCode = 0; // @XmlAttribute(name = "code", required = true)
-	int32_t rank = 0; // @XmlAttribute(name = "rank", required = true)
-	std::string weatherName; // @XmlAttribute(name = "name")
-	bool isBefore_ = false; // @XmlAttribute(name = "before")
-	bool isAfter_ = false; // @XmlAttribute(name = "after")
+	int32_t code = 0; // @XmlAttribute(name = "code", required = true)
+	std::string name; // @XmlAttribute(name = "name", required = true)
+	int32_t zoneId = 0; // @XmlAttribute(name = "zone", required = true)
+	int32_t priority = 0; // @XmlAttribute(name = "priority", required = true)
+	std::optional<std::string> months; // @XmlAttribute(name = "months")
+	std::string hours; // @XmlAttribute(name = "hours")
+	int32_t occurProbability = 0; // @XmlAttribute(name = "occur_prob", required = true)
+	int32_t occurDelay = 0; // @XmlAttribute(name = "occur_delay")
+	int32_t duration = 0; // @XmlAttribute(name = "duration", required = true)
+	int32_t durationEx = 0; // @XmlAttribute(name = "duration_ex")
+	std::unique_ptr<::aion::gameserver::model::templates::world::WeatherPhase> sign; // @XmlElement(name = "sign")
+	std::unique_ptr<::aion::gameserver::model::templates::world::WeatherPhase> remain; // @XmlElement(name = "remain")
+	std::vector<::aion::gameserver::model::templates::world::WeatherPhase> subWeathers; // @XmlElement(name = "sub")
+	std::optional<::aion::gameserver::model::templates::world::WeatherState> state; // @XmlAttribute(name = "state")
 
 public:
+	int32_t getCode() const { return code; }
+	const std::string& getName() const { return name; }
 	int32_t getZoneId() const { return zoneId; }
-	int32_t getCode() const { return weatherCode; }
-	int32_t getRank() const { return rank; }
-	bool isBefore() const { return isBefore_; }
-	bool isAfter() const { return isAfter_; }
-	const std::string& getWeatherName() const { return weatherName; }
+	int32_t getPriority() const { return priority; }
+	int32_t getOccurProbability() const { return occurProbability; }
+	int32_t getOccurDelay() const { return occurDelay; }
+	int32_t getDuration() const { return duration; }
+	int32_t getDurationEx() const { return durationEx; }
+	const ::aion::gameserver::model::templates::world::WeatherPhase* getSign() const { return sign.get(); }
+	const ::aion::gameserver::model::templates::world::WeatherPhase* getRemain() const { return remain.get(); }
+	std::optional<::aion::gameserver::model::templates::world::WeatherState> getState() const { return state; }
+
+protected:
+	void afterUnmarshal(::aion::gameserver::xml::LoadContext& ctx, const ::aion::gameserver::xml::XmlParent& parent); // hand-written

@@ -36,7 +36,8 @@ WorldZoneTemplate::WorldZoneTemplate(int32_t size, int32_t mapId) : WorldZoneTem
 
 WorldZoneTemplate::WorldZoneTemplate(int32_t size, int32_t mapId, int32_t mapFlags) {
 	points = createMapPoints(size, configs::main::WorldConfig::WORLD_REGION_SIZE.load(std::memory_order_relaxed));
-	zoneType = ZoneClassName::DUMMY;
+	zoneType = ZoneClassName::SUB; // 51d7a19cb: DUMMY (see the header)
+	wholeMapZone = true;
 	mapid = mapId;
 	flags = mapFlags;
 	setXmlName(std::to_string(mapId));
@@ -46,13 +47,15 @@ std::unique_ptr<Points> WorldZoneTemplate::createMapPoints(int32_t size, int32_t
 	// Java: Math.round((float) size / WorldConfig.WORLD_REGION_SIZE) * WorldConfig.WORLD_REGION_SIZE (int arithmetic, then widened to float)
 	int32_t rounded = utils::JavaMath::round(static_cast<float>(size) / static_cast<float>(regionSize));
 	float maxZ = static_cast<float>(static_cast<int32_t>(static_cast<uint32_t>(rounded) * static_cast<uint32_t>(regionSize)));
-	auto mapPoints = std::make_unique<Points>(-1.0f, maxZ + 1);
+	auto mapPoints = std::make_unique<Points>();
+	mapPoints->bottom = -1.0f; // Java 51d7a19cb new Points(-1, maxZ + 1); upstream 2b097879f removed the constructor with this class
+	mapPoints->top = maxZ + 1;
 	// Java: size + 1 in int arithmetic, then widened to float
 	float edge = static_cast<float>(static_cast<int32_t>(static_cast<uint32_t>(size) + 1u));
-	mapPoints->getPoint().emplace_back(-1.0f, -1.0f);
-	mapPoints->getPoint().emplace_back(-1.0f, edge);
-	mapPoints->getPoint().emplace_back(edge, edge);
-	mapPoints->getPoint().emplace_back(edge, -1.0f);
+	mapPoints->points.emplace_back(-1.0f, -1.0f);
+	mapPoints->points.emplace_back(-1.0f, edge);
+	mapPoints->points.emplace_back(edge, edge);
+	mapPoints->points.emplace_back(edge, -1.0f);
 	return mapPoints;
 }
 

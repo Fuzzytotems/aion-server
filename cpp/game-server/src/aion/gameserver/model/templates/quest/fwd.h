@@ -17,7 +17,7 @@ enum class QuestCategory : std::uint8_t;
 class QuestDrop;
 enum class QuestExtraCategory : std::uint8_t;
 class QuestItems;
-class QuestKill;
+struct QuestKill;
 enum class QuestMentorType : std::uint8_t;
 class QuestNpc;
 enum class QuestRepeatCycle : std::uint8_t;

@@ -34,13 +34,13 @@ inline constexpr int32_t THEOBOMOS_LAB = 310110000;
 
 /** world_maps.xml's rows of the I6 maps */
 inline constexpr const char* I6_MAPS_XML = R"x(<world_maps>
-	<map id="300100000" cName="IDshulackShip" name="Steel Rake" name_id="401255" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="STEEL_RAKE_INSTANCE" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300460000" cName="IDshulackShip_Solo" name="Steel Rake Cabin" name_id="401843" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="STEEL_RAKE_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300510000" cName="IDTiamat_1" name="Tiamat Stronghold" name_id="403522" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300560000" cName="IDDF2Flying_Event01" name="Shugo Imperial Tomb" name_id="403566" instance="true" water_level="16" death_level="0" world_size="512" drop_type="OTHER_INSTANCES" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300800000" cName="IDRuneweapon" name="Infinity Shard" name_id="403690" instance="true" water_level="16" death_level="0" world_size="256" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301400000" cName="IDSweep" name="The Shugo Emperor's Vault" name_id="404461" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="310110000" cName="IDLF2a_Lab" name="Theobomos Lab" name_id="401151" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="OTHER_INSTANCES" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300100000" cName="IDshulackShip" name="Steel Rake" name_id="401255" instance="true" water_level="16" world_size="1024" drop_type="STEEL_RAKE_INSTANCE" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300460000" cName="IDshulackShip_Solo" name="Steel Rake Cabin" name_id="401843" instance="true" water_level="16" world_size="1024" drop_type="STEEL_RAKE_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300510000" cName="IDTiamat_1" name="Tiamat Stronghold" name_id="403522" instance="true" water_level="16" world_size="2048" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300560000" cName="IDDF2Flying_Event01" name="Shugo Imperial Tomb" name_id="403566" instance="true" water_level="16" world_size="512" drop_type="OTHER_INSTANCES" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300800000" cName="IDRuneweapon" name="Infinity Shard" name_id="403690" instance="true" water_level="16" world_size="256" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301400000" cName="IDSweep" name="The Shugo Emperor's Vault" name_id="404461" instance="true" water_level="16" world_size="1024" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="310110000" cName="IDLF2a_Lab" name="Theobomos Lab" name_id="401151" instance="true" water_level="16" world_size="1024" drop_type="OTHER_INSTANCES" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {

@@ -101,7 +101,7 @@ void dropStaleRegionEntries(VisibleObject& object) noexcept {
 					continue;
 				reportedZones.push_back(zone.get());
 				log.warn("{} is still in zone {} after its removal from the world (the zone keeps it)", object.toString(),
-					zone->getZoneTemplate()->getName()->name());
+					zone->getZoneTemplate()->getZoneName()->name());
 			}
 		}
 	} catch (...) {

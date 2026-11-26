@@ -34,14 +34,14 @@ inline constexpr int32_t PERNON = 710010000;
 /** world_maps.xml's rows of the eight zones */
 inline const char* zoneMapsXml() {
 	return R"x(<world_maps>
-	<map id="210020000" cName="LF2" name="Eltnen" name_id="400262" beginner_twin_count="5" max_user="200" water_level="6" death_level="0" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="210040000" cName="LF3" name="Heiron" name_id="400263" beginner_twin_count="3" max_user="200" water_level="101" death_level="0" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="210050000" cName="LF4" name="Inggison" name_id="401340" water_level="59" death_level="0" world_type="BALAUREA" world_size="3072" drop_type="BALAUREA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="220050000" cName="DF2A" name="Brusthonin" name_id="400933" twin_count="1" beginner_twin_count="2" max_user="200" water_level="5" death_level="0" world_type="ASMODAE" world_size="3072" drop_type="ASMODAE" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="220070000" cName="DF4" name="Gelkmaros" name_id="401369" water_level="16" death_level="0" world_type="BALAUREA" world_size="3072" drop_type="BALAUREA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="600090000" cName="LDF5_Fortress" name="Kaldor" name_id="404064" water_level="1" death_level="0" world_type="BALAUREA" world_size="1536" drop_type="BALAUREA_HIGH" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="600100000" cName="LDF4_Advance" name="Levinshor" name_id="404076" max_user="200" water_level="225" death_level="0" world_type="BALAUREA" world_size="2048" drop_type="BALAUREA_HIGH" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE"/>
-	<map id="710010000" cName="Housing_DF_personal" name="Pernon" name_id="401832" water_level="70" death_level="0" world_type="ASMODAE" world_size="3072" drop_type="ASMODAE" flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE"/>
+	<map id="210020000" cName="LF2" name="Eltnen" name_id="400262" max_user="200" water_level="6" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="210040000" cName="LF3" name="Heiron" name_id="400263" max_user="200" water_level="101" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="210050000" cName="LF4" name="Inggison" name_id="401340" water_level="59" world_type="BALAUREA" world_size="3072" drop_type="BALAUREA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="220050000" cName="DF2A" name="Brusthonin" name_id="400933" twin_count="1" max_user="200" water_level="5" world_type="ASMODAE" world_size="3072" drop_type="ASMODAE" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="220070000" cName="DF4" name="Gelkmaros" name_id="401369" water_level="16" world_type="BALAUREA" world_size="3072" drop_type="BALAUREA" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="600090000" cName="LDF5_Fortress" name="Kaldor" name_id="404064" water_level="1" world_type="BALAUREA" world_size="1536" drop_type="BALAUREA_HIGH" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="600100000" cName="LDF4_Advance" name="Levinshor" name_id="404076" max_user="200" water_level="225" world_type="BALAUREA" world_size="2048" drop_type="BALAUREA_HIGH" flags="BIND RECALL GLIDE RIDE PVP DUEL_SAME_RACE"/>
+	<map id="710010000" cName="Housing_DF_personal" name="Pernon" name_id="401832" water_level="70" world_type="ASMODAE" world_size="3072" drop_type="ASMODAE" flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE"/>
 </world_maps>)x";
 }
 

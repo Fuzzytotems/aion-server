@@ -7,7 +7,7 @@
 
 #define AION_STATIC_DATA_HOLDERS(X) \
 	X("world_maps", ::aion::gameserver::dataholders::WorldMapsData, worldMapsData) \
-	X("weather", ::aion::gameserver::dataholders::MapWeatherData, mapWeatherData) \
+	X("weather_maps", ::aion::gameserver::dataholders::MapWeatherData, mapWeatherData) \
 	X("npc_trade_list", ::aion::gameserver::dataholders::TradeListData, tradeListData) \
 	X("npc_teleporter", ::aion::gameserver::dataholders::TeleporterData, teleporterData) \
 	X("teleport_location", ::aion::gameserver::dataholders::TeleLocationData, teleLocationData) \
@@ -15,6 +15,10 @@
 	X("quests", ::aion::gameserver::dataholders::QuestsData, questData) \
 	X("quest_scripts", ::aion::gameserver::dataholders::XMLQuests, questsScriptData) \
 	X("player_experience_table", ::aion::gameserver::dataholders::PlayerExperienceTable, playerExperienceTable) \
+	X("pvp_exp_table", ::aion::gameserver::dataholders::PvpExpTable, pvpExpTable) \
+	X("pvp_exp_mod_table", ::aion::gameserver::dataholders::PvpExpModTable, pvpExpModTable) \
+	X("party_exp_mod_table", ::aion::gameserver::dataholders::PartyExpModTable, partyExpModTable) \
+	X("mentee_exp_limit_table", ::aion::gameserver::dataholders::MenteeExpLimitTable, menteeExpLimitTable) \
 	X("absolute_stats", ::aion::gameserver::dataholders::AbsoluteStatsData, absoluteStatsData) \
 	X("item_templates", ::aion::gameserver::dataholders::ItemData, itemData) \
 	X("random_bonuses", ::aion::gameserver::dataholders::ItemRandomBonusData, itemRandomBonuses) \
@@ -45,7 +49,6 @@
 	X("rift_locations", ::aion::gameserver::dataholders::RiftData, riftData) \
 	X("base_locations", ::aion::gameserver::dataholders::BaseData, baseData) \
 	X("fly_rings", ::aion::gameserver::dataholders::FlyRingData, flyRingData) \
-	X("shields", ::aion::gameserver::dataholders::ShieldData, shieldData) \
 	X("pets", ::aion::gameserver::dataholders::PetData, petData) \
 	X("pet_feed", ::aion::gameserver::dataholders::PetFeedData, petFeedData) \
 	X("dopings", ::aion::gameserver::dataholders::PetDopingData, petDopingData) \
@@ -74,7 +77,6 @@
 	X("house_lands", ::aion::gameserver::dataholders::HouseData, houseData) \
 	X("buildings", ::aion::gameserver::dataholders::HouseBuildingData, houseBuildingData) \
 	X("house_parts", ::aion::gameserver::dataholders::HousePartsData, housePartsData) \
-	X("curing_objects", ::aion::gameserver::dataholders::CuringObjectsData, curingObjectsData) \
 	X("house_npcs", ::aion::gameserver::dataholders::HouseNpcsData, houseNpcsData) \
 	X("assembly_items", ::aion::gameserver::dataholders::AssemblyItemsData, assemblyItemData) \
 	X("mails", ::aion::gameserver::model::templates::mail::Mails, systemMailTemplates) \

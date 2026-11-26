@@ -412,9 +412,9 @@ TEST_F(SkillShellsRealDataTest, SkillTemplatesBindWithHooks) {
 		for (pugi::xml_node effectNode : node.child("effects").children()) {
 			const effect::EffectTemplate* effect = skill.getEffectTemplate(++position);
 			ASSERT_NE(effect, nullptr);
-			EXPECT_EQ(effect->getDuration2(),
-				number(effectNode, "duration2") + (dynamic_cast<const effect::AbstractOverTimeEffect*>(effect) != nullptr ? 1000 : 0))
-				<< "AbstractOverTimeEffect adds 1000";
+			EXPECT_EQ(effect->getDuration2(), number(effectNode, "duration2")) << "not virtual since upstream 01a5602f1";
+			if (const auto* overTime = dynamic_cast<const effect::AbstractOverTimeEffect*>(effect))
+				EXPECT_EQ(overTime->getDuration2PlusOneSecond(), number(effectNode, "duration2") + 1000) << "C++ interim (P5-02b.md)";
 			EXPECT_EQ(effect->getEffectId(), number(effectNode, "effectid"));
 			EXPECT_EQ(effect->getPosition(), number(effectNode, "e"));
 			EXPECT_EQ(effect->getBasicLvl(), number(effectNode, "basiclvl"));

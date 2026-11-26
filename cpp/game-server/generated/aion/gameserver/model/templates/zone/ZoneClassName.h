@@ -11,7 +11,6 @@ namespace aion::gameserver::model::templates::zone {
 
 /** Java enum com.aionemu.gameserver.model.templates.zone.ZoneClassName: constants in ordinal order (EnumTraits: names and XML lexical forms). */
 enum class ZoneClassName : uint8_t {
-	DUMMY,
 	SUB,
 	FLY,
 	NO_FLY,
@@ -33,8 +32,7 @@ namespace aion::gameserver::xml {
 template <>
 struct EnumTraits<::aion::gameserver::model::templates::zone::ZoneClassName> {
 	static constexpr std::string_view javaName = "ZoneClassName";
-	static constexpr std::array<std::string_view, 13> names{
-	  "DUMMY",
+	static constexpr std::array<std::string_view, 12> names{
 	  "SUB",
 	  "FLY",
 	  "NO_FLY",
@@ -48,11 +46,10 @@ struct EnumTraits<::aion::gameserver::model::templates::zone::ZoneClassName> {
 	  "WEATHER",
 	  "DOMINION",
 	};
-	static constexpr std::array<EnumEntry<::aion::gameserver::model::templates::zone::ZoneClassName>, 13> xmlSorted{{
+	static constexpr std::array<EnumEntry<::aion::gameserver::model::templates::zone::ZoneClassName>, 12> xmlSorted{{
 	  {"ARTIFACT", ::aion::gameserver::model::templates::zone::ZoneClassName::ARTIFACT},
 	  {"DOMINION", ::aion::gameserver::model::templates::zone::ZoneClassName::DOMINION},
 	  {"DUEL", ::aion::gameserver::model::templates::zone::ZoneClassName::DUEL},
-	  {"DUMMY", ::aion::gameserver::model::templates::zone::ZoneClassName::DUMMY},
 	  {"FLY", ::aion::gameserver::model::templates::zone::ZoneClassName::FLY},
 	  {"FORT", ::aion::gameserver::model::templates::zone::ZoneClassName::FORT},
 	  {"HOUSE", ::aion::gameserver::model::templates::zone::ZoneClassName::HOUSE},

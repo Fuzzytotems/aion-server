@@ -132,28 +132,28 @@ constexpr const char* ITEMS_XML =
 
 /** npc_templates.xml:57842-57847 */
 constexpr const char* PINKBEAK_AIRON_XML =
-	R"(<npc_template npc_id="210668" level="4" name="pinkbeak airon" name_id="301027" height="2.02" group_drop="HIIV" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="210668" level="4" name="pinkbeak airon" name_id="301027" group_drop="HIIV" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="BEAST" tribe="MONSTER" ai="aggressive" srange="8" sangle="240" arange="2" attack_speed="2142" hpgauge="3")"
 	R"( floatcorpse="true"><stats maxHp="383"><speeds walk="0.955" group_walk="0.955" run="6.806" run_fight="5.3" group_run_fight="6.806" />)"
 	R"(</stats><bound_radius front="0.35" side="0.78" upper="2.02" /></npc_template>)";
 
 /** npc_templates.xml:57863-57871, without its <equipment> (:57867-57869) */
 constexpr const char* BIGFOOT_KERUBAR_XML =
-	R"(<npc_template npc_id="210671" level="4" name="bigfoot kerubar" name_id="301030" height="1.372" group_drop="CHERUBIM" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="210671" level="4" name="bigfoot kerubar" name_id="301030" group_drop="CHERUBIM" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="aggressive" srange="7" sangle="240" arange="2" attack_speed="2100")"
 	R"( hpgauge="3"><stats maxHp="383"><speeds walk="0.6" group_walk="0.6" run="7" run_fight="5.5" group_run_fight="7" /></stats>)"
 	R"(<bound_radius front="0.62999994" side="0.33" upper="1.372" /></npc_template>)";
 
 /** npc_templates.xml:110796-110801, the first npc of quest 30408's drops */
 constexpr const char* LOYAL_HETGOLEM_XML =
-	R"(<npc_template npc_id="217264" level="60" name="loyal hetgolem" name_id="323133" height="2.96" group_drop="ROLLINGGOLEM" rank="VETERAN")"
+	R"(<npc_template npc_id="217264" level="60" name="loyal hetgolem" name_id="323133" group_drop="ROLLINGGOLEM" rank="VETERAN")"
 	R"( rating="HERO" race="DEMIHUMANOID" tribe="XDRAKAN" type="MONSTER" ai="aggressive" srange="10" arange="20" attack_speed="2599" hpgauge="21")"
 	R"( cancel_level="0"><stats maxHp="179681" msup="207"><speeds walk="1.4" group_walk="1.4" run="12" run_fight="12" group_run_fight="12" />)"
 	R"(</stats><bound_radius front="1.36" side="0.96" upper="2.96" /></npc_template>)";
 
 /** npc_templates.xml:54701-54710, without its <equipment> (:54705-54708): the first npc of quest 37001's drops */
 constexpr const char* VETERAN_TURSIN_WATCHER_XML =
-	R"(<npc_template npc_id="210165" level="16" name="veteran tursin watcher" name_id="300135" height="2.04" group_drop="KRALLSCOUT" rank="EXPERT")"
+	R"(<npc_template npc_id="210165" level="16" name="veteran tursin watcher" name_id="300135" group_drop="KRALLSCOUT" rank="EXPERT")"
 	R"( rating="NORMAL" race="KRALL" tribe="KRALL" ai="aggressive" srange="8" sangle="240" arange="20" attack_speed="2260" hpgauge="5")"
 	R"( cancel_level="80"><stats maxHp="3020"><speeds walk="2" group_walk="2" run="8.8" run_fight="6" group_run_fight="8.8" /></stats>)"
 	R"(<bound_radius front="0.77" side="0.3955" upper="2.04" /></npc_template>)";
@@ -225,7 +225,7 @@ protected:
 	/** An item row of the cube as the inventory DAO loads it (onLoadHandler: no packet) */
 	void holdInCube(int32_t objId, int32_t itemId, int64_t count) {
 		Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, false, false, 0,
-			model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 		f.player->getInventory().onLoadHandler(*item);
 		items.push_back(item);
 	}

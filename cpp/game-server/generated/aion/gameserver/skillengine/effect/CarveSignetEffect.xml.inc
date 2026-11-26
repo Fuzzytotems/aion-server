@@ -12,3 +12,4 @@ protected:
 	int32_t signetId = 0; // @XmlAttribute(name = "signet_id", required = true)
 	std::string signet; // @XmlAttribute(name = "signet", required = true)
 	int32_t prob = 100; // @XmlAttribute(name = "prob", required = true) Java: = 100
+	int32_t probDelta = 0; // @XmlAttribute(name = "prob_delta")

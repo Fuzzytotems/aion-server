@@ -164,7 +164,7 @@ const model::templates::npc::NpcTemplate* boundTemplate(const char* xmlText) {
 /** the earth spirit 833287 of npc_templates.xml, verbatim */
 const model::templates::npc::NpcTemplate* earthSpirit() {
 	static const model::templates::npc::NpcTemplate* bound = boundTemplate(
-		R"(<npc_template npc_id="833287" level="16" name="earth spirit" name_id="466282" height="1" group_drop="ELEMENTALEARTH1" rank="DISCIPLINED")"
+		R"(<npc_template npc_id="833287" level="16" name="earth spirit" name_id="466282" group_drop="ELEMENTALEARTH1" rank="DISCIPLINED")"
 		R"( rating="NORMAL" race="ELEMENTAL" tribe="PET" type="SUMMON_PET" srange="15" arange="2" attack_speed="2040" hpgauge="3" cancel_level="90">)"
 		R"(<stats maxHp="1575" attack="85" pdef="575" mresist="340" accuracy="503" macc="291" pcrit="50" mcrit="18" evasion="503" parry="0">)"
 		R"(<speeds walk="2" group_walk="1.2" run="8.4" run_fight="8.4" group_run_fight="8" /></stats>)"

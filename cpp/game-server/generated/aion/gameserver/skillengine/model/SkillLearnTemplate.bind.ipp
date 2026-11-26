@@ -41,6 +41,12 @@ bool XmlBinding<::aion::gameserver::skillengine::model::SkillLearnTemplate>::att
 				return true;
 			}
 			break;
+		case "skillLevel"_xh:
+			if (name == "skillLevel") {
+				c.assign(o.skillLevel, value);
+				return true;
+			}
+			break;
 		case "autolearn"_xh:
 			if (name == "autolearn") {
 				c.assign(o.autolearn, value);

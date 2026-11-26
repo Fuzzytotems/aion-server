@@ -5,7 +5,8 @@
 #include "aion/gameserver/dao/PlayerEmotionListDAO.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/emotion/Emotion.h"
-#include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION_LIST.h"
 #include "aion/gameserver/taskmanager/tasks/ExpireTimerTask.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -53,7 +54,7 @@ bool EmotionList::contains(int32_t emotionId) {
 }
 
 bool EmotionList::canUse(int32_t emotionId) {
-	return !templates::item::actions::EmotionLearnAction::isLearnable(emotionId) || contains(emotionId);
+	return !dataholders::DataManager::ITEM_DATA->isLearnableEmotion(emotionId) || contains(emotionId); // upstream f7230c5fa
 }
 
 std::vector<runtime::Ptr<Emotion>> EmotionList::getEmotions() {

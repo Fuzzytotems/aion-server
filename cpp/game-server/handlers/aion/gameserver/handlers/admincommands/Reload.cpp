@@ -137,8 +137,11 @@ void Reload::execute(Player& admin, std::span<const std::string> params) {
 			rewards += static_cast<int64_t>(l.getArcadeRewardItems().size()); // parity: (the same)
 		sendInfo(admin, std::to_string(rewards) + " upgrade arcade rewards loaded."); // parity= sendInfo(admin, rewards + " upgrade arcade rewards loaded.");
 	} else if (equalsIgnoreCase(params[0], "decomposables")) { // parity= } else if (params[0].equalsIgnoreCase("decomposables")) {
-		std::filesystem::path xml("./data/static_data/decomposable_items/decomposable_items.xml"); // parity= File xml = new File("./data/static_data/decomposable_items/decomposable_items.xml");
-		DataManager::DECOMPOSABLE_ITEMS_DATA.republish(reloadHolderFromFiles<dataholders::DecomposableItemsData>({xml})); // parity= DataManager.DECOMPOSABLE_ITEMS_DATA = JAXBUtil.deserialize(xml, DecomposableItemsData.class, "./data/static_data/decomposable_items/decomposable_items.xsd");
+		// C++ interim (upstream sync foundation, docs/deviations/C2.md): upstream d254ea172 split the data into the files of the folder; Java
+		// 68eccc7b1 binds each file and merges them with DecomposableItemsData.setData, the C++ binds them into one holder whose afterUnmarshal
+		// applies the overrides, and republishes it
+		std::vector<std::filesystem::path> files = utils::xml::XmlUtil::listFiles("./data/static_data/decomposable_items", true); // parity= Collection<File> files = XmlUtil.listFiles("./data/static_data/decomposable_items", true);
+		DataManager::DECOMPOSABLE_ITEMS_DATA.republish(reloadHolderFromFiles<dataholders::DecomposableItemsData>(files)); // parity= DataManager.DECOMPOSABLE_ITEMS_DATA.setData(JAXBUtil.deserialize(files, DecomposableItemsData.class, "./data/static_data/decomposable_items/decomposable_items.xsd"));
 		sendInfo(admin, std::to_string(DataManager::DECOMPOSABLE_ITEMS_DATA->size()) + " item bundles reloaded."); // parity= sendInfo(admin, DataManager.DECOMPOSABLE_ITEMS_DATA.size() + " item bundles reloaded.");
 	} else
 		sendInfo(admin);

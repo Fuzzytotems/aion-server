@@ -136,11 +136,11 @@ std::unordered_map<const ZoneName*, runtime::Ref<ZoneInstance>> ZoneService::get
 	// of a map is created once and kept for the life of the process (every copy Java creates has the same values)
 	const model::templates::zone::WorldZoneTemplate* zone = worldZoneTemplates.computeIfAbsent(
 		mapId, [worldSize](int32_t id) -> const model::templates::zone::WorldZoneTemplate* { return new model::templates::zone::WorldZoneTemplate(worldSize, id); });
-	runtime::Ref<model::geometry::PolyArea> fullArea = model::geometry::PolyArea::create(zone->getName(), mapId, zone->getPoints()->getPoint(),
+	runtime::Ref<model::geometry::PolyArea> fullArea = model::geometry::PolyArea::create(zone->getZoneName(), mapId, zone->getPoints()->getPoints(),
 		zone->getPoints()->getBottom(), zone->getPoints()->getTop());
 	runtime::Ref<ZoneInstance> fullMap = ZoneInstance::create(mapId, *ZoneInfo::create(*fullArea, zone));
-	fullMap->addHandler(*getNewZoneHandler(zone->getName()));
-	zones.insert_or_assign(zone->getName(), fullMap);
+	fullMap->addHandler(*getNewZoneHandler(zone->getZoneName()));
+	zones.insert_or_assign(zone->getZoneName(), fullMap);
 
 	runtime::Ptr<ZoneInfoList> areas = zoneByMapIdMap.get(mapId);
 	if (!areas)
@@ -175,14 +175,14 @@ std::unordered_map<const ZoneName*, runtime::Ref<ZoneInstance>> ZoneService::get
 				runtime::Ref<SiegeZoneInstance> siegeZone = SiegeZoneInstance::create(mapId, *area);
 				instance = siegeZone;
 				if (!zoneTemplate->getSiegeId()) // Java: NullPointerException when iterating a null list
-					throw runtime::NullPointerException("ZoneTemplate.getSiegeId() is null for zone " + zoneTemplate->getName()->name());
+					throw runtime::NullPointerException("ZoneTemplate.getSiegeId() is null for zone " + zoneTemplate->getZoneName()->name());
 				for (int32_t artifactId : *zoneTemplate->getSiegeId()) {
 					const runtime::Ref<model::siege::ArtifactLocation>* artifactEntry =
 						dataholders::DataManager::SIEGE_LOCATION_DATA->getArtifacts().get(artifactId);
 					runtime::Ptr<model::siege::ArtifactLocation> artifact =
 						artifactEntry != nullptr ? runtime::Ptr<model::siege::ArtifactLocation>(*artifactEntry) : nullptr;
 					if (!artifact) {
-						log.warn("Missing siege location data for zone " + zoneTemplate->getName()->name());
+						log.warn("Missing siege location data for zone " + zoneTemplate->getZoneName()->name());
 					} else {
 						artifact->addZone(*siegeZone);
 					}
@@ -200,14 +200,14 @@ std::unordered_map<const ZoneName*, runtime::Ref<ZoneInstance>> ZoneService::get
 					instance = ZoneInstance::create(mapId, *area);
 				}
 		}
-		instance->addHandler(*getNewZoneHandler(zoneTemplate->getName()));
-		zones.insert_or_assign(zoneTemplate->getName(), instance);
+		instance->addHandler(*getNewZoneHandler(zoneTemplate->getZoneName()));
+		zones.insert_or_assign(zoneTemplate->getZoneName(), instance);
 	}
 	return zones;
 }
 
 runtime::Ref<InvasionZoneInstance> ZoneService::getIZI(ZoneInfo& area) {
-	std::string name = area.getZoneTemplate()->getName()->name();
+	std::string name = area.getZoneTemplate()->getZoneName()->name();
 	if (name == "WAILING_CLIFFS_220050000" || name == "BALTASAR_CEMETERY_220050000" || name == "THE_LEGEND_SHRINE_220050000" ||
 		name == "SUDORVILLE_220050000" || name == "BALTASAR_HILL_VILLAGE_220050000" || name == "BRUSTHONIN_MITHRIL_MINE_220050000") {
 		return validateZone(area);
@@ -281,7 +281,7 @@ void ZoneService::createMaterialZoneTemplate(geoEngine::scene::Spatial& geometry
 		}
 		runtime::Ptr<ZoneInfo> zoneInfo;
 		for (runtime::Ptr<ZoneInfo> area : *areas) {
-			if (area->getZoneTemplate()->getName() == zoneName) {
+			if (area->getZoneTemplate()->getZoneName() == zoneName) {
 				zoneInfo = area;
 				break;
 			}

@@ -15,10 +15,6 @@ bool XmlBinding<::aion::gameserver::skillengine::effect::TargetTeleportEffect>::
 		c.assign(o.loc, value);
 		return true;
 	}
-	if (name == "distance") {
-		c.assign(o.distance, value);
-		return true;
-	}
 	return XmlBinding<::aion::gameserver::skillengine::effect::EffectTemplate>::attribute(o, c, name, value);
 }
 

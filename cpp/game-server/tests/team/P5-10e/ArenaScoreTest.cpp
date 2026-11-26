@@ -83,7 +83,7 @@ constexpr const char* BONUS_ATTR_XML = R"(<instance_bonusattrs>
 </instance_bonusattrs>)";
 
 /** the shared Poeta row (ItemPacketTestSupport.h, world_maps.xml:11 reduced), character for character */
-constexpr const char* POETA_ROW = R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+constexpr const char* POETA_ROW = R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 	R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>)";
 
 /**
@@ -91,9 +91,9 @@ constexpr const char* POETA_ROW = R"(<map id="210010000" cName="LF1" name="Poeta
  * through DataManager.WORLD_MAPS_DATA (ZoneService), so the fixture publishes them beside Poeta and restores the Poeta-only holder after.
  */
 constexpr const char* ARENA_MAPS_XML = R"(<world_maps>)"
-	R"(<map id="300350000" cName="IDArena" name="Arena of Chaos" name_id="1" water_level="16" death_level="0" world_type="ELYSEA" world_size="1024" flags="FLY"/>)"
-	R"(<map id="300360000" cName="IDArena_Solo" name="Arena of Discipline" name_id="1" water_level="16" death_level="0" world_type="ELYSEA" world_size="1024" flags="FLY"/>)"
-	R"(<map id="300450000" cName="IDArena_Team01" name="Arena of Harmony" name_id="1" water_level="16" death_level="0" world_type="ELYSEA" world_size="1024" flags="FLY"/>)"
+	R"(<map id="300350000" cName="IDArena" name="Arena of Chaos" name_id="1" water_level="16" world_type="ELYSEA" world_size="1024" flags="FLY"/>)"
+	R"(<map id="300360000" cName="IDArena_Solo" name="Arena of Discipline" name_id="1" water_level="16" world_type="ELYSEA" world_size="1024" flags="FLY"/>)"
+	R"(<map id="300450000" cName="IDArena_Team01" name="Arena of Harmony" name_id="1" water_level="16" world_type="ELYSEA" world_size="1024" flags="FLY"/>)"
 	R"(</world_maps>)";
 
 /** An instance script whose score the test sets (an arena's handler creates its score in onInstanceCreate) */

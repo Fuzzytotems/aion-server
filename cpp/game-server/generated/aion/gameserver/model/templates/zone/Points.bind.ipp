@@ -24,14 +24,14 @@ bool XmlBinding<::aion::gameserver::model::templates::zone::Points>::attribute(:
 
 bool XmlBinding<::aion::gameserver::model::templates::zone::Points>::element(::aion::gameserver::model::templates::zone::Points& o, BindContext& c, pugi::xml_node e, std::string_view name) {
 	if (name == "point") {
-		c.bindList(o.point, e);
+		c.bindList(o.points, e);
 		return true;
 	}
 	return false;
 }
 
 void XmlBinding<::aion::gameserver::model::templates::zone::Points>::reserve(::aion::gameserver::model::templates::zone::Points& o, const ChildCounts& counts) {
-	o.point.reserve(counts["point"]);
+	o.points.reserve(counts["point"]);
 }
 
 void XmlBinding<::aion::gameserver::model::templates::zone::Points>::finish(::aion::gameserver::model::templates::zone::Points&, BindContext& c, const XmlParent&) {

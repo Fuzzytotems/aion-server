@@ -22,16 +22,13 @@ void NpcShoutData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParen
 			const std::vector<int32_t>& npcIds = shoutList.getNpcIds();
 			for (int32_t j = static_cast<int32_t>(npcIds.size()) - 1; j >= 0; j--) {
 				int32_t npcId = npcIds[static_cast<size_t>(j)];
-				ShoutVector& shouts = worldShouts[npcId]; // Java: put a new list or addAll to the present one
+				ShoutVector& shouts = worldShouts[npcId]; // Java: computeIfAbsent(npcId, _ -> new ArrayList<>()).addAll(shoutList.getNpcShouts())
 				for (const NpcShout& shout : shoutList.getNpcShouts())
 					shouts.push_back(&shout);
-				// Java: shoutList.getNpcIds().remove(j)
 			}
-			// Java: shoutList.getNpcShouts().clear(); shoutList.makeNull(); group.getShoutNpcs().remove(i) (the C++ lists stay)
 		}
-		// Java: group.makeNull()
 	}
-	// Java: this.shoutGroups.clear(); this.shoutGroups = null (the C++ index points into the storage, which stays)
+	// Java: this.shoutGroups = null (the C++ index points into the storage, which stays)
 }
 
 int32_t NpcShoutData::size() const {

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/model/templates/zone/WorldZoneTemplate.h"
 #include "aion/gameserver/ai/event/AIEventType.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
@@ -29,18 +30,22 @@ using model::templates::zone::ZoneClassName;
 
 /**
  * Java: `Comparator.comparing((ZoneInstance z) -> z.getZoneTemplate().getZoneType()).thenComparingInt(z -> z.getZoneTemplate().getPriority())
- * .thenComparingInt(z -> z.getZoneTemplate().getName().id())` (MapRegion.java:23): the enum ordinal, then Integer.compare twice.
+ * .thenComparingInt(z -> z.getZoneTemplate().getZoneName().id())` (MapRegion.java:23): the enum ordinal, then Integer.compare twice.
  */
 struct ZoneComparator : runtime::TaskStruct {
 	int32_t operator()(zone::ZoneInstance& first, zone::ZoneInstance& second) const {
 		const auto* a = first.getZoneTemplate();
 		const auto* b = second.getZoneTemplate();
+		// C++ interim: the whole map zone sorts first, as its zone type DUMMY (ordinal 0) did before upstream 2b097879f (WorldZoneTemplate.h)
+		bool aWhole = a->isWholeMapZone(), bWhole = b->isWholeMapZone();
+		if (aWhole != bWhole)
+			return aWhole ? -1 : 1;
 		if (a->getZoneType() != b->getZoneType())
 			return a->getZoneType() < b->getZoneType() ? -1 : 1;
 		if (a->getPriority() != b->getPriority())
 			return a->getPriority() < b->getPriority() ? -1 : 1;
-		int32_t aId = a->getName()->id();
-		int32_t bId = b->getName()->id();
+		int32_t aId = a->getZoneName()->id();
+		int32_t bId = b->getZoneName()->id();
 		return aId == bId ? 0 : (aId < bId ? -1 : 1);
 	}
 };
@@ -239,7 +244,7 @@ bool MapRegion::onDie(model::gameobjects::Creature& attacker, model::gameobjects
 
 bool MapRegion::isInsideZone(const zone::ZoneName* zoneName, float x, float y, float z) {
 	for (runtime::Ptr<zone::ZoneInstance> zone : *zonesSortedByTypeAndPriority) {
-		if (zone->getZoneTemplate()->getName() != zoneName)
+		if (zone->getZoneTemplate()->getZoneName() != zoneName)
 			continue;
 		return zone->isInsideCordinate(x, y, z);
 	}
@@ -248,7 +253,7 @@ bool MapRegion::isInsideZone(const zone::ZoneName* zoneName, float x, float y, f
 
 bool MapRegion::isInsideZone(const zone::ZoneName* zoneName, model::gameobjects::Creature& creature) {
 	for (runtime::Ptr<zone::ZoneInstance> zone : *zonesSortedByTypeAndPriority) {
-		if (zone->getZoneTemplate()->getName() == zoneName)
+		if (zone->getZoneTemplate()->getZoneName() == zoneName)
 			return zone->isInsideCreature(creature);
 	}
 	return false;

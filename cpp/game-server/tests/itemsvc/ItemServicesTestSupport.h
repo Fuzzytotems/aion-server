@@ -27,8 +27,6 @@
 #include "aion/gameserver/dataholders/ItemRestrictionCleanupData.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
@@ -415,7 +413,7 @@ inline std::vector<uint8_t> itemUsageAnimation(int32_t playerObjId, int32_t item
 /** An item row as the inventory DAO loads it: count, location and slot, everything else 0 */
 inline Ref<Item> loadedItem(int32_t objId, int32_t itemId, int64_t count, StorageType location, int64_t slot = 0, bool equipped = false) {
 	return Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, equipped, false, slot, model::items::storage::getId(location), 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+		0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 }
 
 /**
@@ -432,11 +430,9 @@ inline void publishPoetaCastWorldDataOnce() {
 		static std::deque<xml::LoadContext> contexts;
 		if (!dataholders::DataManager::WORLD_MAPS_DATA)
 			dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(),
-				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="400234" twin_count="5" beginner_twin_count="6" max_user="200" water_level="100" death_level="0" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/></world_maps>)"));
+				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="400234" twin_count="5" max_user="200" water_level="100" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/></world_maps>)"));
 		if (!dataholders::DataManager::ZONE_DATA)
 			dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		if (!dataholders::DataManager::SHIELD_DATA)
-			dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		return true;
 	}();
 	static_cast<void>(published);

@@ -18,7 +18,7 @@ void CharacterAppearance::writeTo(PacketWriter& writer) const {
 	writer.C(eyeHeight).C(eyeSpace).C(eyeWidth).C(eyeSize).C(eyeShape).C(eyeAngle);
 	writer.C(browHeight).C(browAngle).C(browShape);
 	writer.C(nose).C(noseBridge).C(noseWidth).C(noseTip);
-	writer.C(cheek).C(lipHeight).C(mouthSize).C(lipSize).C(smile).C(lipShape).C(jawHeight).C(chinJut).C(earShape).C(headSize);
+	writer.C(cheek).C(lipHeight).C(mouthSize).C(lipSize).C(smile).C(lipShape).C(chinHeight).C(cheekBones).C(earShape).C(headSize);
 	writer.C(neck).C(neckLength);
 	writer.C(shoulderSize);
 	writer.C(torso).C(chest).C(waist).C(hips);

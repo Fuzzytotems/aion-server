@@ -24,8 +24,6 @@
 #include "aion/gameserver/dataholders/MaterialData.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
@@ -95,7 +93,7 @@ inline constexpr int32_t DIALOG_NPC_ID = 210670;
 inline constexpr int32_t AGGRO_TO_PC_NPC_ID = 210160;
 
 inline const char* const AI_WORLD_MAPS_XML = R"(<world_maps>)"
-											 R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+											 R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 											 R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>)"
 											 R"(</world_maps>)";
 
@@ -193,7 +191,6 @@ inline void publishAiMapStaticDataOnce() {
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(
 			xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), AI_WORLD_MAPS_XML));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(
 			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 		return true;

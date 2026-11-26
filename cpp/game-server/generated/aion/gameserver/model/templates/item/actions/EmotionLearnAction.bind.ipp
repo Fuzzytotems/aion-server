@@ -22,14 +22,8 @@ bool XmlBinding<::aion::gameserver::model::templates::item::actions::EmotionLear
 	return false;
 }
 
-void XmlBinding<::aion::gameserver::model::templates::item::actions::EmotionLearnAction>::finish(::aion::gameserver::model::templates::item::actions::EmotionLearnAction& o, BindContext& c, const XmlParent& parent) {
+void XmlBinding<::aion::gameserver::model::templates::item::actions::EmotionLearnAction>::finish(::aion::gameserver::model::templates::item::actions::EmotionLearnAction&, BindContext& c, const XmlParent&) {
 	c.checkRequiredAttributes({"emotionid"});
-	if (c.hooksEnabled())
-		XmlBinding<::aion::gameserver::model::templates::item::actions::EmotionLearnAction>::afterUnmarshal(o, c.load(), parent);
-}
-
-void XmlBinding<::aion::gameserver::model::templates::item::actions::EmotionLearnAction>::afterUnmarshal(::aion::gameserver::model::templates::item::actions::EmotionLearnAction& o, LoadContext& ctx, const XmlParent& parent) {
-	o.afterUnmarshal(ctx, parent);
 }
 
 } // namespace aion::gameserver::xml

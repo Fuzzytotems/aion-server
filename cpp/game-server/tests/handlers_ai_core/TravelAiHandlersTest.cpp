@@ -121,7 +121,7 @@ constexpr const char* AUDIT_LOGGER = "AUDIT_LOG";
 
 std::string row(int32_t npcId, const char* name, const char* extra, const char* ai, const char* talkInfo) {
 	return "<npc_template npc_id=\"" + std::to_string(npcId) + "\" level=\"1\" name=\"" + name
-		   + "\" name_id=\"350971\" height=\"2\" group_drop=\"NONE\" rank=\"DISCIPLINED\" rating=\"NORMAL\" " + extra + " type=\"GENERAL\" ai=\""
+		   + "\" name_id=\"350971\" group_drop=\"NONE\" rank=\"DISCIPLINED\" rating=\"NORMAL\" " + extra + " type=\"GENERAL\" ai=\""
 		   + ai + "\" sangle=\"0\" attack_speed=\"2000\" hpgauge=\"3\"><stats maxHp=\"172\" /><bound_radius front=\"0.25\" side=\"0.35\" upper=\"2\" />"
 		   + talkInfo + "</npc_template>";
 }

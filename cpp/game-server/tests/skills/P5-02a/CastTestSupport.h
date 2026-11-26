@@ -47,8 +47,6 @@
 #include "aion/gameserver/dataholders/NpcSkillData.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.bind.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SkillChargeData.bind.h"
 #include "aion/gameserver/dataholders/SkillChargeData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
@@ -329,7 +327,7 @@ inline const char* const CAST_TEST_MOTION_TIMES_XML = R"(<motion_times><motion_t
 // ------------------------------------------------------------------------------------------------------------------------- static data
 
 inline const char* const CAST_TEST_WORLD_MAPS_XML = R"(<world_maps>)"
-													R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+													R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 													R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>)"
 													R"(</world_maps>)";
 
@@ -353,7 +351,6 @@ inline void publishCastStaticDataOnce() {
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(
 			xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), CAST_TEST_WORLD_MAPS_XML));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(
 			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 		return true;

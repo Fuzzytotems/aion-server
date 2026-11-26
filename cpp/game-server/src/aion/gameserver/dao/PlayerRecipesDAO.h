@@ -10,12 +10,13 @@
 namespace aion::gameserver::dao {
 
 /**
- * @author lord_rex
+ * @author lord_rex, SVDNESS
  */
 class PlayerRecipesDAO {
 public:
 	static runtime::Ref<model::gameobjects::player::RecipeList> load(int32_t playerId);
-	static bool addRecipe(int32_t playerId, int32_t recipeId);
+	static bool addRecipe(int32_t playerId, int32_t recipeId, int32_t productionLimit);
+	static bool updateProductionLimit(int32_t playerId, int32_t recipeId, int32_t productionLimit);
 	static bool delRecipe(int32_t playerId, int32_t recipeId);
 };
 

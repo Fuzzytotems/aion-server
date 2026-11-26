@@ -129,8 +129,8 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 	writeC(playerAppearance->getLipSize());
 	writeC(playerAppearance->getSmile());
 	writeC(playerAppearance->getLipShape());
-	writeC(playerAppearance->getJawHeigh());
-	writeC(playerAppearance->getChinJut());
+	writeC(playerAppearance->getChinHeight());
+	writeC(playerAppearance->getCheekBones());
 	writeC(playerAppearance->getEarShape());
 	writeC(playerAppearance->getHeadSize());
 	// 1.5.x 0x00, shoulderSize, armLength, legLength (BYTE) after HeadSize

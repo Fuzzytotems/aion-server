@@ -121,7 +121,7 @@ TEST(PlayerModelDeclarationsTest, CollectionsAndSynchronizedAccessors) {
 	runtime::Ref<BlockList> blockList = BlockList::create({{7, blocked}});
 	EXPECT_EQ(BlockList::MAX_BLOCKS, 100);
 	runtime::Ref<RecipeList> recipes = RecipeList::create({1, 2, 3});
-	EXPECT_EQ(recipes->getRecipeList().size(), 3);
+	EXPECT_EQ(recipes->size(), 3);
 	runtime::Ref<Cooldowns> cooldowns = Cooldowns::create();
 	EXPECT_FALSE(cooldowns->hasCooldown(1)); // ported by P4-12 (PlayerModelBodiesTest covers the expiry)
 }

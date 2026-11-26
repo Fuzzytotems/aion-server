@@ -4,13 +4,13 @@
 	friend struct ::aion::gameserver::xml::XmlBinding<::aion::gameserver::model::templates::world::WeatherTable>;
 
 protected:
-	std::vector<std::unique_ptr<::aion::gameserver::model::templates::world::WeatherEntry>> zoneData; // @XmlElement(name = "table", required = true)
-	int32_t weatherCount = 0; // @XmlAttribute(name = "weather_count", required = true)
+	std::vector<::aion::gameserver::model::templates::world::WeatherEntry> entries; // @XmlElement(name = "weather")
 	int32_t zoneCount = 0; // @XmlAttribute(name = "zone_count", required = true)
 	int32_t mapId = 0; // @XmlAttribute(name = "id", required = true)
 
 public:
-	const std::vector<std::unique_ptr<::aion::gameserver::model::templates::world::WeatherEntry>>& getZoneData() const { return zoneData; }
 	int32_t getMapId() const { return mapId; }
 	int32_t getZoneCount() const { return zoneCount; }
-	int32_t getWeatherCount() const { return weatherCount; }
+
+protected:
+	void afterUnmarshal(::aion::gameserver::xml::LoadContext& ctx, const ::aion::gameserver::xml::XmlParent& parent); // hand-written

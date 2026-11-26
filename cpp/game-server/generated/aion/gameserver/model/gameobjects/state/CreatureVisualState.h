@@ -20,6 +20,7 @@ enum class CreatureVisualState : uint8_t {
 	HIDE13,
 	HIDE20,
 	BLINKING,
+	GM_INVISIBLE,
 };
 
 } // namespace aion::gameserver::model::gameobjects::state
@@ -29,7 +30,7 @@ namespace aion::gameserver::xml {
 template <>
 struct EnumTraits<::aion::gameserver::model::gameobjects::state::CreatureVisualState> {
 	static constexpr std::string_view javaName = "CreatureVisualState";
-	static constexpr std::array<std::string_view, 9> names{
+	static constexpr std::array<std::string_view, 10> names{
 	  "VISIBLE",
 	  "HIDE1",
 	  "HIDE2",
@@ -39,9 +40,11 @@ struct EnumTraits<::aion::gameserver::model::gameobjects::state::CreatureVisualS
 	  "HIDE13",
 	  "HIDE20",
 	  "BLINKING",
+	  "GM_INVISIBLE",
 	};
-	static constexpr std::array<EnumEntry<::aion::gameserver::model::gameobjects::state::CreatureVisualState>, 9> xmlSorted{{
+	static constexpr std::array<EnumEntry<::aion::gameserver::model::gameobjects::state::CreatureVisualState>, 10> xmlSorted{{
 	  {"BLINKING", ::aion::gameserver::model::gameobjects::state::CreatureVisualState::BLINKING},
+	  {"GM_INVISIBLE", ::aion::gameserver::model::gameobjects::state::CreatureVisualState::GM_INVISIBLE},
 	  {"HIDE1", ::aion::gameserver::model::gameobjects::state::CreatureVisualState::HIDE1},
 	  {"HIDE10", ::aion::gameserver::model::gameobjects::state::CreatureVisualState::HIDE10},
 	  {"HIDE13", ::aion::gameserver::model::gameobjects::state::CreatureVisualState::HIDE13},

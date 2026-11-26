@@ -13,7 +13,7 @@ void SM_WEATHER::writeImpl(AionConnection* con) {
 	writeC(0x00); // unk
 	writeC(static_cast<int32_t>(weatherEntries.size()));
 	for (const model::templates::world::WeatherEntry* entry : weatherEntries)
-		writeC(entry->getCode());
+		writeC(entry != nullptr ? entry->getCode() : 0); // C++ interim: nullptr is clear sky (WeatherService.h)
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

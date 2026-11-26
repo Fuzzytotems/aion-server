@@ -57,8 +57,6 @@
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.bind.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SpawnsData.bind.h"
 #include "aion/gameserver/dataholders/SpawnsData.h"
 #include "aion/gameserver/dataholders/StaticDoorData.bind.h"
@@ -126,7 +124,6 @@ inline bool publishAscensionWorldData() {
 		static std::deque<xml::LoadContext> contexts;
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), worldMapsXml()));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(
 			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 		// the server's startup with geo data off (GameServer -> GeoService.init): one empty GeoMap per map, so a spawn with a static id reaches

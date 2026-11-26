@@ -59,12 +59,12 @@ constexpr const char* SUMMON_SKILLS_XML =
 
 /** The earth spirit 833287 and the trap 749211 "small aether generator" of npc_templates.xml, verbatim */
 constexpr std::string_view SUMMON_NPCS_XML =
-	R"(<npc_templates><npc_template npc_id="833287" level="16" name="earth spirit" name_id="466282" height="1" group_drop="ELEMENTALEARTH1")"
+	R"(<npc_templates><npc_template npc_id="833287" level="16" name="earth spirit" name_id="466282" group_drop="ELEMENTALEARTH1")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELEMENTAL" tribe="PET" type="SUMMON_PET" srange="15" arange="2" attack_speed="2040" hpgauge="3")"
 	R"( cancel_level="90"><stats maxHp="1575" attack="85" pdef="575" mresist="340" accuracy="503" macc="291" pcrit="50" mcrit="18" evasion="503")"
 	R"( parry="0"><speeds walk="2" group_walk="1.2" run="8.4" run_fight="8.4" group_run_fight="8" /></stats>)"
 	R"(<bound_radius front="0.25" side="0.25" upper="2.8" /></npc_template>)"
-	R"(<npc_template npc_id="749211" level="54" name="small aether generator" name_id="392067" height="3" group_drop="NONE" rank="NOVICE")"
+	R"(<npc_template npc_id="749211" level="54" name="small aether generator" name_id="392067" group_drop="NONE" rank="NOVICE")"
 	R"( rating="JUNK" race="ELYOS" tribe="ATKDRAKAN" type="ABYSS_GUARD" ai="trap" srange="4" attack_speed="2000" hpgauge="1"><stats maxHp="1" />)"
 	R"(<bound_radius front="0.6" side="1.728" upper="3" /></npc_template></npc_templates>)";
 

@@ -10,6 +10,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -20,6 +21,8 @@
 #include "aion/gameserver/custom/instance/CustomInstanceRank.h"
 #include "aion/gameserver/custom/instance/CustomInstanceRankedPlayer.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/RecipeData.bind.h"
+#include "aion/gameserver/dataholders/RecipeData.h"
 #include "aion/gameserver/dataholders/TownSpawnsData.bind.h"
 #include "aion/gameserver/dataholders/TownSpawnsData.h"
 #include "aion/gameserver/dao/AccountPassportsDAO.h"
@@ -152,16 +155,29 @@ TEST_F(ServerDataDaoTest, WebRewardsBatchUpdateInOneTransaction) {
 }
 
 TEST_F(ServerDataDaoTest, RecipesAddLoadAndDelete) {
+	// load gives a row stored before production counts were tracked (production_limit 0) the template's max_production_count (e5c133836)
+	constexpr const char* recipesXml = R"(<recipe_templates>
+		<recipe_template id="155000001" nameid="730278" skillid="40009" race="ELYOS" skillpoint="1" productid="152000401" quantity="3"/>
+		<recipe_template id="155001739" nameid="754509" skillid="40002" race="ELYOS" skillpoint="450" productid="100200835" quantity="1"
+			max_production_count="3"/>
+	</recipe_templates>)";
+	PublishedHolder recipeData(dataholders::DataManager::RECIPE_DATA, bindXml<dataholders::RecipeData>(recipesXml));
 	insertPlayer(1, "Crafter", 1);
-	EXPECT_TRUE(PlayerRecipesDAO::addRecipe(1, 155000001));
-	EXPECT_TRUE(PlayerRecipesDAO::addRecipe(1, 155000002));
-	EXPECT_FALSE(PlayerRecipesDAO::addRecipe(1, 155000002)) << "duplicate primary key: DB.insertUpdate logs and returns false";
+	EXPECT_TRUE(PlayerRecipesDAO::addRecipe(1, 155000001, 0));
+	EXPECT_TRUE(PlayerRecipesDAO::addRecipe(1, 155000002, 5));
+	EXPECT_FALSE(PlayerRecipesDAO::addRecipe(1, 155000002, 5)) << "duplicate primary key: DB.insertUpdate logs and returns false";
+	execute("INSERT INTO player_recipes (player_id, recipe_id) VALUES (1, 155001739)"); // production_limit defaults to 0
+	EXPECT_EQ(queryLong("SELECT production_limit FROM player_recipes WHERE recipe_id = 155000002"), 5);
 	Ref<model::gameobjects::player::RecipeList> recipes = PlayerRecipesDAO::load(1);
-	EXPECT_EQ(recipes->getRecipeList().size(), 2);
-	EXPECT_TRUE(recipes->getRecipeList().contains(155000001));
+	EXPECT_EQ(recipes->getRecipes(), (std::unordered_map<int32_t, int32_t>{{155000001, 0}, {155000002, 5}, {155001739, 3}}))
+		<< "a stored count is kept, a count of 0 is the template's (0 without a max_production_count or a template)";
+
+	EXPECT_TRUE(PlayerRecipesDAO::updateProductionLimit(1, 155000002, 4));
+	EXPECT_EQ(queryLong("SELECT production_limit FROM player_recipes WHERE recipe_id = 155000002"), 4);
+	EXPECT_EQ(queryLong("SELECT production_limit FROM player_recipes WHERE recipe_id = 155000001"), 0) << "only the named recipe";
 	EXPECT_TRUE(PlayerRecipesDAO::delRecipe(1, 155000001));
-	EXPECT_EQ(PlayerRecipesDAO::load(1)->getRecipeList().size(), 1);
-	EXPECT_EQ(PlayerRecipesDAO::load(2)->getRecipeList().size(), 0);
+	EXPECT_EQ(PlayerRecipesDAO::load(1)->size(), 2);
+	EXPECT_EQ(PlayerRecipesDAO::load(2)->size(), 0);
 }
 
 TEST_F(ServerDataDaoTest, BookmarksReplaceLoadAndDelete) {

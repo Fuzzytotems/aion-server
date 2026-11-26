@@ -9,4 +9,3 @@ protected:
 
 public:
 	int32_t getBuffId() const { return buffId; }
-	void setBuffId(int32_t value) { buffId = value; }

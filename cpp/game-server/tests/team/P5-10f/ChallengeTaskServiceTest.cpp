@@ -252,10 +252,10 @@ protected:
 	void SetUp() override {
 		// before TeamTest publishes Poeta alone: Poeta and the two housing worlds, whose geo maps the Town constructor updates
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(context,
-			R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+			R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 			R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>)"
-			R"(<map id="700010000" cName="Oriel" death_level="0" water_level="0" flags="BIND"/>)"
-			R"(<map id="710010000" cName="Pernon" death_level="0" water_level="0" flags="BIND"/></world_maps>)"));
+			R"(<map id="700010000" cName="Oriel" water_level="0" flags="BIND"/>)"
+			R"(<map id="710010000" cName="Pernon" water_level="0" flags="BIND"/></world_maps>)"));
 		ChallengeTaskServiceTest::SetUp();
 		dataholders::DataManager::TOWN_SPAWNS_DATA.publish(xml::bindString<dataholders::TownSpawnsData>(context,
 			R"(<town_spawns_data><spawn_map map_id="700010000"><town_spawn town_id="1001"><town_level level="1"/></town_spawn></spawn_map>)"

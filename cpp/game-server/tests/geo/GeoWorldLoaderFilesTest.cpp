@@ -177,9 +177,9 @@ protected:
 		GeoCallbacks::setMaterialZoneSink(&collectZone);
 		xml::LoadContext context;
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(context, R"(<world_maps>)"
-			R"(<map id="110010000" cName="A" death_level="0" water_level="0" world_size="1024" flags="RECALL"/>)"
-			R"(<map id="120010000" cName="B" death_level="0" water_level="0" world_size="1024" flags="RECALL"/>)"
-			R"(<map id="130090000" cName="C" death_level="0" water_level="0" world_size="1024" prison="true" flags="RECALL"/>)"
+			R"(<map id="110010000" cName="A" water_level="0" world_size="1024" flags="RECALL"/>)"
+			R"(<map id="120010000" cName="B" water_level="0" world_size="1024" flags="RECALL"/>)"
+			R"(<map id="130090000" cName="C" water_level="0" world_size="1024" prison="true" flags="RECALL"/>)"
 			R"(</world_maps>)"));
 		// the models use materials 0 and 11, which have no material template (GeoWorldLoader.loadMeshes names nodes by the material data)
 		dataholders::DataManager::MATERIAL_DATA.publish(xml::bindString<dataholders::MaterialData>(context,

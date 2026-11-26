@@ -95,7 +95,7 @@ constexpr int32_t INGGISON_PORTAL = 833018;
 
 /** npc_templates.xml:462252-462258, the row of 798100; the cases copy it under the npc ids the AIs switch on */
 constexpr std::string_view NPC_ROW =
-	R"(<npc_template npc_id="798100" level="15" name="zephyr deliveryman" name_id="350579" height="1.16875" group_drop="NONE" )"
+	R"(<npc_template npc_id="798100" level="15" name="zephyr deliveryman" name_id="350579" group_drop="NONE" )"
 	R"(rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="deliveryman" srange="20" sangle="240" )"
 	R"(attack_speed="2000" hpgauge="3"><stats maxHp="2256"><speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" )"
 	R"(group_run_fight="4.23" /></stats><bound_radius front="0.595" side="0.3774" upper="1.16875" /><talk_info distance="5" )"

@@ -97,6 +97,7 @@ aion_gs_add_registries(aion_gs_registry
 	CLIENTPACKETS_ROOT "${GS_SRC}"
 	JAVA_HANDLERS "${GS_JAVA_DIR}/data/handlers"
 	JAVA_CLIENT_PACKET_FACTORY "${GS_JAVA_DIR}/src/com/aionemu/gameserver/network/aion/AionClientPacketFactory.java"
+	JAVA_AHEAD "${CMAKE_CURRENT_SOURCE_DIR}/tools/regscan/java_ahead.txt"
 	HANDLER_LIBRARIES ${AION_GS_HANDLER_TARGETS} aion_gs_login_slice aion_gs_cm_ak aion_gs_cm_lz
 )
 

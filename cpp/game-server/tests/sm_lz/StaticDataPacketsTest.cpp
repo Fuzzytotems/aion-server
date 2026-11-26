@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/model/templates/world/WeatherTable.bind.h"
+#include "aion/gameserver/model/templates/world/WeatherTable.h"
 #include "aion/gameserver/configs/main/EventsConfig.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
@@ -53,8 +55,8 @@ protected:
 	void publishWorldMaps() {
 		xml::LoadContext context;
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(context, R"(<world_maps>)"
-			R"(<map id="110010000" cName="A" death_level="0" water_level="0" world_size="1024" flags="RECALL" twin_count="2" beginner_twin_count="1"/>)"
-			R"(<map id="300030000" cName="B" death_level="0" water_level="0" world_size="1024" flags="RECALL" twin_count="3" instance="true"/>)"
+			R"(<map id="110010000" cName="A" water_level="0" world_size="1024" flags="RECALL" twin_count="2"/>)"
+			R"(<map id="300030000" cName="B" water_level="0" world_size="1024" flags="RECALL" twin_count="3" instance="true"/>)"
 			R"(</world_maps>)"));
 	}
 };
@@ -110,10 +112,14 @@ TEST_F(StaticDataPacketsTest, QuestActionVariantsAndExtraCategory) {
 
 TEST_F(StaticDataPacketsTest, WeatherAndTradeInList) {
 	PACKET_TEST_SCOPE;
-	const model::templates::world::WeatherEntry rain(1, 3);
-	const model::templates::world::WeatherEntry snow(2, 5);
-	const std::vector<const model::templates::world::WeatherEntry*> entries{&rain, &snow};
-	EXPECT_BYTES(serialized(SM_WEATHER(entries)), Bytes().header(67).C(0).C(2).C(3).C(5).data);
+	// upstream 374336b3b: weathers are bound from the table (code = position); C++ interim: nullptr is clear sky (code 0)
+	xml::LoadContext weatherContext;
+	std::unique_ptr<model::templates::world::WeatherTable> table = xml::bindString<model::templates::world::WeatherTable>(weatherContext,
+		R"(<map id="1" zone_count="1"><weather code="1" name="a" zone="1" priority="0" occur_prob="0" duration="1"/>)"
+		R"(<weather code="2" name="b" zone="1" priority="0" occur_prob="0" duration="1"/><weather code="3" name="rain" zone="1" priority="0")"
+		R"( occur_prob="0" duration="1"/></map>)");
+	const std::vector<const model::templates::world::WeatherEntry*> entries{table->getEntry(3), nullptr};
+	EXPECT_BYTES(serialized(SM_WEATHER(entries)), Bytes().header(67).C(0).C(2).C(3).C(0).data);
 
 	PlayerFixture owner = makePlayer(100001, 9001, "Owner");
 	Ref<TestNpc> npc = createNpc(npcTemplate(R"(<npc_template npc_id="203001" level="1" name_id="1"/>)"));
