@@ -1,8 +1,10 @@
 package com.aionemu.gameserver.model.templates.item.actions;
 
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlType;
+import static com.aionemu.gameserver.model.items.ItemUseAnimation.*;
+
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlType;
 
 import com.aionemu.gameserver.controllers.observer.ItemUseObserver;
 import com.aionemu.gameserver.model.TaskId;
@@ -28,28 +30,26 @@ public class ReadAction extends AbstractItemAction {
 		if (parentItem.getItemTemplate().getActions().getItemActions().stream().anyMatch(a -> a instanceof QuestStartAction))
 			return;
 
-		int castingDelay = parentItem.getItemTemplate().getCastingDelay();
+		int castingDelay = player.getItemUseDelay(parentItem.getItemTemplate().getCastingDelay());
 		if (castingDelay <= 0) {
 			finishUse(player, parentItem);
 			return;
 		}
 
-		PacketSendUtility.broadcastPacket(player,
-			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(), parentItem.getItemTemplate().getTemplateId(), castingDelay, 0, 0),
-			true);
-		ItemUseObserver observer = new ItemUseObserver() {
+		PacketSendUtility.broadcastPacket(player, new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(),
+			parentItem.getItemTemplate().getTemplateId(), castingDelay, USE_START), true);
+		ItemUseObserver observer = new ItemUseObserver(player) {
 
 			@Override
-			public void abort() {
+			protected void onAbort() {
 				player.getController().cancelTask(TaskId.ITEM_USE);
 				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_ITEM_CANCELED());
 				PacketSendUtility.broadcastPacket(player,
-					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(), parentItem.getItemTemplate().getTemplateId(), 0, 2, 0),
+					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(), parentItem.getItemTemplate().getTemplateId(), 0, USE_CANCEL),
 					true);
-				player.getObserveController().removeObserver(this);
 			}
 		};
-		player.getObserveController().attach(observer);
+		player.getObserveController().addObserver(observer);
 		player.getController().addTask(TaskId.ITEM_USE, ThreadPoolManager.getInstance().schedule(() -> {
 			player.getObserveController().removeObserver(observer);
 			finishUse(player, parentItem);
@@ -60,7 +60,8 @@ public class ReadAction extends AbstractItemAction {
 		player.startCooldown(parentItem);
 		PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_USE_ITEM(parentItem.getL10n()));
 		PacketSendUtility.broadcastPacket(player,
-			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(), parentItem.getItemTemplate().getTemplateId(), 0, 1, 0), true);
+			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(), parentItem.getItemTemplate().getTemplateId(), 0, USE_SUCCESS),
+			true);
 	}
 
 }

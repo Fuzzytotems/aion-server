@@ -242,7 +242,7 @@ inline float modorsSwordBonusChanceSum() {
 /** npc_templates.xml, verbatim rows (the lines of each row in the comment above it) */
 inline constexpr std::string_view CUBE_EXPANDER_NPC_TEMPLATES_XML = R"xml(<npc_templates>
 	<!-- :341406-341412 -->
-	<npc_template npc_id="279022" level="40" name="jarumonerk" name_id="314013" height="1.16875" title_id="314333" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="279022" level="40" name="jarumonerk" name_id="314013" title_id="314333" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9419">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -250,7 +250,7 @@ inline constexpr std::string_view CUBE_EXPANDER_NPC_TEMPLATES_XML = R"xml(<npc_t
 		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461611-461617 -->
-	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" height="1.16875" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -258,7 +258,7 @@ inline constexpr std::string_view CUBE_EXPANDER_NPC_TEMPLATES_XML = R"xml(<npc_t
 		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461618-461624 -->
-	<npc_template npc_id="798009" level="15" name="taraerinerk" name_id="351370" height="1.16875" title_id="350419" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="798009" level="15" name="taraerinerk" name_id="351370" title_id="350419" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="2256">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -367,7 +367,7 @@ protected:
 	/** An item row of the template with the columns the DAO would load (tune_count as given), not yet in any storage */
 	Ref<Item> itemRow(int32_t objId, int32_t itemId, int64_t count, int32_t tuneCount = 0, bool equipped = false) {
 		Ref<Item> item = Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, equipped, false, 0,
-			model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0);
+			model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0, 0);
 		items.push_back(item);
 		return item;
 	}

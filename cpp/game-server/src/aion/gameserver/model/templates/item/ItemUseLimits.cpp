@@ -7,7 +7,7 @@
 
 namespace aion::gameserver::model::templates::item {
 
-const ::aion::gameserver::world::zone::ZoneName* ItemUseLimits::getUseArea() const {
+const ::aion::gameserver::world::zone::ZoneName* ItemUseLimits::getUseAreaZoneName() const {
 	if (usearea.empty()) // Java: usearea == null (the census finds no present-empty usearea)
 		return nullptr;
 	try {

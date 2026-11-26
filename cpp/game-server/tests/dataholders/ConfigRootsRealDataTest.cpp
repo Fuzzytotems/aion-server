@@ -1,5 +1,5 @@
-// P4-09: the JAXB roots of config/ingameshop and config/schedule (Java InGameShopProperty.load, RiftSchedule.load, SiegeSchedules.load,
-// WorldRaidSchedules.load) bind the Java tree's config files strictly. Expectations come from the files themselves (element counts through
+// P4-09: the JAXB roots of config/schedule (Java RiftSchedule.load, SiegeSchedules.load, WorldRaidSchedules.load; config/ingameshop was
+// removed upstream in 222076cb5) bind the Java tree's config files strictly. Expectations come from the files themselves (element counts through
 // pugixml, independent of the binders) and a few values read from them by hand. The load functions use paths relative to the game server
 // directory, so the test runs them with the Java module directory as working directory.
 
@@ -12,11 +12,9 @@
 #include <pugixml.hpp>
 
 #include "aion/commons/utils/Exception.h"
-#include "aion/gameserver/configs/ingameshop/InGameShopProperty.h"
 #include "aion/gameserver/configs/schedule/RiftSchedule.h"
 #include "aion/gameserver/configs/schedule/SiegeSchedules.h"
 #include "aion/gameserver/configs/schedule/WorldRaidSchedules.h"
-#include "aion/gameserver/model/templates/ingameshop/IGCategory.h"
 #include "aion/gameserver/model/templates/rift/OpenRift.h"
 
 namespace aion::gameserver::configs {
@@ -58,16 +56,6 @@ protected:
 			GTEST_SKIP() << "Java config tree not found: " << GAME_SERVER;
 	}
 };
-
-TEST_F(ConfigRootsRealDataTest, InGameShopProperty) {
-	WorkingDirectory directory(GAME_SERVER);
-	std::unique_ptr<ingameshop::InGameShopProperty> property = ingameshop::InGameShopProperty::load();
-	ASSERT_NE(property, nullptr);
-	EXPECT_EQ(static_cast<size_t>(property->size()), countChildren("config/ingameshop/in_game_shop.xml", "category"));
-	EXPECT_GT(property->size(), 0);
-	property->clear();
-	EXPECT_EQ(property->size(), 0);
-}
 
 TEST_F(ConfigRootsRealDataTest, Schedules) {
 	WorkingDirectory directory(GAME_SERVER);

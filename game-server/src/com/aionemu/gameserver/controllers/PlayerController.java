@@ -1,6 +1,7 @@
 package com.aionemu.gameserver.controllers;
 
 import static com.aionemu.gameserver.model.DialogAction.*;
+import static com.aionemu.gameserver.model.items.ItemUseAnimation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,10 +14,11 @@ import org.slf4j.LoggerFactory;
 import com.aionemu.gameserver.GameServer;
 import com.aionemu.gameserver.ai.NpcAI;
 import com.aionemu.gameserver.ai.handler.ShoutEventHandler;
-import com.aionemu.gameserver.configs.administration.AdminConfig;
-import com.aionemu.gameserver.configs.main.*;
+import com.aionemu.gameserver.configs.main.CustomConfig;
+import com.aionemu.gameserver.configs.main.GSConfig;
+import com.aionemu.gameserver.configs.main.HTMLConfig;
+import com.aionemu.gameserver.configs.main.MembershipConfig;
 import com.aionemu.gameserver.controllers.attack.AttackStatus;
-import com.aionemu.gameserver.controllers.attack.AttackUtil;
 import com.aionemu.gameserver.controllers.observer.StanceObserver;
 import com.aionemu.gameserver.custom.pvpmap.PvpMapService;
 import com.aionemu.gameserver.dataholders.DataManager;
@@ -27,6 +29,7 @@ import com.aionemu.gameserver.model.actions.PlayerMode;
 import com.aionemu.gameserver.model.animations.ActionAnimation;
 import com.aionemu.gameserver.model.animations.ObjectDeleteAnimation;
 import com.aionemu.gameserver.model.gameobjects.*;
+import com.aionemu.gameserver.model.gameobjects.player.CustomPlayerState;
 import com.aionemu.gameserver.model.gameobjects.player.Player;
 import com.aionemu.gameserver.model.gameobjects.state.CreatureState;
 import com.aionemu.gameserver.model.gameobjects.state.CreatureVisualState;
@@ -37,6 +40,7 @@ import com.aionemu.gameserver.model.summons.UnsummonType;
 import com.aionemu.gameserver.model.templates.QuestTemplate;
 import com.aionemu.gameserver.model.templates.flypath.FlightPath;
 import com.aionemu.gameserver.model.templates.flypath.FlyPathEntry;
+import com.aionemu.gameserver.model.templates.item.actions.RideAction;
 import com.aionemu.gameserver.model.templates.panels.SkillPanel;
 import com.aionemu.gameserver.model.templates.zone.ZoneType;
 import com.aionemu.gameserver.network.aion.serverpackets.*;
@@ -72,7 +76,6 @@ import com.aionemu.gameserver.world.WorldMapType;
 import com.aionemu.gameserver.world.WorldType;
 import com.aionemu.gameserver.world.geo.GeoService;
 import com.aionemu.gameserver.world.zone.ZoneInstance;
-import com.aionemu.gameserver.world.zone.ZoneName;
 
 /**
  * This class is for controlling players.
@@ -82,8 +85,12 @@ import com.aionemu.gameserver.world.zone.ZoneName;
 public class PlayerController extends CreatureController<Player> {
 
 	private static final Logger log = LoggerFactory.getLogger(PlayerController.class);
+	private static final int PROTECTION_TIME = 60000;
+	private static final float MAX_FLIGHT_LANDING_DISTANCE = 5;
+	private static final int FLIGHT_LANDING_TIME_TOLERANCE = 1000;
 	private long lastAttackMillis = 0;
 	private long lastAttackedMillis = 0;
+	private long lastAutoAttackMillis = 0;
 	private StanceObserver stanceObserver;
 
 	@Override
@@ -109,7 +116,7 @@ public class PlayerController extends CreatureController<Player> {
 		} else if (object instanceof Gatherable || object instanceof StaticObject) {
 			PacketSendUtility.sendPacket(getOwner(), new SM_GATHERABLE_INFO(object));
 		} else if (object instanceof Pet pet) {
-			PacketSendUtility.sendPacket(getOwner(), new SM_PET(pet));
+			PacketSendUtility.sendPacket(getOwner(), SM_PET.spawned(pet));
 			if (pet.getMaster().isInFlyingState())
 				PacketSendUtility.sendPacket(getOwner(), new SM_PET_EMOTE(pet, PetEmote.FLY_START));
 		} else if (object instanceof House) {
@@ -121,7 +128,7 @@ public class PlayerController extends CreatureController<Player> {
 
 	private void sendPlayerInfoPackets(Player player) {
 		PacketSendUtility.sendPacket(getOwner(), new SM_PLAYER_INFO(player, !player.equals(getOwner()) && getOwner().isAggroIconTo(player)));
-		PacketSendUtility.sendPacket(getOwner(), new SM_MOTION(player.getObjectId(), player.getMotions().getActiveMotions()));
+		PacketSendUtility.sendPacket(getOwner(), SM_MOTION.playerMotions(player));
 		if (player.isInPlayerMode(PlayerMode.RIDE))
 			PacketSendUtility.sendPacket(getOwner(), new SM_EMOTION(player, EmotionType.RIDE, 0, player.ride.getNpcId()));
 		if (player.getController().isUnderStance())
@@ -134,7 +141,7 @@ public class PlayerController extends CreatureController<Player> {
 		if (!getOwner().isSpawned()) // player is teleporting, no need to send deletion packets
 			return;
 		if (object instanceof Pet) {
-			PacketSendUtility.sendPacket(getOwner(), new SM_PET(object.getObjectId(), animation));
+			PacketSendUtility.sendPacket(getOwner(), SM_PET.dismissed(object.getObjectId()));
 		} else if (object instanceof House) {
 			PacketSendUtility.sendPacket(getOwner(), new SM_DELETE_HOUSE(((House) object).getAddress().getId()));
 		} else if (object instanceof HouseObject) {
@@ -151,12 +158,6 @@ public class PlayerController extends CreatureController<Player> {
 		super.onTargetChanged(oldTarget, newTarget);
 		PacketSendUtility.sendPacket(getOwner(), new SM_TARGET_SELECTED(newTarget));
 		PacketSendUtility.broadcastToSightedPlayers(getOwner(), new SM_TARGET_UPDATE(getOwner()));
-	}
-
-	@Override
-	public void onHide() {
-		super.onHide();
-		DuelService.getInstance().fixTeamVisibility(getOwner());
 	}
 
 	@Override
@@ -192,15 +193,11 @@ public class PlayerController extends CreatureController<Player> {
 	@Override
 	public void onEnterZone(ZoneInstance zone) {
 		Player player = getOwner();
-		if (!zone.canRide() && player.isInPlayerMode(PlayerMode.RIDE))
+		if (player.isInPlayerMode(PlayerMode.RIDE) && !RideAction.isInRideZone(player))
 			player.unsetPlayerMode(PlayerMode.RIDE);
 		ConquerorAndProtectorService.getInstance().onEnterZone(player, zone);
 		InstanceService.onEnterZone(player, zone);
-		ZoneName zoneName = zone.getAreaTemplate().getZoneName();
-		if (zoneName == null)
-			log.warn("No name found for a zone in map " + zone.getAreaTemplate().getWorldId() + " with xml name " + zone.getZoneTemplate().getXmlName());
-		else
-			QuestEngine.getInstance().onEnterZone(new QuestEnv(null, player, 0), zoneName);
+		QuestEngine.getInstance().onEnterZone(new QuestEnv(null, player, 0), zone);
 	}
 
 	@Override
@@ -208,11 +205,7 @@ public class PlayerController extends CreatureController<Player> {
 		Player player = getOwner();
 		ConquerorAndProtectorService.getInstance().onLeaveZone(player, zone);
 		InstanceService.onLeaveZone(player, zone);
-		ZoneName zoneName = zone.getAreaTemplate().getZoneName();
-		if (zoneName == null)
-			log.warn("No name found for a zone in map " + zone.getAreaTemplate().getWorldId() + " with xml name " + zone.getZoneTemplate().getXmlName());
-		else
-			QuestEngine.getInstance().onLeaveZone(new QuestEnv(null, player, 0), zoneName);
+		QuestEngine.getInstance().onLeaveZone(new QuestEnv(null, player, 0), zone);
 	}
 
 	/**
@@ -220,22 +213,15 @@ public class PlayerController extends CreatureController<Player> {
 	 */
 	public void onLeaveFlyArea() {
 		Player player = getOwner();
-		if (!player.hasAccess(AdminConfig.FREE_FLIGHT)) {
-			if (player.isInFlyingState()) {
-				if (player.isInGlidingState()) {
-					player.unsetFlyState(FlyState.FLYING);
-					player.unsetState(CreatureState.FLYING);
-					player.getLifeStats().triggerFpReduce();
-					player.getGameStats().updateStatsAndSpeedVisually();
-					PacketSendUtility.broadcastPacket(player, new SM_EMOTION(player, EmotionType.STOP_FLY), true);
-				} else {
-					player.getFlyController().endFly(true);
-					if (player.isSpawned() && !player.isInsideZoneType(ZoneType.FLY)) // not spawned means leaving by teleporter
-						AuditLogger.log(player, "left fly zone in fly state at " + player.getPosition());
-				}
-			} else if (player.isInGlidingState()) {
-				player.getLifeStats().triggerFpReduce();
-			}
+		if (player.isUsingFlightTransporterOrWindstream()) // path flight follows its own route and is not limited by flight areas
+			return;
+		player.getLifeStats().triggerFpReduce();
+		if (player.isInGlidingState()) {
+			player.getFlyController().onMove();
+		} else if (player.isInFlyingState() && !player.isInCustomState(CustomPlayerState.FREE_FLY_MODE)) {
+			player.getFlyController().endFly(true);
+			if (player.isSpawned() && !player.isInsideZoneType(ZoneType.FLY)) // not spawned means leaving by teleporter
+				AuditLogger.log(player, "left fly zone in fly state at " + player.getPosition());
 		}
 	}
 
@@ -288,6 +274,9 @@ public class PlayerController extends CreatureController<Player> {
 			}
 		}
 
+		// a delayed teleport is executed on client confirmation; death during the animation cancels it
+		cancelTask(TaskId.TELEPORT);
+
 		// Release summon
 		Summon summon = player.getSummon();
 		if (summon != null)
@@ -310,6 +299,11 @@ public class PlayerController extends CreatureController<Player> {
 
 		// Effects removed with super.onDie()
 		super.onDie(lastAttacker);
+
+		// retail dismisses the pet on death and does not resummon it on revival
+		Pet pet = player.getPet();
+		if (pet != null && !CustomConfig.KEEP_PET_ON_DEATH)
+			pet.getController().delete();
 
 		scheduleShowResurrectionOptions();
 
@@ -419,13 +413,14 @@ public class PlayerController extends CreatureController<Player> {
 
 		int attackSpeed = gameStats.getAttackSpeed().getCurrent();
 
-		long milis = System.currentTimeMillis();
+		long now = System.currentTimeMillis();
 		// network ping..
-		if (milis - lastAttackMillis + 300 < attackSpeed) {
+		if (now - lastAutoAttackMillis + 300 < attackSpeed) {
 			// hack
 			PacketSendUtility.sendPacket(getOwner(), SM_ATTACK_RESPONSE.STOP_WITHOUT_MESSAGE(gameStats.getAttackCounter()));
 			return;
 		}
+		lastAutoAttackMillis = now;
 		enterCombat(true);
 
 		super.attackTarget(target, time, true);
@@ -437,11 +432,8 @@ public class PlayerController extends CreatureController<Player> {
 		if (getOwner().isDead())
 			return;
 
-		if (getOwner().isProtectionActive())
-			return;
-
 		// avoid killing players after duel
-		if (!getOwner().equals(attacker) && attacker.getActingCreature() instanceof Player && !getOwner().isEnemy(attacker))
+		if (!getOwner().equals(attacker) && attacker.getMaster() instanceof Player && !getOwner().isEnemy(attacker))
 			return;
 
 		cancelUseItem();
@@ -453,6 +445,7 @@ public class PlayerController extends CreatureController<Player> {
 		}
 
 		enterCombat(false);
+		getOwner().blockQuitting();
 	}
 
 	public void useSkill(SkillTemplate template, int targetType, float x, float y, float z, int clientHitTime, int skillLevel) {
@@ -512,17 +505,16 @@ public class PlayerController extends CreatureController<Player> {
 
 	@Override
 	public void cancelCurrentSkill(Creature lastAttacker) {
-		cancelCurrentSkill(lastAttacker, SM_SYSTEM_MESSAGE.STR_SKILL_CANCELED());
+		if (getOwner().isCasting())
+			cancelCurrentSkill(lastAttacker, SM_SYSTEM_MESSAGE.STR_SKILL_CANCELED());
 	}
 
 	@Override
 	public void cancelCurrentSkill(Creature lastAttacker, SM_SYSTEM_MESSAGE message) {
-		if (getOwner().getCastingSkill() == null) {
-			return;
-		}
-
 		Player player = getOwner();
 		Skill castingSkill = player.getCastingSkill();
+		if (castingSkill == null)
+			return;
 		castingSkill.cancelCast();
 		player.setCasting(null);
 		if (castingSkill.allowAnimationBoostByCastSpeed())
@@ -536,7 +528,7 @@ public class PlayerController extends CreatureController<Player> {
 		} else if (castingSkill.getSkillMethod() == SkillMethod.ITEM) {
 			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_ITEM_CANCELED());
 			PacketSendUtility.broadcastPacket(player, new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), castingSkill.getFirstTarget().getObjectId(),
-				castingSkill.getItemObjectId(), castingSkill.getItemTemplate().getTemplateId(), 0, 3, 0), true);
+				castingSkill.getItemObjectId(), castingSkill.getItemTemplate().getTemplateId(), 0, USE_CANCEL), true);
 		}
 
 		if (lastAttacker instanceof Player && !lastAttacker.equals(getOwner())) {
@@ -626,11 +618,11 @@ public class PlayerController extends CreatureController<Player> {
 	public void startProtectionActiveTask() {
 		if (!getOwner().isProtectionActive()) {
 			getOwner().setVisualState(CreatureVisualState.BLINKING);
-			AttackUtil.cancelCastOn(getOwner());
-			AttackUtil.removeTargetFrom(getOwner());
-			PacketSendUtility.broadcastToSightedPlayers(getOwner(), new SM_PLAYER_STATE(getOwner()), true);
-			addTask(TaskId.PROTECTION_ACTIVE, ThreadPoolManager.getInstance().schedule(this::stopProtectionActiveTask, 60000));
+			PacketSendUtility.broadcastToSightedPlayers(getOwner(), new SM_PLAYER_STATE(getOwner()));
 		}
+		PacketSendUtility.sendPacket(getOwner(), new SM_INVINCIBLE_TIME(PROTECTION_TIME));
+		PacketSendUtility.sendPacket(getOwner(), new SM_PLAYER_STATE(getOwner(), true));
+		addTask(TaskId.PROTECTION_ACTIVE, ThreadPoolManager.getInstance().schedule(this::stopProtectionActiveTask, PROTECTION_TIME));
 	}
 
 	/**
@@ -642,47 +634,53 @@ public class PlayerController extends CreatureController<Player> {
 		if (player.isSpawned()) {
 			player.unsetVisualState(CreatureVisualState.BLINKING);
 			PacketSendUtility.broadcastToSightedPlayers(player, new SM_PLAYER_STATE(player), true);
+			PacketSendUtility.sendPacket(player, new SM_INVINCIBLE_TIME(0));
 			notifyAIOnMove();
 		}
 	}
 
 	/**
-	 * When player arrives at destination point of flying teleport
+	 * When a flight path reaches its destination: a wind path is let go with a fall, a flight transporter is validated and landed.
 	 */
 	public void onFlyTeleportEnd() {
 		Player player = getOwner();
+		FlightPath flightPath = player.getFlightPath();
 		if (player.isUsingFlightPath(FlightPath.Type.WINDSTREAM)) {
-			player.unsetState(CreatureState.FLYING);
-			player.unsetFlyState(FlyState.FLYING);
-			player.setFlyState(FlyState.GLIDING);
-			player.setState(CreatureState.ACTIVE);
-			player.setState(CreatureState.GLIDING);
-			player.getLifeStats().triggerFpReduce();
-			player.getGameStats().updateStatsAndSpeedVisually();
-		} else {
-			player.unsetState(CreatureState.FLYING);
-			if (SecurityConfig.ENABLE_FLYPATH_VALIDATOR) {
-				long diff = (System.currentTimeMillis() - player.getFlyStartTime());
-				FlyPathEntry path = player.getCurrentFlyPath();
-
-				if (player.getWorldId() != path.getEndWorldId()) {
-					AuditLogger.log(player, "tried to use flyPath #" + path.getId() + " from not native start world " + player.getWorldId() + " (expected "
-						+ path.getEndWorldId() + ")");
-				}
-
-				if (diff < path.getTimeInMs()) {
-					AuditLogger.log(player, "ended fly path too early: Fly duration " + diff + "ms instead of " + path.getTimeInMs() + "ms");
-					/*
-					 * todo if works teleport player to start_* xyz, or even ban
-					 */
-				}
-
-				player.setCurrentFlypath(null);
-			}
-			player.setState(CreatureState.ACTIVE);
-			updateZone();
+			// the last point of a wind path is a fall, not a glide, but the client immediately sends a CM_MOVE glide packet and keeps the player gliding
+			player.getFlyController().leaveWindstream(false);
+			return;
 		}
+		if (!player.isUsingFlightPath(FlightPath.Type.FLIGHT_TRANSPORTER))
+			return;
+
+		FlyPathEntry path = player.getFlightPathTemplate();
+		if (path == null) {
+			log.warn("Missing flypath_location in flypath_template.xml for teleport id {}, landing of {} is not validated", flightPath.getId(), player);
+		} else {
+			if (player.getWorldId() != path.getEndWorldId()
+				|| !PositionUtil.isInRange(player, path.getEndX(), path.getEndY(), path.getEndZ(), MAX_FLIGHT_LANDING_DISTANCE)) {
+				AuditLogger.log(player, "tried to land from flight path #" + path.getId() + " " + PositionUtil.getDistance(player, path.getEndX(),
+					path.getEndY(), path.getEndZ()) + "m away from its end" + (player.getWorldId() == path.getEndWorldId() ? "" : " on another map"));
+				return;
+			}
+			// Stricter than retail, which doesn't check the flight time: a landing before the flight time is over is delayed until then, so a
+			// client can't arrive early. The client lands 5-10 ms after the path's sequence ends. Land right away to fall back to retail.
+			long remainingTime = path.getTimeInMs() - flightPath.getElapsedTime() - FLIGHT_LANDING_TIME_TOLERANCE;
+			if (remainingTime > 0) {
+				AuditLogger.log(player, "tried to land from flight path #" + path.getId() + " " + remainingTime + "ms early");
+				ThreadPoolManager.getInstance().schedule(() -> {
+					if (player.isSpawned() && player.getFlightPath() == flightPath)
+						onFlyTeleportEnd();
+				}, remainingTime);
+				return;
+			}
+		}
+		player.unsetState(CreatureState.FLYING);
+		player.setState(CreatureState.ACTIVE);
+		updateZone();
+		player.getMoveController().resetFalling();
 		player.setFlightPath(null);
+		QuestEngine.getInstance().onFlightPathEnd(new QuestEnv(null, player, 0), flightPath.getId());
 	}
 
 	public void startStance(int skillId) {

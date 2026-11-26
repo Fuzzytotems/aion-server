@@ -20,6 +20,7 @@ private:
 public:
 	int32_t getDelayId() const { return useDelayId; }
 	int32_t getDelayTime() const { return useDelay; }
+	const std::string& getUseArea() const { return usearea; }
 	std::optional<::aion::gameserver::model::Gender> getGenderPermitted() const { return genderPermitted; }
 	int32_t getMinRank() const { return minRank; }
 	int32_t getMaxRank() const { return maxRank; }

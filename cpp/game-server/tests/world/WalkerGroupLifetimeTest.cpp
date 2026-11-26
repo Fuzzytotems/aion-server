@@ -55,8 +55,6 @@
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/dataholders/NpcSkillData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/WalkerData.bind.h"
 #include "aion/gameserver/dataholders/WalkerData.h"
 #include "aion/gameserver/dataholders/WalkerVersionsData.bind.h"
@@ -118,20 +116,20 @@ constexpr int32_t INSTANCE = 1;
  */
 const char* const POETA_WORLD_MAPS_XML =
 	R"(<world_maps>)"
-	R"(<map id="210010000" cName="LF1" name="Poeta" name_id="400234" max_user="200" water_level="100" death_level="0" world_type="ELYSEA")"
+	R"(<map id="210010000" cName="LF1" name="Poeta" name_id="400234" max_user="200" water_level="100" world_type="ELYSEA")"
 	R"( world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>)"
 	R"(</world_maps>)";
 
 /** npcs/npc_templates.xml:54427-54432 and :54505-54510, verbatim */
 const char* const NPC_TEMPLATES_XML =
 	R"(<npc_templates>)"
-	R"(<npc_template npc_id="210115" level="1" name="juvenile sparkie" name_id="300097" height="1.02" group_drop="SPAKY" rank="DISCIPLINED" rating="NORMAL" race="BEAST" tribe="MONSTER" ai="aggressive" srange="8" sangle="240" arange="2" attack_speed="2142" hpgauge="3" floatcorpse="true">)"
+	R"(<npc_template npc_id="210115" level="1" name="juvenile sparkie" name_id="300097" group_drop="SPAKY" rank="DISCIPLINED" rating="NORMAL" race="BEAST" tribe="MONSTER" ai="aggressive" srange="8" sangle="240" arange="2" attack_speed="2142" hpgauge="3" floatcorpse="true">)"
 	R"(<stats maxHp="143">)"
 	R"(<speeds walk="2" group_walk="2" run="7" run_fight="5" group_run_fight="7" />)"
 	R"(</stats>)"
 	R"(<bound_radius front="0.55" side="0.56" upper="2.82" />)"
 	R"(</npc_template>)"
-	R"(<npc_template npc_id="210133" level="1" name="striped kerub" name_id="300110" height="1.372" group_drop="CHERUBIM" rank="DISCIPLINED" rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="aggressive" srange="7" sangle="240" arange="2" attack_speed="2100" hpgauge="3">)"
+	R"(<npc_template npc_id="210133" level="1" name="striped kerub" name_id="300110" group_drop="CHERUBIM" rank="DISCIPLINED" rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="aggressive" srange="7" sangle="240" arange="2" attack_speed="2100" hpgauge="3">)"
 	R"(<stats maxHp="143">)"
 	R"(<speeds walk="0.6" group_walk="0.6" run="7" run_fight="5.5" group_run_fight="7" />)"
 	R"(</stats>)"
@@ -225,7 +223,6 @@ bool publishWalkerWorldData() {
 		static std::deque<xml::LoadContext> contexts;
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), POETA_WORLD_MAPS_XML));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(
 			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 		world::test::publishedData = world::test::PublishedData::REAL;

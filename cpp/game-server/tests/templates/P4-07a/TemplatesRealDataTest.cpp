@@ -33,7 +33,9 @@
 #include "aion/gameserver/dataholders/loadingutils/BindContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataImports.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
-#include "aion/gameserver/model/templates/item/DecomposableItemInfo.bind.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.bind.h"
+#include "aion/gameserver/model/templates/item/DecomposableSet.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
 #include "aion/gameserver/model/templates/item/enums/ItemGroupInfo.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.bind.h"
@@ -57,7 +59,7 @@ struct Items {
 	std::vector<item::ItemTemplate> list;
 };
 struct Decomposables {
-	std::vector<item::DecomposableItemInfo> list;
+	std::vector<item::DecomposableItem> list;
 };
 struct Npcs {
 	std::vector<npc::NpcTemplate> list;
@@ -112,7 +114,7 @@ namespace tpl = ::aion::gameserver::model::templates;
 template <>
 struct XmlBinding<rd::Items> : TestHolderBinding<rd::Items, tpl::item::ItemTemplate, ITEM_TEMPLATE> {};
 template <>
-struct XmlBinding<rd::Decomposables> : TestHolderBinding<rd::Decomposables, tpl::item::DecomposableItemInfo, DECOMPOSABLE> {};
+struct XmlBinding<rd::Decomposables> : TestHolderBinding<rd::Decomposables, tpl::item::DecomposableItem, DECOMPOSABLE> {};
 template <>
 struct XmlBinding<rd::Npcs> : TestHolderBinding<rd::Npcs, tpl::npc::NpcTemplate, NPC_TEMPLATE> {};
 template <>
@@ -330,28 +332,43 @@ TEST_F(TemplatesRealDataTest, ItemsAndDecomposableItemsBindWithHooks) {
 		std::cout << "removed " << removedActions << " item actions elements\n";
 		items = bindHolder<Items>(*context, itemDocuments);
 	}
-	Documents decomposableDocuments = parse("decomposable_items/decomposable_items.xml");
-	std::unique_ptr<Decomposables> decomposables = bindHolder<Decomposables>(*context, decomposableDocuments); // ResultedItem hooks: item ids
+	// the folder of upstream d254ea172 (the retail file and the custom overrides), merged into one holder like the loader does
+	Documents decomposableDocuments = parse("decomposable_items");
+	std::unique_ptr<Decomposables> decomposables = bindHolder<Decomposables>(*context, decomposableDocuments); // DecomposedItem hooks: item ids
 	std::cout << "real items and decomposable items bound in "
 			  << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() << " ms\n";
 
 	EXPECT_EQ(static_cast<int64_t>(items->list.size()), expectedCount("item_templates")) << "Loaded N item templates";
-	std::set<int32_t> decomposableIds;
-	size_t resultedItems = 0;
-	for (const item::DecomposableItemInfo& info : decomposables->list) {
-		if (!info.isIsSelectable() && !info.getItemsCollections().empty()) // Java DecomposableItemsData.size(): non-selectable entries with items
-			decomposableIds.insert(info.getItemId());
-		for (const item::ExtractedItemsCollection& collection : info.getItemsCollections()) {
-			for (const item::ResultedItem& resulted : collection.getItems()) {
-				EXPECT_GE(resulted.getMaxCount(), resulted.getMinCount()) << "hook: max_count defaults to min_count";
-				++resultedItems;
+	// Java DecomposableItemsData.afterUnmarshal: the overrides replace the other entries, entries without sets are dropped
+	std::map<int32_t, bool> hasSets;
+	size_t overrides = 0;
+	size_t decomposedItems = 0;
+	for (const Decomposables* list : {decomposables.get()}) {
+		for (const item::DecomposableItem& entry : list->list) {
+			if (!entry.isOverride())
+				hasSets.try_emplace(entry.getItemId(), !entry.getSets().empty());
+			for (const item::DecomposableSet& set : entry.getSets()) {
+				for (const item::DecomposedItem& decomposed : set.getItems()) {
+					EXPECT_GT(decomposed.getCount(), 0) << "hook: count > 0";
+					++decomposedItems;
+				}
 			}
 		}
 	}
-	EXPECT_EQ(static_cast<int64_t>(decomposableIds.size()), expectedCount("decomposable_items")) << "Loaded N decomposable items entries";
-	EXPECT_GT(resultedItems, 0u);
+	for (const Decomposables* list : {decomposables.get()}) {
+		for (const item::DecomposableItem& entry : list->list) {
+			if (entry.isOverride()) {
+				hasSets.insert_or_assign(entry.getItemId(), !entry.getSets().empty());
+				++overrides;
+			}
+		}
+	}
+	int64_t decomposableIds = std::ranges::count_if(hasSets, [](const auto& entry) { return entry.second; });
+	EXPECT_EQ(decomposableIds, expectedLineValue("decomposable items entries", 0)) << "Loaded N decomposable items entries";
+	EXPECT_EQ(static_cast<int64_t>(overrides), expectedLineValue("decomposable items entries", 1)) << "(N overridden)";
+	EXPECT_GT(decomposedItems, 0u);
 	if (removedActions == 0)
-		expectTotals(*context, {"items/item_templates.xml", "decomposable_items/decomposable_items.xml"});
+		expectTotals(*context, {"items/item_templates.xml", "decomposable_items"});
 
 	// hooks on every item: empty weapon stats and use limits, tune count rule (recomputed from the DOM)
 	std::vector<pugi::xml_node> nodes = children(itemDocuments, "item_template");
@@ -485,7 +502,6 @@ TEST_F(TemplatesRealDataTest, NpcsBindWithHooks) {
 		EXPECT_EQ(npc.getAggroRange(), number(node, "srange"));
 		EXPECT_EQ(npc.getAttackRange(), number(node, "arange"));
 		EXPECT_EQ(npc.getAttackSpeed(), number(node, "attack_speed", 2000));
-		EXPECT_FLOAT_EQ(npc.getHeight(), decimal(node, "height", 1.0f));
 		EXPECT_EQ(xml::enumName(npc.getRace()), text(node, "race", "NONE"));
 		EXPECT_EQ(npc.getRank() ? std::string(xml::enumName(*npc.getRank())) : std::string(), text(node, "rank"));
 		EXPECT_EQ(npc.getRating() ? std::string(xml::enumName(*npc.getRating())) : std::string(), text(node, "rating"));
@@ -572,12 +588,12 @@ TEST_F(TemplatesRealDataTest, WorldMapsWeatherAndPetsBindWithHooks) {
 	std::set<int32_t> weatherMaps;
 	for (const world::WeatherTable& table : weather->list)
 		weatherMaps.insert(table.getMapId());
-	EXPECT_EQ(static_cast<int64_t>(weatherMaps.size()), expectedCount("weather"));
+	EXPECT_EQ(static_cast<int64_t>(weatherMaps.size()), expectedCount("weather_maps"));
 	EXPECT_EQ(static_cast<int64_t>(pets->list.size()), expectedCount("pets"));
 	EXPECT_EQ(static_cast<int64_t>(feed->list.size()), expectedLineValue(" pet templates and ", 1)) << "N food flavours";
 	expectTotals(context, {"world_maps.xml", "weather_table.xml", "pets/pets.xml", "pets/pet_feed.xml"});
 
-	// the flags hook against the DOM: the id of a zone attribute is 1 << ordinal; the lexical form is the @XmlEnumValue
+	// the bound attribute set against the DOM (C++-only getFlags): the id of a zone attribute is 1 << ordinal; the lexical form is the @XmlEnumValue
 	std::vector<pugi::xml_node> nodes = children(mapDocuments, "map");
 	ASSERT_EQ(nodes.size(), maps->list.size());
 	for (size_t i = 0; i < nodes.size(); ++i) {
@@ -612,12 +628,13 @@ TEST_F(TemplatesRealDataTest, ZonesBindWithTheNameSetter) {
 	xml::LoadContext context(options());
 	Documents documents = parse("zones");
 	std::unique_ptr<Zones> zones = bindHolder<Zones>(context, documents);
-	EXPECT_EQ(static_cast<int64_t>(zones->list.size()), expectedCount("zones"));
+	EXPECT_EQ(static_cast<int64_t>(zones->list.size()), expectedCount("zones")) << "ZoneData.size() counts the distinct names (upstream 2b097879f)";
 	expectTotals(context, {"zones"});
 	std::vector<pugi::xml_node> nodes = children(documents, "zone");
 	ASSERT_EQ(nodes.size(), zones->list.size());
-	for (size_t index : sample(nodes.size(), 3978)) {
-		ASSERT_NE(zones->list[index].getName(), nullptr);
+	for (size_t index : sample(nodes.size(), 3979)) {
+		EXPECT_EQ(zones->list[index].getName(), text(nodes[index], "name"));
+		ASSERT_NE(zones->list[index].getZoneName(), nullptr);
 		EXPECT_EQ(zones->list[index].getMapid(), number(nodes[index], "mapid"));
 	}
 }

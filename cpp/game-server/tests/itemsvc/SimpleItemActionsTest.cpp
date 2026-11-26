@@ -322,8 +322,8 @@ TEST_F(SimpleItemActionsTest, MovingDuringTheMotionBarCancelsIt) {
 
 TEST_F(SimpleItemActionsTest, AnEmotionCardTeachesItsEmotionOnce) {
 	const auto& learn = actionOf<model::templates::item::actions::EmotionLearnAction>(EMOTION_CARD);
-	EXPECT_TRUE(model::templates::item::actions::EmotionLearnAction::isLearnable(64)) << "afterUnmarshal registered it";
-	const std::vector<int32_t> learnable = model::templates::item::actions::EmotionLearnAction::getLearnableEmotionIds();
+	EXPECT_TRUE(dataholders::DataManager::ITEM_DATA->isLearnableEmotion(64)) << "ItemData.afterUnmarshal registered it (upstream f7230c5fa)";
+	const std::vector<int32_t> learnable = dataholders::DataManager::ITEM_DATA->getLearnableEmotionIds();
 	EXPECT_TRUE(std::ranges::is_sorted(learnable));
 	EXPECT_NE(std::ranges::find(learnable, 64), learnable.end());
 

@@ -32,8 +32,6 @@
 #include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SpawnsData.bind.h"
 #include "aion/gameserver/dataholders/SpawnsData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
@@ -67,7 +65,7 @@ constexpr int32_t WORKBENCH = 150000012;
 
 /** world_maps.xml:3 */
 constexpr std::string_view SANCTUM_ROW =
-	R"(<map id="110010000" cName="LC1" name="Sanctum" name_id="400437" water_level="16" death_level="400" world_type="ELYSEA" world_size="3072" drop_type="NONE" flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>)";
+	R"(<map id="110010000" cName="LC1" name="Sanctum" name_id="400437" water_level="16" world_type="ELYSEA" world_size="3072" drop_type="NONE" flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>)";
 /** items/item_templates.xml:743547 */
 constexpr std::string_view OVEN_ROW =
 	R"(<item_template id="150000009" name="Oven" level="1" cName="cooking" mask="4190" quality="COMMON" price="100" restrict="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" desc="700104"/>)";
@@ -131,7 +129,6 @@ void publishSanctumWorldOnce() {
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(
 			xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), "<world_maps>" + row + "</world_maps>"));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(
 			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 		world::geo::GeoService::getInstance().init();

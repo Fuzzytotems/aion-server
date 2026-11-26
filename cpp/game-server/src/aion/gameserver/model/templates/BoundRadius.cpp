@@ -12,7 +12,8 @@
 
 namespace aion::gameserver::model::templates {
 
-const BoundRadius BoundRadius::DEFAULT(0.0f, 0.0f, 0.0f);
+const BoundRadius BoundRadius::DEFAULT{};
+const BoundRadius BoundRadius::ZERO(0.0f, 0.0f, 0.0f);
 
 BoundRadius::BoundRadius(float frontValue, float sideValue, float upperValue) : front(frontValue), side(sideValue), upper(upperValue) {
 }

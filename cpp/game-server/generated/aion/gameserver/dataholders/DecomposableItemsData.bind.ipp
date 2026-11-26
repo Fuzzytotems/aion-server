@@ -6,20 +6,20 @@
 #include <string_view>
 
 #include "aion/gameserver/dataholders/DecomposableItemsData.bind.h"
-#include "aion/gameserver/model/templates/item/DecomposableItemInfo.bind.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.bind.h"
 
 namespace aion::gameserver::xml {
 
 bool XmlBinding<::aion::gameserver::dataholders::DecomposableItemsData>::element(::aion::gameserver::dataholders::DecomposableItemsData& o, BindContext& c, pugi::xml_node e, std::string_view name) {
 	if (name == "decomposable") {
-		c.bindList(o.decomposableItemsTemplates, e);
+		c.bindList(o.decomposableItems, e);
 		return true;
 	}
 	return false;
 }
 
 void XmlBinding<::aion::gameserver::dataholders::DecomposableItemsData>::reserve(::aion::gameserver::dataholders::DecomposableItemsData& o, const ChildCounts& counts) {
-	o.decomposableItemsTemplates.reserve(counts["decomposable"]);
+	o.decomposableItems.reserve(counts["decomposable"]);
 }
 
 void XmlBinding<::aion::gameserver::dataholders::DecomposableItemsData>::finish(::aion::gameserver::dataholders::DecomposableItemsData& o, BindContext& c, const XmlParent& parent) {

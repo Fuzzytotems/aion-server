@@ -6,43 +6,64 @@
 	<property name="logFolder" value="log" />
 	<property name="consoleTime" value="%date{HH:mm:ss}" />
 	<property name="date" value="%date{&quot;yyyy-MM-dd'T'HH:mm:ss,SSSXXX&quot;}" />
+	<conversionRule conversionWord="threadAndLogger" class="com.aionemu.commons.logging.ThreadAndLoggerNameConverter" />
 	<appender name="out_console" class="ch.qos.logback.core.ConsoleAppender">
 		<encoder>
-			<charset>${consoleEncoding:-UTF-8}</charset>
-			<Pattern>${consoleTime} %highlight(%-5level) %gray([%thread]) - %message%n</Pattern>
+			<Pattern>${consoleTime} %highlight(%-5level) ${THREAD_LOG:-%threadAndLogger %gray(-) }%message%n</Pattern>
 		</encoder>
 	</appender>
-	<appender name="app_console" class="ch.qos.logback.core.FileAppender">
+	<appender name="app_console" class="ch.qos.logback.core.rolling.RollingFileAppender">
 		<file>${logFolder}/server_console.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<fileNamePattern>${logFolder}/server_console.%i.log</fileNamePattern>
+			<maxIndex>${loginserver.log.max_rolled_files}</maxIndex>
+		</rollingPolicy>
+		<triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+			<maxFileSize>${loginserver.log.max_file_size}</maxFileSize>
+		</triggeringPolicy>
 		<encoder>
 			<Pattern>${date} %-5level [%thread] %logger - %message%n</Pattern>
 		</encoder>
 	</appender>
-	<appender name="app_warn" class="ch.qos.logback.core.FileAppender">
+	<appender name="app_warn" class="ch.qos.logback.core.rolling.RollingFileAppender">
 		<filter class="ch.qos.logback.classic.filter.LevelFilter">
 			<level>WARN</level>
 			<onMatch>ACCEPT</onMatch>
 			<onMismatch>DENY</onMismatch>
 		</filter>
 		<file>${logFolder}/server_warnings.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<fileNamePattern>${logFolder}/server_warnings.%i.log</fileNamePattern>
+			<maxIndex>${loginserver.log.max_rolled_files}</maxIndex>
+		</rollingPolicy>
+		<triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+			<maxFileSize>${loginserver.log.max_file_size}</maxFileSize>
+		</triggeringPolicy>
 		<encoder>
 			<Pattern>${date} %logger - %message%n</Pattern>
 		</encoder>
 	</appender>
-	<appender name="app_error" class="ch.qos.logback.core.FileAppender">
+	<appender name="app_error" class="ch.qos.logback.core.rolling.RollingFileAppender">
 		<filter class="ch.qos.logback.classic.filter.LevelFilter">
 			<level>ERROR</level>
 			<onMatch>ACCEPT</onMatch>
 			<onMismatch>DENY</onMismatch>
 		</filter>
 		<file>${logFolder}/server_errors.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<fileNamePattern>${logFolder}/server_errors.%i.log</fileNamePattern>
+			<maxIndex>${loginserver.log.max_rolled_files}</maxIndex>
+		</rollingPolicy>
+		<triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+			<maxFileSize>${loginserver.log.max_file_size}</maxFileSize>
+		</triggeringPolicy>
 		<encoder>
 			<Pattern>${date} %logger - %message%n</Pattern>
 		</encoder>
 	</appender>
 	<appender name="app_status_discord" class="com.aionemu.commons.logging.DiscordChannelAppender">
 		<encoder>
-			<pattern>%logger{0} [%thread]|${loginserver.log.status.discord.avatar_url}|%msg%replace(%n```qml%n%ex```){\r?\n```qml\r?\n```, ''}%nopex</pattern>
+			<pattern>%logger{0} [%thread]|${loginserver.log.status.discord.avatar_url}|%msg%replace(%n```yml%n%ex```){\r?\n```yml\r?\n```, ''}%nopex</pattern>
 		</encoder>
 		<webhookUrl>${loginserver.log.status.discord.webhook_url}</webhookUrl>
 		<userName_avatarUrl_msg_separator>\|</userName_avatarUrl_msg_separator>
@@ -54,8 +75,15 @@
 		<neverBlock>true</neverBlock>
 		<appender-ref ref="app_status_discord" />
 	</appender>
-	<appender name="app_login_audit" class="ch.qos.logback.core.FileAppender">
+	<appender name="app_login_audit" class="ch.qos.logback.core.rolling.RollingFileAppender">
 		<file>${logFolder}/cm_login.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<fileNamePattern>${logFolder}/cm_login.%i.log</fileNamePattern>
+			<maxIndex>${loginserver.log.max_rolled_files}</maxIndex>
+		</rollingPolicy>
+		<triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+			<maxFileSize>${loginserver.log.max_file_size}</maxFileSize>
+		</triggeringPolicy>
 		<encoder>
 			<Pattern>${date} %message%n</Pattern>
 		</encoder>

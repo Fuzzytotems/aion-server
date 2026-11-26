@@ -3,9 +3,9 @@
 	"version": 1,
 	"valueLimit": 24,
 	"summary": {
-		"elementPaths": 989,
-		"valuePaths": 3370,
-		"attributeValues": 6660945,
+		"elementPaths": 994,
+		"valuePaths": 3386,
+		"attributeValues": 6684614,
 		"textValues": 165690,
 		"pathsPerFlag": {
 			"BLANK": 1,
@@ -16,7 +16,7 @@
 			"FLOAT_SUFFIX": 1,
 			"INT_OVERFLOW": 3,
 			"LEADING_ZERO": 2,
-			"MIXED_SHAPES": 6,
+			"MIXED_SHAPES": 7,
 			"MULTI_SPACE": 5,
 			"NON_ASCII": 2,
 			"WHITESPACE_EDGE": 3
@@ -130,10 +130,10 @@
 			}
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@distance": {
-			"count": 145,
-			"elementCount": 220,
+			"count": 147,
+			"elementCount": 222,
 			"shapes": {
-				"int": 145
+				"int": 147
 			},
 			"intRange": [
 				0,
@@ -144,15 +144,15 @@
 			"values": {
 				"0": 3,
 				"10": 50,
-				"2": 51,
+				"2": 49,
 				"3": 14,
-				"5": 14,
+				"5": 18,
 				"6": 13
 			}
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@h": {
 			"count": 67,
-			"elementCount": 220,
+			"elementCount": 222,
 			"shapes": {
 				"int": 67
 			},
@@ -187,7 +187,7 @@
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@maxCount": {
 			"count": 3,
-			"elementCount": 220,
+			"elementCount": 222,
 			"shapes": {
 				"int": 3
 			},
@@ -202,10 +202,10 @@
 			}
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@minCount": {
-			"count": 65,
-			"elementCount": 220,
+			"count": 67,
+			"elementCount": 222,
 			"shapes": {
-				"int": 65
+				"int": 67
 			},
 			"intRange": [
 				2,
@@ -215,16 +215,16 @@
 			"distinct": 4,
 			"values": {
 				"2": 33,
-				"3": 24,
+				"3": 25,
 				"4": 7,
-				"5": 1
+				"5": 2
 			}
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@npcId": {
-			"count": 220,
-			"elementCount": 220,
+			"count": 222,
+			"elementCount": 222,
 			"shapes": {
-				"int": 220
+				"int": 222
 			},
 			"intRange": [
 				214832,
@@ -235,7 +235,7 @@
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@schedule": {
 			"count": 8,
-			"elementCount": 220,
+			"elementCount": 222,
 			"shapes": {
 				"int": 8
 			},
@@ -253,7 +253,7 @@
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@x": {
 			"count": 75,
-			"elementCount": 220,
+			"elementCount": 222,
 			"shapes": {
 				"decimal": 73,
 				"int": 2
@@ -267,7 +267,7 @@
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@y": {
 			"count": 75,
-			"elementCount": 220,
+			"elementCount": 222,
 			"shapes": {
 				"decimal": 73,
 				"int": 2
@@ -281,7 +281,7 @@
 		},
 		"ai_templates/ai/summons/percentage/summonGroup@z": {
 			"count": 75,
-			"elementCount": 220,
+			"elementCount": 222,
 			"shapes": {
 				"decimal": 73,
 				"int": 2
@@ -295,7 +295,7 @@
 		},
 		"ai_templates/ai/summons/percentage@isIndividual": {
 			"count": 47,
-			"elementCount": 182,
+			"elementCount": 184,
 			"shapes": {
 				"bool": 47
 			},
@@ -306,10 +306,10 @@
 			}
 		},
 		"ai_templates/ai/summons/percentage@percent": {
-			"count": 182,
-			"elementCount": 182,
+			"count": 184,
+			"elementCount": 184,
 			"shapes": {
-				"int": 182
+				"int": 184
 			},
 			"intRange": [
 				5,
@@ -321,23 +321,23 @@
 				"10": 9,
 				"100": 3,
 				"15": 3,
-				"20": 16,
+				"20": 17,
 				"25": 8,
 				"29": 1,
-				"30": 28,
+				"30": 27,
 				"35": 2,
-				"40": 20,
+				"40": 21,
 				"45": 2,
 				"5": 3,
-				"50": 21,
+				"50": 20,
 				"55": 3,
 				"57": 1,
-				"60": 15,
+				"60": 16,
 				"65": 1,
 				"70": 6,
 				"74": 1,
 				"75": 12,
-				"80": 14,
+				"80": 15,
 				"85": 1,
 				"90": 6,
 				"95": 2,
@@ -346,7 +346,7 @@
 		},
 		"ai_templates/ai/summons/percentage@skillId": {
 			"count": 51,
-			"elementCount": 182,
+			"elementCount": 184,
 			"shapes": {
 				"int": 51
 			},
@@ -383,67 +383,72 @@
 			"maxLength": 6,
 			"distinct": ">24"
 		},
-		"alias_locations/alias_location/alias_pos@x": {
-			"count": 10,
-			"elementCount": 10,
+		"alias_locations/alias_location/alias_pos@h": {
+			"count": 6,
+			"elementCount": 6,
 			"shapes": {
-				"decimal": 10
+				"int": 6
+			},
+			"intRange": [
+				0,
+				0
+			],
+			"maxLength": 1,
+			"distinct": 1,
+			"values": {
+				"0": 6
+			}
+		},
+		"alias_locations/alias_location/alias_pos@x": {
+			"count": 6,
+			"elementCount": 6,
+			"shapes": {
+				"decimal": 6
 			},
 			"maxLength": 10,
-			"distinct": 10,
+			"distinct": 6,
 			"values": {
-				"459.52594": 1,
-				"461.0773": 1,
-				"488.10117": 1,
-				"489.59015": 1,
+				"461.459229": 1,
+				"488.077454": 1,
 				"529.252380": 1,
-				"529.26996": 1,
-				"530.35266": 1,
 				"530.399963": 1,
-				"558.8116": 1,
-				"559.3717": 1
+				"530.657043": 1,
+				"557.602478": 1
 			}
 		},
 		"alias_locations/alias_location/alias_pos@y": {
-			"count": 10,
-			"elementCount": 10,
+			"count": 6,
+			"elementCount": 6,
 			"shapes": {
-				"decimal": 10
+				"decimal": 6
 			},
 			"maxLength": 11,
-			"distinct": 9,
+			"distinct": 6,
 			"values": {
-				"1297.261719": 2,
-				"463.3067": 1,
-				"463.7789": 1,
-				"491.3015": 1,
-				"493.02136": 1,
-				"532.8049": 1,
-				"533.0261": 1,
-				"562.2498": 1,
-				"562.76263": 1
+				"1297.261719": 1,
+				"1298.903198": 1,
+				"465.133209": 1,
+				"491.717529": 1,
+				"534.414490": 1,
+				"561.374023": 1
 			}
 		},
 		"alias_locations/alias_location/alias_pos@z": {
-			"count": 10,
-			"elementCount": 10,
+			"count": 6,
+			"elementCount": 6,
 			"shapes": {
-				"decimal": 7,
-				"int": 3
+				"decimal": 4,
+				"int": 2
 			},
 			"intRange": [
 				198,
-				676
+				198
 			],
-			"maxLength": 6,
-			"distinct": 6,
+			"maxLength": 10,
+			"distinct": 2,
 			"values": {
 				"198": 2,
-				"675.75": 2,
-				"675.8": 1,
-				"675.85": 3,
-				"676": 1,
-				"676.1": 1
+				"680.617981": 4
 			}
 		},
 		"alias_locations/alias_location@name": {
@@ -2136,103 +2141,9 @@
 				"798011 798012 798058 798059": 1
 			}
 		},
-		"curing_objects/curing_object@map_id": {
-			"count": 10,
-			"elementCount": 10,
-			"shapes": {
-				"int": 10
-			},
-			"intRange": [
-				700010000,
-				710010000
-			],
-			"maxLength": 9,
-			"distinct": 2,
-			"values": {
-				"700010000": 5,
-				"710010000": 5
-			}
-		},
-		"curing_objects/curing_object@range": {
-			"count": 10,
-			"elementCount": 10,
-			"shapes": {
-				"decimal": 10
-			},
-			"maxLength": 4,
-			"distinct": 3,
-			"values": {
-				"10.3": 4,
-				"11.2": 2,
-				"16.5": 4
-			}
-		},
-		"curing_objects/curing_object@x": {
-			"count": 10,
-			"elementCount": 10,
-			"shapes": {
-				"decimal": 10
-			},
-			"maxLength": 9,
-			"distinct": 10,
-			"values": {
-				"1067.3231": 1,
-				"1150.5974": 1,
-				"1206.8019": 1,
-				"1214.8632": 1,
-				"1765.6873": 1,
-				"2169.9587": 1,
-				"2519.195": 1,
-				"685.51056": 1,
-				"708.17175": 1,
-				"873.3462": 1
-			}
-		},
-		"curing_objects/curing_object@y": {
-			"count": 10,
-			"elementCount": 10,
-			"shapes": {
-				"decimal": 10
-			},
-			"maxLength": 9,
-			"distinct": 10,
-			"values": {
-				"1095.4746": 1,
-				"1451.6561": 1,
-				"1553.1467": 1,
-				"1616.9238": 1,
-				"1778.9161": 1,
-				"1910.168": 1,
-				"2225.5466": 1,
-				"2601.5105": 1,
-				"894.63275": 1,
-				"906.87054": 1
-			}
-		},
-		"curing_objects/curing_object@z": {
-			"count": 10,
-			"elementCount": 10,
-			"shapes": {
-				"decimal": 10
-			},
-			"maxLength": 9,
-			"distinct": 10,
-			"values": {
-				"134.6323": 1,
-				"159.19759": 1,
-				"180.38708": 1,
-				"231.19335": 1,
-				"77.3505": 1,
-				"93.82584": 1,
-				"94.218895": 1,
-				"94.22726": 1,
-				"95.05228": 1,
-				"95.149492": 1
-			}
-		},
 		"custom_drop/npc_drop/drop_group/drop@chance": {
 			"count": 2550,
-			"elementCount": 3512,
+			"elementCount": 3511,
 			"shapes": {
 				"decimal": 113,
 				"int": 2437
@@ -2245,22 +2156,22 @@
 			"distinct": ">24"
 		},
 		"custom_drop/npc_drop/drop_group/drop@each_member": {
-			"count": 107,
-			"elementCount": 3512,
+			"count": 106,
+			"elementCount": 3511,
 			"shapes": {
-				"bool": 107
+				"bool": 106
 			},
 			"maxLength": 4,
 			"distinct": 1,
 			"values": {
-				"true": 107
+				"true": 106
 			}
 		},
 		"custom_drop/npc_drop/drop_group/drop@item_id": {
-			"count": 3512,
-			"elementCount": 3512,
+			"count": 3511,
+			"elementCount": 3511,
 			"shapes": {
-				"int": 3512
+				"int": 3511
 			},
 			"intRange": [
 				100000219,
@@ -2271,7 +2182,7 @@
 		},
 		"custom_drop/npc_drop/drop_group/drop@max_amount": {
 			"count": 332,
-			"elementCount": 3512,
+			"elementCount": 3511,
 			"shapes": {
 				"int": 332
 			},
@@ -2309,7 +2220,7 @@
 		},
 		"custom_drop/npc_drop/drop_group/drop@min_amount": {
 			"count": 303,
-			"elementCount": 3512,
+			"elementCount": 3511,
 			"shapes": {
 				"int": 303
 			},
@@ -2322,7 +2233,7 @@
 		},
 		"custom_drop/npc_drop/drop_group@level_based_chance_reduction": {
 			"count": 285,
-			"elementCount": 772,
+			"elementCount": 771,
 			"shapes": {
 				"bool": 285
 			},
@@ -2334,7 +2245,7 @@
 		},
 		"custom_drop/npc_drop/drop_group@max_items": {
 			"count": 35,
-			"elementCount": 772,
+			"elementCount": 771,
 			"shapes": {
 				"int": 35
 			},
@@ -2353,7 +2264,7 @@
 		},
 		"custom_drop/npc_drop/drop_group@race": {
 			"count": 32,
-			"elementCount": 772,
+			"elementCount": 771,
 			"shapes": {
 				"enum": 32
 			},
@@ -2377,196 +2288,161 @@
 			"maxLength": 6,
 			"distinct": ">24"
 		},
-		"decomposable_items/decomposable/items/item@id": {
-			"count": 13303,
-			"elementCount": 13303,
+		"decomposable_items/decomposable/set/item@chance": {
+			"count": 42858,
+			"elementCount": 50481,
 			"shapes": {
-				"int": 13303
+				"decimal": 26534,
+				"int": 16324
 			},
 			"intRange": [
-				100000275,
+				1,
+				98
+			],
+			"maxLength": 5,
+			"distinct": ">24"
+		},
+		"decomposable_items/decomposable/set/item@count": {
+			"count": 12709,
+			"elementCount": 50481,
+			"shapes": {
+				"int": 12709
+			},
+			"intRange": [
+				1,
+				34000000
+			],
+			"maxLength": 8,
+			"distinct": ">24"
+		},
+		"decomposable_items/decomposable/set/item@id": {
+			"count": 50481,
+			"elementCount": 50481,
+			"shapes": {
+				"int": 50481
+			},
+			"intRange": [
+				100000223,
 				190100164
 			],
 			"maxLength": 9,
 			"distinct": ">24"
 		},
-		"decomposable_items/decomposable/items/item@max_count": {
-			"count": 1056,
-			"elementCount": 13303,
+		"decomposable_items/decomposable/set@chance": {
+			"count": 400,
+			"elementCount": 8659,
 			"shapes": {
-				"int": 1056
-			},
-			"intRange": [
-				2,
-				310
-			],
-			"maxLength": 3,
-			"distinct": ">24"
-		},
-		"decomposable_items/decomposable/items/item@min_count": {
-			"count": 2500,
-			"elementCount": 13303,
-			"shapes": {
-				"int": 2500
+				"decimal": 120,
+				"int": 280
 			},
 			"intRange": [
 				1,
-				10000
+				88
 			],
-			"maxLength": 5,
+			"maxLength": 4,
 			"distinct": ">24"
 		},
-		"decomposable_items/decomposable/items/item@player_classes": {
-			"count": 3658,
-			"elementCount": 13303,
+		"decomposable_items/decomposable/set@max_level": {
+			"count": 332,
+			"elementCount": 8659,
 			"shapes": {
-				"enum": 2531,
-				"enum-list": 1127
+				"int": 332
 			},
-			"maxLength": 71,
+			"intRange": [
+				10,
+				70
+			],
+			"maxLength": 2,
+			"distinct": 22,
+			"values": {
+				"10": 2,
+				"20": 7,
+				"23": 60,
+				"25": 1,
+				"26": 60,
+				"29": 7,
+				"30": 67,
+				"36": 2,
+				"39": 19,
+				"40": 11,
+				"41": 2,
+				"44": 1,
+				"45": 6,
+				"46": 2,
+				"49": 15,
+				"50": 22,
+				"54": 1,
+				"55": 15,
+				"59": 3,
+				"60": 6,
+				"65": 17,
+				"70": 6
+			}
+		},
+		"decomposable_items/decomposable/set@min_level": {
+			"count": 324,
+			"elementCount": 8659,
+			"shapes": {
+				"int": 324
+			},
+			"intRange": [
+				11,
+				61
+			],
+			"maxLength": 2,
+			"distinct": 21,
+			"values": {
+				"11": 3,
+				"20": 4,
+				"21": 78,
+				"24": 60,
+				"26": 1,
+				"27": 60,
+				"30": 9,
+				"31": 7,
+				"37": 2,
+				"40": 20,
+				"41": 10,
+				"42": 2,
+				"45": 2,
+				"46": 5,
+				"47": 2,
+				"50": 16,
+				"51": 18,
+				"55": 1,
+				"56": 16,
+				"60": 3,
+				"61": 5
+			}
+		},
+		"decomposable_items/decomposable/set@player_classes": {
+			"count": 2254,
+			"elementCount": 8659,
+			"shapes": {
+				"enum": 1414,
+				"enum-list": 840
+			},
+			"maxLength": 59,
 			"distinct": ">24"
 		},
-		"decomposable_items/decomposable/items/item@race": {
-			"count": 510,
-			"elementCount": 13303,
+		"decomposable_items/decomposable/set@race": {
+			"count": 1634,
+			"elementCount": 8659,
 			"shapes": {
-				"enum": 510
+				"enum": 1634
 			},
 			"maxLength": 9,
 			"distinct": 2,
 			"values": {
-				"ASMODIANS": 255,
-				"ELYOS": 255
-			}
-		},
-		"decomposable_items/decomposable/items/random_item@max_count": {
-			"count": 132,
-			"elementCount": 614,
-			"shapes": {
-				"int": 132
-			},
-			"intRange": [
-				2,
-				8
-			],
-			"maxLength": 1,
-			"distinct": 5,
-			"values": {
-				"2": 8,
-				"3": 39,
-				"4": 6,
-				"5": 73,
-				"8": 6
-			}
-		},
-		"decomposable_items/decomposable/items/random_item@min_count": {
-			"count": 134,
-			"elementCount": 614,
-			"shapes": {
-				"int": 134
-			},
-			"intRange": [
-				2,
-				30
-			],
-			"maxLength": 2,
-			"distinct": 7,
-			"values": {
-				"10": 9,
-				"2": 18,
-				"20": 16,
-				"25": 2,
-				"3": 59,
-				"30": 10,
-				"5": 20
-			}
-		},
-		"decomposable_items/decomposable/items/random_item@type": {
-			"count": 614,
-			"elementCount": 614,
-			"shapes": {
-				"enum": 614
-			},
-			"maxLength": 30,
-			"distinct": ">24"
-		},
-		"decomposable_items/decomposable/items@chance": {
-			"count": 2498,
-			"elementCount": 8272,
-			"shapes": {
-				"decimal": 2226,
-				"int": 272
-			},
-			"intRange": [
-				1,
-				80
-			],
-			"maxLength": 5,
-			"distinct": ">24"
-		},
-		"decomposable_items/decomposable/items@maxlevel": {
-			"count": 156,
-			"elementCount": 8272,
-			"shapes": {
-				"int": 156
-			},
-			"intRange": [
-				10,
-				65
-			],
-			"maxLength": 2,
-			"distinct": 13,
-			"values": {
-				"10": 1,
-				"19": 8,
-				"20": 9,
-				"29": 7,
-				"30": 11,
-				"39": 7,
-				"40": 11,
-				"45": 15,
-				"49": 7,
-				"50": 15,
-				"55": 24,
-				"60": 17,
-				"65": 24
-			}
-		},
-		"decomposable_items/decomposable/items@minlevel": {
-			"count": 159,
-			"elementCount": 8272,
-			"shapes": {
-				"int": 159
-			},
-			"intRange": [
-				1,
-				61
-			],
-			"maxLength": 2,
-			"distinct": 15,
-			"values": {
-				"1": 14,
-				"10": 6,
-				"20": 7,
-				"21": 11,
-				"30": 7,
-				"31": 11,
-				"40": 7,
-				"41": 15,
-				"45": 1,
-				"46": 15,
-				"50": 6,
-				"51": 17,
-				"55": 1,
-				"56": 24,
-				"61": 17
+				"ASMODIANS": 862,
+				"ELYOS": 772
 			}
 		},
 		"decomposable_items/decomposable@item_id": {
-			"count": 4125,
-			"elementCount": 4125,
+			"count": 4233,
+			"elementCount": 4233,
 			"shapes": {
-				"int": 4125
+				"int": 4233
 			},
 			"intRange": [
 				152000065,
@@ -2575,16 +2451,40 @@
 			"maxLength": 9,
 			"distinct": ">24"
 		},
-		"decomposable_items/decomposable@selectable": {
-			"count": 187,
-			"elementCount": 4125,
+		"decomposable_items/decomposable@only_one": {
+			"count": 64,
+			"elementCount": 4233,
 			"shapes": {
-				"bool": 187
+				"bool": 64
 			},
 			"maxLength": 4,
 			"distinct": 1,
 			"values": {
-				"true": 187
+				"true": 64
+			}
+		},
+		"decomposable_items/decomposable@override": {
+			"count": 106,
+			"elementCount": 4233,
+			"shapes": {
+				"bool": 106
+			},
+			"maxLength": 4,
+			"distinct": 1,
+			"values": {
+				"true": 106
+			}
+		},
+		"decomposable_items/decomposable@selectable": {
+			"count": 319,
+			"elementCount": 4233,
+			"shapes": {
+				"bool": 319
+			},
+			"maxLength": 4,
+			"distinct": 1,
+			"values": {
+				"true": 319
 			}
 		},
 		"dimensional_vortex/vortex_location/home_point@h": {
@@ -2846,6 +2746,15 @@
 				"ELYOS": 1
 			}
 		},
+		"dimensional_vortex/vortex_location@zones": {
+			"count": 2,
+			"elementCount": 2,
+			"shapes": {
+				"enum-list": 2
+			},
+			"maxLength": 167,
+			"distinct": "not recorded (literal longer than 80)"
+		},
 		"dopings/doping@id": {
 			"count": 31,
 			"elementCount": 31,
@@ -3077,7 +2986,7 @@
 			"shapes": {
 				"decimal": 74
 			},
-			"maxLength": 9,
+			"maxLength": 10,
 			"distinct": ">24"
 		},
 		"fly_rings/fly_ring@map": {
@@ -3118,6 +3027,72 @@
 			"values": {
 				"6.0": 74
 			}
+		},
+		"flypath_template/flypath_location/windstream_point@entry": {
+			"count": 5,
+			"elementCount": 891,
+			"shapes": {
+				"bool": 5
+			},
+			"maxLength": 5,
+			"distinct": 1,
+			"values": {
+				"false": 5
+			}
+		},
+		"flypath_template/flypath_location/windstream_point@exit": {
+			"count": 259,
+			"elementCount": 891,
+			"shapes": {
+				"bool": 259
+			},
+			"maxLength": 5,
+			"distinct": 1,
+			"values": {
+				"false": 259
+			}
+		},
+		"flypath_template/flypath_location/windstream_point@x": {
+			"count": 891,
+			"elementCount": 891,
+			"shapes": {
+				"decimal": 725,
+				"int": 166
+			},
+			"intRange": [
+				97,
+				2920
+			],
+			"maxLength": 6,
+			"distinct": ">24"
+		},
+		"flypath_template/flypath_location/windstream_point@y": {
+			"count": 891,
+			"elementCount": 891,
+			"shapes": {
+				"decimal": 718,
+				"int": 173
+			},
+			"intRange": [
+				60,
+				2881
+			],
+			"maxLength": 6,
+			"distinct": ">24"
+		},
+		"flypath_template/flypath_location/windstream_point@z": {
+			"count": 891,
+			"elementCount": 891,
+			"shapes": {
+				"decimal": 683,
+				"int": 208
+			},
+			"intRange": [
+				35,
+				1608
+			],
+			"maxLength": 6,
+			"distinct": ">24"
 		},
 		"flypath_template/flypath_location@eworld": {
 			"count": 208,
@@ -3246,8 +3221,8 @@
 			"count": 208,
 			"elementCount": 208,
 			"shapes": {
-				"decimal": 69,
-				"int": 139
+				"decimal": 92,
+				"int": 116
 			},
 			"intRange": [
 				5,
@@ -9662,7 +9637,7 @@
 		},
 		"item_templates/item_template/actions/enchant@chance": {
 			"count": 52,
-			"elementCount": 1247,
+			"elementCount": 1252,
 			"shapes": {
 				"decimal": 52
 			},
@@ -9677,7 +9652,7 @@
 		},
 		"item_templates/item_template/actions/enchant@count": {
 			"count": 1195,
-			"elementCount": 1247,
+			"elementCount": 1252,
 			"shapes": {
 				"int": 1195
 			},
@@ -9690,7 +9665,7 @@
 		},
 		"item_templates/item_template/actions/enchant@manastone_only": {
 			"count": 28,
-			"elementCount": 1247,
+			"elementCount": 1252,
 			"shapes": {
 				"bool": 28
 			},
@@ -9702,7 +9677,7 @@
 		},
 		"item_templates/item_template/actions/enchant@max_level": {
 			"count": 25,
-			"elementCount": 1247,
+			"elementCount": 1252,
 			"shapes": {
 				"int": 25
 			},
@@ -9722,7 +9697,7 @@
 		},
 		"item_templates/item_template/actions/enchant@min_level": {
 			"count": 25,
-			"elementCount": 1247,
+			"elementCount": 1252,
 			"shapes": {
 				"int": 25
 			},
@@ -10840,7 +10815,7 @@
 		},
 		"item_templates/item_template/uselimits@gender": {
 			"count": 456,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"enum": 456
 			},
@@ -10853,7 +10828,7 @@
 		},
 		"item_templates/item_template/uselimits@guild_level": {
 			"count": 37,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 37
 			},
@@ -10875,7 +10850,7 @@
 		},
 		"item_templates/item_template/uselimits@ownership_worlds": {
 			"count": 193,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 176,
 				"int-list": 17
@@ -10889,7 +10864,7 @@
 		},
 		"item_templates/item_template/uselimits@pack_count": {
 			"count": 3160,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 3160
 			},
@@ -10908,7 +10883,7 @@
 		},
 		"item_templates/item_template/uselimits@purchable_rank_min": {
 			"count": 1784,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 1784
 			},
@@ -10937,7 +10912,7 @@
 		},
 		"item_templates/item_template/uselimits@rank_max": {
 			"count": 9,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 9
 			},
@@ -10955,7 +10930,7 @@
 		},
 		"item_templates/item_template/uselimits@rank_min": {
 			"count": 1928,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 1928
 			},
@@ -10984,7 +10959,7 @@
 		},
 		"item_templates/item_template/uselimits@recommend_rank": {
 			"count": 482,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"int": 482
 			},
@@ -11010,7 +10985,7 @@
 		},
 		"item_templates/item_template/uselimits@ride_usable": {
 			"count": 16,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"bool": 16
 			},
@@ -11022,7 +10997,7 @@
 		},
 		"item_templates/item_template/uselimits@usearea": {
 			"count": 294,
-			"elementCount": 29189,
+			"elementCount": 29191,
 			"shapes": {
 				"enum": 289,
 				"identifier": 5
@@ -11031,10 +11006,10 @@
 			"distinct": ">24"
 		},
 		"item_templates/item_template/uselimits@usedelay": {
-			"count": 7764,
-			"elementCount": 29189,
+			"count": 7766,
+			"elementCount": 29191,
 			"shapes": {
-				"int": 7764
+				"int": 7766
 			},
 			"intRange": [
 				1000,
@@ -11044,10 +11019,10 @@
 			"distinct": ">24"
 		},
 		"item_templates/item_template/uselimits@usedelayid": {
-			"count": 23502,
-			"elementCount": 29189,
+			"count": 23504,
+			"elementCount": 29191,
 			"shapes": {
-				"int": 23502
+				"int": 23504
 			},
 			"intRange": [
 				1,
@@ -11235,7 +11210,7 @@
 		},
 		"item_templates/item_template@activate_combat": {
 			"count": 121,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"bool": 121
 			},
@@ -11246,10 +11221,10 @@
 			}
 		},
 		"item_templates/item_template@activate_count": {
-			"count": 26680,
-			"elementCount": 102009,
+			"count": 26682,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 26680
+				"int": 26682
 			},
 			"intRange": [
 				1,
@@ -11258,15 +11233,15 @@
 			"maxLength": 4,
 			"distinct": 2,
 			"values": {
-				"1": 23905,
+				"1": 23907,
 				"1000": 2775
 			}
 		},
 		"item_templates/item_template@activate_target": {
-			"count": 24008,
-			"elementCount": 102009,
+			"count": 24010,
+			"elementCount": 102011,
 			"shapes": {
-				"enum": 24008
+				"enum": 24010
 			},
 			"maxLength": 20,
 			"distinct": 16,
@@ -11282,7 +11257,7 @@
 				"LIVINGWATER": 8,
 				"LYCAN": 3,
 				"MYMENTO": 10,
-				"STANDALONE": 23907,
+				"STANDALONE": 23909,
 				"TARGET": 36,
 				"WORLD_EVENT_CAKE_D": 3,
 				"WORLD_EVENT_CAKE_L": 3,
@@ -11291,7 +11266,7 @@
 		},
 		"item_templates/item_template@attack_type": {
 			"count": 17850,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 17850
 			},
@@ -11305,11 +11280,11 @@
 			}
 		},
 		"item_templates/item_template@cName": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 61,
-				"identifier": 100881,
+				"identifier": 100883,
 				"text": 1067
 			},
 			"maxLength": 59,
@@ -11317,7 +11292,7 @@
 		},
 		"item_templates/item_template@can_exceed_enchant": {
 			"count": 12065,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"bool": 12065
 			},
@@ -11328,10 +11303,10 @@
 			}
 		},
 		"item_templates/item_template@casting_delay": {
-			"count": 6103,
-			"elementCount": 102009,
+			"count": 6105,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 6103
+				"int": 6105
 			},
 			"intRange": [
 				0,
@@ -11341,7 +11316,7 @@
 			"distinct": 14,
 			"values": {
 				"0": 4,
-				"1000": 2964,
+				"1000": 2966,
 				"10000": 247,
 				"1001": 2,
 				"1002": 2,
@@ -11357,10 +11332,10 @@
 			}
 		},
 		"item_templates/item_template@desc": {
-			"count": 101979,
-			"elementCount": 102009,
+			"count": 101981,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 101979
+				"int": 101981
 			},
 			"intRange": [
 				240334,
@@ -11369,9 +11344,21 @@
 			"maxLength": 7,
 			"distinct": ">24"
 		},
+		"item_templates/item_template@doping_pet_usable": {
+			"count": 1124,
+			"elementCount": 102011,
+			"shapes": {
+				"bool": 1124
+			},
+			"maxLength": 4,
+			"distinct": 1,
+			"values": {
+				"true": 1124
+			}
+		},
 		"item_templates/item_template@enchant_name": {
 			"count": 51,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 51
 			},
@@ -11397,7 +11384,7 @@
 		},
 		"item_templates/item_template@enchant_type": {
 			"count": 41,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 41
 			},
@@ -11413,7 +11400,7 @@
 		},
 		"item_templates/item_template@exceed_enchant_skill": {
 			"count": 11977,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 11977
 			},
@@ -11422,7 +11409,7 @@
 		},
 		"item_templates/item_template@expire_time": {
 			"count": 2616,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 2616
 			},
@@ -11434,10 +11421,10 @@
 			"distinct": ">24"
 		},
 		"item_templates/item_template@id": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 102009
+				"int": 102011
 			},
 			"intRange": [
 				100000001,
@@ -11447,17 +11434,17 @@
 			"distinct": ">24"
 		},
 		"item_templates/item_template@item_group": {
-			"count": 82178,
-			"elementCount": 102009,
+			"count": 82186,
+			"elementCount": 102011,
 			"shapes": {
-				"enum": 82178
+				"enum": 82186
 			},
 			"maxLength": 17,
 			"distinct": ">24"
 		},
 		"item_templates/item_template@item_type": {
 			"count": 8384,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 8384
 			},
@@ -11471,10 +11458,10 @@
 			}
 		},
 		"item_templates/item_template@level": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 102009
+				"int": 102011
 			},
 			"intRange": [
 				0,
@@ -11485,7 +11472,7 @@
 		},
 		"item_templates/item_template@m_slots": {
 			"count": 46844,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 46844
 			},
@@ -11505,10 +11492,10 @@
 			}
 		},
 		"item_templates/item_template@mask": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 102009
+				"int": 102011
 			},
 			"intRange": [
 				28,
@@ -11519,7 +11506,7 @@
 		},
 		"item_templates/item_template@max_enchant": {
 			"count": 46424,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 46424
 			},
@@ -11543,7 +11530,7 @@
 		},
 		"item_templates/item_template@max_enchant_bonus": {
 			"count": 6164,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 6164
 			},
@@ -11563,7 +11550,7 @@
 		},
 		"item_templates/item_template@max_stack_count": {
 			"count": 28619,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 28619
 			},
@@ -11576,7 +11563,7 @@
 		},
 		"item_templates/item_template@max_tampering": {
 			"count": 2331,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 2331
 			},
@@ -11594,14 +11581,14 @@
 			}
 		},
 		"item_templates/item_template@name": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
 				"comma-list": 2,
 				"enum": 1,
 				"enum-list": 46148,
 				"identifier": 1287,
-				"text": 54571
+				"text": 54573
 			},
 			"flags": {
 				"MULTI_SPACE": 31,
@@ -11624,7 +11611,7 @@
 		},
 		"item_templates/item_template@option_slot_bonus": {
 			"count": 12312,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 12312
 			},
@@ -11644,7 +11631,7 @@
 		},
 		"item_templates/item_template@pack_count": {
 			"count": 3160,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 3160
 			},
@@ -11662,10 +11649,10 @@
 			}
 		},
 		"item_templates/item_template@price": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
-				"int": 102009
+				"int": 102011
 			},
 			"intRange": [
 				0,
@@ -11675,10 +11662,10 @@
 			"distinct": ">24"
 		},
 		"item_templates/item_template@quality": {
-			"count": 102009,
-			"elementCount": 102009,
+			"count": 102011,
+			"elementCount": 102011,
 			"shapes": {
-				"enum": 102009
+				"enum": 102011
 			},
 			"maxLength": 6,
 			"distinct": 7,
@@ -11687,14 +11674,14 @@
 				"EPIC": 10115,
 				"JUNK": 3631,
 				"LEGEND": 17447,
-				"MYTHIC": 3487,
+				"MYTHIC": 3489,
 				"RARE": 19330,
 				"UNIQUE": 16145
 			}
 		},
 		"item_templates/item_template@race": {
 			"count": 17569,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 17569
 			},
@@ -11707,7 +11694,7 @@
 		},
 		"item_templates/item_template@restrict": {
 			"count": 50371,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int-list": 50371
 			},
@@ -11716,7 +11703,7 @@
 		},
 		"item_templates/item_template@restrict_max": {
 			"count": 480,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int-list": 480
 			},
@@ -11750,7 +11737,7 @@
 		},
 		"item_templates/item_template@return_alias": {
 			"count": 51,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 51
 			},
@@ -11759,7 +11746,7 @@
 		},
 		"item_templates/item_template@return_world": {
 			"count": 51,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 51
 			},
@@ -11797,7 +11784,7 @@
 		},
 		"item_templates/item_template@rnd_bonus": {
 			"count": 1234,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 1234
 			},
@@ -11810,7 +11797,7 @@
 		},
 		"item_templates/item_template@rnd_count": {
 			"count": 687,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 687
 			},
@@ -11834,7 +11821,7 @@
 		},
 		"item_templates/item_template@robot": {
 			"count": 1127,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 1127
 			},
@@ -11847,7 +11834,7 @@
 		},
 		"item_templates/item_template@s_slots": {
 			"count": 2262,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 2262
 			},
@@ -11868,7 +11855,7 @@
 		},
 		"item_templates/item_template@temp_exchange_time": {
 			"count": 3621,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 3621
 			},
@@ -11885,7 +11872,7 @@
 		},
 		"item_templates/item_template@tempering_name": {
 			"count": 106,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"enum": 106
 			},
@@ -11917,7 +11904,7 @@
 		},
 		"item_templates/item_template@weapon_boost": {
 			"count": 14,
-			"elementCount": 102009,
+			"elementCount": 102011,
 			"shapes": {
 				"int": 14
 			},
@@ -12795,6 +12782,32 @@
 				"4": 1
 			}
 		},
+		"mentee_exp_limit_table/level@exp_limit": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				193,
+				1616948
+			],
+			"maxLength": 7,
+			"distinct": ">24"
+		},
+		"mentee_exp_limit_table/level@lvl": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				1,
+				100
+			],
+			"maxLength": 3,
+			"distinct": ">24"
+		},
 		"motion_times/motion_time/asmodian_female@animation_length": {
 			"count": 2292,
 			"elementCount": 2292,
@@ -13492,7 +13505,7 @@
 		},
 		"npc_shouts/shout_group/shout_npcs/shout@param": {
 			"count": 3,
-			"elementCount": 3789,
+			"elementCount": 3785,
 			"shapes": {
 				"identifier": 3
 			},
@@ -13504,7 +13517,7 @@
 		},
 		"npc_shouts/shout_group/shout_npcs/shout@pattern": {
 			"count": 1164,
-			"elementCount": 3789,
+			"elementCount": 3785,
 			"shapes": {
 				"identifier": 59,
 				"int": 1105
@@ -13521,7 +13534,7 @@
 		},
 		"npc_shouts/shout_group/shout_npcs/shout@poll_delay": {
 			"count": 7,
-			"elementCount": 3789,
+			"elementCount": 3785,
 			"shapes": {
 				"int": 7
 			},
@@ -13536,10 +13549,10 @@
 			}
 		},
 		"npc_shouts/shout_group/shout_npcs/shout@skill_no": {
-			"count": 1464,
-			"elementCount": 3789,
+			"count": 1461,
+			"elementCount": 3785,
 			"shapes": {
-				"int": 1464
+				"int": 1461
 			},
 			"intRange": [
 				1,
@@ -13548,11 +13561,11 @@
 			"maxLength": 2,
 			"distinct": 12,
 			"values": {
-				"1": 321,
+				"1": 319,
 				"10": 8,
 				"11": 1,
 				"13": 4,
-				"2": 316,
+				"2": 315,
 				"3": 250,
 				"4": 203,
 				"5": 127,
@@ -13563,10 +13576,10 @@
 			}
 		},
 		"npc_shouts/shout_group/shout_npcs/shout@string_id": {
-			"count": 3789,
-			"elementCount": 3789,
+			"count": 3785,
+			"elementCount": 3785,
 			"shapes": {
-				"int": 3789
+				"int": 3785
 			},
 			"intRange": [
 				340000,
@@ -13576,19 +13589,19 @@
 			"distinct": ">24"
 		},
 		"npc_shouts/shout_group/shout_npcs/shout@when": {
-			"count": 3789,
-			"elementCount": 3789,
+			"count": 3785,
+			"elementCount": 3785,
 			"shapes": {
-				"enum": 3789
+				"enum": 3785
 			},
 			"maxLength": 15,
 			"distinct": ">24"
 		},
 		"npc_shouts/shout_group/shout_npcs@npc_ids": {
-			"count": 982,
-			"elementCount": 982,
+			"count": 981,
+			"elementCount": 981,
 			"shapes": {
-				"int": 623,
+				"int": 622,
 				"int-list": 359
 			},
 			"intRange": [
@@ -13599,10 +13612,10 @@
 			"distinct": "not recorded (literal longer than 80)"
 		},
 		"npc_shouts/shout_group/shout_npcs@restrict_world": {
-			"count": 665,
-			"elementCount": 982,
+			"count": 664,
+			"elementCount": 981,
 			"shapes": {
-				"int": 665
+				"int": 664
 			},
 			"intRange": [
 				110010000,
@@ -13612,12 +13625,12 @@
 			"distinct": ">24"
 		},
 		"npc_shouts/shout_group@client_ai": {
-			"count": 739,
-			"elementCount": 739,
+			"count": 738,
+			"elementCount": 738,
 			"shapes": {
 				"empty": 1,
 				"enum": 5,
-				"identifier": 663,
+				"identifier": 662,
 				"text": 70
 			},
 			"flags": {
@@ -13633,7 +13646,7 @@
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@can_die": {
 			"count": 15,
-			"elementCount": 106,
+			"elementCount": 115,
 			"shapes": {
 				"bool": 15
 			},
@@ -13645,18 +13658,19 @@
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@cond_type": {
-			"count": 80,
-			"elementCount": 106,
+			"count": 89,
+			"elementCount": 115,
 			"shapes": {
-				"enum": 80
+				"enum": 89
 			},
 			"maxLength": 24,
-			"distinct": 7,
+			"distinct": 8,
 			"values": {
-				"HELP_FRIEND": 36,
+				"HELP_FRIEND": 38,
 				"NPC_IS_ALIVE": 6,
 				"TARGET_HAS_CARVED_SIGNET": 1,
 				"TARGET_IS_AETHERS_HOLD": 21,
+				"TARGET_IS_FLYING": 7,
 				"TARGET_IS_IN_RANGE": 3,
 				"TARGET_IS_NPC": 9,
 				"TARGET_IS_PLAYER": 4
@@ -13664,7 +13678,7 @@
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@delay": {
 			"count": 26,
-			"elementCount": 106,
+			"elementCount": 115,
 			"shapes": {
 				"int": 26
 			},
@@ -13686,7 +13700,7 @@
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@despawn_time": {
 			"count": 26,
-			"elementCount": 106,
+			"elementCount": 115,
 			"shapes": {
 				"int": 26
 			},
@@ -13709,29 +13723,30 @@
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@hp_below": {
-			"count": 36,
-			"elementCount": 106,
+			"count": 38,
+			"elementCount": 115,
 			"shapes": {
-				"int": 36
+				"int": 38
 			},
 			"intRange": [
 				20,
-				90
+				99
 			],
 			"maxLength": 2,
-			"distinct": 6,
+			"distinct": 7,
 			"values": {
 				"20": 9,
 				"30": 4,
 				"40": 3,
 				"50": 7,
 				"60": 12,
-				"90": 1
+				"90": 1,
+				"99": 2
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@npc_id": {
 			"count": 6,
-			"elementCount": 106,
+			"elementCount": 115,
 			"shapes": {
 				"int": 6
 			},
@@ -13746,19 +13761,20 @@
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill/cond@range": {
-			"count": 38,
-			"elementCount": 106,
+			"count": 40,
+			"elementCount": 115,
 			"shapes": {
-				"int": 38
+				"int": 40
 			},
 			"intRange": [
 				4,
 				30
 			],
 			"maxLength": 2,
-			"distinct": 8,
+			"distinct": 9,
 			"values": {
 				"10": 13,
+				"12": 2,
 				"13": 1,
 				"15": 1,
 				"20": 1,
@@ -13904,10 +13920,10 @@
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill@cd": {
-			"count": 2027,
-			"elementCount": 43706,
+			"count": 1787,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 2027
+				"int": 1787
 			},
 			"intRange": [
 				0,
@@ -13917,10 +13933,10 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@chain_id": {
-			"count": 848,
-			"elementCount": 43706,
+			"count": 807,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 848
+				"int": 807
 			},
 			"intRange": [
 				0,
@@ -13931,7 +13947,7 @@
 		},
 		"npc_skill_templates/npc_skills/npc_skill@conjunction": {
 			"count": 4,
-			"elementCount": 43706,
+			"elementCount": 42245,
 			"shapes": {
 				"enum": 4
 			},
@@ -13942,10 +13958,10 @@
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill@id": {
-			"count": 43706,
-			"elementCount": 43706,
+			"count": 42245,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 43706
+				"int": 42245
 			},
 			"intRange": [
 				261,
@@ -13955,22 +13971,22 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@is_post_spawn": {
-			"count": 199,
-			"elementCount": 43706,
+			"count": 208,
+			"elementCount": 42245,
 			"shapes": {
-				"bool": 199
+				"bool": 208
 			},
 			"maxLength": 4,
 			"distinct": 1,
 			"values": {
-				"true": 199
+				"true": 208
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill@lv": {
-			"count": 43705,
-			"elementCount": 43706,
+			"count": 42244,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 43705
+				"int": 42244
 			},
 			"intRange": [
 				1,
@@ -13981,7 +13997,7 @@
 		},
 		"npc_skill_templates/npc_skills/npc_skill@max_chain_time": {
 			"count": 14,
-			"elementCount": 43706,
+			"elementCount": 42245,
 			"shapes": {
 				"int": 14
 			},
@@ -13999,10 +14015,10 @@
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill@max_hp": {
-			"count": 1150,
-			"elementCount": 43706,
+			"count": 798,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 1150
+				"int": 798
 			},
 			"intRange": [
 				0,
@@ -14012,10 +14028,10 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@max_time": {
-			"count": 9,
-			"elementCount": 43706,
+			"count": 15,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 9
+				"int": 15
 			},
 			"intRange": [
 				12000,
@@ -14025,17 +14041,17 @@
 			"distinct": 5,
 			"values": {
 				"12000": 4,
-				"15000": 1,
+				"15000": 7,
 				"359000": 1,
 				"50000": 2,
 				"659000": 1
 			}
 		},
 		"npc_skill_templates/npc_skills/npc_skill@min_hp": {
-			"count": 544,
-			"elementCount": 43706,
+			"count": 537,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 544
+				"int": 537
 			},
 			"intRange": [
 				0,
@@ -14045,40 +14061,23 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@min_time": {
-			"count": 37,
-			"elementCount": 43706,
+			"count": 74,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 37
+				"int": 74
 			},
 			"intRange": [
-				15000,
+				2000,
 				1800000
 			],
 			"maxLength": 7,
-			"distinct": 15,
-			"values": {
-				"120000": 1,
-				"123000": 1,
-				"15000": 4,
-				"18000": 1,
-				"180000": 2,
-				"1800000": 2,
-				"20000": 2,
-				"240000": 1,
-				"28000": 2,
-				"30000": 14,
-				"36000": 1,
-				"360000": 2,
-				"60000": 1,
-				"660000": 2,
-				"90000": 1
-			}
+			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@next_chain_id": {
-			"count": 887,
-			"elementCount": 43706,
+			"count": 853,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 887
+				"int": 853
 			},
 			"intRange": [
 				1,
@@ -14088,10 +14087,10 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@next_skill_time": {
-			"count": 1156,
-			"elementCount": 43706,
+			"count": 1059,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 1156
+				"int": 1059
 			},
 			"intRange": [
 				0,
@@ -14101,10 +14100,10 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@prio": {
-			"count": 246,
-			"elementCount": 43706,
+			"count": 288,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 246
+				"int": 288
 			},
 			"intRange": [
 				1,
@@ -14114,10 +14113,10 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@prob": {
-			"count": 43661,
-			"elementCount": 43706,
+			"count": 42200,
+			"elementCount": 42245,
 			"shapes": {
-				"int": 43661
+				"int": 42200
 			},
 			"intRange": [
 				0,
@@ -14127,36 +14126,36 @@
 			"distinct": ">24"
 		},
 		"npc_skill_templates/npc_skills/npc_skill@target": {
-			"count": 449,
-			"elementCount": 43706,
+			"count": 445,
+			"elementCount": 42245,
 			"shapes": {
-				"enum": 449
+				"enum": 445
 			},
 			"maxLength": 28,
 			"distinct": 8,
 			"values": {
 				"FRIEND": 1,
-				"ME": 172,
+				"ME": 201,
 				"MOST_HATED": 4,
-				"NONE": 88,
-				"RANDOM": 155,
-				"RANDOM_EXCEPT_CURRENT_TARGET": 10,
+				"NONE": 50,
+				"RANDOM": 158,
+				"RANDOM_EXCEPT_CURRENT_TARGET": 12,
 				"SECOND_MOST_HATED": 10,
 				"THIRD_MOST_HATED": 9
 			}
 		},
 		"npc_skill_templates/npc_skills@npc_ids": {
-			"count": 11266,
-			"elementCount": 11266,
+			"count": 11178,
+			"elementCount": 11178,
 			"shapes": {
-				"int": 11067,
-				"int-list": 199
+				"int": 10987,
+				"int-list": 191
 			},
 			"intRange": [
 				201010,
 				856459
 			],
-			"maxLength": 195,
+			"maxLength": 419,
 			"distinct": ">24"
 		},
 		"npc_teleporter/teleporter_template/locations/telelocation@loc_id": {
@@ -14269,42 +14268,42 @@
 			"distinct": ">24"
 		},
 		"npc_templates/npc_template/bound_radius@front": {
-			"count": 63266,
-			"elementCount": 63266,
+			"count": 63280,
+			"elementCount": 63280,
 			"shapes": {
-				"decimal": 60621,
+				"decimal": 60635,
 				"int": 2645
 			},
 			"intRange": [
-				0,
+				1,
 				250
 			],
 			"maxLength": 11,
 			"distinct": ">24"
 		},
 		"npc_templates/npc_template/bound_radius@side": {
-			"count": 63266,
-			"elementCount": 63266,
+			"count": 63280,
+			"elementCount": 63280,
 			"shapes": {
-				"decimal": 62183,
-				"int": 1083
+				"decimal": 62200,
+				"int": 1080
 			},
 			"intRange": [
-				0,
+				1,
 				250
 			],
 			"maxLength": 12,
 			"distinct": ">24"
 		},
 		"npc_templates/npc_template/bound_radius@upper": {
-			"count": 63266,
-			"elementCount": 63266,
+			"count": 63280,
+			"elementCount": 63280,
 			"shapes": {
-				"decimal": 47594,
-				"int": 15672
+				"decimal": 47420,
+				"int": 15860
 			},
 			"intRange": [
-				0,
+				1,
 				500
 			],
 			"maxLength": 7,
@@ -15124,20 +15123,6 @@
 			"maxLength": 20,
 			"distinct": ">24"
 		},
-		"npc_templates/npc_template@height": {
-			"count": 63257,
-			"elementCount": 63287,
-			"shapes": {
-				"decimal": 47443,
-				"int": 15814
-			},
-			"intRange": [
-				1,
-				500
-			],
-			"maxLength": 10,
-			"distinct": ">24"
-		},
 		"npc_templates/npc_template@hpgauge": {
 			"count": 63287,
 			"elementCount": 63287,
@@ -15169,22 +15154,6 @@
 				"3": 28532,
 				"4": 4183,
 				"5": 3491
-			}
-		},
-		"npc_templates/npc_template@item_upgrade": {
-			"count": 2,
-			"elementCount": 63287,
-			"shapes": {
-				"int": 2
-			},
-			"intRange": [
-				1,
-				1
-			],
-			"maxLength": 1,
-			"distinct": 1,
-			"values": {
-				"1": 2
 			}
 		},
 		"npc_templates/npc_template@level": {
@@ -15682,7 +15651,7 @@
 		},
 		"npc_walker/walker_template/routestep@rest_time": {
 			"count": 226,
-			"elementCount": 112765,
+			"elementCount": 112865,
 			"shapes": {
 				"int": 226
 			},
@@ -15706,38 +15675,38 @@
 			}
 		},
 		"npc_walker/walker_template/routestep@x": {
-			"count": 112765,
-			"elementCount": 112765,
+			"count": 112865,
+			"elementCount": 112865,
 			"shapes": {
-				"decimal": 112758,
+				"decimal": 112858,
 				"int": 7
 			},
 			"intRange": [
 				186,
 				800
 			],
-			"maxLength": 10,
+			"maxLength": 11,
 			"distinct": ">24"
 		},
 		"npc_walker/walker_template/routestep@y": {
-			"count": 112765,
-			"elementCount": 112765,
+			"count": 112865,
+			"elementCount": 112865,
 			"shapes": {
-				"decimal": 112758,
+				"decimal": 112858,
 				"int": 7
 			},
 			"intRange": [
 				537,
 				1252
 			],
-			"maxLength": 10,
+			"maxLength": 11,
 			"distinct": ">24"
 		},
 		"npc_walker/walker_template/routestep@z": {
-			"count": 112765,
-			"elementCount": 112765,
+			"count": 112865,
+			"elementCount": 112865,
 			"shapes": {
-				"decimal": 112746,
+				"decimal": 112846,
 				"int": 19
 			},
 			"intRange": [
@@ -15749,7 +15718,7 @@
 		},
 		"npc_walker/walker_template@formation": {
 			"count": 1505,
-			"elementCount": 6449,
+			"elementCount": 6450,
 			"shapes": {
 				"enum": 1505
 			},
@@ -15761,7 +15730,7 @@
 		},
 		"npc_walker/walker_template@loop_type": {
 			"count": 322,
-			"elementCount": 6449,
+			"elementCount": 6450,
 			"shapes": {
 				"enum": 322
 			},
@@ -15774,7 +15743,7 @@
 		},
 		"npc_walker/walker_template@pool": {
 			"count": 1506,
-			"elementCount": 6449,
+			"elementCount": 6450,
 			"shapes": {
 				"int": 1506
 			},
@@ -15809,12 +15778,12 @@
 			}
 		},
 		"npc_walker/walker_template@route_id": {
-			"count": 6449,
-			"elementCount": 6449,
+			"count": 6450,
+			"elementCount": 6450,
 			"shapes": {
 				"enum": 2317,
 				"identifier": 174,
-				"int": 6,
+				"int": 7,
 				"long": 128,
 				"text": 3824
 			},
@@ -15838,7 +15807,7 @@
 		},
 		"npc_walker/walker_template@rows": {
 			"count": 1134,
-			"elementCount": 6449,
+			"elementCount": 6450,
 			"shapes": {
 				"comma-list": 1068,
 				"int": 65,
@@ -15870,6 +15839,44 @@
 				"2,2,2,1": 2,
 				"3": 4,
 				"3,3,1": 16
+			}
+		},
+		"party_exp_mod_table/level_diff_mod@level_diff": {
+			"count": 51,
+			"elementCount": 51,
+			"shapes": {
+				"int": 51
+			},
+			"intRange": [
+				0,
+				50
+			],
+			"maxLength": 2,
+			"distinct": ">24"
+		},
+		"party_exp_mod_table/level_diff_mod@mods": {
+			"count": 51,
+			"elementCount": 51,
+			"shapes": {
+				"int-list": 51
+			},
+			"maxLength": 39,
+			"distinct": 14,
+			"values": {
+				"1 1 1 1 1 1 1 1": 38,
+				"1 360 360 360 360 360 360 360": 1,
+				"1 60 60 60 60 60 60 60": 1,
+				"107 1020 1020 1020 1020 1020 1020 1020": 1,
+				"1145 1650 1650 1650 1650 1650 1650 1650": 1,
+				"1430 1825 1825 1825 1825 1825 1825 1825": 1,
+				"1715 1900 1900 1900 1900 1900 1900 1900": 1,
+				"2000 2000 2000 2000 2000 2000 2000 2000": 1,
+				"21 800 800 800 800 800 800 800": 1,
+				"215 1200 1200 1200 1200 1200 1200 1200": 1,
+				"26 860 860 860 860 860 860 860": 1,
+				"430 1320 1320 1320 1320 1320 1320 1320": 1,
+				"53 920 920 920 920 920 920 920": 1,
+				"860 1480 1480 1480 1480 1480 1480 1480": 1
 			}
 		},
 		"pet_buffs/buff/modifiers/add@bonus": {
@@ -16782,10 +16789,10 @@
 			"distinct": ">24"
 		},
 		"portal_locs/portal_loc@h": {
-			"count": 209,
+			"count": 211,
 			"elementCount": 405,
 			"shapes": {
-				"int": 209
+				"int": 211
 			},
 			"intRange": [
 				0,
@@ -17343,6 +17350,125 @@
 				880118
 			],
 			"maxLength": 6,
+			"distinct": ">24"
+		},
+		"pvp_exp_mod_table/level_diff_mod@level_diff": {
+			"count": 50,
+			"elementCount": 50,
+			"shapes": {
+				"int": 50
+			},
+			"intRange": [
+				-25,
+				24
+			],
+			"maxLength": 3,
+			"distinct": ">24"
+		},
+		"pvp_exp_mod_table/level_diff_mod@mods": {
+			"count": 50,
+			"elementCount": 50,
+			"shapes": {
+				"int-list": 50
+			},
+			"maxLength": 31,
+			"distinct": 11,
+			"values": {
+				"1 1 1 1 1 1 1 1": 15,
+				"1 1 1 3 3 3 3 3": 1,
+				"1 1 1 5 5 5 5 5": 1,
+				"1 5 5 7 7 7 7 7": 1,
+				"10 10 10 10 10 10 10 10": 1,
+				"100 100 100 100 100 100 100 100": 26,
+				"100 100 100 100 80 100 100 100": 1,
+				"100 100 100 100 90 100 100 100": 1,
+				"30 30 30 30 30 30 30 30": 1,
+				"5 9 9 9 9 9 9 9": 1,
+				"90 90 90 90 50 90 90 90": 1
+			}
+		},
+		"pvp_exp_table/level@delay_time": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				1800,
+				1800
+			],
+			"maxLength": 4,
+			"distinct": 1,
+			"values": {
+				"1800": 100
+			}
+		},
+		"pvp_exp_table/level@exp": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				0,
+				209594
+			],
+			"maxLength": 6,
+			"distinct": ">24"
+		},
+		"pvp_exp_table/level@get_max_from_all_user": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				0,
+				209594
+			],
+			"maxLength": 6,
+			"distinct": ">24"
+		},
+		"pvp_exp_table/level@get_max_reduce_amount": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				0,
+				209594
+			],
+			"maxLength": 6,
+			"distinct": ">24"
+		},
+		"pvp_exp_table/level@get_max_reduce_interval": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				60,
+				60
+			],
+			"maxLength": 2,
+			"distinct": 1,
+			"values": {
+				"60": 100
+			}
+		},
+		"pvp_exp_table/level@lvl": {
+			"count": 100,
+			"elementCount": 100,
+			"shapes": {
+				"int": 100
+			},
+			"intRange": [
+				1,
+				100
+			],
+			"maxLength": 3,
 			"distinct": ">24"
 		},
 		"quest_scripts/crafting_rewards@end_npc_id": {
@@ -21436,137 +21562,6 @@
 			"distinct": 1,
 			"values": {
 				"30.0": 8
-			}
-		},
-		"shields/shield/center@x": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"decimal": 8
-			},
-			"maxLength": 9,
-			"distinct": 8,
-			"values": {
-				"1377.7744": 1,
-				"2056.8843": 1,
-				"2137.505": 1,
-				"2506.1921": 1,
-				"2606.9697": 1,
-				"2734.4033": 1,
-				"2790.043": 1,
-				"720.9435": 1
-			}
-		},
-		"shields/shield/center@y": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"decimal": 8
-			},
-			"maxLength": 9,
-			"distinct": 8,
-			"values": {
-				"1146.7361": 1,
-				"1278.4554": 1,
-				"1930.4448": 1,
-				"2108.306": 1,
-				"2609.036": 1,
-				"2851.571": 1,
-				"2960.121": 1,
-				"800.9453": 1
-			}
-		},
-		"shields/shield/center@z": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"decimal": 8
-			},
-			"maxLength": 9,
-			"distinct": 8,
-			"values": {
-				"1516.0541": 1,
-				"1518.6099": 1,
-				"1526.7069": 1,
-				"2334.0": 1,
-				"2885.062": 1,
-				"2907.4785": 1,
-				"2976.2769": 1,
-				"3062.717": 1
-			}
-		},
-		"shields/shield@id": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"int": 8
-			},
-			"intRange": [
-				1011,
-				1251
-			],
-			"maxLength": 4,
-			"distinct": 8,
-			"values": {
-				"1011": 1,
-				"1131": 1,
-				"1132": 1,
-				"1141": 1,
-				"1211": 1,
-				"1221": 1,
-				"1231": 1,
-				"1251": 1
-			}
-		},
-		"shields/shield@map": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"int": 8
-			},
-			"intRange": [
-				400010000,
-				400010000
-			],
-			"maxLength": 9,
-			"distinct": 1,
-			"values": {
-				"400010000": 8
-			}
-		},
-		"shields/shield@name": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"enum": 8
-			},
-			"maxLength": 19,
-			"distinct": 8,
-			"values": {
-				"ASTERIA_FORTRESS": 1,
-				"DIVINE_FORTRESS": 1,
-				"KROTAN_FORTRESS": 1,
-				"KYSIS_FORTRESS": 1,
-				"OCCIDENTAL_FORTRESS": 1,
-				"ORRIENTAL_FORTRESS": 1,
-				"ROAH_FORTRESS": 1,
-				"SULFUR_FORTRESS": 1
-			}
-		},
-		"shields/shield@radius": {
-			"count": 8,
-			"elementCount": 8,
-			"shapes": {
-				"decimal": 8
-			},
-			"maxLength": 4,
-			"distinct": 5,
-			"values": {
-				"40.0": 1,
-				"45.0": 4,
-				"50.0": 1,
-				"55.0": 1,
-				"86.0": 1
 			}
 		},
 		"siege_locations/siege_location/artifact_activation@cd": {
@@ -37160,6 +37155,22 @@
 				"1": 8
 			}
 		},
+		"skill_data/skill_template/effects/onetimeboostskillattack@acc_flat": {
+			"count": 1,
+			"elementCount": 10,
+			"shapes": {
+				"int": 1
+			},
+			"intRange": [
+				500,
+				500
+			],
+			"maxLength": 3,
+			"distinct": 1,
+			"values": {
+				"500": 1
+			}
+		},
 		"skill_data/skill_template/effects/onetimeboostskillattack@count": {
 			"count": 10,
 			"elementCount": 10,
@@ -37176,6 +37187,22 @@
 				"1": 7,
 				"255": 1,
 				"5": 2
+			}
+		},
+		"skill_data/skill_template/effects/onetimeboostskillattack@dmg_flat": {
+			"count": 5,
+			"elementCount": 10,
+			"shapes": {
+				"int": 5
+			},
+			"intRange": [
+				1,
+				1
+			],
+			"maxLength": 1,
+			"distinct": 1,
+			"values": {
+				"1": 5
 			}
 		},
 		"skill_data/skill_template/effects/onetimeboostskillattack@duration2": {
@@ -43761,18 +43788,19 @@
 			}
 		},
 		"skill_data/skill_template/effects/skillatk/subeffect@chance": {
-			"count": 56,
+			"count": 58,
 			"elementCount": 596,
 			"shapes": {
-				"int": 56
+				"int": 58
 			},
 			"intRange": [
-				5,
+				0,
 				90
 			],
 			"maxLength": 2,
-			"distinct": 12,
+			"distinct": 13,
 			"values": {
+				"0": 2,
 				"10": 4,
 				"20": 10,
 				"25": 1,
@@ -43785,6 +43813,23 @@
 				"75": 1,
 				"80": 3,
 				"90": 7
+			}
+		},
+		"skill_data/skill_template/effects/skillatk/subeffect@chance_delta": {
+			"count": 2,
+			"elementCount": 596,
+			"shapes": {
+				"int": 2
+			},
+			"intRange": [
+				2,
+				100
+			],
+			"maxLength": 3,
+			"distinct": 2,
+			"values": {
+				"100": 1,
+				"2": 1
 			}
 		},
 		"skill_data/skill_template/effects/skillatk/subeffect@skill_id": {
@@ -44195,19 +44240,6 @@
 				"1": 65
 			}
 		},
-		"skill_data/skill_template/effects/skillatkdraininstant@element": {
-			"count": 4,
-			"elementCount": 65,
-			"shapes": {
-				"enum": 4
-			},
-			"maxLength": 5,
-			"distinct": 2,
-			"values": {
-				"FIRE": 2,
-				"WATER": 2
-			}
-		},
 		"skill_data/skill_template/effects/skillatkdraininstant@hoptype": {
 			"count": 62,
 			"elementCount": 65,
@@ -44287,6 +44319,41 @@
 			"distinct": 1,
 			"values": {
 				"true": 1
+			}
+		},
+		"skill_data/skill_template/effects/skillatkdraininstant@prob": {
+			"count": 5,
+			"elementCount": 65,
+			"shapes": {
+				"int": 5
+			},
+			"intRange": [
+				0,
+				80
+			],
+			"maxLength": 2,
+			"distinct": 2,
+			"values": {
+				"0": 4,
+				"80": 1
+			}
+		},
+		"skill_data/skill_template/effects/skillatkdraininstant@prob_delta": {
+			"count": 4,
+			"elementCount": 65,
+			"shapes": {
+				"int": 4
+			},
+			"intRange": [
+				10,
+				100
+			],
+			"maxLength": 3,
+			"distinct": 3,
+			"values": {
+				"10": 1,
+				"100": 1,
+				"50": 2
 			}
 		},
 		"skill_data/skill_template/effects/skillatkdraininstant@shared": {
@@ -46824,18 +46891,19 @@
 			}
 		},
 		"skill_data/skill_template/effects/spellatkinstant/subeffect@chance": {
-			"count": 27,
+			"count": 33,
 			"elementCount": 329,
 			"shapes": {
-				"int": 27
+				"int": 33
 			},
 			"intRange": [
-				20,
+				0,
 				90
 			],
 			"maxLength": 2,
-			"distinct": 9,
+			"distinct": 10,
 			"values": {
+				"0": 6,
 				"20": 3,
 				"25": 3,
 				"30": 4,
@@ -46845,6 +46913,22 @@
 				"75": 1,
 				"80": 1,
 				"90": 1
+			}
+		},
+		"skill_data/skill_template/effects/spellatkinstant/subeffect@chance_delta": {
+			"count": 6,
+			"elementCount": 329,
+			"shapes": {
+				"int": 6
+			},
+			"intRange": [
+				100,
+				100
+			],
+			"maxLength": 3,
+			"distinct": 1,
+			"values": {
+				"100": 6
 			}
 		},
 		"skill_data/skill_template/effects/spellatkinstant/subeffect@skill_id": {
@@ -50109,34 +50193,18 @@
 			}
 		},
 		"skill_data/skill_template/effects/targetteleport@alias_location": {
-			"count": 2,
+			"count": 4,
 			"elementCount": 11,
 			"shapes": {
-				"identifier": 2
+				"identifier": 4
 			},
 			"maxLength": 23,
-			"distinct": 2,
+			"distinct": 4,
 			"values": {
 				"Alias_5": 1,
-				"IDTemple_Low_Furnace_01": 1
-			}
-		},
-		"skill_data/skill_template/effects/targetteleport@distance": {
-			"count": 11,
-			"elementCount": 11,
-			"shapes": {
-				"int": 11
-			},
-			"intRange": [
-				1,
-				10
-			],
-			"maxLength": 2,
-			"distinct": 3,
-			"values": {
-				"1": 2,
-				"10": 2,
-				"5": 7
+				"IDTemple_Low_Furnace_01": 1,
+				"test_teleport_001": 1,
+				"testmotion": 1
 			}
 		},
 		"skill_data/skill_template/effects/targetteleport@e": {
@@ -53473,7 +53541,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@aerial_spawn": {
 			"count": 1135,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"bool": 1135
 			},
@@ -53485,7 +53553,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@ai": {
 			"count": 16,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"identifier": 16
 			},
@@ -53501,7 +53569,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@anchor": {
 			"count": 124,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"enum": 124
 			},
@@ -53509,10 +53577,10 @@
 			"distinct": ">24"
 		},
 		"spawns/spawn_map/spawn/spot@h": {
-			"count": 88376,
-			"elementCount": 116120,
+			"count": 88378,
+			"elementCount": 116159,
 			"shapes": {
-				"int": 88376
+				"int": 88378
 			},
 			"intRange": [
 				0,
@@ -53522,10 +53590,10 @@
 			"distinct": ">24"
 		},
 		"spawns/spawn_map/spawn/spot@random_walk": {
-			"count": 19221,
-			"elementCount": 116120,
+			"count": 19222,
+			"elementCount": 116159,
 			"shapes": {
-				"int": 19221
+				"int": 19222
 			},
 			"intRange": [
 				1,
@@ -53548,7 +53616,7 @@
 				"25": 1,
 				"3": 660,
 				"4": 522,
-				"5": 954,
+				"5": 955,
 				"6": 2931,
 				"65": 1,
 				"7": 544,
@@ -53558,7 +53626,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@state": {
 			"count": 177,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"int": 177
 			},
@@ -53576,7 +53644,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@static_id": {
 			"count": 3609,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"int": 3609
 			},
@@ -53589,7 +53657,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@walker_id": {
 			"count": 5776,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"enum": 2112,
 				"identifier": 90,
@@ -53617,7 +53685,7 @@
 		},
 		"spawns/spawn_map/spawn/spot@walker_index": {
 			"count": 405,
-			"elementCount": 116120,
+			"elementCount": 116159,
 			"shapes": {
 				"int": 405
 			},
@@ -53638,10 +53706,10 @@
 			}
 		},
 		"spawns/spawn_map/spawn/spot@x": {
-			"count": 116120,
-			"elementCount": 116120,
+			"count": 116159,
+			"elementCount": 116159,
 			"shapes": {
-				"decimal": 115037,
+				"decimal": 115076,
 				"int": 1083
 			},
 			"intRange": [
@@ -53652,10 +53720,10 @@
 			"distinct": ">24"
 		},
 		"spawns/spawn_map/spawn/spot@y": {
-			"count": 116120,
-			"elementCount": 116120,
+			"count": 116159,
+			"elementCount": 116159,
 			"shapes": {
-				"decimal": 115047,
+				"decimal": 115086,
 				"int": 1073
 			},
 			"intRange": [
@@ -53666,10 +53734,10 @@
 			"distinct": ">24"
 		},
 		"spawns/spawn_map/spawn/spot@z": {
-			"count": 116120,
-			"elementCount": 116120,
+			"count": 116159,
+			"elementCount": 116159,
 			"shapes": {
-				"decimal": 112920,
+				"decimal": 112959,
 				"float-special": 1,
 				"int": 3199
 			},
@@ -53734,7 +53802,7 @@
 		},
 		"spawns/spawn_map/spawn@custom": {
 			"count": 8,
-			"elementCount": 16618,
+			"elementCount": 16628,
 			"shapes": {
 				"bool": 8
 			},
@@ -53745,10 +53813,10 @@
 			}
 		},
 		"spawns/spawn_map/spawn@difficult_id": {
-			"count": 289,
-			"elementCount": 16618,
+			"count": 305,
+			"elementCount": 16628,
 			"shapes": {
-				"int": 289
+				"int": 305
 			},
 			"intRange": [
 				1,
@@ -53757,15 +53825,15 @@
 			"maxLength": 1,
 			"distinct": 4,
 			"values": {
-				"1": 116,
-				"2": 116,
+				"1": 124,
+				"2": 124,
 				"3": 52,
 				"4": 5
 			}
 		},
 		"spawns/spawn_map/spawn@handler": {
 			"count": 70,
-			"elementCount": 16618,
+			"elementCount": 16628,
 			"shapes": {
 				"enum": 70
 			},
@@ -53777,10 +53845,10 @@
 			}
 		},
 		"spawns/spawn_map/spawn@npc_id": {
-			"count": 16618,
-			"elementCount": 16618,
+			"count": 16628,
+			"elementCount": 16628,
 			"shapes": {
-				"int": 16618
+				"int": 16628
 			},
 			"intRange": [
 				203049,
@@ -53791,7 +53859,7 @@
 		},
 		"spawns/spawn_map/spawn@pool": {
 			"count": 131,
-			"elementCount": 16618,
+			"elementCount": 16628,
 			"shapes": {
 				"int": 131
 			},
@@ -53808,10 +53876,10 @@
 			}
 		},
 		"spawns/spawn_map/spawn@respawn_time": {
-			"count": 13052,
-			"elementCount": 16618,
+			"count": 13054,
+			"elementCount": 16628,
 			"shapes": {
-				"int": 13052
+				"int": 13054
 			},
 			"intRange": [
 				3,
@@ -55366,113 +55434,264 @@
 			"maxLength": 1714,
 			"distinct": "not recorded (literal longer than 80)"
 		},
-		"weather/map/table@after": {
-			"count": 27,
-			"elementCount": 110,
+		"weather_maps/map/weather/remain@duration": {
+			"count": 14,
+			"elementCount": 14,
 			"shapes": {
-				"bool": 27
-			},
-			"maxLength": 4,
-			"distinct": 1,
-			"values": {
-				"true": 27
-			}
-		},
-		"weather/map/table@before": {
-			"count": 32,
-			"elementCount": 110,
-			"shapes": {
-				"bool": 32
-			},
-			"maxLength": 4,
-			"distinct": 1,
-			"values": {
-				"true": 32
-			}
-		},
-		"weather/map/table@code": {
-			"count": 110,
-			"elementCount": 110,
-			"shapes": {
-				"int": 110
+				"int": 14
 			},
 			"intRange": [
-				0,
+				10,
+				10
+			],
+			"maxLength": 2,
+			"distinct": 1,
+			"values": {
+				"10": 14
+			}
+		},
+		"weather_maps/map/weather/remain@name": {
+			"count": 14,
+			"elementCount": 14,
+			"shapes": {
+				"identifier": 14
+			},
+			"maxLength": 17,
+			"distinct": 6,
+			"values": {
+				"Rain2_After": 4,
+				"RainAfter": 3,
+				"Rain_After": 4,
+				"Snow_a_WZ01_after": 1,
+				"Snow_a_WZ02_after": 1,
+				"Snow_b_WZ02_after": 1
+			}
+		},
+		"weather_maps/map/weather/remain@probability": {
+			"count": 14,
+			"elementCount": 14,
+			"shapes": {
+				"int": 14
+			},
+			"intRange": [
+				100,
+				100
+			],
+			"maxLength": 3,
+			"distinct": 1,
+			"values": {
+				"100": 14
+			}
+		},
+		"weather_maps/map/weather/sign@duration": {
+			"count": 20,
+			"elementCount": 20,
+			"shapes": {
+				"int": 20
+			},
+			"intRange": [
+				10,
+				10
+			],
+			"maxLength": 2,
+			"distinct": 1,
+			"values": {
+				"10": 20
+			}
+		},
+		"weather_maps/map/weather/sign@name": {
+			"count": 20,
+			"elementCount": 20,
+			"shapes": {
+				"identifier": 20
+			},
+			"maxLength": 19,
+			"distinct": 9,
+			"values": {
+				"Altgard_snow_Before": 1,
+				"Rain2_Before": 4,
+				"RainBefore": 4,
+				"Rain_Before": 4,
+				"SandRain_Before": 3,
+				"Snow_a_WZ01_Before": 1,
+				"Snow_a_WZ02_Before": 1,
+				"Snow_b_WZ02_Before": 1,
+				"snow_Before": 1
+			}
+		},
+		"weather_maps/map/weather/sign@probability": {
+			"count": 20,
+			"elementCount": 20,
+			"shapes": {
+				"int": 20
+			},
+			"intRange": [
+				100,
+				100
+			],
+			"maxLength": 3,
+			"distinct": 1,
+			"values": {
+				"100": 20
+			}
+		},
+		"weather_maps/map/weather@code": {
+			"count": 62,
+			"elementCount": 62,
+			"shapes": {
+				"int": 62
+			},
+			"intRange": [
+				1,
 				12
 			],
 			"maxLength": 2,
-			"distinct": 13,
+			"distinct": 12,
 			"values": {
-				"0": 2,
-				"1": 24,
-				"10": 3,
+				"1": 13,
+				"10": 1,
 				"11": 1,
 				"12": 1,
-				"2": 18,
-				"3": 16,
-				"4": 12,
-				"5": 13,
-				"6": 8,
-				"7": 6,
-				"8": 3,
-				"9": 3
+				"2": 13,
+				"3": 11,
+				"4": 7,
+				"5": 7,
+				"6": 4,
+				"7": 2,
+				"8": 1,
+				"9": 1
 			}
 		},
-		"weather/map/table@name": {
-			"count": 108,
-			"elementCount": 110,
+		"weather_maps/map/weather@duration": {
+			"count": 62,
+			"elementCount": 62,
 			"shapes": {
-				"enum": 108
-			},
-			"maxLength": 13,
-			"distinct": 20,
-			"values": {
-				"ALTGARD_SNOW": 2,
-				"FOG": 1,
-				"INDRATOO": 1,
-				"MYST": 2,
-				"RAIN": 39,
-				"RAIN2": 12,
-				"RAIN_BEACH": 6,
-				"SANDRAIN": 6,
-				"SNOW": 20,
-				"SNOW_A_WZ01": 3,
-				"SNOW_A_WZ02": 4,
-				"SNOW_BEACH": 2,
-				"SNOW_B_WZ02": 3,
-				"SNOW_B_WZ03": 1,
-				"SNOW_B_WZ04": 1,
-				"SNOW_C_WZ01": 1,
-				"TZ_07": 1,
-				"TZ_07_DARK": 1,
-				"TZ_07_DEFAULT": 1,
-				"TZ_07_NAMED": 1
-			}
-		},
-		"weather/map/table@rank": {
-			"count": 110,
-			"elementCount": 110,
-			"shapes": {
-				"int": 110
+				"int": 62
 			},
 			"intRange": [
-				-1,
-				2
+				0,
+				180
 			],
-			"maxLength": 2,
-			"distinct": 4,
+			"maxLength": 3,
+			"distinct": 10,
 			"values": {
-				"-1": 2,
-				"0": 15,
-				"1": 44,
-				"2": 49
+				"0": 1,
+				"10": 35,
+				"100": 1,
+				"110": 3,
+				"120": 2,
+				"160": 9,
+				"170": 2,
+				"180": 1,
+				"40": 1,
+				"60": 7
 			}
 		},
-		"weather/map/table@zone_id": {
-			"count": 110,
-			"elementCount": 110,
+		"weather_maps/map/weather@hours": {
+			"count": 26,
+			"elementCount": 62,
 			"shapes": {
-				"int": 110
+				"int": 1,
+				"text": 25
+			},
+			"flags": {
+				"MIXED_SHAPES": 1
+			},
+			"intRange": [
+				13,
+				13
+			],
+			"maxLength": 4,
+			"distinct": 4,
+			"values": {
+				"0-23": 18,
+				"13": 1,
+				"5-21": 6,
+				"9-14": 1
+			}
+		},
+		"weather_maps/map/weather@months": {
+			"count": 6,
+			"elementCount": 62,
+			"shapes": {
+				"text": 6
+			},
+			"maxLength": 6,
+			"distinct": 3,
+			"values": {
+				"1-2,12": 4,
+				"4-5": 1,
+				"6-8": 1
+			}
+		},
+		"weather_maps/map/weather@name": {
+			"count": 62,
+			"elementCount": 62,
+			"shapes": {
+				"identifier": 62
+			},
+			"maxLength": 19,
+			"distinct": ">24"
+		},
+		"weather_maps/map/weather@occur_prob": {
+			"count": 62,
+			"elementCount": 62,
+			"shapes": {
+				"int": 62
+			},
+			"intRange": [
+				0,
+				100
+			],
+			"maxLength": 3,
+			"distinct": 9,
+			"values": {
+				"0": 40,
+				"10": 2,
+				"100": 3,
+				"2": 4,
+				"20": 4,
+				"3": 3,
+				"40": 3,
+				"5": 1,
+				"8": 2
+			}
+		},
+		"weather_maps/map/weather@priority": {
+			"count": 62,
+			"elementCount": 62,
+			"shapes": {
+				"int": 62
+			},
+			"intRange": [
+				1,
+				1
+			],
+			"maxLength": 1,
+			"distinct": 1,
+			"values": {
+				"1": 62
+			}
+		},
+		"weather_maps/map/weather@state": {
+			"count": 47,
+			"elementCount": 62,
+			"shapes": {
+				"enum": 47
+			},
+			"maxLength": 4,
+			"distinct": 3,
+			"values": {
+				"RAIN": 18,
+				"SNOW": 18,
+				"WIND": 11
+			}
+		},
+		"weather_maps/map/weather@zone": {
+			"count": 62,
+			"elementCount": 62,
+			"shapes": {
+				"int": 62
 			},
 			"intRange": [
 				0,
@@ -55481,25 +55700,25 @@
 			"maxLength": 1,
 			"distinct": 5,
 			"values": {
-				"0": 4,
-				"1": 76,
-				"2": 25,
+				"0": 3,
+				"1": 43,
+				"2": 11,
 				"3": 4,
 				"4": 1
 			}
 		},
-		"weather/map@id": {
-			"count": 24,
-			"elementCount": 24,
+		"weather_maps/map@id": {
+			"count": 13,
+			"elementCount": 13,
 			"shapes": {
-				"int": 24
+				"int": 13
 			},
 			"intRange": [
 				210010000,
-				730010000
+				600100000
 			],
 			"maxLength": 9,
-			"distinct": 24,
+			"distinct": 13,
 			"values": {
 				"210010000": 1,
 				"210020000": 1,
@@ -55513,49 +55732,14 @@
 				"220040000": 1,
 				"220050000": 1,
 				"220070000": 1,
-				"300300000": 1,
-				"300450000": 1,
-				"300480000": 1,
-				"300570000": 1,
-				"301100000": 1,
-				"310090000": 1,
-				"320120000": 1,
-				"600100000": 1,
-				"700010000": 1,
-				"710010000": 1,
-				"720010000": 1,
-				"730010000": 1
+				"600100000": 1
 			}
 		},
-		"weather/map@weather_count": {
-			"count": 24,
-			"elementCount": 24,
+		"weather_maps/map@zone_count": {
+			"count": 13,
+			"elementCount": 13,
 			"shapes": {
-				"int": 24
-			},
-			"intRange": [
-				1,
-				12
-			],
-			"maxLength": 2,
-			"distinct": 9,
-			"values": {
-				"1": 6,
-				"10": 2,
-				"12": 1,
-				"2": 2,
-				"3": 4,
-				"4": 1,
-				"5": 5,
-				"6": 2,
-				"7": 1
-			}
-		},
-		"weather/map@zone_count": {
-			"count": 24,
-			"elementCount": 24,
-			"shapes": {
-				"int": 24
+				"int": 13
 			},
 			"intRange": [
 				0,
@@ -55564,9 +55748,9 @@
 			"maxLength": 1,
 			"distinct": 4,
 			"values": {
-				"0": 2,
-				"1": 13,
-				"2": 8,
+				"0": 1,
+				"1": 5,
+				"2": 6,
 				"4": 1
 			}
 		},
@@ -55576,12 +55760,12 @@
 			"shapes": {
 				"enum": 47
 			},
-			"maxLength": 7,
+			"maxLength": 16,
 			"distinct": 3,
 			"values": {
-				"GEYSER": 12,
-				"ONE_WAY": 33,
-				"TWO_WAY": 2
+				"MOVING_COLLISION": 2,
+				"WIND_BOX": 12,
+				"WIND_PATH": 33
 			}
 		},
 		"windstreams/windstream/locations/location@id": {
@@ -55666,27 +55850,6 @@
 				"100": 3
 			}
 		},
-		"world_maps/map@beginner_twin_count": {
-			"count": 14,
-			"elementCount": 161,
-			"shapes": {
-				"int": 14
-			},
-			"intRange": [
-				2,
-				10
-			],
-			"maxLength": 2,
-			"distinct": 6,
-			"values": {
-				"10": 1,
-				"2": 4,
-				"3": 2,
-				"4": 2,
-				"5": 3,
-				"6": 2
-			}
-		},
 		"world_maps/map@cName": {
 			"count": 161,
 			"elementCount": 161,
@@ -55697,27 +55860,23 @@
 			"maxLength": 23,
 			"distinct": ">24"
 		},
-		"world_maps/map@death_level": {
-			"count": 161,
+		"world_maps/map@cool_time": {
+			"count": 17,
 			"elementCount": 161,
 			"shapes": {
-				"int": 161
+				"int": 17
 			},
 			"intRange": [
-				0,
-				560
+				15,
+				300
 			],
 			"maxLength": 3,
-			"distinct": 8,
+			"distinct": 4,
 			"values": {
-				"0": 154,
-				"150": 1,
-				"235": 1,
-				"400": 1,
-				"42": 1,
-				"500": 1,
-				"560": 1,
-				"90": 1
+				"15": 2,
+				"180": 9,
+				"300": 2,
+				"60": 4
 			}
 		},
 		"world_maps/map@drop_type": {
@@ -55916,23 +56075,24 @@
 			}
 		},
 		"world_maps/map@twin_count": {
-			"count": 14,
+			"count": 19,
 			"elementCount": 161,
 			"shapes": {
-				"int": 14
+				"int": 19
 			},
 			"intRange": [
-				1,
-				10
+				2,
+				11
 			],
 			"maxLength": 2,
-			"distinct": 5,
+			"distinct": 6,
 			"values": {
-				"1": 2,
-				"10": 3,
-				"2": 2,
-				"3": 2,
-				"5": 5
+				"10": 1,
+				"11": 2,
+				"2": 9,
+				"4": 2,
+				"5": 3,
+				"7": 2
 			}
 		},
 		"world_maps/map@water_level": {
@@ -56261,19 +56421,19 @@
 			}
 		},
 		"zones/zone/points/point@x": {
-			"count": 49652,
-			"elementCount": 49652,
+			"count": 49668,
+			"elementCount": 49668,
 			"shapes": {
-				"decimal": 49652
+				"decimal": 49668
 			},
 			"maxLength": 11,
 			"distinct": ">24"
 		},
 		"zones/zone/points/point@y": {
-			"count": 49652,
-			"elementCount": 49652,
+			"count": 49668,
+			"elementCount": 49668,
 			"shapes": {
-				"decimal": 49650,
+				"decimal": 49666,
 				"exponent": 2
 			},
 			"flags": {
@@ -56289,10 +56449,10 @@
 			"distinct": ">24"
 		},
 		"zones/zone/points@bottom": {
-			"count": 3594,
-			"elementCount": 3594,
+			"count": 3595,
+			"elementCount": 3595,
 			"shapes": {
-				"decimal": 3587,
+				"decimal": 3588,
 				"exponent": 7
 			},
 			"flags": {
@@ -56305,14 +56465,14 @@
 					"3.5e+02"
 				]
 			},
-			"maxLength": 10,
+			"maxLength": 11,
 			"distinct": ">24"
 		},
 		"zones/zone/points@top": {
-			"count": 3594,
-			"elementCount": 3594,
+			"count": 3595,
+			"elementCount": 3595,
 			"shapes": {
-				"decimal": 3587,
+				"decimal": 3588,
 				"exponent": 7
 			},
 			"flags": {
@@ -56325,7 +56485,7 @@
 					"1.5e+02"
 				]
 			},
-			"maxLength": 10,
+			"maxLength": 11,
 			"distinct": ">24"
 		},
 		"zones/zone/sphere@r": {
@@ -56385,22 +56545,22 @@
 			"distinct": ">24"
 		},
 		"zones/zone@area_type": {
-			"count": 3978,
-			"elementCount": 3978,
+			"count": 3979,
+			"elementCount": 3979,
 			"shapes": {
-				"enum": 3978
+				"enum": 3979
 			},
 			"maxLength": 8,
 			"distinct": 3,
 			"values": {
 				"CYLINDER": 1,
-				"POLYGON": 3594,
+				"POLYGON": 3595,
 				"SPHERE": 383
 			}
 		},
 		"zones/zone@flags": {
 			"count": 2382,
-			"elementCount": 3978,
+			"elementCount": 3979,
 			"shapes": {
 				"int": 2382
 			},
@@ -56434,10 +56594,10 @@
 			}
 		},
 		"zones/zone@mapid": {
-			"count": 3978,
-			"elementCount": 3978,
+			"count": 3979,
+			"elementCount": 3979,
 			"shapes": {
-				"int": 3978
+				"int": 3979
 			},
 			"intRange": [
 				110010000,
@@ -56447,17 +56607,17 @@
 			"distinct": ">24"
 		},
 		"zones/zone@name": {
-			"count": 3978,
-			"elementCount": 3978,
+			"count": 3979,
+			"elementCount": 3979,
 			"shapes": {
-				"enum": 3978
+				"enum": 3979
 			},
 			"maxLength": 60,
 			"distinct": ">24"
 		},
 		"zones/zone@priority": {
 			"count": 2166,
-			"elementCount": 3978,
+			"elementCount": 3979,
 			"shapes": {
 				"int": 2166
 			},
@@ -56470,7 +56630,7 @@
 		},
 		"zones/zone@siege_id": {
 			"count": 38,
-			"elementCount": 3978,
+			"elementCount": 3979,
 			"shapes": {
 				"int": 24,
 				"int-list": 14
@@ -56484,7 +56644,7 @@
 		},
 		"zones/zone@town_id": {
 			"count": 50,
-			"elementCount": 3978,
+			"elementCount": 3979,
 			"shapes": {
 				"int": 50
 			},
@@ -56496,10 +56656,10 @@
 			"distinct": ">24"
 		},
 		"zones/zone@zone_type": {
-			"count": 3978,
-			"elementCount": 3978,
+			"count": 3979,
+			"elementCount": 3979,
 			"shapes": {
-				"enum": 3978
+				"enum": 3979
 			},
 			"maxLength": 8,
 			"distinct": 12,
@@ -56515,7 +56675,7 @@
 				"NO_FLY": 7,
 				"PVP": 132,
 				"SUB": 2189,
-				"WEATHER": 32
+				"WEATHER": 33
 			}
 		}
 	}

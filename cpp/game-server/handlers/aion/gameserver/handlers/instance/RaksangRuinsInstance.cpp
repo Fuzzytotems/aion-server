@@ -299,7 +299,7 @@ void RaksangRuinsInstance::onCreatureDetected(Npc& detector, Creature& detected)
 
 // Java RaksangRuinsInstance.java:303-311
 void RaksangRuinsInstance::onEnterZone(Player& player, ZoneInstance& zone) {
-	if (zone.getZoneTemplate()->getName() == ZoneName::get("IDRAKSHA_SOLO_WAVE_01_206399_1_300610000")) {
+	if (zone.getZoneTemplate()->getZoneName() == ZoneName::get("IDRAKSHA_SOLO_WAVE_01_206399_1_300610000")) {
 		if (spawnTask.get() == nullptr && isEventStarted.compareAndSet(false, true)) {
 			sendMsg(SM_SYSTEM_MESSAGE::STR_MSG_TAMES_SOLO_A_START());
 			delaySpawn(int8_t{3}, 20000);

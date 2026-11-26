@@ -2511,7 +2511,13 @@ Array BatchUpdateException Blob CallableStatement Clob Connection DataTruncation
 NClob ParameterMetaData PreparedStatement Ref ResultSet ResultSetMetaData RowId SQLClientInfoException SQLDataException SQLException
 SQLFeatureNotSupportedException SQLIntegrityConstraintViolationException SQLSyntaxErrorException SQLTimeoutException SQLType SQLWarning
 SQLXML Savepoint Statement Struct Time Timestamp Types'''),
+    # JAXB annotations: javax.xml.bind until upstream 20096e5d2 (Jakarta XML Binding), jakarta.xml.bind since
     'javax.xml.bind.annotation': _names('''
+DomHandler W3CDomHandler XmlAccessOrder XmlAccessType XmlAccessorOrder XmlAccessorType XmlAnyAttribute XmlAnyElement XmlAttachmentRef
+XmlAttribute XmlElement XmlElementDecl XmlElementRef XmlElementRefs XmlElementWrapper XmlElements XmlEnum XmlEnumValue XmlID XmlIDREF
+XmlInlineBinaryData XmlList XmlMimeType XmlMixed XmlNs XmlNsForm XmlRegistry XmlRootElement XmlSchema XmlSchemaType XmlSchemaTypes
+XmlSeeAlso XmlTransient XmlType XmlValue'''),
+    'jakarta.xml.bind.annotation': _names('''
 DomHandler W3CDomHandler XmlAccessOrder XmlAccessType XmlAccessorOrder XmlAccessorType XmlAnyAttribute XmlAnyElement XmlAttachmentRef
 XmlAttribute XmlElement XmlElementDecl XmlElementRef XmlElementRefs XmlElementWrapper XmlElements XmlEnum XmlEnumValue XmlID XmlIDREF
 XmlInlineBinaryData XmlList XmlMimeType XmlMixed XmlNs XmlNsForm XmlRegistry XmlRootElement XmlSchema XmlSchemaType XmlSchemaTypes

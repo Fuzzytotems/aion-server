@@ -68,12 +68,14 @@ class VirtualAccessorsTest(unittest.TestCase):
         self.assertNotIn('isNoResist', self.files['aion/gameserver/model/HitEffect.xml.inc'])
 
     def test_real_effect_template_getters(self):
-        """AbstractOverTimeEffect.getValue/getDuration2 and SkillAttackInstantEffect.isNoResist override them (their shells say override)"""
+        """AbstractOverTimeEffect.getValue and SkillAttackInstantEffect.isNoResist override them (their shells say override); upstream 01a5602f1
+        removed the AbstractOverTimeEffect.getDuration2 override, so getDuration2 is no longer virtual"""
         with open(os.path.join(GENERATED, 'aion', 'gameserver', 'skillengine', 'effect', 'EffectTemplate.xml.inc'), encoding='utf-8') as f:
             inc = f.read()
-        for getter in ('virtual int32_t getValue() const', 'virtual int32_t getDuration2() const', 'virtual bool isNoResist() const'):
+        for getter in ('virtual int32_t getValue() const', 'virtual bool isNoResist() const'):
             self.assertIn(getter, inc)
-        self.assertEqual(inc.count('virtual '), 5, 'the destructor, javaClassName() and the three overridden getters')
+        self.assertIn('\tint32_t getDuration2() const', inc)
+        self.assertEqual(inc.count('virtual '), 4, 'the destructor, javaClassName() and the two overridden getters')
 
 
 REF_SOURCES = {

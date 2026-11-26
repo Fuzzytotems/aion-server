@@ -350,10 +350,10 @@ TEST_F(CombatGroupEffectsTest, FangdropStabMovesTheAssassinBehindTheTarget) {
 	Ref<Effect> effect = Effect::create(*skill, Ptr<Creature>(monster));
 	effect->initialize();
 	EXPECT_EQ(effect->getDashStatus(), model::DashStatus::MOVEBEHIND);
-	EXPECT_EQ(assassin->getX(), 511.25f);
+	EXPECT_EQ(assassin->getX(), 511.5f) << "the monster has the default cylinder (0.25 since upstream da540feec)";
 	EXPECT_EQ(assassin->getY(), 500.0f);
 	EXPECT_EQ(assassin->getHeading(), 0);
-	EXPECT_EQ(skill->getX(), 511.25f) << "the target position for SM_CASTSPELL_RESULT";
+	EXPECT_EQ(skill->getX(), 511.5f) << "the target position for SM_CASTSPELL_RESULT";
 	EXPECT_TRUE(effect->isInSuccessEffects(1)) << "super.calculate(effect)";
 }
 

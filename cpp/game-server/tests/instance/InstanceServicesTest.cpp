@@ -71,7 +71,7 @@ TEST_F(InstanceServicesTest, InstanceExistsAndRegisteredInstances) {
 	world::World& world = world::World::getInstance();
 	EXPECT_TRUE(InstanceService::instanceExists(DREDGION, 1));
 	EXPECT_FALSE(InstanceService::instanceExists(DREDGION, 50)) << "instance maps accept any id";
-	EXPECT_TRUE(InstanceService::instanceExists(ISHALGEN, 3));
+	EXPECT_TRUE(InstanceService::instanceExists(ISHALGEN, 2)) << "two twins; upstream 0199b4b03 removed the beginner twin";
 	EXPECT_THROW(static_cast<void>(InstanceService::instanceExists(POETA, 2)), runtime::IllegalArgumentException)
 		<< "Java: WorldMap.getWorldMapInstance throws for an id above the twin count of an open world map";
 

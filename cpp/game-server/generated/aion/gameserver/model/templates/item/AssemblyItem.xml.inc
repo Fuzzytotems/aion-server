@@ -9,4 +9,3 @@ protected:
 
 public:
 	int32_t getId() const { return id; }
-	void setId(int32_t value) { id = value; }

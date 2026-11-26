@@ -49,8 +49,8 @@ private:
 	runtime::Field<int32_t> lipSize{};
 	runtime::Field<int32_t> smile{};
 	runtime::Field<int32_t> lipShape{};
-	runtime::Field<int32_t> jawHeigh{};
-	runtime::Field<int32_t> chinJut{};
+	runtime::Field<int32_t> chinHeight{};
+	runtime::Field<int32_t> cheekBones{};
 	runtime::Field<int32_t> earShape{};
 	runtime::Field<int32_t> headSize{};
 	runtime::Field<int32_t> neck{};
@@ -278,16 +278,16 @@ public:
 	void setLipShape(int32_t value) { lipShape.set(value); }
 
 	/** Returns jaws height */
-	int32_t getJawHeigh() const { return jawHeigh.get(); }
+	int32_t getChinHeight() const { return chinHeight.get(); }
 
 	/** Sets jaws height */
-	void setJawHeigh(int32_t value) { jawHeigh.set(value); }
+	void setChinHeight(int32_t value) { chinHeight.set(value); }
 
 	/** Returns chin jut */
-	int32_t getChinJut() const { return chinJut.get(); }
+	int32_t getCheekBones() const { return cheekBones.get(); }
 
 	/** Sets chin jut */
-	void setChinJut(int32_t value) { chinJut.set(value); }
+	void setCheekBones(int32_t value) { cheekBones.set(value); }
 
 	/** Returns ear shape */
 	int32_t getEarShape() const { return earShape.get(); }

@@ -50,7 +50,7 @@ int32_t townId(model::gameobjects::Creature&) {
 
 const model::templates::npc::NpcTemplate* guardTemplate() {
 	static const model::templates::npc::NpcTemplate* guard = npcTemplate(
-		R"(<npc_template npc_id="203001" level="25" name_id="301001" title_id="350002" height="1.5" attack_speed="1800" tribe="GUARD" rating="NORMAL" rank="VETERAN">)"
+		R"(<npc_template npc_id="203001" level="25" name_id="301001" title_id="350002" attack_speed="1800" tribe="GUARD" rating="NORMAL" rank="VETERAN">)"
 		R"(<bound_radius front="1.25" side="0.75" upper="2.0"/></npc_template>)");
 	return guard;
 }
@@ -87,7 +87,7 @@ TEST_F(NpcInfoPacketsTest, NpcWithoutEquipment) {
 	Bytes expected;
 	expected.header(14).F(100.5f).F(200.25f).F(300.0f).D(npc->getObjectId()).D(203001).D(203001).C(38 /* FRIEND */).H(65).C(60);
 	expected.D(301001).D(350002).H(0).C(0).D(0).D(0 /* creator */).S("" /* no master */).C(77).D(54321).C(25).D(0 /* no equipment */);
-	expected.F(1.25f /* max(front, side) */).F(1.5f).F(7.5f).H(1800).H(1800).C(0x01 /* new spawn */);
+	expected.F(1.25f /* max(front, side) */).F(2.0f /* the cylinder's upper, upstream da540feec */).F(7.5f).H(1800).H(1800).C(0x01 /* new spawn */);
 	// NpcMoveController.getTargetX2(): the npc's own position while no move was started
 	expected.F(100.5f).F(200.25f).F(300.0f).C(0 /* move type */).H(0 /* static id */).zeros(8).C(0 /* visible */).H(1 /* NORMAL */).C(0);
 	expected.D(0 /* no target */).D(4 /* town */).D(0);
@@ -126,8 +126,8 @@ TEST_F(NpcInfoPacketsTest, FlagNpcWithMasterGearTargetAndStaticId) {
 	expected.D(100000011).D(0).D(0).H(0).H(0); // MAIN_HAND
 	expected.D(100000011).D(0).D(0).H(0).H(0); // SUB_HAND
 	expected.D(110000011).D(0).D(0).H(0).H(0); // TORSO
-	// no bound_radius: VisibleObjectTemplate returns BoundRadius.DEFAULT (0, 0, 0); height 1 (the template default), attack speed 2000 (default)
-	expected.F(0.0f /* BoundRadius.DEFAULT: max(front 0, side 0) */).F(1.0f).F(7.5f).H(2000).H(2000).C(0x13 /* flag */);
+	// no bound_radius: NpcTemplate returns BoundRadius.DEFAULT (0.25, 0.25, 2 since upstream da540feec), whose upper is sent; attack speed 2000
+	expected.F(0.25f /* BoundRadius.DEFAULT: max(front, side) */).F(2.0f).F(7.5f).H(2000).H(2000).C(0x13 /* flag */);
 	expected.F(1.0f).F(2.0f).F(3.0f).C(controllers::movement::MovementMask::NPC_RUN_FAST).H(1234).zeros(8).C(hide1).H(1).C(0);
 	expected.D(0 /* no target */).D(4).D(0);
 	EXPECT_BYTES(serialized(packet), expected.data);

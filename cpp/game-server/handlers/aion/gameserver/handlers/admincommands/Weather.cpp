@@ -3,8 +3,10 @@
 #include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/MapWeatherData.h"
 #include "aion/gameserver/dataholders/ZoneData.h"
 #include "aion/gameserver/model/templates/world/WeatherEntry.h"
+#include "aion/gameserver/model/templates/world/WeatherTable.h"
 #include "aion/gameserver/model/templates/zone/ZoneTemplate.h"
 #include "aion/gameserver/services/WeatherService.h"
 #include "aion/gameserver/world/zone/ZoneInstance.h"
@@ -31,16 +33,19 @@ void Weather::execute(Player& admin, std::span<const std::string> params) {
 		for (const runtime::Ptr<ZoneInstance>& regionZone : admin.findZones()) {
 			if (regionZone->getZoneTemplate()->getZoneType() == ZoneClassName::WEATHER) {
 				int32_t weatherZoneId = DataManager::ZONE_DATA->getWeatherZoneId(*regionZone->getZoneTemplate());
+				// C++ interim (upstream sync foundation, docs/deviations/C1.md): WeatherService returns nullptr for clear sky (WeatherEntry.NONE is
+				// gone with upstream 374336b3b, which wave 4 ports with its //weather), so a zone of the map's weather table without weather is
+				// listed with code 0 like NONE was
+				const model::templates::world::WeatherTable* table = DataManager::MAP_WEATHER_DATA->getWeather(admin.getWorldId());
 				const WeatherEntry* weatherEntry = WeatherService::getInstance().getWeatherEntry(admin.getWorldId(), weatherZoneId);
-				if (weatherEntry != nullptr) {
+				if (weatherEntry != nullptr || (table != nullptr && weatherZoneId > 0 && weatherZoneId <= table->getZoneCount())) {
 					std::string info = "Weather for region " + regionZone->getZoneTemplate()->getXmlName() + ":";
-					if (weatherEntry == &WeatherEntry::NONE) {
-						info += "\n\tcode: " + std::to_string(weatherEntry->getCode()) + " (no weather)";
+					if (weatherEntry == nullptr) {
+						info += "\n\tcode: 0 (no weather)";
 					} else {
 						if (weatherEntry->getZoneId() > 0)
 							info += "\n\tzone: " + std::to_string(weatherEntry->getZoneId());
-						if (!weatherEntry->getWeatherName().empty()) // parity= if (weatherEntry.getWeatherName() != null) // C++: an absent name is empty (docs/deviations/C1.md)
-							info += "\n\tname: " + weatherEntry->getWeatherName();
+						info += "\n\tname: " + weatherEntry->getName();
 						info += "\n\tcode: " + std::to_string(weatherEntry->getCode());
 					}
 					sendInfo(admin, info);
@@ -67,8 +72,9 @@ void Weather::execute(Player& admin, std::span<const std::string> params) {
 			}
 		}
 		if (WeatherService::getInstance().changeWeather(admin.getWorldId(), weatherCode)) {
-			// findWeatherEntry never returns null (it falls back to WeatherEntry.NONE); an absent name is empty (Java null)
-			const std::string& weatherName = WeatherService::getInstance().findWeatherEntry(admin)->getWeatherName();
+			// C++ interim: findWeatherEntry returns nullptr for clear sky (51d7a19cb: WeatherEntry.NONE without a name)
+			const WeatherEntry* weather = WeatherService::getInstance().findWeatherEntry(admin);
+			const std::string weatherName = weather == nullptr ? std::string() : weather->getName();
 			sendInfo(admin, "Changed the weather" + (weatherName.empty() ? std::string(".") : " to " + weatherName + ".")); // parity= sendInfo(admin, "Changed the weather" + (weatherName == null ? "." : " to " + weatherName + "."));
 		} else {
 			sendInfo(admin, "This region has no weather defined.");

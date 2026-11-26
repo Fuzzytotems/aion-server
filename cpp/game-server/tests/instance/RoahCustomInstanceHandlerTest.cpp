@@ -43,16 +43,16 @@ using services::instance::InstanceService;
 
 /** npc_templates.xml:455037-455041, :174709-174712, :371721-371730, :152105-152121, :149463-149478 */
 constexpr std::string_view ROAH_NPC_ROWS = R"x(
-	<npc_template npc_id="730588" level="65" name="secret storeroom exit" name_id="372284" height="10" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal" srange="20" sangle="0" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="730588" level="65" name="secret storeroom exit" name_id="372284" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal" srange="20" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="172" />
 		<bound_radius front="5" side="1" upper="10" />
 		<talk_info distance="6" delay="3" is_dialog="true" can_talk_invisible="false" />
 	</npc_template>
-	<npc_template npc_id="234029" level="65" name="floating pillar" name_id="466204" height="3.36" group_drop="SAM" rank="DISCIPLINED" rating="NORMAL" race="CONSTRUCT" tribe="AGGRESSIVESINGLEMONSTER" type="MONSTER" ai="noaction" srange="10" sangle="140" arange="37" attack_speed="2645" cast_speed="850" hpgauge="3">
+	<npc_template npc_id="234029" level="65" name="floating pillar" name_id="466204" group_drop="SAM" rank="DISCIPLINED" rating="NORMAL" race="CONSTRUCT" tribe="AGGRESSIVESINGLEMONSTER" type="MONSTER" ai="noaction" srange="10" sangle="140" arange="37" attack_speed="2645" cast_speed="850" hpgauge="3">
 		<stats maxHp="1200000" />
 		<bound_radius front="1.2" side="1.2" upper="3.36" />
 	</npc_template>
-	<npc_template npc_id="282757" level="65" name="pet 110" name_id="355381" height="4.81" title_id="314413" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="LDF4A_CALYDON" ai="custom_instance_bulky" srange="70" sangle="240" arange="2" attack_speed="2100" cast_speed="1500" hpgauge="3" cancel_level="20">
+	<npc_template npc_id="282757" level="65" name="pet 110" name_id="355381" title_id="314413" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="LDF4A_CALYDON" ai="custom_instance_bulky" srange="70" sangle="240" arange="2" attack_speed="2100" cast_speed="1500" hpgauge="3" cancel_level="20">
 		<stats maxHp="269056">
 			<speeds walk="1.76" group_walk="1.76" run="7" run_fight="7" group_run_fight="7" />
 		</stats>
@@ -61,7 +61,7 @@ constexpr std::string_view ROAH_NPC_ROWS = R"x(
 		</equipment>
 		<bound_radius front="2.05" side="4" upper="4.81" />
 	</npc_template>
-	<npc_template npc_id="231918" level="65" name="vigils garrison shieldcaptain" name_id="320098" height="2.4" title_id="334085" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="UNDEAD" tribe="MONSTER" ai="custom_instance_boss" srange="6" sangle="140" arange="2" attack_speed="2100" hpgauge="3" cancel_level="40">
+	<npc_template npc_id="231918" level="65" name="vigils garrison shieldcaptain" name_id="320098" title_id="334085" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="UNDEAD" tribe="MONSTER" ai="custom_instance_boss" srange="6" sangle="140" arange="2" attack_speed="2100" hpgauge="3" cancel_level="40">
 		<stats maxHp="128881">
 			<speeds walk="1.457" group_walk="1.457" run="6" run_fight="7" group_run_fight="6" />
 		</stats>
@@ -77,7 +77,7 @@ constexpr std::string_view ROAH_NPC_ROWS = R"x(
 		</equipment>
 		<bound_radius front="0.3" side="0.42" upper="2.4" />
 	</npc_template>
-	<npc_template npc_id="231717" level="65" name="support unit invader" name_id="320098" height="2" title_id="334085" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="UNDEAD" tribe="MONSTER" ai="custom_instance_boss" srange="70" sangle="140" arange="2" attack_speed="2100" hpgauge="3" cancel_level="40">
+	<npc_template npc_id="231717" level="65" name="support unit invader" name_id="320098" title_id="334085" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="UNDEAD" tribe="MONSTER" ai="custom_instance_boss" srange="70" sangle="140" arange="2" attack_speed="2100" hpgauge="3" cancel_level="40">
 		<stats maxHp="123278">
 			<speeds walk="1.457" group_walk="1.457" run="6" run_fight="7" group_run_fight="6" />
 		</stats>

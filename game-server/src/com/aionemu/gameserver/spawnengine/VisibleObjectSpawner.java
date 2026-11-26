@@ -244,11 +244,10 @@ public class VisibleObjectSpawner {
 		NpcTemplate npcTemplate = DataManager.NPC_DATA.getNpcTemplate(npcId);
 
 		boolean isSiegeWeapon = "siege_weapon".equals(npcTemplate.getAiName());
-		Summon summon = new Summon(IDFactory.getInstance().nextId(), isSiegeWeapon ? new SiegeWeaponController(npcId) : new SummonController(), spawn,
+		Summon summon = new Summon(IDFactory.getInstance().nextId(), isSiegeWeapon ? new SiegeWeaponController() : new SummonController(), spawn,
 			npcTemplate, creator, time);
 		summon.setKnownlist(new CreatureAwareKnownList(summon));
 		summon.setEffectController(new EffectController(summon));
-		summon.getLifeStats().synchronizeWithMaxStats();
 		summon.setSummonedBySkillId(skillId);
 
 		SpawnEngine.bringIntoWorld(summon, spawn, instanceId);
@@ -256,6 +255,8 @@ public class VisibleObjectSpawner {
 			summon.getAi().onGeneralEvent(AIEventType.SPAWNED);
 		return summon;
 	}
+
+	private static final float PET_SPAWN_RADIUS = 2;
 
 	public static Pet spawnPet(Player player, int templateId) {
 		PetCommonData petCommonData = player.getPetList().getPet(templateId);
@@ -269,13 +270,15 @@ public class VisibleObjectSpawner {
 		Pet pet = new Pet(petTemplate, new PetController(), petCommonData, player);
 		pet.setKnownlist(new PlayerAwareKnownList(pet));
 
-		float x = player.getX();
-		float y = player.getY();
-		float z = player.getZ();
+		// a random reachable point up to 2m around the player
+		double angle = Math.random() * 2 * Math.PI;
+		double distance = Math.random() * PET_SPAWN_RADIUS;
+		Vector3f pos = GeoService.getInstance().getClosestCollision(player, player.getX() + (float) (Math.cos(angle) * distance),
+			player.getY() + (float) (Math.sin(angle) * distance), player.getZ());
 		byte heading = player.getHeading();
 		int worldId = player.getWorldId();
 		int instanceId = player.getInstanceId();
-		SpawnTemplate spawn = SpawnEngine.newSingleTimeSpawn(worldId, templateId, x, y, z, heading);
+		SpawnTemplate spawn = SpawnEngine.newSingleTimeSpawn(worldId, templateId, pos.getX(), pos.getY(), pos.getZ(), heading);
 		SpawnEngine.bringIntoWorld(pet, spawn, instanceId);
 		player.setPet(pet);
 		return pet;

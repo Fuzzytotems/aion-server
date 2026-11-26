@@ -10,6 +10,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/geoEngine/math/JavaFloat.h"
 #include "aion/gameserver/model/templates/zone/Cylinder.h"
 #include "aion/gameserver/model/templates/zone/Point2D.h"
@@ -58,23 +59,28 @@ ZoneData::ZoneData() = default;
 
 ZoneData::~ZoneData() = default;
 
-void ZoneData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
+// Java ZoneData.java:33-51. C++ (upstream sync foundation, docs/deviations/P4-09.md): upstream 2b097879f creates the area in ZoneInfo
+// (Area.create) and keeps every zone; the area creation of 51d7a19cb (no info for a sphere of radius <= 0) stays here until wave 4 ports the
+// geometry rework. The zone names (validation, size) are those of 68eccc7b1.
+void ZoneData::afterUnmarshal(xml::LoadContext& ctx, const xml::XmlParent& /*parent*/) {
 	// the hook creates RefCounted run-time objects (and SpawnsData writes collection shims): a nested TaskScope when the load runs in one
 	// (DataManager), an own one when a holder is bound alone (tests binding templates outside a scope)
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::STARTUP));
 	int32_t lastMapId = 0;
 	int32_t weatherZoneId = 1;
 	for (const ZoneTemplate& zone : zoneList) {
+		if (!zoneNames.insert(zone.getName()).second)
+			ctx.fail("Duplicate zone name: " + zone.getName());
 		runtime::Ref<model::geometry::Area> area;
 		switch (zone.getAreaType()) {
 			case AreaType::POLYGON: {
 				const auto& points = deref(zone.getPoints(), "getPoints");
-				area = model::geometry::PolyArea::create(zone.getName(), zone.getMapid(), points.getPoint(), points.getBottom(), points.getTop());
+				area = model::geometry::PolyArea::create(zone.getZoneName(), zone.getMapid(), points.getPoints(), points.getBottom(), points.getTop());
 				break;
 			}
 			case AreaType::CYLINDER: {
 				const auto& cylinder = deref(zone.getCylinder(), "getCylinder");
-				area = model::geometry::CylinderArea::create(zone.getName(), zone.getMapid(), unbox(cylinder.getX(), "getX"), unbox(cylinder.getY(), "getY"),
+				area = model::geometry::CylinderArea::create(zone.getZoneName(), zone.getMapid(), unbox(cylinder.getX(), "getX"), unbox(cylinder.getY(), "getY"),
 				                                             unbox(cylinder.getR(), "getR"), unbox(cylinder.getBottom(), "getBottom"),
 				                                             unbox(cylinder.getTop(), "getTop"));
 				break;
@@ -83,14 +89,14 @@ void ZoneData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /
 				const auto& sphere = deref(zone.getSphere(), "getSphere");
 				if (unbox(sphere.getR(), "getR") <= 0)
 					break;
-				area = model::geometry::SphereArea::create(zone.getName(), zone.getMapid(), unbox(sphere.getX(), "getX"), unbox(sphere.getY(), "getY"),
+				area = model::geometry::SphereArea::create(zone.getZoneName(), zone.getMapid(), unbox(sphere.getX(), "getX"), unbox(sphere.getY(), "getY"),
 				                                           unbox(sphere.getZ(), "getZ"), unbox(sphere.getR(), "getR"));
 				break;
 			}
 			case AreaType::SEMISPHERE: {
 				const auto& semisphere = deref(zone.getSemisphere(), "getSemisphere");
 				area =
-				  model::geometry::SemisphereArea::create(zone.getName(), zone.getMapid(), unbox(semisphere.getX(), "getX"), unbox(semisphere.getY(), "getY"),
+				  model::geometry::SemisphereArea::create(zone.getZoneName(), zone.getMapid(), unbox(semisphere.getX(), "getX"), unbox(semisphere.getY(), "getY"),
 				                                          unbox(semisphere.getZ(), "getZ"), unbox(semisphere.getR(), "getR"));
 				break;
 			}
@@ -105,7 +111,6 @@ void ZoneData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /
 				weatherZoneIds.insert_or_assign(&zone, weatherZoneId++);
 			}
 			zones.push_back(ZoneInfo::create(*area, &zone));
-			count++;
 		}
 	}
 	// Java: zoneList = null (the zone infos refer to the bound templates, which stay)
@@ -115,8 +120,20 @@ const std::unordered_map<int32_t, std::vector<runtime::Ref<ZoneInfo>>>& ZoneData
 	return zoneNameMap;
 }
 
+bool ZoneData::validateZoneName(const std::string& zoneName) const {
+	if (!isValidZoneName(zoneName)) {
+		commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.ZoneData").warn("Missing data for zone: {}", zoneName);
+		return false;
+	}
+	return true;
+}
+
+bool ZoneData::isValidZoneName(const std::string& zoneName) const {
+	return zoneNames.contains(zoneName);
+}
+
 int32_t ZoneData::size() const {
-	return count;
+	return static_cast<int32_t>(zoneNames.size());
 }
 
 int32_t ZoneData::getWeatherZoneId(const ZoneTemplate& template_) const {
@@ -211,11 +228,11 @@ std::string serializeZones(std::span<const model::templates::zone::ZoneTemplate*
 			out += "        <points";
 			floatAttribute(out, "top", points->getTop());
 			floatAttribute(out, "bottom", points->getBottom());
-			if (points->getPoint().empty()) {
+			if (points->getPoints().empty()) {
 				out += "/>\n";
 			} else {
 				out += ">\n";
-				for (const model::templates::zone::Point2D& point : points->getPoint()) {
+				for (const model::templates::zone::Point2D& point : points->getPoints()) {
 					out += "            <point";
 					floatAttribute(out, "y", point.getY());
 					floatAttribute(out, "x", point.getX());

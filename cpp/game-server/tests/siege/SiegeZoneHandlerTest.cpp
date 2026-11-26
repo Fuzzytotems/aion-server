@@ -62,7 +62,7 @@ protected:
 		locationTemplate = bindXml<model::templates::siegelocation::SiegeLocationTemplate>(
 			R"(<siege_location id="1011" type="FORTRESS" world="400010000"/>)");
 		zoneTemplate = std::make_unique<model::templates::zone::WorldZoneTemplate>(3000, 400010000, 0);
-		area = model::geometry::PolyArea::create(zoneTemplate->getName(), 400010000, zoneTemplate->getPoints()->getPoint(),
+		area = model::geometry::PolyArea::create(zoneTemplate->getZoneName(), 400010000, zoneTemplate->getPoints()->getPoints(),
 			zoneTemplate->getPoints()->getBottom(), zoneTemplate->getPoints()->getTop());
 		zoneInfo = model::templates::zone::ZoneInfo::create(*area, zoneTemplate.get());
 		zone = runtime::makeRef<TestSiegeZone>(400010000, *zoneInfo);

@@ -3,7 +3,8 @@
 - Visibility: VisibleObject.getVisibleDistance() is 95 m (VisibleObject.java:247-249), checked in 3D (PositionUtil.isInRange); a FLAG npc is
   seen on the whole map (FlagKnownList.java:25).
 - Aggro: an npc template's `arange` (aggro range); a spot is safe from a set when every npc of it is farther than its arange + 3 m.
-- Fortress 1131: its FORT zone polygon AB1_1131_CASTLE_AREA_400010000 (zones_400010000.xml) and its shield sphere (siege_shields.xml);
+- Fortress 1131: its FORT zone polygon AB1_1131_CASTLE_AREA_400010000 (zones_400010000.xml) and its former shield sphere (siege_shields.xml of
+  51d7a19cb, removed by upstream 84d3f7559; kept as a constant);
   its siege spawns per (race, mod) (spawns/Sieges/400010000_Reshanta.xml). A FortressAssault's teleport wave picks siege npcs that are not
   LEGENDARY and not ARTIFACT (FortressAssault.java:67-73).
 - Base 2120: the base spawns per occupier and handler (spawns/Bases/210020000_Eltnen.xml); base_locations.xml has no default_occupier for
@@ -66,11 +67,14 @@ def _in_zone(zone, p) -> bool:
 	return _in_polygon(p[0], p[1], zone["points"]) and zone["bottom"] <= p[2] <= zone["top"]
 
 
+# The sphere of shield 1131 from siege/siege_shields.xml of 51d7a19cb. Upstream 84d3f7559 removed the file (the geo mesh is the shield); the
+# spots keep their distance from the former sphere so S1 and the crossing points stay where the gate expects them.
+_REMOVED_SHIELDS = {1131: {"center": (2790.043, 2609.036, 1516.0541), "radius": 50.0}}
+
+
 def _shield(data_dir: Path, shield_id: int):
-	for shield in ET.parse(data_dir / "siege" / "siege_shields.xml").getroot().iter("shield"):
-		if int(shield.get("id")) == shield_id:
-			c = shield.find("center")
-			return {"center": (float(c.get("x")), float(c.get("y")), float(c.get("z"))), "radius": float(shield.get("radius"))}
+	if shield_id in _REMOVED_SHIELDS:
+		return _REMOVED_SHIELDS[shield_id]
 	raise ValueError(f"shield {shield_id} not found")
 
 

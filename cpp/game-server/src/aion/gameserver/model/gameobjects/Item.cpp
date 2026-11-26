@@ -136,12 +136,13 @@ Item::Item(int32_t objId, int32_t itemId, int64_t itemCountValue, std::optional<
 	int64_t equipmentSlotValue, int32_t itemLocationValue, int32_t enchant, int32_t enchantBonusValue, int32_t itemSkin, int32_t fusionedItem,
 	int32_t optionalSocketsValue, int32_t fusionedItemOptionalSocketsValue, int32_t charge, int32_t tuneCountValue, int32_t statBonusId,
 	int32_t fusionedItemStatBonusId, int32_t temperingValue, int32_t packCountValue, bool isAmplifiedValue, int32_t buffSkillValue,
-	int32_t rndPlumeBonusValueValue)
+	int32_t rndPlumeBonusValueValue, int32_t rankLimitExpireTimeValue)
 	: AionObject(objId), itemCount(itemCountValue), itemColor(itemColorValue), colorExpireTime(colorExpires), itemCreator(std::string(itemCreatorValue)),
 	  itemTemplate(requireItemTemplate(itemId)),
 	  isEquipped_(isEquippedValue), equipmentSlot(equipmentSlotValue), optionalSockets(optionalSocketsValue),
 	  fusionedItemOptionalSockets(fusionedItemOptionalSocketsValue), isSoulBound_(isSoulBoundValue), itemLocation(itemLocationValue),
-	  enchantLevel(enchant), enchantBonus(enchantBonusValue), expireTime(expireTimeValue), activationCount(activationCountValue),
+	  enchantLevel(enchant), enchantBonus(enchantBonusValue), expireTime(expireTimeValue), rankLimitExpireTime(rankLimitExpireTimeValue),
+	  activationCount(activationCountValue),
 	  tuneCount(tuneCountValue), packCount(packCountValue), tempering(temperingValue), isAmplified_(isAmplifiedValue), buffSkill(buffSkillValue),
 	  rndPlumeBonusValue(rndPlumeBonusValueValue) {
 	fusionedItemTemplate.set(findItemTemplate(fusionedItem));
@@ -181,12 +182,12 @@ runtime::Ref<Item> Item::create(int32_t objId, int32_t itemId, int64_t itemCount
 	int64_t equipmentSlotValue, int32_t itemLocationValue, int32_t enchant, int32_t enchantBonusValue, int32_t itemSkin, int32_t fusionedItem,
 	int32_t optionalSocketsValue, int32_t fusionedItemOptionalSocketsValue, int32_t charge, int32_t tuneCountValue, int32_t statBonusId,
 	int32_t fusionedItemStatBonusId, int32_t temperingValue, int32_t packCountValue, bool isAmplifiedValue, int32_t buffSkillValue,
-	int32_t rndPlumeBonusValueValue) {
+	int32_t rndPlumeBonusValueValue, int32_t rankLimitExpireTimeValue) {
 	return runtime::makeRef<Item>(objId, itemId, itemCountValue, itemColorValue, colorExpires, itemCreatorValue, expireTimeValue,
 		activationCountValue,
 		isEquippedValue, isSoulBoundValue, equipmentSlotValue, itemLocationValue, enchant, enchantBonusValue, itemSkin, fusionedItem, optionalSocketsValue,
 		fusionedItemOptionalSocketsValue, charge, tuneCountValue, statBonusId, fusionedItemStatBonusId, temperingValue, packCountValue, isAmplifiedValue,
-		buffSkillValue, rndPlumeBonusValueValue);
+		buffSkillValue, rndPlumeBonusValueValue, rankLimitExpireTimeValue);
 }
 
 runtime::Ptr<items::ChargeInfo> Item::getConditioningInfo() const {
@@ -211,6 +212,11 @@ void Item::setEnchantEffect(runtime::Ptr<enchants::EnchantEffect> value) {
 
 void Item::setPendingTuneResult(runtime::Ptr<items::PendingTuneResult> value) {
 	pendingTuneResult.set(value);
+}
+
+void Item::setRankLimitExpireTime(int32_t rankLimitExpireTimeValue) {
+	rankLimitExpireTime.set(rankLimitExpireTimeValue);
+	setPersistentState(PersistentState::UPDATE_REQUIRED);
 }
 
 void Item::setTempering(int32_t temperingValue) {

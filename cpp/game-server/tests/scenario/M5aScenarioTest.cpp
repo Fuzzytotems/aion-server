@@ -238,8 +238,8 @@ void expectAppearance(const decoders::Appearance& got, const CharacterAppearance
 	check("lipSize", sent.lipSize, got.lipSize);
 	check("smile", sent.smile, got.smile);
 	check("lipShape", sent.lipShape, got.lipShape);
-	check("jawHeight", sent.jawHeight, got.jawHeight);
-	check("chinJut", sent.chinJut, got.chinJut);
+	check("chinHeight", sent.chinHeight, got.chinHeight);
+	check("cheekBones", sent.cheekBones, got.cheekBones);
 	check("earShape", sent.earShape, got.earShape);
 	check("headSize", sent.headSize, got.headSize);
 	check("neck", sent.neck, got.neck);
@@ -959,8 +959,8 @@ CharacterAppearance scenarioAppearance() {
 	appearance.lipSize = 51;
 	appearance.smile = 53;
 	appearance.lipShape = 55;
-	appearance.jawHeight = 57;
-	appearance.chinJut = 59;
+	appearance.chinHeight = 57;
+	appearance.cheekBones = 59;
 	appearance.earShape = 61;
 	appearance.headSize = 63;
 	appearance.neck = 65;
@@ -1018,8 +1018,8 @@ std::vector<std::pair<std::string, int64_t>> expectedAppearanceRow(const Charact
 	  {"lip_size", appearance.lipSize},
 	  {"smile", appearance.smile},
 	  {"lip_shape", appearance.lipShape},
-	  {"jaw_height", appearance.jawHeight},
-	  {"chin_jut", appearance.chinJut},
+	  {"chin_height", appearance.chinHeight},
+	  {"cheek_bones", appearance.cheekBones},
 	  {"ear_shape", appearance.earShape},
 	  {"head_size", appearance.headSize},
 	  {"neck", appearance.neck},

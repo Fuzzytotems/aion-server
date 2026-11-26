@@ -49,6 +49,94 @@
 | `da540feec` | Creature bound fixes (#241) | 1 |  | 5 |
 | `f16e03ad3` | Retail teleport confirmation, pet rework and system message parameter order (#248) |  | 2 | 5 |
 
+## Foundation progress
+
+### Static data (lane A, 2026-11-25)
+
+The C++ game server binds and indexes the static data of 68eccc7b1 with bindings generated from the Java of 68eccc7b1. What each commit
+needed on the data side, and where its behaviour was kept back (the deviation docs list every interim site with the wave that replaces it):
+
+| Commit | Ported for the static data | Kept back (interim or deferred) |
+|---|---|---|
+| `20096e5d2` (jakarta) | tools: `gen/javasrc.py`, `gen/fieldmap.py` and `xmlgen/jaxb.py` accept `jakarta.xml.bind` beside `javax.xml.bind` | |
+| `222076cb5` | `configs/ingameshop` and `model/templates/ingameshop` removed (xmlgen root, allowlist entry, ConfigRootsRealDataTest case, chunk globs) | |
+| `84d3f7559` | ShieldData, CuringObjectsData and their templates removed; ShieldService, FortressLocation (no sphere shield observer), GameServer (no CuringZoneService), CuringObject/CuringZoneService/ShieldObserver deleted | GeoDataConfig.Mode (wave 4): the config keeps GEO_ENABLE, GEO_MATERIALS_ENABLE, GEO_SHIELDS_ENABLE |
+| `4617c9fd2` | ZoneTemplate binds `name`, `hasZoneAttribute`; WorldMapTemplate's EnumSet attribute list (xmlgen: `java.util.EnumSet` is a Set, `EnumSet.noneOf` an empty initializer) | ZoneName stays (C++-only `ZoneTemplate::getZoneName`, `ItemUseLimits::getUseAreaZoneName`), WorldMapTemplate's flag accessors stay as C++-only readers of the attribute set (P4-07a) |
+| `2b097879f` | ZoneData: zone names, duplicate check, size, `validateZoneName`, `isValidZoneName` | ZoneInfo/Area.create, WorldZoneTemplate and DUMMY (C++-only `isWholeMapZone`), saveData (P4-07a, P4-09) |
+| `ea7b1c32a`, `6c6eee658`, `fc87a3f0c`, `cf4b34d9c`, `b55aaf32c`, `267ce6033` | generated effect/condition members (prob/count/dmg/acc deltas, signet carve_prob, chance_delta, SkillLearnTemplate skillLevel); MaterialTemplate.getSkills, SubEffect.getChance(level) | applySubEffect uses only the new chance (P5-03); AbstractOverTimeEffect keeps duration2 + 1000 through a C++-only accessor (P5-02b); chain skill rework |
+| `d725054e1` | PvpExpTable, PvpExpModTable, PartyExpModTable, MenteeExpLimitTable (holders, DataManager fields, "Loaded" lines) | PvpExpLimitService (claimed by P5-08, not ported) |
+| `d254ea172`, `bad68ed81`, `90a740e2d`, `08f2df617` | DecomposableItemsData (overrides, overrideCount), DecomposableItem/Set/DecomposedItem with their rolls and load checks; //reload binds the folder | DecomposeAction, CM_SELECT_DECOMPOSABLE, the two SHOW packets and .decompose use the new templates on the 51d7a19cb packets and animations (P5-07, P4-16, P5-16, C1) |
+| `374336b3b` | weather_maps root, WeatherTable/WeatherEntry/WeatherPhase/WeatherState with the load checks | WeatherService runs no weather (clear sky, //weather set only), DayTime kept by hand (P4-10, P4-11b, P4-17, C1) |
+| `332d54885` | FlyPathEntry windstream points and their queries, WindstreamPoint/State | FlightPath boost/progress checks (wave 2) |
+| `0199b4b03`, `82a5e0cf9` | WorldMapTemplate `cool_time`, `twin_count` default; death_level gone (the ZoneLevelService death level check with it) | beginner channels (C++-only getBeginnerTwinCount = 0), channel change rework, falling |
+| `da540feec` | BoundRadius defaults, DEFAULT/ZERO, NpcTemplate height gone (SM_NPC_INFO sends the cylinder upper) | |
+| `4426db07c` | PetData.validatePetIds (pets depend on ItemData) | |
+| `f7230c5fa` | ItemData learnable emotions (EmotionLearnAction lost its static set) | ItemData motion types (AnimationAddAction rework) |
+| `15eaf77b6`, `784e0764b`, `cabd580f3`, `e5c133836` | data-only classes (QuestKill, PetBuff, Points), ShoutList/ShoutGroup/CollectItems accessors, HouseData/RecipeData additions | |
+| `546f96bd2` | StaticData without the after-unmarshal tasks | StaticDataLoader/XmlMerger speed-ups (wave 1) |
+
+Data-only commits (`14d9b8acb`, `cb86e78ea`, `90a740e2d`, `08f2df617`, the npc/item data of `da540feec`, ...) need no code: they load through the
+ported bindings.
+
+#### Frozen enums
+
+`xmlgen.toml [hand_written_enums]` keeps ten core enums (not bound by JAXB) whose constants upstream changed at their 51d7a19cb form, as hand-written
+copies of the old generated headers, so their companions and switch statements keep compiling and nothing changes ordinals before the wave that
+ports the commit: ObserverType, ActionState, CreatureState (cc61fb239), TaskId (a17e66f10, cc61fb239), PetAction (f16e03ad3), CustomPlayerState
+(2ee52b1d3, 9b15b6df8), StageType (1af948baf), ZoneType (206f9b5db), ItemPacketService.ItemUpdateType (e5c133836), WorldMapType (374336b3b,
+f16e03ad3). Three removed Java enums are kept the same way without an xmlgen entry: DayTime (374336b3b), WeaponType (cc61fb239) and
+PlayableMoveController.MovementModifierDirection (moved to the top level by e7a16c553). The wave that ports a commit removes its entries and
+the hand-written copies. JAXB-bound enums cannot be frozen: CreatureSeeState/CreatureVisualState got their new ids, AbnormalState
+CANCEL_ITEM_USE, PetFunctionType's swapped ordinals (BUFF id 5) and FlyPathType's new names apply now.
+
+#### Registry scan
+
+aion_gs_regscan has `--java-ahead` (cpp/game-server/tools/regscan/java_ahead.txt): Java cross-check errors tolerated while the Java tree is ahead,
+each with its commit and wave; an entry that matches no error fails the scan. Seven entries: FollowingNpcAI's constant @AIName (205076446),
+@ZoneHandlerArea of _1012SensoryArea and PvPAreaZone (4617c9fd2), CM_POSITION_SELF (2ee52b1d3) and CM_SHOW_BLOCKLIST (e5c133836) removed from the
+Java packet table.
+
+#### Not done by the static data step
+
+- **Config classes.** The Java config classes and properties of 68eccc7b1 (SecurityConfig multi-client keys, GeoDataConfig.Mode,
+  NetworkConfig, ShutdownConfig, CustomConfig, the removed FallDamageConfig, PeriodicSaveConfig without player pets, ...) are not ported:
+  aion_gs_configs_tests fails 7 cases (JavaAnnotationsTest, ConfigLoadTest: unknown and missing keys). The C++ servers start with the new
+  config files (unknown keys are ignored with a warning, removed keys keep their C++ defaults; `gameserver.geodata.mode` is ignored, so
+  geo data stays on through GEO_ENABLE's default). Each config change goes with its wave.
+- **tools/gen.** fieldmap's outputs are regenerated (test_committed_outputs_are_current passes); its design reference points and
+  cycles.toml lack the classes and cycle edges of 68eccc7b1 (3 of 7 test_fieldmap_real cases fail: removed reference classes such as
+  Polygon2D and ShieldObserver, 18 new unresolved cycle edges). The forward headers (skeleton.py --fwd), the opcode tables (opcodes.py)
+  and the system message table (sysmsg.py) still follow 51d7a19cb: regenerating them changes behaviour code of every wave.
+- **Registry scan tool tests.** aion_gs_regscan builds the tables with `--java-ahead`; its own tests over the real Java tree
+  (RealJavaTreeTest.JavaHandlerKeysAndCounts, aion_gs_regscan.cli.java_tree) still expect the 51d7a19cb counts and no Java-side errors.
+- **Concurrency lint.** gs.lint.concurrency compares the C++ members with the regenerated fieldmap.json, which now has the fields of all
+  waves (rankLimitExpireTime, MaterialSkillUsage, OneTimeBoostSkillAttack, ...): it fails until the waves port them.
+- **Quests.** QuestTemplatesRealDataTest finds 2 npcs whose onTalkEvent registration differs from the Java handlers of 68eccc7b1 (wave 6).
+- **Database.** DAO and login slice tests against the test schemas belong to lane B's database half.
+- **Gate oracles.** tools/oracle's gate oracles (m5b ... m5j, quest traces) read Java rules and data of 51d7a19cb and refuse the changed
+  Java; their tests fail until the waves update them. The static data oracle (V1-V4) passes.
+
+### Database (lane B, 2026-11-25)
+
+Lane B, branch `lane-b/sync-foundation` (2026-11-25). The C++ game server's DAOs run on the schema of `game-server/sql/aion_gs.sql` at
+`68eccc7b1`, which the DAO tests build their database from. Per table (the DAO ports follow Java `68eccc7b1`; the deviations and deferrals
+are in the chunks' deviation docs, P4-14 for the DAOs):
+
+| Table | Commit (wave) | C++ | Left for the wave |
+|---|---|---|---|
+| `house_scripts` (`script` blob, `uncompressed_size`) | `46e8d00b9` (2) | `HouseScriptsDAO` stores and loads the compressed block; `PlayerScripts.set` hands it over | the block validation of `46e8d00b9`/`e5ea7d94e` (`zlibStreamLength`, size bounds, trailing bytes) - P4-12 |
+| `inventory.rank_limit_expire_time` | `cc61fb239` (5) | `Item.rankLimitExpireTime`, `InventoryDAO` | the abyss rank grace period that sets it - P4-11a |
+| `player_appearance` (`chin_height`, `cheek_bones`) | `a519ffc7b` (4) | renamed model fields and callers, `PlayerAppearanceDAO` | the height clamp and the byte names; `heightScale` (`183723078`) - P5-00, P4-14 |
+| `player_pets` (`color`, `face`, `head`; mood columns and `despawn_time` dropped) | `f16e03ad3` (5) | `PetCommonData` appearance fields, `PlayerPetsDAO`; the old mood and despawn time stay in memory only (`PetController`, `PetList`) | the pet rework - P4-12, P4-11b |
+| `player_recipes.production_limit` | `e5c133836` (5) | `RecipeList`'s production-limit map, `PlayerRecipesDAO` (`updateProductionLimit` too) | `decreaseProductionLimit` for crafting, the count in `SM_LEARN_RECIPE`/`SM_RECIPE_LIST`/the transfer packets, `CM_RECIPE_LIST`, `RecipeData.getMaxProductionCount` - P4-12, P4-15, P5-00 |
+| `players.pvp_exp` | `d725054e1` (5) | `PlayerCommonData.pvpExp`, `PlayerDAO` | the PvP EXP system |
+
+Not schema-driven, deferred: `PlayerDAO`'s channel in `world_id` (`0199b4b03`, wave 4), `PlayerMacrosDAO`'s macro limit (`eb35dfa5d`,
+wave 5), the DAOs' log texts (`7840be30d`, wave 1).
+
+Migration of the play kit's database: [upstream-sync-2026-11-migration.sql](upstream-sync-2026-11-migration.sql) (reviewed, not applied). Its
+schema section is needed at the cut-over of the foundation; its data section (the skill levels of `267ce6033`/`e5c133836`) goes with wave 3.
+
 ## Proposed order
 
 1. **Foundation** (the 25 XSD/SQL commits' loader, template and DAO parts, plus the data-only commits): the C++ servers load the new

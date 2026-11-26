@@ -58,6 +58,8 @@ bool PlayerScripts::set(int32_t id, runtime::Ptr<runtime::Array<int8_t>> compres
 bool PlayerScripts::set(int32_t id, runtime::Ptr<runtime::Array<int8_t>> compressedXML, int32_t uncompressedSize, bool storeInDb) {
 	if (isInvalidScriptId(id))
 		return false;
+	// The validation is still the one of Java 51d7a19cb (decompress and compare the size); wave 2 ports its replacement (46e8d00b9, e5ea7d94e).
+	// Java 68eccc7b1 stores the compressed block as it is (house_scripts.script is a blob since 46e8d00b9): docs/deviations/P4-12.md
 	std::optional<std::string> scriptXML = decompressAndValidate(compressedXML, uncompressedSize);
 	if (!scriptXML)
 		return false;
@@ -65,7 +67,7 @@ bool PlayerScripts::set(int32_t id, runtime::Ptr<runtime::Array<int8_t>> compres
 		runtime::Ptr<house::House> house = services::HousingService::getInstance().findHouseOrStudio(houseObjId);
 		if (house->getPersistentState() == Persistable::PersistentState::NEW)
 			house->save(); // new houses must be inserted first, due to foreign key constraints
-		dao::HouseScriptsDAO::storeScript(houseObjId, id, *scriptXML);
+		dao::HouseScriptsDAO::storeScript(houseObjId, id, compressedXML, uncompressedSize);
 	}
 	(*scripts)[id] = house::PlayerScript::create(id, compressedXML, uncompressedSize);
 	return true;

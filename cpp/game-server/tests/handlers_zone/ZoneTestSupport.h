@@ -13,7 +13,7 @@ inline constexpr int32_t ZONE_TEST_MAP = 300200000;
 
 /** world_maps.xml's row of the map the zone cases run on (Haramel) */
 inline constexpr const char* Z1_MAPS_XML = R"x(<world_maps>
-	<map id="300200000" cName="IDNovice" name="Haramel" name_id="401728" instance="true" water_level="16" death_level="0" world_size="512" drop_type="OTHER_INSTANCES" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300200000" cName="IDNovice" name="Haramel" name_id="401728" instance="true" water_level="16" world_size="512" drop_type="OTHER_INSTANCES" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {

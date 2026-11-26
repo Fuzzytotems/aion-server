@@ -43,7 +43,7 @@ protected:
 public:
 	virtual int32_t getValue() const { return value; }
 	int32_t getDelta() const { return delta; }
-	virtual int32_t getDuration2() const { return duration2; }
+	int32_t getDuration2() const { return duration2; }
 	int32_t getDuration1() const { return duration1; }
 	int32_t getRandomTime() const { return randomTime; }
 	const ::aion::gameserver::skillengine::effect::modifier::ActionModifiers* getModifiers() const { return modifiers.get(); }

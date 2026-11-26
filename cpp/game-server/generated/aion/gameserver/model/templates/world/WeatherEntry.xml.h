@@ -5,7 +5,12 @@
 // The hand-written WeatherEntry.h includes this header before the class definition.
 
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/model/templates/world/WeatherPhase.h"
+#include "aion/gameserver/model/templates/world/WeatherState.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"

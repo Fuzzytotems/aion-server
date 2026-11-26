@@ -1,12 +1,12 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_FIRST_SHOW_DECOMPOSABLE.h"
 
-#include "aion/gameserver/model/templates/item/ResultedItem.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
 SM_FIRST_SHOW_DECOMPOSABLE::SM_FIRST_SHOW_DECOMPOSABLE(int32_t objectIdValue,
-	const std::vector<const model::templates::item::ResultedItem*>& itemsCollectionsValue)
+	const std::vector<const model::templates::item::DecomposedItem*>& itemsCollectionsValue)
 	: AionServerPacket(opcodeOf<SM_FIRST_SHOW_DECOMPOSABLE>), itemsCollections(itemsCollectionsValue), objectId(objectIdValue) {
 }
 
@@ -15,10 +15,10 @@ void SM_FIRST_SHOW_DECOMPOSABLE::writeImpl(AionConnection* con) {
 	writeD(0);
 	writeC(static_cast<int32_t>(itemsCollections.size()));
 	int32_t index = 0;
-	for (const model::templates::item::ResultedItem* item : itemsCollections) {
+	for (const model::templates::item::DecomposedItem* item : itemsCollections) {
 		writeC(index);
 		writeD(item->getItemId());
-		writeD(item->getMinCount());
+		writeD(item->getCount()); // C++ interim: the DecomposedItem of upstream d254ea172 has one count
 		writeC(0);
 		writeC(0); // rnd stat bonus
 		writeC(0); // rnd enchant bonus

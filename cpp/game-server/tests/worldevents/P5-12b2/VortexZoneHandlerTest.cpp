@@ -60,7 +60,7 @@ protected:
 			R"(<resurrection_point map="210060000" x="951.0" y="2433.0" z="107.0" h="0"/>)"
 			R"(<start_point map="210060000" x="951.0" y="2433.0" z="107.0" h="0"/></vortex_location>)");
 		zoneTemplate = std::make_unique<model::templates::zone::WorldZoneTemplate>(3000, 210060000, 0);
-		area = model::geometry::PolyArea::create(zoneTemplate->getName(), 210060000, zoneTemplate->getPoints()->getPoint(),
+		area = model::geometry::PolyArea::create(zoneTemplate->getZoneName(), 210060000, zoneTemplate->getPoints()->getPoints(),
 			zoneTemplate->getPoints()->getBottom(), zoneTemplate->getPoints()->getTop());
 		zoneInfo = model::templates::zone::ZoneInfo::create(*area, zoneTemplate.get());
 		zone = runtime::makeRef<TestInvasionZone>(210060000, *zoneInfo);

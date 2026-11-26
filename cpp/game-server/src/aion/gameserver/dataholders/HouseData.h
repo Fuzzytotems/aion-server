@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "aion/gameserver/dataholders/HouseData.xml.h"
@@ -35,6 +36,9 @@ public:
 	const std::vector<model::templates::housing::HousingLand>& getLands() const;
 
 	int32_t size() const;
+
+	/** upstream cabd580f3 */
+	void addAllManagerNpcIdsToSet(std::unordered_set<int32_t>& npcIds) const;
 };
 
 } // namespace aion::gameserver::dataholders

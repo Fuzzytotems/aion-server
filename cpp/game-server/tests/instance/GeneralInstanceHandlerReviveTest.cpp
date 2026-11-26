@@ -60,7 +60,7 @@ protected:
  * (ZoneService.cpp:133 throws for an id that is not in them) - only the world type has to be the real one for this case.
  */
 inline const char* const PANESTERRA_MAPS_XML = R"(<world_maps>)"
-	R"(<map id="210010000" cName="LF1" name="Belus" name_id="404103" water_level="1" death_level="0" world_type="PANESTERRA")"
+	R"(<map id="210010000" cName="LF1" name="Belus" name_id="404103" water_level="1" world_type="PANESTERRA")"
 	R"( world_size="1024" drop_type="PANESTERRA" flags="GLIDE FLY RIDE PVP DUEL_SAME_RACE"/>)"
 	R"(</world_maps>)";
 

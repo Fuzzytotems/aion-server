@@ -6,7 +6,7 @@
 //
 // - EconomyPacketTest is ItemPacketTest (a spawned level-1 ELYOS warrior "Holder" in Poeta, a real AionConnection whose send queue the cases
 //   read) with the item rows of ItemPacketTestSupport.h plus the rows below, bound in one load context together with the decomposable rows (a
-//   ResultedItem finds its item through the context's XmlIDs, ResultedItem.cpp:13-17), the npc, trade and goods rows the merchant cases need,
+//   DecomposedItem finds its item through the context's XmlIDs, DecomposedItem.cpp), the npc, trade and goods rows the merchant cases need,
 //   the audit log on, and second players on demand (otherPlayer) standing in the World, so World.getPlayer finds them.
 // - Every row is copied verbatim from the shipped data (game-server/data/static_data, file:line beside each).
 // - Prices come from the shipped prices.properties defaults (PricesConfig.java: 100/100/100, vendor buy 100, sell 20) with no siege location,
@@ -255,29 +255,32 @@ inline constexpr std::string_view ECONOMY_ITEM_TEMPLATES_XML = R"xml(
 	</item_template>
 )xml";
 
-/** decomposable_items/decomposable_items.xml, verbatim rows (the line of each <decomposable> in the comment above it) */
+/** decomposable_items.xml rows of 51d7a19cb, converted to the format of upstream d254ea172 (<set> instead of <items>, count instead of
+ * min_count, race on the set; the shipped rows changed, wave 5 rewrites the decomposable cases against them). Line numbers are those of 51d7a19cb. */
 inline constexpr std::string_view ECONOMY_DECOMPOSABLE_ITEMS_XML = R"xml(<decomposable_items>
 	<!-- :7309 -->
 	<decomposable item_id="188051090" selectable="true"><!-- [Event] Cold Box -->
-		<items>
+		<set>
 			<item id="125045164" /><!-- Rattan Hat -->
 			<item id="125045242" /><!-- Aquablue Sunhat -->
 			<item id="125040180" /><!-- Sports Cap -->
 			<item id="125045297" /><!-- Lawful Shades -->
 			<item id="125045346" /><!-- Dapper Fedora -->
-			<item id="188053609" min_count="3" /><!-- [Event] Level 60 Composite Manastone Bundle -->
-		</items>
+			<item id="188053609" count="3" /><!-- [Event] Level 60 Composite Manastone Bundle -->
+		</set>
 	</decomposable>
 	<!-- :26565 -->
 	<decomposable item_id="188052914" selectable="true"><!-- [Event] Dandy Form Candy Box -->
-		<items>
-			<item id="160010298" race="ELYOS" /><!-- [Event] Clever Dandi Form Candy -->
-			<item id="160010300" race="ASMODIANS" /><!-- [Event] Clever Dandi Form Candy -->
-			<item id="160010301" race="ELYOS" /><!-- [Event] Swift Dandi Form Candy -->
-			<item id="160010302" race="ASMODIANS" /><!-- [Event] Swift Dandi Form Candy -->
-			<item id="160010297" race="ELYOS" /><!-- [Event] Stalwart Dandi Form Candy -->
-			<item id="160010299" race="ASMODIANS" /><!-- [Event] Stalwart Dandi Form Candy -->
-		</items>
+		<set race="ELYOS">
+			<item id="160010298" /><!-- [Event] Clever Dandi Form Candy -->
+			<item id="160010301" /><!-- [Event] Swift Dandi Form Candy -->
+			<item id="160010297" /><!-- [Event] Stalwart Dandi Form Candy -->
+		</set>
+		<set race="ASMODIANS">
+			<item id="160010300" /><!-- [Event] Clever Dandi Form Candy -->
+			<item id="160010302" /><!-- [Event] Swift Dandi Form Candy -->
+			<item id="160010299" /><!-- [Event] Stalwart Dandi Form Candy -->
+		</set>
 	</decomposable>
 </decomposable_items>)xml";
 
@@ -288,7 +291,7 @@ inline constexpr std::string_view ECONOMY_DECOMPOSABLE_ITEMS_XML = R"xml(<decomp
  */
 inline constexpr std::string_view ECONOMY_NPC_TEMPLATES_XML = R"xml(<npc_templates>
 	<!-- :461604-461610, BUY and SELL -->
-	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" height="1.16875" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -296,7 +299,7 @@ inline constexpr std::string_view ECONOMY_NPC_TEMPLATES_XML = R"xml(<npc_templat
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461611-461617, EXTEND_INVENTORY only -->
-	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" height="1.16875" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -304,7 +307,7 @@ inline constexpr std::string_view ECONOMY_NPC_TEMPLATES_XML = R"xml(<npc_templat
 		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :462170-462176, BUY and SELL, no trade row -->
-	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" height="1.16875" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="14535">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -312,7 +315,7 @@ inline constexpr std::string_view ECONOMY_NPC_TEMPLATES_XML = R"xml(<npc_templat
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :497864-497870, TRADE_SELL_LIST (103) only: the purchase row below -->
-	<npc_template npc_id="801531" level="65" name="piarinerk" name_id="373150" height="1.16875" title_id="463203" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="801531" level="65" name="piarinerk" name_id="373150" title_id="463203" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -320,7 +323,7 @@ inline constexpr std::string_view ECONOMY_NPC_TEMPLATES_XML = R"xml(<npc_templat
 		<talk_info distance="5" is_dialog="true" func_dialogs="103" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :562457-562463, BUY and SELL for level 55 and above (LEVEL_HIGH) -->
-	<npc_template npc_id="833548" level="1" name="lalrinerk" name_id="466577" height="1.375" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833548" level="1" name="lalrinerk" name_id="466577" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="124">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -622,7 +625,7 @@ protected:
 	Item& storedTuned(int32_t objId, int32_t itemId, int32_t tuneCount) {
 		runtime::Ref<Item> item =
 			Item::create(objId, itemId, 1, std::nullopt, 0, "", 0, 0, false, false, 0, model::items::storage::getId(StorageType::CUBE), 0, 0, 0, 0, 0,
-				0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0);
+				0, 0, tuneCount, 0, 0, 0, 0, false, 0, 0, 0);
 		storage(StorageType::CUBE).onLoadHandler(*item);
 		items.push_back(item);
 		return *item;

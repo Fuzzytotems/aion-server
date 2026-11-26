@@ -5,7 +5,7 @@
 
 public:
 	std::unique_ptr<::aion::gameserver::dataholders::WorldMapsData> worldMapsData; // @XmlElement(name = "world_maps")
-	std::unique_ptr<::aion::gameserver::dataholders::MapWeatherData> mapWeatherData; // @XmlElement(name = "weather")
+	std::unique_ptr<::aion::gameserver::dataholders::MapWeatherData> mapWeatherData; // @XmlElement(name = "weather_maps")
 	std::unique_ptr<::aion::gameserver::dataholders::TradeListData> tradeListData; // @XmlElement(name = "npc_trade_list")
 	std::unique_ptr<::aion::gameserver::dataholders::TeleporterData> teleporterData; // @XmlElement(name = "npc_teleporter")
 	std::unique_ptr<::aion::gameserver::dataholders::TeleLocationData> teleLocationData; // @XmlElement(name = "teleport_location")
@@ -13,6 +13,10 @@ public:
 	std::unique_ptr<::aion::gameserver::dataholders::QuestsData> questData; // @XmlElement(name = "quests")
 	std::unique_ptr<::aion::gameserver::dataholders::XMLQuests> questsScriptData; // @XmlElement(name = "quest_scripts")
 	std::unique_ptr<::aion::gameserver::dataholders::PlayerExperienceTable> playerExperienceTable; // @XmlElement(name = "player_experience_table")
+	std::unique_ptr<::aion::gameserver::dataholders::PvpExpTable> pvpExpTable; // @XmlElement(name = "pvp_exp_table")
+	std::unique_ptr<::aion::gameserver::dataholders::PvpExpModTable> pvpExpModTable; // @XmlElement(name = "pvp_exp_mod_table")
+	std::unique_ptr<::aion::gameserver::dataholders::PartyExpModTable> partyExpModTable; // @XmlElement(name = "party_exp_mod_table")
+	std::unique_ptr<::aion::gameserver::dataholders::MenteeExpLimitTable> menteeExpLimitTable; // @XmlElement(name = "mentee_exp_limit_table")
 	std::unique_ptr<::aion::gameserver::dataholders::AbsoluteStatsData> absoluteStatsData; // @XmlElement(name = "absolute_stats")
 	std::unique_ptr<::aion::gameserver::dataholders::ItemData> itemData; // @XmlElement(name = "item_templates")
 	std::unique_ptr<::aion::gameserver::dataholders::ItemRandomBonusData> itemRandomBonuses; // @XmlElement(name = "random_bonuses")
@@ -43,7 +47,6 @@ public:
 	std::unique_ptr<::aion::gameserver::dataholders::RiftData> riftData; // @XmlElement(name = "rift_locations")
 	std::unique_ptr<::aion::gameserver::dataholders::BaseData> baseData; // @XmlElement(name = "base_locations")
 	std::unique_ptr<::aion::gameserver::dataholders::FlyRingData> flyRingData; // @XmlElement(name = "fly_rings")
-	std::unique_ptr<::aion::gameserver::dataholders::ShieldData> shieldData; // @XmlElement(name = "shields")
 	std::unique_ptr<::aion::gameserver::dataholders::PetData> petData; // @XmlElement(name = "pets")
 	std::unique_ptr<::aion::gameserver::dataholders::PetFeedData> petFeedData; // @XmlElement(name = "pet_feed")
 	std::unique_ptr<::aion::gameserver::dataholders::PetDopingData> petDopingData; // @XmlElement(name = "dopings")
@@ -72,7 +75,6 @@ public:
 	std::unique_ptr<::aion::gameserver::dataholders::HouseData> houseData; // @XmlElement(name = "house_lands")
 	std::unique_ptr<::aion::gameserver::dataholders::HouseBuildingData> houseBuildingData; // @XmlElement(name = "buildings")
 	std::unique_ptr<::aion::gameserver::dataholders::HousePartsData> housePartsData; // @XmlElement(name = "house_parts")
-	std::unique_ptr<::aion::gameserver::dataholders::CuringObjectsData> curingObjectsData; // @XmlElement(name = "curing_objects")
 	std::unique_ptr<::aion::gameserver::dataholders::HouseNpcsData> houseNpcsData; // @XmlElement(name = "house_npcs")
 	std::unique_ptr<::aion::gameserver::dataholders::AssemblyItemsData> assemblyItemData; // @XmlElement(name = "assembly_items")
 	std::unique_ptr<::aion::gameserver::model::templates::mail::Mails> systemMailTemplates; // @XmlElement(name = "mails")
@@ -96,6 +98,4 @@ public:
 	std::unique_ptr<::aion::gameserver::dataholders::LegionDominionData> legionDominionData; // @XmlElement(name = "legion_dominion_template")
 	std::unique_ptr<::aion::gameserver::dataholders::SkillAliasLocationData> skillAliasLocationData; // @XmlElement(name = "alias_locations")
 	std::unique_ptr<::aion::gameserver::dataholders::SignetDataTemplates> signetDataTemplates; // @XmlElement(name = "signet_data_templates")
-
-protected:
 	void afterUnmarshal(::aion::gameserver::xml::LoadContext& ctx, const ::aion::gameserver::xml::XmlParent& parent); // hand-written

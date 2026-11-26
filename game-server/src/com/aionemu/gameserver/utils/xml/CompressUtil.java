@@ -1,6 +1,7 @@
 package com.aionemu.gameserver.utils.xml;
 
 import java.io.ByteArrayOutputStream;
+import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
@@ -9,26 +10,26 @@ import java.util.zip.Inflater;
  */
 public final class CompressUtil {
 
-	public static byte[] decompress(byte[] bytes) throws Exception {
-		// Create an expandable byte array to hold the decompressed data
-		ByteArrayOutputStream bos = new ByteArrayOutputStream(bytes.length);
-
+	/**
+	 * @return Length of the zlib stream at the start of the bytes if it inflates to exactly {@code size}, otherwise -1.
+	 */
+	public static int zlibStreamLength(byte[] bytes, int size) {
 		byte[] buffer = new byte[1024];
+		long inflatedSize = 0;
 		try (Inflater decompressor = new Inflater()) {
 			decompressor.setInput(bytes);
-			while (true) {
+			while (!decompressor.finished()) {
 				int count = decompressor.inflate(buffer);
-				if (count > 0) {
-					bos.write(buffer, 0, count);
-				} else if (count == 0 && decompressor.finished()) {
-					break;
-				} else {
-					throw new RuntimeException("Bad zip data, size: " + bytes.length);
-				}
+				if (count == 0 && (decompressor.needsInput() || decompressor.needsDictionary()))
+					return -1;
+				inflatedSize += count;
+				if (inflatedSize > size)
+					return -1;
 			}
+			return inflatedSize == size ? bytes.length - decompressor.getRemaining() : -1;
+		} catch (DataFormatException e) {
+			return -1;
 		}
-
-		return bos.toByteArray();
 	}
 
 	public static byte[] compress(byte[] bytes) {

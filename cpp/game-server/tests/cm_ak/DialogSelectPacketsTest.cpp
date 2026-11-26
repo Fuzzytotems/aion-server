@@ -140,7 +140,7 @@ constexpr int32_t SLEEPING_ON_THE_JOB = 1101;
 /** npc_templates.xml, verbatim rows */
 constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 	<!-- :461604-461610, BUY and SELL -->
-	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" height="1.16875" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -148,7 +148,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461611-461617, EXTEND_INVENTORY only -->
-	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" height="1.16875" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -156,7 +156,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :562457-562463, BUY and SELL for level 55 and above (LEVEL_HIGH) -->
-	<npc_template npc_id="833548" level="1" name="lalrinerk" name_id="466577" height="1.375" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833548" level="1" name="lalrinerk" name_id="466577" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="124">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>

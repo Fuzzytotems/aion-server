@@ -28,6 +28,7 @@
 #include "aion/gameserver/model/templates/materials/MaterialSkill.bind.h"
 #include "aion/gameserver/model/templates/npcshout/ShoutEventTypeInfo.h"
 #include "aion/gameserver/model/templates/npcshout/ShoutGroup.bind.h"
+#include "aion/gameserver/model/templates/npcshout/ShoutList.bind.h"
 #include "aion/gameserver/model/templates/panels/SkillPanel.bind.h"
 #include "aion/gameserver/model/templates/recipe/RecipeTemplate.bind.h"
 #include "aion/gameserver/model/templates/ride/RideInfo.bind.h"
@@ -311,13 +312,10 @@ TEST(MiscWorldTemplatesTest, ShoutsPanelsRecipesRidesMaterials) {
 	EXPECT_EQ(list.getNpcShouts()[0].getSkillNo(), 4);
 	EXPECT_EQ(list.getNpcShouts()[1].getSkillNo(), 0);
 	EXPECT_EQ(list.getNpcShouts()[1].getPollDelay(), 0);
-	list.makeNull();
-	EXPECT_TRUE(list.getNpcIds().empty());
-	EXPECT_TRUE(list.getNpcShouts().empty());
-	EXPECT_EQ(list.getRestrictWorld(), 0);
-	group->makeNull();
-	EXPECT_TRUE(group->getShoutNpcs().empty());
-	EXPECT_EQ(group->getClientAi(), "");
+	// upstream 15eaf77b6 removed ShoutList.makeNull and ShoutGroup.makeNull
+	EXPECT_EQ(group->getClientAi(), "x");
+	EXPECT_EQ(bindXml<npcshout::ShoutList>(R"(<shout_npcs npc_ids="1"><shout string_id="1" when="IDLE"/></shout_npcs>)")->getRestrictWorld(), 0)
+		<< "an int since 15eaf77b6";
 	EXPECT_EQ(npcshout::fromValue("ATTACK_HITPOINT"), npcshout::ShoutEventType::ATTACK_HITPOINT);
 
 	std::unique_ptr<panels::SkillPanel> panel = bindXml<panels::SkillPanel>(R"(<panel panel_id="2" panel_skills="4353537 4353538"/>)");

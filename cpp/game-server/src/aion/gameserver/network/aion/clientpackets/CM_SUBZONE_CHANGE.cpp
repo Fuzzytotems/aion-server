@@ -4,6 +4,7 @@
 #include <string>
 
 #include "aion/gameserver/configs/administration/AdminConfig.h"
+#include "aion/gameserver/model/templates/zone/WorldZoneTemplate.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/model/geometry/Area.h"
@@ -36,7 +37,8 @@ void CM_SUBZONE_CHANGE::runImpl() {
 	if (player->hasAccess(configs::administration::AdminConfig::ZONE_INFO.load())) {
 		int32_t foundZones = 0;
 		for (const runtime::Ptr<world::zone::ZoneInstance>& zone : player->findZones()) {
-			if (zone->getZoneTemplate()->getZoneType() == ZoneClassName::DUMMY || zone->getZoneTemplate()->getZoneType() == ZoneClassName::WEATHER)
+			if (zone->getZoneTemplate()->isWholeMapZone() || // 51d7a19cb: ZoneClassName.DUMMY
+				zone->getZoneTemplate()->getZoneType() == ZoneClassName::WEATHER)
 				continue;
 			foundZones++;
 			// Java string concatenation: the byte as a number and the enum constant's name()

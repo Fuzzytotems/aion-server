@@ -96,7 +96,7 @@ struct Appearance {
 	uint8_t eyeHeight = 0, eyeSpace = 0, eyeWidth = 0, eyeSize = 0, eyeShape = 0, eyeAngle = 0;
 	uint8_t browHeight = 0, browAngle = 0, browShape = 0;
 	uint8_t nose = 0, noseBridge = 0, noseWidth = 0, noseTip = 0;
-	uint8_t cheek = 0, lipHeight = 0, mouthSize = 0, lipSize = 0, smile = 0, lipShape = 0, jawHeight = 0, chinJut = 0, earShape = 0, headSize = 0;
+	uint8_t cheek = 0, lipHeight = 0, mouthSize = 0, lipSize = 0, smile = 0, lipShape = 0, chinHeight = 0, cheekBones = 0, earShape = 0, headSize = 0;
 	uint8_t neck = 0, neckLength = 0, shoulderSize = 0;
 	uint8_t torso = 0, chest = 0, waist = 0, hips = 0;
 	uint8_t armThickness = 0, handSize = 0, legThickness = 0, footSize = 0, facialRate = 0;

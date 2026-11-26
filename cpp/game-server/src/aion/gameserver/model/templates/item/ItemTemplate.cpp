@@ -207,11 +207,11 @@ void ItemTemplate::modifyMask(bool apply, int32_t filter) {
 }
 
 bool ItemTemplate::hasAreaRestriction() const {
-	return useLimits->getUseArea() != nullptr;
+	return !useLimits->getUseArea().empty(); // Java: useLimits.getUseArea() != null (an absent usearea is empty)
 }
 
 const ::aion::gameserver::world::zone::ZoneName* ItemTemplate::getUseArea() const {
-	return useLimits->getUseArea();
+	return useLimits->getUseAreaZoneName();
 }
 
 bool ItemTemplate::hasWorldRestrictions() const {

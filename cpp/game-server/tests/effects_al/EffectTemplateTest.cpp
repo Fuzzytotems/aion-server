@@ -36,6 +36,9 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/skillengine/effect/SubEffect.bind.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+#include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
@@ -305,12 +308,11 @@ ModifierProbes modifierProbes(std::initializer_list<bool> answers) {
 	return result;
 }
 
+/** SubEffect is a behaviour class with private members since upstream 6c6eee658: bound from XML */
 std::unique_ptr<SubEffect> subEffectOf(int32_t skillId, int32_t chance, bool addEffect = false) {
-	auto sub = std::make_unique<SubEffect>();
-	sub->skillId = skillId;
-	sub->chance = chance;
-	sub->addEffect = addEffect;
-	return sub;
+	static xml::LoadContext context;
+	return xml::bindString<SubEffect>(context, "<subeffect skill_id=\"" + std::to_string(skillId) + "\" chance=\"" + std::to_string(chance) +
+		"\" addeffect=\"" + (addEffect ? "true" : "false") + "\"/>");
 }
 
 /** The first `count` values Rnd::chance() gives after seeding the calling thread with `seed` (leaves the thread seeded and advanced) */

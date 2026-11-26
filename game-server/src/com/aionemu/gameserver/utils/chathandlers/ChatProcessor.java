@@ -31,7 +31,7 @@ public class ChatProcessor implements GameEngine {
 		ScriptManager scriptManager = new ScriptManager();
 		scriptManager.setGlobalClassListener(new ChatCommandsLoader(this));
 		scriptManager.load(CommandsConfig.HANDLER_DIRECTORIES);
-		log.info("Loaded " + commandHandlers.size() + " commands.");
+		log.info("Loaded {} commands", commandHandlers.size());
 	}
 
 	public void reload() {
@@ -90,8 +90,18 @@ public class ChatProcessor implements GameEngine {
 		return params.trim().split(" +(?=[^\\]]*(\\[|$))");
 	}
 
+	/**
+	 * Command keys are registered with their prefix ({@code //} for admin, {@code .} for player commands, none for console), while
+	 * configs and stored accesses use the bare alias, so an alias without prefix also resolves to its command.
+	 */
 	private ChatCommand getCommand(String alias) {
-		return commandHandlers.get(alias.toLowerCase());
+		ChatCommand command = commandHandlers.get(alias.toLowerCase());
+		if (command != null)
+			return command;
+		for (ChatCommand candidate : commandHandlers.values())
+			if (candidate.getAlias().equalsIgnoreCase(alias))
+				return candidate;
+		return null;
 	}
 
 	/**
@@ -116,8 +126,11 @@ public class ChatProcessor implements GameEngine {
 		return command != null && command.validateAccess(executor);
 	}
 
+	/**
+	 * @return true if a command with this alias exists, with or without its prefix
+	 */
 	public boolean isCommandExists(String alias) {
-		return commandHandlers.containsKey(alias.toLowerCase());
+		return getCommand(alias) != null;
 	}
 
 	public static ChatProcessor getInstance() {

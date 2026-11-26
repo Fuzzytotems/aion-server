@@ -5,20 +5,14 @@
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/dataholders/DataManager.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
-#include "aion/gameserver/configs/main/GeoDataConfig.h"
-#include "aion/gameserver/controllers/observer/ShieldObserver.h"
 #include "aion/gameserver/geoEngine/bounding/BoundingBox.h"
 #include "aion/gameserver/geoEngine/math/Vector3f.h"
 #include "aion/gameserver/geoEngine/scene/Spatial.h"
 #include "aion/gameserver/model/geometry/Area.h"
 #include "aion/gameserver/model/geometry/RectangleArea.h"
-#include "aion/gameserver/model/siege/FortressLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/model/siege/SiegeShield.h"
 #include "aion/gameserver/model/siege/SiegeType.h"
-#include "aion/gameserver/model/templates/shield/ShieldTemplate.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/world/zone/SiegeZoneInstance.h"
@@ -40,9 +34,7 @@ ShieldService::ShieldService() {
 		artifact->add("BU_AB_SAMJUNG_BASE_01_SHIELD_137227"); // artifact
 		IGNORED_SHIELDS_BY_MAP_ID.put(400010000, artifact);
 	}
-	for (const model::templates::shield::ShieldTemplate& template_ : dataholders::DataManager::SHIELD_DATA->getShieldTemplates()) {
-		sphereShields.put(template_.getId(), &template_);
-	}
+	// upstream 84d3f7559: the sphere shields of DataManager.SHIELD_DATA are gone (the constructor is empty in Java)
 }
 
 void ShieldService::logDetachedShields() {
@@ -63,16 +55,8 @@ void ShieldService::logDetachedShields() {
 	}
 }
 
-// Java ShieldService.java:51-54: null without a sphere shield for the location (the caller tests it)
-runtime::Ref<controllers::observer::ShieldObserver> ShieldService::createShieldObserver(model::siege::FortressLocation& location,
-	model::gameobjects::Creature& observed) {
-	const model::templates::shield::ShieldTemplate* shieldTemplate = sphereShields.get(location.getLocationId());
-	return shieldTemplate == nullptr ? runtime::Ref<controllers::observer::ShieldObserver>()
-	                                 : controllers::observer::ShieldObserver::create(location, shieldTemplate, observed);
-}
-
 runtime::Ptr<model::siege::SiegeShield> ShieldService::tryRegisterShield(int32_t worldId, geoEngine::scene::Spatial& geometry) {
-	if (!configs::main::GeoDataConfig::GEO_SHIELDS_ENABLE.load() || isIgnored(worldId, geometry.getName()))
+	if (isIgnored(worldId, geometry.getName())) // upstream 84d3f7559 removed GeoDataConfig.GEO_SHIELDS_ENABLE from this check
 		return nullptr;
 	runtime::Ref<model::siege::SiegeShield> shield = model::siege::SiegeShield::create(geometry);
 	registeredShields.computeIfAbsent(worldId, [] { return runtime::RcArrayList<runtime::Ref<model::siege::SiegeShield>>::create(); })->add(shield);
@@ -91,7 +75,6 @@ void ShieldService::attachShield(model::siege::SiegeLocation& location) {
 		if (isShieldInsideLocation(*shield, location)) {
 			attached.push_back(shield);
 			mapShields->removeAt(i);
-			sphereShields.remove(location.getLocationId());
 			shield->setSiegeLocationId(location.getLocationId());
 		}
 	}

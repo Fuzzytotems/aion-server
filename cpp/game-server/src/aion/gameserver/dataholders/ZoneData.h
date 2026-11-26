@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <span>
+#include <string>
+#include <unordered_set>
 #include <unordered_map>
 #include <vector>
 
@@ -24,8 +26,8 @@ class ZoneData : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/dataholders/ZoneData.xml.inc"
 private:
 	std::unordered_map<int32_t, std::vector<runtime::Ref<model::templates::zone::ZoneInfo>>> zoneNameMap;
+	std::unordered_set<std::string> zoneNames;
 	std::unordered_map<const model::templates::zone::ZoneTemplate*, int32_t> weatherZoneIds;
-	int32_t count = 0;
 
 public:
 	/** C++ only: out of line, where the RefCounted element types are complete */
@@ -34,6 +36,11 @@ public:
 
 	const std::unordered_map<int32_t, std::vector<runtime::Ref<model::templates::zone::ZoneInfo>>>& getZones() const;
 
+	bool validateZoneName(const std::string& zoneName) const;
+
+	bool isValidZoneName(const std::string& zoneName) const;
+
+	/** the number of zone names (upstream 2b097879f; 51d7a19cb counted the zone infos) */
 	int32_t size() const;
 
 	/** Weather zone ID it's an order number (starts from 1) */

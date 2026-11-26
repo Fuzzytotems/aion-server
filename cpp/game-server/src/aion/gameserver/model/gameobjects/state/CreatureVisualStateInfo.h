@@ -17,7 +17,7 @@ namespace aion::gameserver::model::gameobjects::state {
 
 namespace detail {
 /** Java constructor argument `id` in ordinal order */
-inline constexpr std::array<int32_t, 9> CREATUREVISUALSTATE_IDS{
+inline constexpr std::array<int32_t, 10> CREATUREVISUALSTATE_IDS{
 	0, // VISIBLE
 	1, // HIDE1
 	2, // HIDE2
@@ -27,8 +27,9 @@ inline constexpr std::array<int32_t, 9> CREATUREVISUALSTATE_IDS{
 	13, // HIDE13
 	20, // HIDE20
 	64, // BLINKING
+	128, // GM_INVISIBLE (upstream b0a597458)
 };
-static_assert(static_cast<size_t>(CreatureVisualState::BLINKING) + 1 == CREATUREVISUALSTATE_IDS.size(), "one entry per CreatureVisualState constant");
+static_assert(static_cast<size_t>(CreatureVisualState::GM_INVISIBLE) + 1 == CREATUREVISUALSTATE_IDS.size(), "one entry per CreatureVisualState constant");
 } // namespace detail
 
 constexpr int32_t getId(CreatureVisualState value) noexcept {

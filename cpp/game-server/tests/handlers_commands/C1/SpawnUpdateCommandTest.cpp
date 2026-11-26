@@ -54,7 +54,7 @@ using serverpackets::SM_SYSTEM_MESSAGE;
 
 /** One npc row of npc_templates.xml (MonsterCommandsTest's minalinerk), ai "general" */
 constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
-	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" height="1.16875" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>

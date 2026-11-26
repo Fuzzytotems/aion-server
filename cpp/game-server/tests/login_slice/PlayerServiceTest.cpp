@@ -15,6 +15,9 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/gameobjects/player/emotion/EmotionList.h"
@@ -251,9 +254,21 @@ TEST_F(PlayerServiceTest, StorePlayerWritesThePosition) {
  */
 TEST_F(PlayerServiceTest, TheEmotionsAllMembershipKnowsEveryLearnableEmotion) {
 	xml::LoadContext context;
-	// an emotion card's action: afterUnmarshal registers its emotion as learnable (EmotionLearnAction.java:33-36)
-	std::unique_ptr<model::templates::item::actions::EmotionLearnAction> card =
-		xml::bindString<model::templates::item::actions::EmotionLearnAction>(context, R"(<learnemotion emotionid="64" minutes="10"/>)");
+	// an emotion card: ItemData registers its emotion as learnable (ItemData.java, upstream f7230c5fa; before, EmotionLearnAction's
+	// afterUnmarshal). The slice's empty item holder comes back afterwards.
+	dataholders::DataManager::ITEM_DATA.resetForTests();
+	dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(context, R"xml(<item_templates>
+	<item_template id="169620999" name="Emotion Card (synthetic)" level="1" cName="test_emotion_card" mask="4168" quality="COMMON" price="5" desc="741825" activate_count="1">
+		<actions>
+			<learnemotion emotionid="64" minutes="10"/>
+		</actions>
+	</item_template>
+</item_templates>)xml"));
+	auto emptyItemData = runtime::finally([] {
+		xml::LoadContext emptyContext;
+		dataholders::DataManager::ITEM_DATA.resetForTests();
+		dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(emptyContext, "<item_templates/>"));
+	});
 	NewCharacter c = newCharacter(2061, "Dancer", model::Race::ELYOS, model::PlayerClass::WARRIOR);
 	Ref<Player> player;
 	SLICE_SKIP_IF_UNPORTED(player = PlayerService::newPlayer(*c.accountData, *c.account));

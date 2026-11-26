@@ -206,8 +206,8 @@ void readAppearanceBytes(BodyReader& reader, Appearance& appearance) {
 	appearance.lipSize = reader.C();
 	appearance.smile = reader.C();
 	appearance.lipShape = reader.C();
-	appearance.jawHeight = reader.C();
-	appearance.chinJut = reader.C();
+	appearance.chinHeight = reader.C();
+	appearance.cheekBones = reader.C();
 	appearance.earShape = reader.C();
 	appearance.headSize = reader.C();
 	appearance.neck = reader.C();

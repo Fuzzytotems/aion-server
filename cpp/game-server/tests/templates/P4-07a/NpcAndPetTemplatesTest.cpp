@@ -17,6 +17,7 @@
 #include "aion/gameserver/model/templates/npc/NpcRatingInfo.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.bind.h"
 #include "aion/gameserver/model/templates/pet/FoodTypeInfo.h"
+#include "aion/gameserver/model/templates/BoundRadius.h"
 #include "aion/gameserver/model/templates/pet/PetBuff.bind.h"
 #include "aion/gameserver/model/templates/pet/PetDopingBag.h"
 #include "aion/gameserver/model/templates/pet/PetFlavour.bind.h"
@@ -61,7 +62,9 @@ TEST(NpcTemplateTest, SetterAndDefaults) {
 	EXPECT_FALSE(npc->canInteract());
 	EXPECT_FALSE(npc->isDialogNpc());
 	EXPECT_EQ(npc->getAggroAngle(), 360);
-	EXPECT_FLOAT_EQ(npc->getHeight(), 1.0f);
+	EXPECT_EQ(npc->getBoundRadius(), &BoundRadius::DEFAULT) << "no bounds: the default creature cylinder (upstream da540feec; height is gone)";
+	EXPECT_FLOAT_EQ(BoundRadius::DEFAULT.getUpper(), 2.0f);
+	EXPECT_FLOAT_EQ(BoundRadius::ZERO.getFront(), 0.0f);
 	EXPECT_THROW(npc->getMassiveLootCount(), runtime::NullPointerException) << "Java massiveLoot.getMLootCount() on null";
 	EXPECT_EQ(bindXml<npc::NpcTemplate>(R"(<npc_template npc_id="1" level="1" name_id="1" srange="25"/>)")->getMinimumShoutRange(), 25);
 }

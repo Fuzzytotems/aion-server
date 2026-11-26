@@ -82,19 +82,19 @@ constexpr int32_t SHOCK_TRAP_NPC_ID = 749992;
  * The names are compared in lower case, so the test spells them in mixed case.
  */
 constexpr const char* SUMMON_AI_NPCS_XML =
-	R"(<npc_template npc_id="833078" level="1" name="striped kerub banner" name_id="300110" height="1.372" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="833078" level="1" name="striped kerub banner" name_id="300110" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="servant" srange="7" arange="2" attack_speed="2100")"
 	R"( hpgauge="3"><stats maxHp="143"><speeds walk="0.6" run="7" run_fight="5.5" /></stats>)"
 	R"(<bound_radius front="0.525" side="0.275" upper="1.372" /></npc_template>)"
-	R"(<npc_template npc_id="833990" level="1" name="striped kerub totem" name_id="300110" height="1.372" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="833990" level="1" name="striped kerub totem" name_id="300110" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="servant" srange="7" arange="2" attack_speed="2100")"
 	R"( hpgauge="3"><stats maxHp="143"><speeds walk="0.6" run="7" run_fight="5.5" /></stats>)"
 	R"(<bound_radius front="0.525" side="0.275" upper="1.372" /></npc_template>)"
-	R"(<npc_template npc_id="749990" level="1" name="Test Trap" name_id="1" height="3" rank="NOVICE" rating="JUNK" tribe="MONSTER")"
+	R"(<npc_template npc_id="749990" level="1" name="Test Trap" name_id="1" rank="NOVICE" rating="JUNK" tribe="MONSTER")"
 	R"( type="ABYSS_GUARD" ai="trap" srange="4" arange="3" attack_speed="2000" hpgauge="1"><stats maxHp="1" /></npc_template>)"
-	R"(<npc_template npc_id="749991" level="1" name="Scrapped Mechanisms" name_id="1" height="3" rank="NOVICE" rating="JUNK" tribe="MONSTER")"
+	R"(<npc_template npc_id="749991" level="1" name="Scrapped Mechanisms" name_id="1" rank="NOVICE" rating="JUNK" tribe="MONSTER")"
 	R"( type="ABYSS_GUARD" ai="trap" srange="4" arange="3" attack_speed="2000" hpgauge="1"><stats maxHp="1" /></npc_template>)"
-	R"(<npc_template npc_id="749992" level="1" name="Shock Trap" name_id="1" height="3" rank="NOVICE" rating="JUNK" tribe="MONSTER")"
+	R"(<npc_template npc_id="749992" level="1" name="Shock Trap" name_id="1" rank="NOVICE" rating="JUNK" tribe="MONSTER")"
 	R"( type="ABYSS_GUARD" ai="trap" srange="4" arange="3" attack_speed="2000" hpgauge="1"><stats maxHp="1" /></npc_template>)";
 
 constexpr const char* SUMMON_AI_SKILL_ROWS_XML = R"(<npc_skills npc_ids="833078"><npc_skill id="16419" lv="1" prob="25" /></npc_skills>)"

@@ -11,13 +11,31 @@
 namespace aion::gameserver::xml {
 
 bool XmlBinding<::aion::gameserver::skillengine::effect::SkillAtkDrainInstantEffect>::attribute(::aion::gameserver::skillengine::effect::SkillAtkDrainInstantEffect& o, BindContext& c, std::string_view name, std::string_view value) {
-	if (name == "hp_percent") {
-		c.assign(o.hpPercent, value);
-		return true;
-	}
-	if (name == "mp_percent") {
-		c.assign(o.mpPercent, value);
-		return true;
+	switch (nameHash(name)) {
+		case "hp_percent"_xh:
+			if (name == "hp_percent") {
+				c.assign(o.hpPercent, value);
+				return true;
+			}
+			break;
+		case "mp_percent"_xh:
+			if (name == "mp_percent") {
+				c.assign(o.mpPercent, value);
+				return true;
+			}
+			break;
+		case "prob"_xh:
+			if (name == "prob") {
+				c.assign(o.prob, value);
+				return true;
+			}
+			break;
+		case "prob_delta"_xh:
+			if (name == "prob_delta") {
+				c.assign(o.probDelta, value);
+				return true;
+			}
+			break;
 	}
 	return XmlBinding<::aion::gameserver::skillengine::effect::DamageEffect>::attribute(o, c, name, value);
 }

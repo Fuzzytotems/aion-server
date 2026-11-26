@@ -15,7 +15,6 @@
 #include "aion/gameserver/dataholders/ConquerorAndProtectorData.bind.h"
 #include "aion/gameserver/dataholders/CosmeticItemsData.bind.h"
 #include "aion/gameserver/dataholders/CubeExpandData.bind.h"
-#include "aion/gameserver/dataholders/CuringObjectsData.bind.h"
 #include "aion/gameserver/dataholders/CustomDrop.bind.h"
 #include "aion/gameserver/dataholders/DecomposableItemsData.bind.h"
 #include "aion/gameserver/dataholders/EnchantData.bind.h"
@@ -46,6 +45,7 @@
 #include "aion/gameserver/dataholders/LegionDominionData.bind.h"
 #include "aion/gameserver/dataholders/MapWeatherData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
+#include "aion/gameserver/dataholders/MenteeExpLimitTable.bind.h"
 #include "aion/gameserver/dataholders/MotionData.bind.h"
 #include "aion/gameserver/dataholders/MultiReturnItemData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
@@ -53,6 +53,7 @@
 #include "aion/gameserver/dataholders/NpcShoutData.bind.h"
 #include "aion/gameserver/dataholders/NpcSkillData.bind.h"
 #include "aion/gameserver/dataholders/PanelSkillsData.bind.h"
+#include "aion/gameserver/dataholders/PartyExpModTable.bind.h"
 #include "aion/gameserver/dataholders/PetBuffsData.bind.h"
 #include "aion/gameserver/dataholders/PetData.bind.h"
 #include "aion/gameserver/dataholders/PetDopingData.bind.h"
@@ -62,12 +63,13 @@
 #include "aion/gameserver/dataholders/PlayerInitialData.bind.h"
 #include "aion/gameserver/dataholders/Portal2Data.bind.h"
 #include "aion/gameserver/dataholders/PortalLocData.bind.h"
+#include "aion/gameserver/dataholders/PvpExpModTable.bind.h"
+#include "aion/gameserver/dataholders/PvpExpTable.bind.h"
 #include "aion/gameserver/dataholders/QuestsData.bind.h"
 #include "aion/gameserver/dataholders/RecipeData.bind.h"
 #include "aion/gameserver/dataholders/RideData.bind.h"
 #include "aion/gameserver/dataholders/RiftData.bind.h"
 #include "aion/gameserver/dataholders/RoadData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
 #include "aion/gameserver/dataholders/SiegeLocationData.bind.h"
 #include "aion/gameserver/dataholders/SignetDataTemplates.bind.h"
 #include "aion/gameserver/dataholders/SkillAliasLocationData.bind.h"
@@ -106,7 +108,8 @@ namespace {
  * Sequential loading in import order satisfies it (the item holder is imported first).
  */
 std::vector<std::type_index> dependenciesOf(std::string_view rootTag) {
-	if (rootTag == "item_groups" || rootTag == "decomposable_items" || rootTag == "global_rules" || rootTag == "timed_events")
+	if (rootTag == "item_groups" || rootTag == "decomposable_items" || rootTag == "global_rules" || rootTag == "timed_events" ||
+	    rootTag == "pets") // pets: PetData.validatePetIds (upstream 4426db07c)
 		return {typeid(ItemData)};
 	return {};
 }

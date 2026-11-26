@@ -1,5 +1,7 @@
 package com.aionemu.gameserver.services;
 
+import static com.aionemu.gameserver.model.items.ItemUseAnimation.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -100,7 +102,7 @@ public class StigmaService {
 		for (Item item : player.getEquipment().getEquippedItemsAllStigma()) {
 			if (!item.getItemTemplate().isStigma()) {
 				player.getEquipment().unEquipItem(item.getObjectId(), false);
-				log.warn("Unequipped stigma: " + item.getItemId() + ", stigma info missing for item (possibly pre-4.8 stigma)");
+				log.warn("Unequipped stigma: {}, stigma info missing for item (possibly pre-4.8 stigma)", item.getItemId());
 				continue;
 			}
 
@@ -371,27 +373,27 @@ public class StigmaService {
 
 		final int parentItemId = stigma.getItemId();
 		final int parentObjectId = stigma.getObjectId();
+		int useDelay = player.getItemUseDelay(5000);
 		PacketSendUtility.broadcastPacket(player,
-			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentObjectId, chargeStone.getObjectId(), parentItemId, 5000, 0, 0), true);
-		final ItemUseObserver observer = new ItemUseObserver() {
+			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentObjectId, chargeStone.getObjectId(), parentItemId, useDelay, USE_START), true);
+		ItemUseObserver observer = new ItemUseObserver(player) {
 
 			@Override
-			public void abort() {
+			protected void onAbort() {
 				player.getController().cancelTask(TaskId.ITEM_USE);
 				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_ITEM_CANCELED());
 				PacketSendUtility.broadcastPacket(player,
-					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentObjectId, chargeStone.getObjectId(), parentItemId, 0, 2, 0), true);
-				player.getObserveController().removeObserver(this);
+					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentObjectId, chargeStone.getObjectId(), parentItemId, 0, USE_CANCEL), true);
 			}
 		};
-		player.getObserveController().attach(observer);
+		player.getObserveController().addObserver(observer);
 		player.getController().addTask(TaskId.ITEM_USE, ThreadPoolManager.getInstance().schedule(new Runnable() {
 
 			@Override
 			public void run() {
 				player.getObserveController().removeObserver(observer);
 				PacketSendUtility.broadcastPacket(player,
-					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentObjectId, parentItemId, 0, isSuccess ? 1 : 2, 1), true);
+					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentObjectId, parentItemId, 0, isSuccess ? USE_SUCCESS : USE_FAIL), true);
 				if (!player.getInventory().decreaseByObjectId(chargeStone.getObjectId(), 1, ItemPacketService.ItemUpdateType.DEC_STIGMA_USE))
 					return;
 				if (!isSuccess) {
@@ -417,7 +419,7 @@ public class StigmaService {
 				}
 			}
 
-		}, 5000));
+		}, useDelay));
 	}
 
 	private static void addStigmaSkills(Player player, Stigma stigma, int stigmaLevel) {

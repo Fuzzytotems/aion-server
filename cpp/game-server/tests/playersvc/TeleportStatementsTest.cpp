@@ -81,7 +81,7 @@ using model::gameobjects::state::CreatureState;
 using services::teleport::TeleportService;
 
 /**
- * The world chunk's test Ishalgen, 256 x 256, `water_level="16" death_level="0" flags="RIDE"`, and the flags are why this fixture is not on
+ * The world chunk's test Ishalgen, 256 x 256, `water_level="16" flags="RIDE"`, and the flags are why this fixture is not on
  * the test Poeta the other playersvc tests use. Every map has a map-wide zone, and ZoneInstance::canRide falls back to the map's own flags
  * for it (ZoneInstance.cpp:130-137); the test Poeta's flags are `FLY GLIDE RECALL`, so every spawn there runs
  * PlayerController::onEnterZone -> unsetPlayerMode(RIDE) (PlayerController.cpp:288-289) and dismounts the character a second time, which

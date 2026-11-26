@@ -175,7 +175,7 @@ TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) 
 		"AnnouncementService.getInstance()", "DebugService.getInstance()", "WeatherService.getInstance()", "BrokerService.getInstance()",
 		"Influence.getInstance()", "ExchangeService.getInstance()", "PeriodicSaveService.getInstance()", "AtreianPassportService.getInstance()",
 		"CronJobService.getInstance()",
-		"CuringZoneService.getInstance()", "RoadService.getInstance()", "HTMLCache.getInstance()", "AbyssRankingCache.getInstance()",
+		"RoadService.getInstance()", "HTMLCache.getInstance()", "AbyssRankingCache.getInstance()",
 		"AbyssRankUpdateService.scheduleUpdate()", "PeriodicInstanceManager.getInstance()", "EventService.start()",
 		"AdminService.getInstance()", "CommandsAccessService.loadAccesses()",
 		"PlayerTransferService.getInstance()",

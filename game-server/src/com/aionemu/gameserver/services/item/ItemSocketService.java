@@ -1,5 +1,7 @@
 package com.aionemu.gameserver.services.item;
 
+import static com.aionemu.gameserver.model.items.ItemUseAnimation.*;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -174,27 +176,27 @@ public class ItemSocketService {
 			return;
 		}
 
-		final ItemUseObserver observer = new ItemUseObserver() {
+		ItemUseObserver observer = new ItemUseObserver(player) {
 			@Override
-			public void abort() {
-				player.getObserveController().removeObserver(this);
+			protected void onAbort() {
 				player.getController().cancelTask(TaskId.ITEM_USE);
 				PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_MSG_GIVE_PROC_CANCEL(weapon.getL10n()));
 				PacketSendUtility.broadcastPacketAndReceive(player,
-					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), stoneId, itemTemplate.getTemplateId(), 0, 3, 0));
+					new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), stoneId, itemTemplate.getTemplateId(), 0, USE_CANCEL));
 			}
 		};
 
-		player.getObserveController().attach(observer);
+		player.getObserveController().addObserver(observer);
 
+		int useDelay = player.getItemUseDelay(2000);
 		PacketSendUtility.broadcastPacketAndReceive(player,
-			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), stoneId, itemTemplate.getTemplateId(), 2000, 0, 0));
+			new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), stoneId, itemTemplate.getTemplateId(), useDelay, USE_START));
 
 		player.getController().addTask(TaskId.ITEM_USE, ThreadPoolManager.getInstance().schedule(() -> {
 			player.getObserveController().removeObserver(observer);
 
 			PacketSendUtility.broadcastPacketAndReceive(player,
-				new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), stoneId, itemTemplate.getTemplateId(), 0, 1, 0));
+				new SM_ITEM_USAGE_ANIMATION(player.getObjectId(), stoneId, itemTemplate.getTemplateId(), 0, USE_SUCCESS));
 
 			if (!player.getInventory().decreaseByObjectId(stoneId, 1))
 				return;
@@ -203,6 +205,6 @@ public class ItemSocketService {
 			PacketSendUtility.sendPacket(player, SM_SYSTEM_MESSAGE.STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM(weapon.getL10n()));
 
 			ItemPacketService.updateItemAfterInfoChange(player, weapon);
-		}, 2000));
+		}, useDelay));
 	}
 }

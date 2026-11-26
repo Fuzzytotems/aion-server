@@ -102,7 +102,7 @@ constexpr const char* MAIL_TEMPLATES = R"(<mails><mail name="$$HS_AUCTION_MAIL">
 	R"(<body id="0"><param id="datetime"/><param id="address"/><param id="datetime"/></body><tail id="0"/></template></mail></mails>)";
 
 /** npc_templates.xml:530109-530119, the land's manager npc (House.getOwnerName and the appearance read its template) */
-constexpr const char* MANAGER_NPC = R"(<npc_templates><npc_template npc_id="810017" level="1" name="palace butler" name_id="461896" height="1.375" )"
+constexpr const char* MANAGER_NPC = R"(<npc_templates><npc_template npc_id="810017" level="1" name="palace butler" name_id="461896" )"
 	R"(group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" type="HOUSING" ai="butler" sangle="0" attack_speed="2000" hpgauge="3">)"
 	R"(<stats maxHp="2256"><speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" /></stats>)"
 	R"(<equipment><item>110900245</item><item>125003004</item></equipment><bound_radius front="0.7" side="0.444" upper="1.375" />)"

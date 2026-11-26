@@ -54,9 +54,9 @@ constexpr int32_t ESCORT_QUEST = 1111;
  * attributes a map template needs: the shipped order, in which SpawnsData.getFirstSpawnByNpcId's search of the other maps meets Sanctum first
  */
 constexpr const char* SANCTUM_AND_POETA_XML =
-	R"(<world_maps><map id="110010000" cName="LC1" name="Sanctum" name_id="400437" water_level="16" death_level="400")"
+	R"(<world_maps><map id="110010000" cName="LC1" name="Sanctum" name_id="400437" water_level="16")"
 	R"( world_type="ELYSEA" world_size="3072" flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE"/>)"
-	R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+	R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 	R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/></world_maps>)";
 
 /** Mires on two maps: a fabricated Sanctum row (mires spawns only in Poeta) and the shipped Poeta row (QuestFollowTestSupport.h) */

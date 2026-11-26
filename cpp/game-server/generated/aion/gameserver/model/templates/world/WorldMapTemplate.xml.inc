@@ -8,19 +8,18 @@ private:
 	std::string cName; // @XmlAttribute(name = "cName", required = true)
 	std::string name; // @XmlAttribute(name = "name")
 	int32_t nameId = 0; // @XmlAttribute(name = "name_id")
-	int32_t twinCount = 0; // @XmlAttribute(name = "twin_count")
-	int32_t beginnerTwinCount = 0; // @XmlAttribute(name = "beginner_twin_count")
+	int32_t twinCount = 1; // @XmlAttribute(name = "twin_count") Java: = 1
+	int32_t channelChangeCooldownSeconds = 0; // @XmlAttribute(name = "cool_time")
 	int32_t maxUser = 0; // @XmlAttribute(name = "max_user")
 	bool prison = false; // @XmlAttribute(name = "prison") Java: = false
 	bool instance = false; // @XmlAttribute(name = "instance") Java: = false
-	int32_t deathlevel = 0; // @XmlAttribute(name = "death_level", required = true) Java: = 0
 	int32_t waterlevel = 16; // @XmlAttribute(name = "water_level", required = true) Java: = 16
 	::aion::gameserver::world::WorldType worldType = ::aion::gameserver::world::WorldType::NONE; // @XmlAttribute(name = "world_type") Java: = WorldType.NONE
 	int32_t worldSize = 0; // @XmlAttribute(name = "world_size")
 	::aion::gameserver::world::WorldDropType dropWorldType = ::aion::gameserver::world::WorldDropType::NONE; // @XmlAttribute(name = "drop_type") Java: = WorldDropType.NONE
 	std::unique_ptr<::aion::gameserver::model::templates::world::AiInfo> aiInfo; // @XmlElement(name = "ai_info") Java: = AiInfo.DEFAULT
 	bool exceptBuff = false; // @XmlAttribute(name = "except_buff") Java: = false
-	std::optional<std::vector<::aion::gameserver::world::zone::ZoneAttributes>> flagValues; // @XmlAttribute(name = "flags")
+	std::unordered_set<::aion::gameserver::world::zone::ZoneAttributes> zoneAttributes; // @XmlAttribute(name = "flags") Java: = EnumSet.noneOf(ZoneAttributes.class)
 	int32_t pveAttackRatio = 0; // @XmlAttribute(name = "pve_attack_ratio") Java: = 0
 	int32_t pveDefendRatio = 0; // @XmlAttribute(name = "pve_defend_ratio") Java: = 0
 
@@ -28,16 +27,13 @@ public:
 	int32_t getMapId() const { return mapId; }
 	const std::string& getCName() const { return cName; }
 	int32_t getMaxUser() const { return maxUser; }
+	int32_t getChannelChangeCooldownSeconds() const { return channelChangeCooldownSeconds; }
 	bool isPrison() const { return prison; }
 	bool isInstance() const { return instance; }
 	int32_t getWaterLevel() const { return waterlevel; }
-	int32_t getDeathLevel() const { return deathlevel; }
 	::aion::gameserver::world::WorldType getWorldType() const { return worldType; }
 	int32_t getWorldSize() const { return worldSize; }
 	::aion::gameserver::world::WorldDropType getWorldDropType() const { return dropWorldType; }
 	int32_t getPvEAttackRatio() const { return pveAttackRatio; }
 	int32_t getPvEDefendRatio() const { return pveDefendRatio; }
 	bool isExceptBuff() const { return exceptBuff; }
-
-protected:
-	void afterUnmarshal(::aion::gameserver::xml::LoadContext& ctx, const ::aion::gameserver::xml::XmlParent& parent); // hand-written

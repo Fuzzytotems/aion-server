@@ -52,8 +52,7 @@ std::vector<JavaProperty> scanAllJavaConfigClasses() {
 	std::vector<JavaProperty> properties;
 	for (const auto& entry : fs::recursive_directory_iterator(javaConfigsDir())) {
 		const fs::path& file = entry.path();
-		if (file.extension() != ".java" || file.parent_path().filename() == "schedule" || file.parent_path().filename() == "ingameshop" ||
-		    file.filename() == "Config.java")
+		if (file.extension() != ".java" || file.parent_path().filename() == "schedule" || file.filename() == "Config.java")
 			continue;
 		for (JavaProperty& property : scanJavaConfigClass(file))
 			properties.push_back(std::move(property));

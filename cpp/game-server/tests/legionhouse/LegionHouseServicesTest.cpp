@@ -22,10 +22,8 @@
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
 #include "aion/gameserver/dataholders/TownSpawnsData.bind.h"
 #include "aion/gameserver/dataholders/TownSpawnsData.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/ZoneData.bind.h"
@@ -134,7 +132,6 @@ TEST_F(LegionHouseServicesTest, DeletedPlayerLosesHisHouses) {
 	// notifyAboutOwnerChange looks the owner up in the World, whose construction reads the world maps, zones, shields and materials (none here)
 	PublishedHolder worldMaps(dataholders::DataManager::WORLD_MAPS_DATA, bindXml<dataholders::WorldMapsData>("<world_maps></world_maps>"));
 	PublishedHolder zones(dataholders::DataManager::ZONE_DATA, bindXml<dataholders::ZoneData>("<zones></zones>"));
-	PublishedHolder shields(dataholders::DataManager::SHIELD_DATA, bindXml<dataholders::ShieldData>("<shields/>"));
 	PublishedHolder materials(dataholders::DataManager::MATERIAL_DATA, bindXml<dataholders::MaterialData>("<material_templates/>"));
 	services::HousingService& service = services::HousingService::getInstance();
 	ASSERT_EQ(service.findPlayerHouses(100).size(), 2u);
@@ -214,8 +211,8 @@ TEST_F(LegionHouseServicesTest, TownServiceCreatesTheTownsOfTheHouseAddressesAnd
 											 R"(<town_level level="1"/></town_spawn></spawn_map></town_spawns_data>)"));
 	// the Town constructor calls GeoService.updateTown, which needs the geo maps of the two housing worlds
 	PublishedHolder worldMaps(dataholders::DataManager::WORLD_MAPS_DATA,
-		bindXml<dataholders::WorldMapsData>(R"(<world_maps><map id="700010000" cName="Oriel" death_level="0" water_level="0" flags="BIND"/>)"
-											R"(<map id="710010000" cName="Pernon" death_level="0" water_level="0" flags="BIND"/></world_maps>)"));
+		bindXml<dataholders::WorldMapsData>(R"(<world_maps><map id="700010000" cName="Oriel" water_level="0" flags="BIND"/>)"
+											R"(<map id="710010000" cName="Pernon" water_level="0" flags="BIND"/></world_maps>)"));
 	world::geo::GeoService::getInstance().init();
 	ASSERT_EQ(queryLong("SELECT COUNT(*) FROM towns"), 0) << "the import branch runs only for an empty towns table";
 

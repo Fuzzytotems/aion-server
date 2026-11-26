@@ -273,13 +273,14 @@ class SiegeLocationData(Holder):
 
 
 class ZoneData(Holder):
-	"""ZoneData: count of zones that produce an Area (area_type default POLYGON; a SPHERE with r <= 0 produces none)."""
+	"""ZoneData: count of distinct zone names (upstream 2b097879f: ZoneData.zoneNames; a duplicate name throws IllegalArgumentException).
+	Every zone needs the shape element of its area_type (default POLYGON), which Area.create dereferences."""
 	java = "ZoneData"
 	SHAPE_ELEMENT = {"POLYGON": "points", "CYLINDER": "cylinder", "SPHERE": "sphere", "SEMISPHERE": "semisphere"}
 
 	def __init__(self, tag):
 		super().__init__(tag)
-		self.n = 0
+		self.names = set()
 
 	def child(self, element):
 		if element.tag != "zone":
@@ -288,19 +289,16 @@ class ZoneData(Holder):
 		shapes = _children(element, self.SHAPE_ELEMENT[area_type])
 		if not shapes:
 			_npe(self, f"{area_type} zone {element.get('name')!r} without <{self.SHAPE_ELEMENT[area_type]}>")
-		if area_type == "SPHERE":
-			r = attr_float(shapes[-1], "r")
-			if r is None:
-				_npe(self, f"sphere zone {element.get('name')!r} without r")
-			if r <= 0:
-				return
-		self.n += 1
+		name = element.get("name")
+		if name in self.names:
+			raise OracleError(f"<{self.tag}> ({self.java}): duplicate zone name {name!r} would throw IllegalArgumentException at startup")
+		self.names.add(name)
 
 	def finish(self):
 		self.require("zone")
 
 	def size(self):
-		return self.n
+		return len(self.names)
 
 
 class Portal2Data(Holder):
@@ -553,26 +551,35 @@ class TownSpawnsData(Holder):
 
 
 class DecomposableItemsData(Holder):
-	"""DecomposableItemsData: size() counts distinct item_id of non-selectable decomposables that have <items> elements."""
+	"""DecomposableItemsData (upstream d254ea172, bad68ed81): the override="true" entries replace the others after all files are read, entries
+	without <set> are dropped; size() counts the remaining item ids, overrideCount() the override entries. A duplicate item id among the
+	overrides or among the other entries throws IllegalArgumentException."""
 	java = "DecomposableItemsData"
 
 	def __init__(self, tag):
 		super().__init__(tag)
-		self.ids = set()
+		self.has_sets = {}
+		self.overrides = {}
 
 	def child(self, element):
 		if element.tag != "decomposable":
 			return
-		selectable = attr_bool(element, "selectable", False)
 		item_id = attr_int(element, "item_id")
-		if _children(element, "items") and not selectable:
-			self.ids.add(item_id)
+		target = self.overrides if attr_bool(element, "override", False) else self.has_sets
+		if item_id in target:
+			raise OracleError(f"<{self.tag}> ({self.java}): duplicate decomposable item {item_id} would throw IllegalArgumentException at startup")
+		target[item_id] = bool(_children(element, "set"))
 
 	def finish(self):
 		self.require("decomposable")
 
 	def size(self):
-		return len(self.ids)
+		merged = dict(self.has_sets)
+		merged.update(self.overrides)
+		return sum(1 for has_sets in merged.values() if has_sets)
+
+	def override_count(self):
+		return len(self.overrides)
 
 
 class GlobalNpcExclusionData(Holder):
@@ -592,6 +599,45 @@ class ExperienceTable(Count):
 
 	def __init__(self, tag):
 		super().__init__(tag, "PlayerExperienceTable", ("exp",), required=False)
+
+
+class LevelTable(Count):
+	"""PvpExpTable.getMaxLevel / MenteeExpLimitTable.size: the length of the array indexed by lvl - 1, the number of rows (a lvl outside
+	1..rows throws ArrayIndexOutOfBoundsException, no rows a NullPointerException)."""
+
+	def __init__(self, tag, java):
+		super().__init__(tag, java, ("level",))
+		self.levels = []
+
+	def child(self, element):
+		super().child(element)
+		if element.tag == "level":
+			self.levels.append(attr_int(element, "lvl"))
+
+	def finish(self):
+		super().finish()
+		for level in self.levels:
+			if not 1 <= level <= len(self.levels):
+				raise OracleError(f"<{self.tag}> ({self.java}): lvl {level} outside 1..{len(self.levels)} would throw at startup")
+
+
+class LevelDiffTable(Holder):
+	"""PvpExpModTable.size: max - min level_diff + 1. PartyExpModTable.size: the number of rows (mods.length / columns)."""
+
+	def __init__(self, tag, java, span):
+		super().__init__(tag)
+		self.java, self.span = java, span
+		self.diffs = []
+
+	def child(self, element):
+		if element.tag == "level_diff_mod":
+			self.diffs.append(attr_int(element, "level_diff"))
+
+	def finish(self):
+		self.require("level_diff_mod")
+
+	def size(self):
+		return max(self.diffs) - min(self.diffs) + 1 if self.span else len(self.diffs)
 
 
 class XmlQuests(Holder):
@@ -620,10 +666,10 @@ def _tribe_key(element):
 HOUSING_OBJECT_TAGS = ("postbox", "use_item", "move_item", "chair", "picture", "passive", "npc", "storage", "jukebox", "moviejukebox",
                        "emblem")
 
-# StaticData @XmlElement name -> holder rule (StaticData.java:28-302, 92 fields)
+# StaticData @XmlElement name -> holder rule (StaticData.java of 68eccc7b1, 94 fields)
 HOLDERS = {
 	"world_maps": distinct("WorldMapsData", ["map"], int_key("id")),  # WorldMapTemplate @id
-	"weather": distinct("MapWeatherData", ["map"], int_key("id")),  # WeatherTable @id
+	"weather_maps": distinct("MapWeatherData", ["map"], int_key("id")),  # WeatherTable @id (root renamed by upstream 374336b3b)
 	"npc_trade_list": TradeListData,
 	"npc_teleporter": distinct("TeleporterData", ["teleporter_template"], int_key("teleportId")),
 	"teleport_location": distinct("TeleLocationData", ["teleloc_template"], int_key("loc_id")),
@@ -631,6 +677,10 @@ HOLDERS = {
 	"quests": distinct("QuestsData", ["quest"], int_key("id")),
 	"quest_scripts": XmlQuests,
 	"player_experience_table": ExperienceTable,
+	"pvp_exp_table": lambda tag: LevelTable(tag, "PvpExpTable"),
+	"pvp_exp_mod_table": lambda tag: LevelDiffTable(tag, "PvpExpModTable", span=True),
+	"party_exp_mod_table": lambda tag: LevelDiffTable(tag, "PartyExpModTable", span=False),
+	"mentee_exp_limit_table": lambda tag: LevelTable(tag, "MenteeExpLimitTable"),
 	"absolute_stats": distinct("AbsoluteStatsData", ["stats_set"], int_key("id")),
 	"item_templates": distinct("ItemData", ["item_template"], int_key("id")),  # ItemTemplate.setXmlUid(@id)
 	"random_bonuses": distinct("ItemRandomBonusData", ["random_bonus"],
@@ -662,7 +712,6 @@ HOLDERS = {
 	"rift_locations": distinct("RiftData", ["rift_location"], int_key("id")),
 	"base_locations": count("BaseData", ["base_location"]),
 	"fly_rings": count("FlyRingData", ["fly_ring"], required=False),
-	"shields": count("ShieldData", ["shield"], required=False),
 	"pets": distinct("PetData", ["pet"], int_key("id")),
 	"pet_feed": distinct("PetFeedData", ["flavour"], int_key("id"), required=False),
 	"dopings": distinct("PetDopingData", ["doping"], int_key("id")),
@@ -691,7 +740,6 @@ HOLDERS = {
 	"house_lands": HouseData,
 	"buildings": lambda tag: UniqueDistinct(tag, "HouseBuildingData", ["building"], int_key("id"), required=False),
 	"house_parts": distinct("HousePartsData", ["house_part"], int_key("id"), required=False),
-	"curing_objects": count("CuringObjectsData", ["curing_object"]),
 	"house_npcs": HouseNpcsData,
 	"assembly_items": count("AssemblyItemsData", ["item"]),
 	"mails": Mails,
@@ -724,98 +772,100 @@ def _raise_null(element, name):
 	raise OracleError(f"<{element.tag}> without @{name}: EnumMap.get(null) result is dereferenced at startup")
 
 
-# StaticData.afterUnmarshal, in order: (Java line, message template, [(holder tag, method)])
+# StaticData.afterUnmarshal of 68eccc7b1, in order: (Java line, message template, [(holder tag, method)])
 LINES = [
-	(315, "Loaded {} maps", [("world_maps", "size")]),
-	(316, "Loaded {} material ids", [("material_templates", "size")]),
-	(317, "Loaded weather for {} maps", [("weather", "size")]),
-	(318, "Loaded {} player experience table entries", [("player_experience_table", "size")]),
-	(319, "Loaded {} absolute stat templates", [("absolute_stats", "size")]),
-	(320, "Loaded {} item cleanup entries", [("item_restriction_cleanups", "size")]),
-	(321, "Loaded {} item templates", [("item_templates", "size")]),
-	(322, "Loaded {} item bonus templates", [("random_bonuses", "size")]),
-	(323, "Loaded {} bonus item group templates and {} pet food items", [("item_groups", "bonus_size"), ("item_groups", "pet_food_size")]),
-	(324, "Loaded {} npc templates", [("npc_templates", "size")]),
-	(325, "Loaded {} custom npc drops", [("custom_drop", "size")]),
-	(326, "Loaded {} system mail templates", [("mails", "size")]),
-	(327, "Loaded {} npc shout templates", [("npc_shouts", "size")]),
-	(328, "Loaded {} pet templates and {} food flavours", [("pets", "size"), ("pet_feed", "size")]),
-	(329, "Loaded {} pet doping templates", [("dopings", "size")]),
-	(330, "Loaded {} pet buffs templates", [("pet_buffs", "size")]),
-	(331, "Loaded {} initial player templates", [("player_initial_data", "size")]),
-	(332, "Loaded {} trade lists", [("npc_trade_list", "size")]),
-	(333, "Loaded {} npc teleporter templates", [("npc_teleporter", "size")]),
-	(334, "Loaded {} teleport locations", [("teleport_location", "size")]),
-	(335, "Loaded {} skill templates", [("skill_data", "size")]),
-	(336, "Loaded {} skill charge entries", [("skill_charge", "size")]),
-	(337, "Loaded {} motion times", [("motion_times", "size")]),
-	(338, "Loaded {} skill learn entries", [("skill_tree", "size")]),
-	(339, "Loaded {} cube expand entries", [("cube_expander", "size")]),
-	(340, "Loaded {} warehouse expand entries", [("warehouse_expander", "size")]),
-	(341, "Loaded {} bind point entries", [("bind_points", "size")]),
-	(342, "Loaded {} quest data entries", [("quests", "size")]),
-	(343, "Loaded {} gatherable entries", [("gatherable_templates", "size")]),
-	(344, "Loaded {} title entries", [("player_titles", "size")]),
-	(345, "Loaded {} walker routes", [("npc_walker", "size")]),
-	(346, "Loaded {} walker group variants", [("walker_versions", "size")]),
-	(347, "Loaded {} zone entries", [("zones", "size")]),
-	(348, "Loaded {} goodslist entries", [("goodslists", "size")]),
-	(349, "Loaded {} tribe relation entries", [("tribe_relations", "size")]),
-	(350, "Loaded {} recipe entries", [("recipe_templates", "size")]),
-	(351, "Loaded {} chest locations", [("chest_templates", "size")]),
-	(352, "Loaded {} static door locations", [("staticdoor_templates", "size")]),
-	(353, "Loaded {} item set entries", [("item_sets", "size")]),
-	(354, "Loaded {} npc factions", [("npc_factions", "size")]),
-	(355, "Loaded {} npc skill list entries", [("npc_skill_templates", "size")]),
-	(356, "Loaded {} pet skill list entries", [("pet_skill_templates", "size")]),
-	(357, "Loaded {} siege location entries", [("siege_locations", "size")]),
-	(358, "Loaded {} vortex entries", [("dimensional_vortex", "size")]),
-	(359, "Loaded {} rift entries", [("rift_locations", "size")]),
-	(360, "Loaded {} base entries", [("base_locations", "size")]),
-	(361, "Loaded {} fly ring entries", [("fly_rings", "size")]),
-	(362, "Loaded {} shield entries", [("shields", "size")]),
-	(363, "Loaded {} pet entries", [("pets", "size")]),
-	(364, "Loaded {} guide entries", [("guides", "size")]),
-	(365, "Loaded {} road entries", [("roads", "size")]),
-	(366, "Loaded {} instance cooltime entries", [("instance_cooltimes", "size")]),
-	(367, "Loaded {} decomposable items entries", [("decomposable_items", "size")]),
-	(368, "Loaded {} ai templates", [("ai_templates", "size")]),
-	(369, "Loaded {} flypath templates", [("flypath_template", "size")]),
-	(370, "Loaded {} windstream entries", [("windstreams", "size")]),
-	(371, "Loaded {} assembled npcs entries", [("assembled_npcs", "size")]),
-	(372, "Loaded {} cosmetic items entries", [("cosmetic_items", "size")]),
-	(373, "Loaded {} auto group entries", [("auto_groups", "size")]),
-	(374, "Loaded {} spawn maps entries", [("spawns", "size")]),
-	(375, "Loaded {} events", [("timed_events", "size")]),
-	(376, "Loaded {} skill panel entries", [("polymorph_panels", "size")]),
-	(377, "Loaded {} instance Buffs entries", [("instance_bonusattrs", "size")]),
-	(378, "Loaded {} housing object entries", [("housing_objects", "size")]),
-	(379, "Loaded {} ride info entries", [("rides", "size")]),
-	(380, "Loaded {} instance exit entries", [("instance_exits", "size")]),
-	(381, "Loaded {} portal loc entries", [("portal_locs", "size")]),
-	(382, "Loaded {} portal templates2 entries", [("portal_templates2", "size")]),
-	(383, "Loaded {} housing lands", [("house_lands", "size")]),
-	(384, "Loaded {} house building styles", [("buildings", "size")]),
-	(385, "Loaded {} house parts", [("house_parts", "size")]),
-	(386, "Loaded {} house spawns", [("house_npcs", "size")]),
-	(387, "Loaded {} curing object entries", [("curing_objects", "size")]),
-	(388, "Loaded {} assembly items entries", [("assembly_items", "size")]),
-	(389, "Loaded {} challenge tasks entries", [("challenge_tasks", "size")]),
-	(390, "Loaded {} conqueror and protector entries", [("conqueror_protector_ranks", "size")]),
-	(391, "Loaded {} town spawns", [("town_spawns_data", "spawns_count")]),
-	(392, "Loaded {} temperings", [("tempering_templates", "size")]),
-	(393, "Loaded {} enchants", [("enchant_templates", "size")]),
-	(394, "Loaded {} global drop rules{}", [("global_rules", "size"), ("global_npc_exclusions", "suffix")]),
-	(395, "Loaded {} multi return item entries", [("multi_return_item", "size")]),
-	(396, "Loaded {} hotspot entries", [("hotspot_template", "size")]),
-	(397, "Loaded {} item purifications entries", [("item_purifications", "size")]),
-	(398, "Loaded {} upgrade arcade entries", [("arcadelist", "size")]),
-	(399, "Loaded {} atreian passports", [("login_events", "size")]),
-	(400, "Loaded {} world raid locations", [("world_raid_locations", "size")]),
-	(401, "Loaded {} kill bounty templates", [("kill_bounties", "size")]),
-	(402, "Loaded {} legion dominion locations", [("legion_dominion_template", "size")]),
-	(403, "Loaded {} skill alias locations", [("alias_locations", "size")]),
-	(404, "Loaded {} signet data templates", [("signet_data_templates", "size")]),
+	(314, "Loaded {} maps", [("world_maps", "size")]),
+	(315, "Loaded {} material ids", [("material_templates", "size")]),
+	(316, "Loaded weather for {} maps", [("weather_maps", "size")]),
+	(317, "Loaded {} player experience table entries", [("player_experience_table", "size")]),
+	(318, "Loaded {} pvp experience table entries", [("pvp_exp_table", "size")]),
+	(319, "Loaded {} pvp experience modifier entries", [("pvp_exp_mod_table", "size")]),
+	(320, "Loaded {} party experience modifier entries", [("party_exp_mod_table", "size")]),
+	(321, "Loaded {} mentee experience limit entries", [("mentee_exp_limit_table", "size")]),
+	(322, "Loaded {} absolute stat templates", [("absolute_stats", "size")]),
+	(323, "Loaded {} item cleanup entries", [("item_restriction_cleanups", "size")]),
+	(324, "Loaded {} item templates", [("item_templates", "size")]),
+	(325, "Loaded {} item bonus templates", [("random_bonuses", "size")]),
+	(326, "Loaded {} bonus item group templates and {} pet food items", [("item_groups", "bonus_size"), ("item_groups", "pet_food_size")]),
+	(327, "Loaded {} npc templates", [("npc_templates", "size")]),
+	(328, "Loaded {} custom npc drops", [("custom_drop", "size")]),
+	(329, "Loaded {} system mail templates", [("mails", "size")]),
+	(330, "Loaded {} npc shout templates", [("npc_shouts", "size")]),
+	(331, "Loaded {} pet templates and {} food flavours", [("pets", "size"), ("pet_feed", "size")]),
+	(332, "Loaded {} pet doping templates", [("dopings", "size")]),
+	(333, "Loaded {} pet buffs templates", [("pet_buffs", "size")]),
+	(334, "Loaded {} initial player templates", [("player_initial_data", "size")]),
+	(335, "Loaded {} trade lists", [("npc_trade_list", "size")]),
+	(336, "Loaded {} npc teleporter templates", [("npc_teleporter", "size")]),
+	(337, "Loaded {} teleport locations", [("teleport_location", "size")]),
+	(338, "Loaded {} skill templates", [("skill_data", "size")]),
+	(339, "Loaded {} skill charge entries", [("skill_charge", "size")]),
+	(340, "Loaded {} motion times", [("motion_times", "size")]),
+	(341, "Loaded {} skill learn entries", [("skill_tree", "size")]),
+	(342, "Loaded {} cube expand entries", [("cube_expander", "size")]),
+	(343, "Loaded {} warehouse expand entries", [("warehouse_expander", "size")]),
+	(344, "Loaded {} bind point entries", [("bind_points", "size")]),
+	(345, "Loaded {} quest data entries", [("quests", "size")]),
+	(346, "Loaded {} gatherable entries", [("gatherable_templates", "size")]),
+	(347, "Loaded {} title entries", [("player_titles", "size")]),
+	(348, "Loaded {} walker routes", [("npc_walker", "size")]),
+	(349, "Loaded {} walker group variants", [("walker_versions", "size")]),
+	(350, "Loaded {} zone entries", [("zones", "size")]),
+	(351, "Loaded {} goodslist entries", [("goodslists", "size")]),
+	(352, "Loaded {} tribe relation entries", [("tribe_relations", "size")]),
+	(353, "Loaded {} recipe entries", [("recipe_templates", "size")]),
+	(354, "Loaded {} chest locations", [("chest_templates", "size")]),
+	(355, "Loaded {} static door locations", [("staticdoor_templates", "size")]),
+	(356, "Loaded {} item set entries", [("item_sets", "size")]),
+	(357, "Loaded {} npc factions", [("npc_factions", "size")]),
+	(358, "Loaded {} npc skill list entries", [("npc_skill_templates", "size")]),
+	(359, "Loaded {} pet skill list entries", [("pet_skill_templates", "size")]),
+	(360, "Loaded {} siege location entries", [("siege_locations", "size")]),
+	(361, "Loaded {} vortex entries", [("dimensional_vortex", "size")]),
+	(362, "Loaded {} rift entries", [("rift_locations", "size")]),
+	(363, "Loaded {} base entries", [("base_locations", "size")]),
+	(364, "Loaded {} fly ring entries", [("fly_rings", "size")]),
+	(365, "Loaded {} pet entries", [("pets", "size")]),
+	(366, "Loaded {} guide entries", [("guides", "size")]),
+	(367, "Loaded {} road entries", [("roads", "size")]),
+	(368, "Loaded {} instance cooltime entries", [("instance_cooltimes", "size")]),
+	(369, "Loaded {} decomposable items entries ({} overridden)", [("decomposable_items", "size"), ("decomposable_items", "override_count")]),
+	(370, "Loaded {} ai templates", [("ai_templates", "size")]),
+	(371, "Loaded {} flypath templates", [("flypath_template", "size")]),
+	(372, "Loaded {} windstream entries", [("windstreams", "size")]),
+	(373, "Loaded {} assembled npcs entries", [("assembled_npcs", "size")]),
+	(374, "Loaded {} cosmetic items entries", [("cosmetic_items", "size")]),
+	(375, "Loaded {} auto group entries", [("auto_groups", "size")]),
+	(376, "Loaded {} spawn maps entries", [("spawns", "size")]),
+	(377, "Loaded {} events", [("timed_events", "size")]),
+	(378, "Loaded {} skill panel entries", [("polymorph_panels", "size")]),
+	(379, "Loaded {} instance Buffs entries", [("instance_bonusattrs", "size")]),
+	(380, "Loaded {} housing object entries", [("housing_objects", "size")]),
+	(381, "Loaded {} ride info entries", [("rides", "size")]),
+	(382, "Loaded {} instance exit entries", [("instance_exits", "size")]),
+	(383, "Loaded {} portal loc entries", [("portal_locs", "size")]),
+	(384, "Loaded {} portal templates2 entries", [("portal_templates2", "size")]),
+	(385, "Loaded {} housing lands", [("house_lands", "size")]),
+	(386, "Loaded {} house building styles", [("buildings", "size")]),
+	(387, "Loaded {} house parts", [("house_parts", "size")]),
+	(388, "Loaded {} house spawns", [("house_npcs", "size")]),
+	(389, "Loaded {} assembly items entries", [("assembly_items", "size")]),
+	(390, "Loaded {} challenge tasks entries", [("challenge_tasks", "size")]),
+	(391, "Loaded {} conqueror and protector entries", [("conqueror_protector_ranks", "size")]),
+	(392, "Loaded {} town spawns", [("town_spawns_data", "spawns_count")]),
+	(393, "Loaded {} temperings", [("tempering_templates", "size")]),
+	(394, "Loaded {} enchants", [("enchant_templates", "size")]),
+	(395, "Loaded {} global drop rules{}", [("global_rules", "size"), ("global_npc_exclusions", "suffix")]),
+	(396, "Loaded {} multi return item entries", [("multi_return_item", "size")]),
+	(397, "Loaded {} hotspot entries", [("hotspot_template", "size")]),
+	(398, "Loaded {} item purifications entries", [("item_purifications", "size")]),
+	(399, "Loaded {} upgrade arcade entries", [("arcadelist", "size")]),
+	(400, "Loaded {} atreian passports", [("login_events", "size")]),
+	(401, "Loaded {} world raid locations", [("world_raid_locations", "size")]),
+	(402, "Loaded {} kill bounty templates", [("kill_bounties", "size")]),
+	(403, "Loaded {} legion dominion locations", [("legion_dominion_template", "size")]),
+	(404, "Loaded {} skill alias locations", [("alias_locations", "size")]),
+	(405, "Loaded {} signet data templates", [("signet_data_templates", "size")]),
 ]
 
 # Not logged by Java; reported for the C++ loader's own checks.

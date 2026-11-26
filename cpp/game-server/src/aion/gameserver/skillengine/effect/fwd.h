@@ -164,7 +164,7 @@ class StatdownEffect;
 class StatupEffect;
 class StumbleEffect;
 class StunEffect;
-struct SubEffect;
+class SubEffect;
 struct SubTypeBoostResistEffect;
 struct SubTypeExtendDurationEffect;
 struct SummonBindingGroupGateEffect;

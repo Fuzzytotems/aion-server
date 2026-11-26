@@ -146,7 +146,7 @@ TEST(StaticDataImportsTest, RealStaticDataTreeResolvesLikeXmlMerger) {
 	if (!std::filesystem::exists(main))
 		GTEST_SKIP() << "Java data tree not found: " << main;
 	std::vector<StaticDataImport> imports = StaticDataImports::resolve(main, 0, true);
-	ASSERT_EQ(imports.size(), 92u);
+	ASSERT_EQ(imports.size(), 94u); // upstream 68eccc7b1: +4 exp_mod_table files, - siege_shields, - curing_objects
 	size_t directories = 0;
 	size_t directoryFiles = 0;
 	size_t files = 0;
@@ -158,9 +158,9 @@ TEST(StaticDataImportsTest, RealStaticDataTreeResolvesLikeXmlMerger) {
 			EXPECT_TRUE(entry.singleRootTag) << entry.file;
 		}
 	}
-	EXPECT_EQ(directories, 12u);
-	EXPECT_EQ(directoryFiles, 584u);
-	EXPECT_EQ(files, 664u);
+	EXPECT_EQ(directories, 13u); // upstream d254ea172 made decomposable_items a directory import
+	EXPECT_EQ(directoryFiles, 587u);
+	EXPECT_EQ(files, 668u);
 	EXPECT_EQ(imports.front().file, "items/item_templates.xml");
 	EXPECT_EQ(imports.back().file, "skills/signet_data_templates.xml");
 
@@ -172,7 +172,7 @@ TEST(StaticDataImportsTest, RealStaticDataTreeResolvesLikeXmlMerger) {
 	EXPECT_EQ(goodsEurope->files.front().filename(), "goodslists_europe.xml");
 
 #ifdef _WIN32
-	// every imported directory level enumerates in the order of the comparator (the design's NTFS claim, 584 files)
+	// every imported directory level enumerates in the order of the comparator (the design's NTFS claim, 587 files)
 	for (const StaticDataImport& entry : imports) {
 		if (!entry.directory)
 			continue;

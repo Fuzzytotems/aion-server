@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "aion/gameserver/model/templates/flypath/FlyPathEntry.bind.h"
+#include "aion/gameserver/model/templates/flypath/WindstreamPoint.bind.h"
 
 namespace aion::gameserver::xml {
 
@@ -73,6 +74,18 @@ bool XmlBinding<::aion::gameserver::model::templates::flypath::FlyPathEntry>::at
 			break;
 	}
 	return false;
+}
+
+bool XmlBinding<::aion::gameserver::model::templates::flypath::FlyPathEntry>::element(::aion::gameserver::model::templates::flypath::FlyPathEntry& o, BindContext& c, pugi::xml_node e, std::string_view name) {
+	if (name == "windstream_point") {
+		c.bindList(o.windstreamPoints, e);
+		return true;
+	}
+	return false;
+}
+
+void XmlBinding<::aion::gameserver::model::templates::flypath::FlyPathEntry>::reserve(::aion::gameserver::model::templates::flypath::FlyPathEntry& o, const ChildCounts& counts) {
+	o.windstreamPoints.reserve(counts["windstream_point"]);
 }
 
 void XmlBinding<::aion::gameserver::model::templates::flypath::FlyPathEntry>::finish(::aion::gameserver::model::templates::flypath::FlyPathEntry&, BindContext& c, const XmlParent&) {

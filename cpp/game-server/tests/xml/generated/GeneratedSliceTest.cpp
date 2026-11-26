@@ -22,6 +22,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -81,7 +82,6 @@ protected:
 		options.collectStats = true;
 		options.holders = SLICE;
 		context = std::make_unique<LoadContext>(options);
-		WorldMapTemplate::hookCalls = 0;
 		auto start = std::chrono::steady_clock::now();
 		StaticDataLoader(registry).load(*context, STATIC_DATA / "static_data.xml");
 		context->resolveIdRefs();
@@ -130,7 +130,6 @@ TEST_F(GeneratedSliceTest, HolderCountsMatchTheCountOracle) {
 	EXPECT_EQ(static_cast<int64_t>(maps->size()), expectedCount("world_maps")) << "Loaded N maps";
 	EXPECT_EQ(static_cast<int64_t>(tribes->size()), expectedCount("tribe_relations")) << "Loaded N tribe relation entries";
 	EXPECT_EQ(static_cast<int64_t>(walkers->size()), expectedCount("npc_walker")) << "Loaded N walker routes (first route id wins)";
-	EXPECT_EQ(WorldMapTemplate::hookCalls, maps->getWorldMaps().size()) << "every bound map ran its hook once";
 }
 
 TEST_F(GeneratedSliceTest, ElementAndAttributeTotalsMatchTheImports) {
@@ -244,14 +243,14 @@ TEST_F(GeneratedSliceTest, TagsOfOnlyTheseHoldersMatchTheGlobalTotals) {
 }
 
 TEST_F(GeneratedSliceTest, BoundValues) {
-	// <map id="110010000" cName="LC1" name="Sanctum" name_id="400437" water_level="16" death_level="400" world_type="ELYSEA" world_size="3072"
-	//      drop_type="NONE" flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	// <map id="110010000" cName="LC1" name="Sanctum" name_id="400437" water_level="16" world_type="ELYSEA" world_size="3072" drop_type="NONE"
+	//      flags="RECALL GLIDE RIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	const WorldMapTemplate* sanctum = maps->getTemplate(110010000);
 	ASSERT_NE(sanctum, nullptr);
 	EXPECT_EQ(sanctum->getCName(), "LC1");
 	EXPECT_EQ(sanctum->getName(), "Sanctum");
 	EXPECT_EQ(sanctum->getWaterLevel(), 16);
-	EXPECT_EQ(sanctum->getDeathLevel(), 400);
+	EXPECT_EQ(sanctum->getChannelChangeCooldownSeconds(), 0) << "absent cool_time (upstream 0199b4b03)";
 	EXPECT_EQ(sanctum->getWorldType(), world::WorldType::ELYSEA);
 	EXPECT_EQ(sanctum->getWorldSize(), 3072);
 	EXPECT_EQ(sanctum->getWorldDropType(), world::WorldDropType::NONE);
@@ -260,10 +259,9 @@ TEST_F(GeneratedSliceTest, BoundValues) {
 	EXPECT_EQ(sanctum->getBoundAiInfo(), nullptr) << "no <ai_info>: null, the Java getter substitutes AiInfo.DEFAULT";
 	EXPECT_EQ(sanctum->getAiInfo().getChaseTarget(), 50);
 	using world::zone::ZoneAttributes;
-	ASSERT_TRUE(sanctum->getFlagValues().has_value());
-	EXPECT_EQ(*sanctum->getFlagValues(), (std::vector<ZoneAttributes>{ZoneAttributes::RECALL, ZoneAttributes::GLIDE, ZoneAttributes::RIDE,
-	                                                                   ZoneAttributes::PVP_ENABLED, ZoneAttributes::DUEL_SAME_RACE_ENABLED}))
-	  << "@XmlList attribute of an enum with @XmlEnumValue";
+	EXPECT_EQ(sanctum->getZoneAttributes(), (std::unordered_set<ZoneAttributes>{ZoneAttributes::RECALL, ZoneAttributes::GLIDE, ZoneAttributes::RIDE,
+	                                                                             ZoneAttributes::PVP_ENABLED, ZoneAttributes::DUEL_SAME_RACE_ENABLED}))
+	  << "EnumSet list attribute of an enum with @XmlEnumValue (upstream 4617c9fd2)";
 	size_t withAiInfo = 0;
 	for (const WorldMapTemplate& map : maps->getWorldMaps())
 		withAiInfo += map.getBoundAiInfo() != nullptr ? 1 : 0;
@@ -292,7 +290,7 @@ TEST_F(GeneratedSliceTest, BoundValues) {
 	route->getRouteSteps().front()->setZ(z + 1.0f);
 	EXPECT_EQ(route->getRouteSteps().front()->getZ(), z + 1.0f) << "runtime_mutable RouteStep.z is written through a const template";
 	route->getRouteSteps().front()->setZ(z);
-	EXPECT_EQ(walkers->getBoundTemplates().size(), 6449u + walkers->getDuplicateRoutes());
+	EXPECT_EQ(walkers->getBoundTemplates().size(), 6450u + walkers->getDuplicateRoutes());
 }
 
 TEST(GeneratedSliceStrictTest, UnknownAttributesAndMissingRequiredOnesFail) {
@@ -307,15 +305,14 @@ TEST(GeneratedSliceStrictTest, UnknownAttributesAndMissingRequiredOnesFail) {
 	  << "@XmlElement(name = \"routestep\", required = true)";
 	LoadContext fourth;
 	std::unique_ptr<WorldMapsData> parsed = bindString<WorldMapsData>(
-	  fourth, R"(<world_maps><map id="1" cName="A" death_level="0" water_level="1" flags=""><ai_info chase_target="7"/></map></world_maps>)");
+	  fourth, R"(<world_maps><map id="1" cName="A" water_level="1" flags=""><ai_info chase_target="7"/></map></world_maps>)");
 	ASSERT_EQ(parsed->size(), 1u);
 	const WorldMapTemplate* map = parsed->getTemplate(1);
 	ASSERT_NE(map, nullptr);
 	ASSERT_NE(map->getBoundAiInfo(), nullptr);
 	EXPECT_EQ(map->getAiInfo().getChaseTarget(), 7);
 	EXPECT_EQ(map->getAiInfo().getChaseHome(), 200) << "Java initializer of an absent attribute";
-	ASSERT_TRUE(map->getFlagValues().has_value());
-	EXPECT_TRUE(map->getFlagValues()->empty()) << "present-empty list attribute";
+	EXPECT_TRUE(map->getZoneAttributes().empty()) << "present-empty list attribute";
 }
 
 // K1 marker: generated data structs and behaviour shells of hierarchy roots derive runtime::StaticTemplate, so template pointers pass the

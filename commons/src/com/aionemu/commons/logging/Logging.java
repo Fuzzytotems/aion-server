@@ -3,32 +3,73 @@ package com.aionemu.commons.logging;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.slf4j.LoggerFactory;
+
+import com.aionemu.commons.Banner;
+import com.aionemu.commons.utils.info.SystemInfo;
+import com.aionemu.commons.utils.info.VersionInfo;
+
 import ch.qos.logback.classic.ClassicConstants;
 
 public class Logging {
+
+	private Logging() {
+	}
 
 	/**
 	 * This method must be called before instantiating any logger
 	 */
 	public static void init() {
 		System.setProperty(ClassicConstants.CONFIG_FILE_PROPERTY, "config/logback.xml");
+		LogLevelHighlightingCompositeConverter.register();
+		RealGrayCompositeConverter.register();
+		Banner.print();
 		archiveLogs();
+	}
+
+	public static void logStartupStats(Class<?> serverClass, long startTimeNanos) {
+		logStartupStats(serverClass, startTimeNanos, null, null);
+	}
+
+	public static void logStartupStats(Class<?> serverClass, long startTimeNanos, VersionInfo versionInfo, ZoneId timeZoneId) {
+		long startedNanos = System.nanoTime();
+		long uptimeMillis = ManagementFactory.getRuntimeMXBean().getUptime();
+		String serverName = serverClass.getSimpleName().replace("Server", " server");
+		String startupMessage = formatStartupMessage(serverName, startTimeNanos, startedNanos, uptimeMillis);
+		if (versionInfo == null)
+			VersionInfo.logAll(serverClass);
+		else
+			VersionInfo.logAll(versionInfo, timeZoneId);
+		System.gc();
+		SystemInfo.logAll();
+		LoggerFactory.getLogger(serverClass).info(startupMessage);
+	}
+
+	/**
+	 * @param startedNanos
+	 *          {@link System#nanoTime()} when the server was started
+	 * @param uptimeMillis
+	 *          process uptime when the server was started
+	 */
+	private static String formatStartupMessage(String server, long startTimeNanos, long startedNanos, long uptimeMillis) {
+		DecimalFormat df = new DecimalFormat("0.0##", DecimalFormatSymbols.getInstance(Locale.US));
+		float startTime = Duration.ofNanos(startedNanos - startTimeNanos).toMillis() / 1000f;
+		return "%s started in %s seconds (process running for %s)".formatted(server, df.format(startTime), df.format(uptimeMillis / 1000f));
 	}
 
 	private static void archiveLogs() {
@@ -36,38 +77,78 @@ public class Logging {
 			Path logFolder = Path.of("log");
 			Path oldLogsFolder = logFolder.resolve("archived");
 			Path startTimeFile = logFolder.resolve("[server_start_marker]");
-			List<Path> logFiles = new ArrayList<>();
-			Instant lastStartTime = null;
+			Instant lastStartTime = Files.exists(startTimeFile) ? Files.getLastModifiedTime(startTimeFile).toInstant() : null;
 			AtomicReference<FileTime> lastStopTime = new AtomicReference<>();
+			DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH.mm").withZone(ZoneId.systemDefault());
+			Path stagingFolder = oldLogsFolder.resolve(dtf.format(lastStartTime == null ? Instant.now() : lastStartTime));
 
-			Files.createDirectories(startTimeFile.getParent());
-			if (Files.exists(startTimeFile))
-				lastStartTime = Files.getLastModifiedTime(startTimeFile).toInstant();
-			else
-				Files.createFile(startTimeFile);
-			Files.setLastModifiedTime(startTimeFile, FileTime.fromMillis(ManagementFactory.getRuntimeMXBean().getStartTime())); // update with new start time
-
-			Files.walkFileTree(logFolder, new SimpleFileVisitor<>() {
-
-				@Override
-				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-					if (attrs.isRegularFile() && file.toString().toLowerCase().endsWith(".log")) {
-						logFiles.add(file);
-						lastStopTime.updateAndGet(t -> t == null || t.compareTo(attrs.lastModifiedTime()) < 0 ? attrs.lastModifiedTime() : t);
-					}
-					return FileVisitResult.CONTINUE;
-				}
-			});
+			List<Path> logFiles = moveOldLogFiles(logFolder, oldLogsFolder, stagingFolder, lastStopTime);
+			// update the start time after old log files have been moved successfully, so that exceptions don't alter the time for the next archival attempt
+			updateStartTime(startTimeFile);
 
 			if (!logFiles.isEmpty()) {
-				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH.mm").withZone(ZoneId.systemDefault());
 				String outFilename = (lastStartTime == null ? "Unknown" : dtf.format(lastStartTime)) + " to " + dtf.format(lastStopTime.get().toInstant()) + ".zip";
-				createArchive(oldLogsFolder.resolve(outFilename), logFiles, logFolder);
-				delete(logFiles);
+				// platform thread so that the JVM completes this task before shutting down
+				Thread.ofPlatform().name("Log-Archiver").start(() -> {
+					try {
+						createArchive(oldLogsFolder.resolve(outFilename), logFiles, stagingFolder);
+						delete(logFiles);
+					} catch (IOException e) {
+						throw new RuntimeException("Error archiving old logs", e);
+					}
+				});
 			}
 		} catch (IOException | SecurityException e) {
-			throw new RuntimeException("Error gathering and archiving old logs", e);
+			throw new RuntimeException("Error gathering old logs", e);
 		}
+	}
+
+	private static List<Path> moveOldLogFiles(Path logFolder, Path oldLogsFolder, Path stagingFolder, AtomicReference<FileTime> lastStopTime) throws IOException {
+		if (!Files.exists(logFolder))
+			return Collections.emptyList();
+		List<Path> logFiles = new ArrayList<>();
+		Files.walkFileTree(logFolder, new SimpleFileVisitor<>() {
+
+			@Override
+			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+				// Skip the archived/ folder to avoid re-processing leftover subdirectories
+				if (dir.startsWith(oldLogsFolder))
+					return FileVisitResult.SKIP_SUBTREE;
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				if (attrs.isRegularFile() && file.toString().toLowerCase().endsWith(".log")) {
+					Path target = stagingFolder.resolve(logFolder.relativize(file));
+					Files.createDirectories(target.getParent());
+					logFiles.add(Files.move(file, target, StandardCopyOption.REPLACE_EXISTING));
+					lastStopTime.updateAndGet(t -> t == null || t.compareTo(attrs.lastModifiedTime()) < 0 ? attrs.lastModifiedTime() : t);
+				}
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+				if (exc != null)
+					throw exc;
+				try {
+					if (!dir.equals(logFolder))
+						Files.delete(dir);
+				} catch (DirectoryNotEmptyException _) {
+				}
+				return FileVisitResult.CONTINUE;
+			}
+		});
+		return logFiles;
+	}
+
+	private static void updateStartTime(Path startTimeFile) throws IOException {
+		if (!Files.exists(startTimeFile)) {
+			Files.createDirectories(startTimeFile.getParent());
+			Files.createFile(startTimeFile);
+		}
+		Files.setLastModifiedTime(startTimeFile, FileTime.fromMillis(ManagementFactory.getRuntimeMXBean().getStartTime()));
 	}
 
 	private static void createArchive(Path file, List<Path> files, Path rootDirectory) throws IOException {
@@ -76,16 +157,25 @@ public class Logging {
 			out.setMethod(ZipOutputStream.DEFLATED);
 			out.setLevel(Deflater.BEST_COMPRESSION);
 			for (Path logFile : files) {
-				out.putNextEntry(new ZipEntry(rootDirectory.relativize(logFile).toString()));
+				ZipEntry zipEntry = new ZipEntry(rootDirectory.relativize(logFile).toString());
+				zipEntry.setLastModifiedTime(Files.getLastModifiedTime(logFile));
+				out.putNextEntry(zipEntry);
 				Files.copy(logFile, out);
 			}
 		}
 	}
 
 	private static void delete(List<Path> files) throws IOException {
-		for (Path logFile : files)
-			Files.delete(logFile);
-		// attempt to delete parent folders (only deletes empty folders)
-		files.stream().map(Path::getParent).distinct().forEach(parent -> parent.toFile().delete());
+		TreeSet<Path> parents = new TreeSet<>(Comparator.reverseOrder());
+		for (Path logFile : files) {
+			Files.deleteIfExists(logFile);
+			parents.add(logFile.getParent());
+		}
+		for (Path parent : parents) {
+			try {
+				Files.deleteIfExists(parent);
+			} catch (DirectoryNotEmptyException _) {
+			}
+		}
 	}
 }

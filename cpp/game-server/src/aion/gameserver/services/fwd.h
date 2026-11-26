@@ -18,7 +18,6 @@ class ClassChangeService;
 class CommandsAccessService;
 class CronJobService;
 class CubeExpandService;
-class CuringZoneService;
 class DatabaseCleaningService;
 class DebugService;
 class DialogService;
@@ -74,7 +73,6 @@ class WorldRaidService;
 //   BrokerService::SingletonHolder
 //   ChallengeTaskService::SingletonHolder
 //   CronJobService::IdianDepthPortalSpawner
-//   CuringZoneService::SingletonHolder
 //   DebugService::SingletonHolder
 //   DuelService::SingletonHolder
 //   ExchangeService::SingletonHolder

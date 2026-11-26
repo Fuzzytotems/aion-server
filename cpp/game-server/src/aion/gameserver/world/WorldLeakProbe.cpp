@@ -222,7 +222,7 @@ void findInMapInstance(WorldMapInstance& instance, std::vector<Target>& targets)
 				bool same = false;
 				zone->forEach([&target, &same](Creature& creature) { same = same || &creature == target.creature; });
 				if (same)
-					target.holders->push_back("ZoneInstance.creatures of zone " + zone->getZoneTemplate()->getName()->name() + of);
+					target.holders->push_back("ZoneInstance.creatures of zone " + zone->getZoneTemplate()->getZoneName()->name() + of);
 			}
 		}
 	}

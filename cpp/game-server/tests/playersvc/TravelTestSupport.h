@@ -136,28 +136,28 @@ inline constexpr float VERTERON_X = 1640.76f, VERTERON_Y = 1500.32f, VERTERON_Z 
 
 /** npcs/npc_templates.xml:3864-3870 (203194), :2146-2152 (203070), :2338-2344 (203083), :8974-8989 (203679), and 203064's row */
 inline constexpr std::string_view TRAVEL_NPC_TEMPLATES_XML = R"xml(<npc_templates>
-	<npc_template npc_id="203194" level="40" name="daines" name_id="351402" height="1.8" title_id="350423" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203194" level="40" name="daines" name_id="351402" title_id="350423" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
 		<bound_radius front="0.25" side="0.35" upper="1.8" />
 		<talk_info distance="3" is_dialog="true" func_dialogs="44" can_talk_invisible="false" />
 	</npc_template>
-	<npc_template npc_id="203070" level="40" name="kustanon" name_id="351062" height="1.8" title_id="350420" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203070" level="40" name="kustanon" name_id="351062" title_id="350420" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
 		<bound_radius front="0.25" side="0.35" upper="1.8" />
 		<talk_info distance="3" is_dialog="true" func_dialogs="44" can_talk_invisible="false" />
 	</npc_template>
-	<npc_template npc_id="203083" level="40" name="aero" name_id="351137" height="1.8" title_id="350420" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203083" level="40" name="aero" name_id="351137" title_id="350420" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
 		<bound_radius front="0.25" side="0.35" upper="1.8" />
 		<talk_info distance="3" is_dialog="true" func_dialogs="44" can_talk_invisible="false" />
 	</npc_template>
-	<npc_template npc_id="203679" level="40" name="osmar" name_id="352256" height="1.8" title_id="350423" group_drop="DARK" rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203679" level="40" name="osmar" name_id="352256" title_id="350423" group_drop="DARK" rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -172,7 +172,7 @@ inline constexpr std::string_view TRAVEL_NPC_TEMPLATES_XML = R"xml(<npc_template
 		<bound_radius front="0.25" side="0.35" upper="1.8" />
 		<talk_info distance="3" is_dialog="true" func_dialogs="44" can_talk_invisible="false" />
 	</npc_template>
-	<npc_template npc_id="203064" level="45" name="fulla" name_id="351007" height="1.8" title_id="350412" group_drop="NONE" rank="VETERAN" rating="ELITE" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="10" attack_speed="2000" hpgauge="14" cancel_level="20">
+	<npc_template npc_id="203064" level="45" name="fulla" name_id="351007" title_id="350412" group_drop="NONE" rank="VETERAN" rating="ELITE" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="10" attack_speed="2000" hpgauge="14" cancel_level="20">
 		<stats maxHp="108866">
 			<speeds walk="2.1" group_walk="2.1" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -363,7 +363,7 @@ protected:
 		f.player->setQuestStateList(model::gameobjects::player::QuestStateList::create());
 		if (kinah > 0) {
 			runtime::Ref<model::gameobjects::Item> item = model::gameobjects::Item::create(objectId + 1, KINAH, kinah, std::nullopt, 0, "", 0, 0, false, false, 0,
-				model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+				model::items::storage::getId(model::items::storage::StorageType::CUBE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 			f.player->getInventory().onLoadHandler(*item); // the DAO's load: no packet
 			items.push_back(item);
 		}

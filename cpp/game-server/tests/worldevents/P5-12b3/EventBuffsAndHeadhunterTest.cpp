@@ -26,8 +26,6 @@
 #include "aion/gameserver/dataholders/EventData.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/ZoneData.bind.h"
@@ -105,8 +103,6 @@ protected:
 				dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(worldContext, "<world_maps/>"));
 			if (!dataholders::DataManager::ZONE_DATA)
 				dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(worldContext, "<zones/>"));
-			if (!dataholders::DataManager::SHIELD_DATA)
-				dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(worldContext, "<shields/>"));
 			if (!dataholders::DataManager::MATERIAL_DATA)
 				dataholders::DataManager::MATERIAL_DATA.publish(xml::bindString<dataholders::MaterialData>(worldContext, "<material_templates/>"));
 			return true;

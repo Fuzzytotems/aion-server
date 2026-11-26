@@ -151,13 +151,13 @@ constexpr int32_t SOUL_SICKNESS = 8291;
 /** npc_templates.xml, verbatim rows (the lines of each row in the comment above it) */
 constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 	<!-- :439517-439521 -->
-	<npc_template npc_id="700000" level="1" name="mailbox" name_id="350707" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="postbox" sangle="0" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="700000" level="1" name="mailbox" name_id="350707" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="postbox" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="172" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461604-461610 -->
-	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" height="1.16875" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -165,7 +165,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461611-461617 -->
-	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" height="1.16875" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -173,7 +173,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :462170-462176 -->
-	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" height="1.16875" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="14535">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -181,7 +181,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :9573-9586 -->
-	<npc_template npc_id="203724" level="40" name="gwenspena" name_id="351405" height="2" title_id="350655" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203724" level="40" name="gwenspena" name_id="351405" title_id="350655" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.68" group_walk="1.68" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -196,7 +196,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :341797-341803 -->
-	<npc_template npc_id="279058" level="40" name="amarunerk" name_id="314047" height="1.16875" title_id="314359" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="300" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="279058" level="40" name="amarunerk" name_id="314047" title_id="314359" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="300" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9419">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -204,7 +204,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="103" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461402-461408 -->
-	<npc_template npc_id="790001" level="50" name="pernos" name_id="351014" height="1.8" title_id="350436" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="790001" level="50" name="pernos" name_id="351014" title_id="350436" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="14614">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -212,7 +212,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :2642-2648 -->
-	<npc_template npc_id="203105" level="45" name="palaemon" name_id="351030" height="1.8" title_id="350412" group_drop="NONE" rank="VETERAN" rating="ELITE" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="14" cancel_level="20">
+	<npc_template npc_id="203105" level="45" name="palaemon" name_id="351030" title_id="350412" group_drop="NONE" rank="VETERAN" rating="ELITE" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="14" cancel_level="20">
 		<stats maxHp="108866">
 			<speeds walk="2.1" group_walk="2.1" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -220,7 +220,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="35" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :5845-5858 -->
-	<npc_template npc_id="203336" level="20" name="seril" name_id="351162" height="2" title_id="350414" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203336" level="20" name="seril" name_id="351162" title_id="350414" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="2961">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -235,7 +235,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="42" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :3864-3870 -->
-	<npc_template npc_id="203194" level="40" name="daines" name_id="351402" height="1.8" title_id="350423" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203194" level="40" name="daines" name_id="351402" title_id="350423" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -243,13 +243,13 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="3" is_dialog="true" func_dialogs="44" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :208736-208740 -->
-	<npc_template npc_id="251725" level="65" name="guardian battery" name_id="346362" height="2" group_drop="SIEGEWEAPON" rank="EXPERT" rating="ELITE" race="ELYOS" tribe="SIEGEWEAPON_PC" type="GENERAL" ai="siege_cannon" srange="15" sangle="0" attack_speed="2180" hpgauge="13" cancel_level="20">
+	<npc_template npc_id="251725" level="65" name="guardian battery" name_id="346362" group_drop="SIEGEWEAPON" rank="EXPERT" rating="ELITE" race="ELYOS" tribe="SIEGEWEAPON_PC" type="GENERAL" ai="siege_cannon" srange="15" sangle="0" attack_speed="2180" hpgauge="13" cancel_level="20">
 		<stats maxHp="346251" msup="621" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="2" delay="3" is_dialog="true" subdialog_type="FORT_CAPTURE" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :547375-547389 -->
-	<npc_template npc_id="831405" level="1" name="halliwell (for testing skill exclusive npcs)" name_id="356470" height="2" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="831405" level="1" name="halliwell (for testing skill exclusive npcs)" name_id="356470" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="23691">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -265,25 +265,25 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" subdialog_type="SKILL_ID" subdialog_value="1377" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :522556-522560 -->
-	<npc_template npc_id="804677" level="1" name="atreia defense portal" name_id="360123" height="2" title_id="373285" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal_dialog" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="804677" level="1" name="atreia defense portal" name_id="360123" title_id="373285" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal_dialog" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="118" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="10" delay="3" is_dialog="true" subdialog_type="RETURN" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :456836-456840 -->
-	<npc_template npc_id="730940" level="65" name="advance corridor for commanders" name_id="464309" height="2" title_id="464313" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="GUARD" type="GENERAL" ai="governor_advance_corridor" srange="20" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="730940" level="65" name="advance corridor for commanders" name_id="464309" title_id="464313" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="GUARD" type="GENERAL" ai="governor_advance_corridor" srange="20" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" is_dialog="true" subdialog_type="ABYSSRANK" subdialog_value="18" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :559636-559640 -->
-	<npc_template npc_id="833024" level="1" name="stonespear siege entrance" name_id="466238" height="2" title_id="466401" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="legion_dominion_portal" srange="20" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833024" level="1" name="stonespear siege entrance" name_id="466238" title_id="466401" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="legion_dominion_portal" srange="20" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="172" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" is_dialog="true" subdialog_type="TARGET_LEGION_DOMINION" subdialog_value="4" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :526402-526408 -->
-	<npc_template npc_id="805011" level="65" name="pucorinerk" name_id="357902" height="1.375" title_id="358083" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="805011" level="65" name="pucorinerk" name_id="357902" title_id="358083" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -291,7 +291,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="103" subdialog_type="LEGION_DOMINION_NPC" subdialog_value="3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :552222-552236 -->
-	<npc_template npc_id="832012" level="1" name="melanie (to test npcs for lv 40)" name_id="464225" height="2" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="832012" level="1" name="melanie (to test npcs for lv 40)" name_id="464225" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="142">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -307,7 +307,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" subdialog_type="LEVEL" subdialog_value="40" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :562450-562456 -->
-	<npc_template npc_id="833547" level="1" name="lushrunerk" name_id="466576" height="1.496" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833547" level="1" name="lushrunerk" name_id="466576" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="126">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -315,7 +315,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" subdialog_type="LEVEL_LOW" subdialog_value="54" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :562457-562463 -->
-	<npc_template npc_id="833548" level="1" name="lalrinerk" name_id="466577" height="1.375" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833548" level="1" name="lalrinerk" name_id="466577" title_id="466578" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="124">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -323,7 +323,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" subdialog_type="LEVEL_HIGH" subdialog_value="55" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :503906-503912 -->
-	<npc_template npc_id="802162" level="1" name="porirunerk" name_id="464129" height="1.5125" title_id="464169" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="10" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="802162" level="1" name="porirunerk" name_id="464129" title_id="464169" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="10" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -331,7 +331,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" subdialog_type="PCBANG" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :562436-562442 -->
-	<npc_template npc_id="833545" level="1" name="incomplete shugorobo" name_id="466560" height="1.7875" title_id="466562" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833545" level="1" name="incomplete shugorobo" name_id="466560" title_id="466562" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="143">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -339,7 +339,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" subdialog_type="PACK_3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :562422-562428 -->
-	<npc_template npc_id="833543" level="1" name="shugorobo" name_id="466558" height="1.7875" title_id="466562" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="833543" level="1" name="shugorobo" name_id="466558" title_id="466562" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="aggressive" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="106">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -347,13 +347,13 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" subdialog_type="PACK_4" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :552002-552006 -->
-	<npc_template npc_id="831987" level="1" name="blessed totem" name_id="464179" height="2" title_id="464183" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="general" sangle="0" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="831987" level="1" name="blessed totem" name_id="464179" title_id="464183" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="USEALL" type="GENERAL" ai="general" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" is_dialog="true" subdialog_type="CASH" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :8150-8164 -->
-	<npc_template npc_id="203619" level="10" name="nornes" name_id="352165" height="2" title_id="350552" group_drop="DARK" rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" arange="10" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203619" level="10" name="nornes" name_id="352165" title_id="350552" group_drop="DARK" rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" arange="10" attack_speed="2000" hpgauge="3">
 		<stats maxHp="1392">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -369,7 +369,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :475658-475671 -->
-	<npc_template npc_id="799803" level="50" name="typhon" name_id="355117" height="1.8" title_id="370284" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="799803" level="50" name="typhon" name_id="355117" title_id="370284" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="14614">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -384,7 +384,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="68 69" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :26411-26424 -->
-	<npc_template npc_id="205315" level="55" name="perbano" name_id="354625" height="2.1" title_id="370380" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="205315" level="55" name="perbano" name_id="354625" title_id="370380" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="18756">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -399,7 +399,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="78" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :10127-10140 -->
-	<npc_template npc_id="203764" level="40" name="epeios" name_id="351251" height="2" title_id="350422" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3" state="6">
+	<npc_template npc_id="203764" level="40" name="epeios" name_id="351251" title_id="350422" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3" state="6">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -414,7 +414,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="36" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :11745-11758 -->
-	<npc_template npc_id="203875" level="40" name="nepis" name_id="351365" height="2" title_id="350422" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3" state="6">
+	<npc_template npc_id="203875" level="40" name="nepis" name_id="351365" title_id="350422" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3" state="6">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -429,7 +429,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="37" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :9939-9952 -->
-	<npc_template npc_id="203751" level="40" name="pauton" name_id="351300" height="2" title_id="350409" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203751" level="40" name="pauton" name_id="351300" title_id="350409" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -444,7 +444,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="53" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :547390-547404 -->
-	<npc_template npc_id="831406" level="1" name="melanie (for new user exclusive npc testing)" name_id="356471" height="2" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="831406" level="1" name="melanie (for new user exclusive npc testing)" name_id="356471" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="23691">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -460,7 +460,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" subdialog_type="NEWBIE" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :547420-547434 -->
-	<npc_template npc_id="831408" level="1" name="bunton (for testing paid user exclusive npcs)" name_id="356473" height="2" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="831408" level="1" name="bunton (for testing paid user exclusive npcs)" name_id="356473" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="23691">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -1168,7 +1168,7 @@ TEST_F(DialogServiceTest, TheCraftArmsDoNothingAtAnNpcThatTeachesNoProfession) {
 
 /** npc_templates.xml:10432, verbatim: hestia, the Elyos cooking master (CraftSkillUpdateService.java:61) */
 constexpr std::string_view HESTIA_NPC_TEMPLATES_XML = R"xml(<npc_templates>
-	<npc_template npc_id="203784" level="40" name="hestia" name_id="351275" height="2" title_id="350401" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203784" level="40" name="hestia" name_id="351275" title_id="350401" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>

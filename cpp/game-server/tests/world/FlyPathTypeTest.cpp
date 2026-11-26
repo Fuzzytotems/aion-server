@@ -9,9 +9,9 @@ namespace aion::gameserver::model::flypath {
 namespace {
 
 TEST(FlyPathTypeTest, Ids) {
-	EXPECT_EQ(getId(FlyPathType::GEYSER), 0);
-	EXPECT_EQ(getId(FlyPathType::ONE_WAY), 1);
-	EXPECT_EQ(getId(FlyPathType::TWO_WAY), 2);
+	EXPECT_EQ(getId(FlyPathType::WIND_BOX), 0);
+	EXPECT_EQ(getId(FlyPathType::WIND_PATH), 1);
+	EXPECT_EQ(getId(FlyPathType::MOVING_COLLISION), 2);
 }
 
 } // namespace

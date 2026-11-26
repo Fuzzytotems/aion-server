@@ -4,7 +4,7 @@
 	friend struct ::aion::gameserver::xml::XmlBinding<::aion::gameserver::dataholders::DecomposableItemsData>;
 
 private:
-	std::vector<::aion::gameserver::model::templates::item::DecomposableItemInfo> decomposableItemsTemplates; // @XmlElement(name = "decomposable")
+	std::vector<::aion::gameserver::model::templates::item::DecomposableItem> decomposableItems; // @XmlElement(name = "decomposable")
 
 protected:
 	void afterUnmarshal(::aion::gameserver::xml::LoadContext& ctx, const ::aion::gameserver::xml::XmlParent& parent); // hand-written

@@ -5,7 +5,6 @@
 #include <memory>
 #include <string_view>
 
-#include "aion/gameserver/model/templates/item/ResultedItemsCollection.bind.h"
 #include "aion/gameserver/model/templates/item/ReturnLocList.bind.h"
 
 namespace aion::gameserver::xml {
@@ -38,14 +37,6 @@ bool XmlBinding<::aion::gameserver::model::templates::item::ReturnLocList>::attr
 			break;
 	}
 	return false;
-}
-
-bool XmlBinding<::aion::gameserver::model::templates::item::ReturnLocList>::element(::aion::gameserver::model::templates::item::ReturnLocList& o, BindContext& c, pugi::xml_node e, std::string_view name) {
-	return XmlBinding<::aion::gameserver::model::templates::item::ResultedItemsCollection>::element(o, c, e, name);
-}
-
-void XmlBinding<::aion::gameserver::model::templates::item::ReturnLocList>::reserve(::aion::gameserver::model::templates::item::ReturnLocList& o, const ChildCounts& counts) {
-	XmlBinding<::aion::gameserver::model::templates::item::ResultedItemsCollection>::reserve(o, counts);
 }
 
 } // namespace aion::gameserver::xml

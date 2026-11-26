@@ -40,7 +40,7 @@ bool PvPZone::onDie(Creature& lastAttacker, Creature& target, ZoneInstance& zone
 		player->getController().addTask(TaskId::TELEPORT, ThreadPoolManager::getInstance().schedule({this, &dying, &zone}, [this, &dying, &zone] {
 			dying.getController().getAndRemoveTask(TaskId::TELEPORT); // remove manually as it won't get removed automatically
 			PlayerReviveService::duelRevive(dying);
-			doTeleport(dying, zone.getZoneTemplate()->getName());
+			doTeleport(dying, zone.getZoneTemplate()->getZoneName());
 			PacketSendUtility::broadcastToZone(zone, SM_SYSTEM_MESSAGE::STR_PvPZONE_OUT_MESSAGE(dying.getName()));
 		}, 5000));
 	}
