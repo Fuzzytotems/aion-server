@@ -122,7 +122,6 @@ TEST(WorldRealDataTest, WorldCreatesAllMapsAndZoneServiceTheirZoneInstances) {
 	auto parse = [&imports](std::string_view file) { return xml::StaticDataLoader::parseFiles(findImport(imports, file).files, false); };
 	dataholders::DataManager::WORLD_MAPS_DATA.publish(bindImport<dataholders::WorldMapsData>(context, parse("world_maps.xml")));
 	dataholders::DataManager::MATERIAL_DATA.publish(bindImport<dataholders::MaterialData>(context, parse("mesh_materials/material_templates.xml")));
-	dataholders::DataManager::SHIELD_DATA.publish(bindImport<dataholders::ShieldData>(context, parse("siege/siege_shields.xml")));
 	dataholders::DataManager::SIEGE_LOCATION_DATA.publish(bindImport<dataholders::SiegeLocationData>(context, parse("siege/siege_locations.xml")));
 	dataholders::DataManager::VORTEX_DATA.publish(bindImport<dataholders::VortexData>(context, parse("vortex/dimensional_vortex.xml")));
 	std::vector<std::unique_ptr<xml::XmlDocument>> zoneDocuments = parse("zones");

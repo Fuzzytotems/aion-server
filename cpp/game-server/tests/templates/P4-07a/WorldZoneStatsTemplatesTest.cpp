@@ -7,7 +7,9 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "aion/gameserver/configs/main/WorldConfig.h"
@@ -18,6 +20,9 @@
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/templates/stats/StatsTemplate.bind.h"
 #include "aion/gameserver/model/templates/world/WeatherTable.bind.h"
+#include "aion/gameserver/model/templates/world/WeatherEntry.h"
+#include "aion/gameserver/model/templates/world/WeatherPhase.h"
+#include "aion/gameserver/model/templates/world/WeatherTable.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.bind.h"
 #include "aion/gameserver/model/templates/zone/Cylinder.h"
 #include "aion/gameserver/model/templates/zone/Point2D.h"
@@ -64,13 +69,15 @@ private:
 
 // ---- world ---------------------------------------------------------------------------------------------------------------------------------
 
-TEST(WorldMapTemplateTest, HookCombinesTheZoneAttributeFlags) {
+TEST(WorldMapTemplateTest, ZoneAttributesAndTheirAccessors) {
 	std::unique_ptr<world::WorldMapTemplate> map = bindXml<world::WorldMapTemplate>(
-		R"(<map id="210010000" cName="LF1" name_id="5" death_level="100" water_level="80" flags="BIND FLY PVP NO_RETURN_BATTLE">)"
+		R"(<map id="210010000" cName="LF1" name_id="5" water_level="80" flags="BIND FLY PVP NO_RETURN_BATTLE">)"
 		R"(<ai_info chase_target="60"/></map>)");
 	// ids: BIND 1, RECALL 2, GLIDE 4, FLY 8, RIDE 16, FLY_RIDE 32, PVP_ENABLED 64, DUEL_SAME_RACE_ENABLED 128, DUEL_OTHER_RACE_ENABLED 256,
-	// NO_RETURN_BATTLE 512 (@XmlEnumValue "PVP" for PVP_ENABLED)
+	// NO_RETURN_BATTLE 512 (@XmlEnumValue "PVP" for PVP_ENABLED). Upstream 4617c9fd2 binds the EnumSet; getFlags is C++-only (WorldMapTemplate.h)
 	EXPECT_EQ(map->getFlags(), 1 + 8 + 64 + 512);
+	EXPECT_TRUE(map->hasAttribute(::aion::gameserver::world::zone::ZoneAttributes::PVP_ENABLED));
+	EXPECT_FALSE(map->hasAttribute(::aion::gameserver::world::zone::ZoneAttributes::RECALL));
 	EXPECT_TRUE(map->canPutKisk());
 	EXPECT_TRUE(map->isFly());
 	EXPECT_TRUE(map->isPvpAllowed());
@@ -87,52 +94,78 @@ TEST(WorldMapTemplateTest, HookCombinesTheZoneAttributeFlags) {
 	EXPECT_EQ(map->getAiInfo()->getChaseHome(), 200);
 
 	std::unique_ptr<world::WorldMapTemplate> empty =
-		bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" name="Named" death_level="0" water_level="0" flags=""/>)");
+		bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" name="Named" water_level="0" flags=""/>)");
 	EXPECT_EQ(empty->getFlags(), 0) << "present-empty flags";
 	EXPECT_EQ(empty->getName(), "Named");
 	EXPECT_EQ(empty->getAiInfo(), &world::AiInfo::DEFAULT) << "AiInfo.DEFAULT";
 
-	EXPECT_THROW(bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" death_level="0" water_level="0"/>)"), xml::StaticDataException)
-		<< "Java: NullPointerException in ZoneAttributes.fromList";
+	EXPECT_EQ(bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" water_level="0"/>)")->getFlags(), 0)
+		<< "no flags: the initial EnumSet.noneOf (upstream 4617c9fd2)";
 }
 
 TEST(WorldMapTemplateTest, TwinCountsFollowWorldConfig) {
 	ConfigValue usual(configs::main::WorldConfig::WORLD_MAX_TWINS_USUAL);
-	ConfigValue beginner(configs::main::WorldConfig::WORLD_MAX_TWINS_BEGINNER);
 	std::unique_ptr<world::WorldMapTemplate> map =
-		bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" death_level="0" water_level="0" flags="" twin_count="5" beginner_twin_count="3"/>)");
+		bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" water_level="0" flags="" twin_count="5" cool_time="30"/>)");
 	configs::main::WorldConfig::WORLD_MAX_TWINS_USUAL.store(0);
-	configs::main::WorldConfig::WORLD_MAX_TWINS_BEGINNER.store(0);
 	EXPECT_EQ(map->getTwinCount(), 5) << "0: no limit";
-	EXPECT_EQ(map->getBeginnerTwinCount(), 3);
+	EXPECT_EQ(map->getChannelChangeCooldownSeconds(), 30);
+	EXPECT_EQ(map->getBeginnerTwinCount(), 0) << "C++-only since upstream 0199b4b03 removed beginner_twin_count";
 	configs::main::WorldConfig::WORLD_MAX_TWINS_USUAL.store(2);
-	configs::main::WorldConfig::WORLD_MAX_TWINS_BEGINNER.store(-1);
 	EXPECT_EQ(map->getTwinCount(), 2);
-	EXPECT_EQ(map->getBeginnerTwinCount(), 0) << "-1: disabled";
-	configs::main::WorldConfig::WORLD_MAX_TWINS_BEGINNER.store(4);
-	EXPECT_EQ(map->getBeginnerTwinCount(), 3);
+	configs::main::WorldConfig::WORLD_MAX_TWINS_USUAL.store(0);
+	EXPECT_EQ(bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" water_level="0" flags=""/>)")->getTwinCount(), 1) << "Java: twinCount = 1";
+	EXPECT_EQ(bindXml<world::WorldMapTemplate>(R"(<map id="1" cName="X" water_level="0" flags="" twin_count="0"/>)")->getTwinCount(), 1)
+		<< "Math.max(1, twinCount)";
 }
 
-TEST(WeatherTableTest, WeatherAfterAndWeathersForZone) {
-	std::unique_ptr<world::WeatherTable> table = bindXml<world::WeatherTable>(R"(<weather_table id="210010000" weather_count="4" zone_count="2">)"
-		R"(<table zone_id="1" code="1" rank="1" name="rain" before="true"/><table zone_id="1" code="2" rank="1" name="rain"/>)"
-		R"(<table zone_id="1" code="3" rank="1" name="rain" after="true"/><table zone_id="2" code="4" rank="1" name="rain"/>)"
-		R"(<table zone_id="2" code="5" rank="1"/></weather_table>)");
-	const auto& entries = table->getZoneData();
-	ASSERT_EQ(entries.size(), 5u);
-	EXPECT_EQ(table->getWeatherAfter(entries[0].get()), entries[1].get()) << "before -> plain";
-	EXPECT_EQ(table->getWeatherAfter(entries[1].get()), entries[2].get()) << "plain -> after";
-	EXPECT_EQ(table->getWeatherAfter(entries[2].get()), nullptr) << "after has no successor";
-	EXPECT_EQ(table->getWeatherAfter(entries[3].get()), nullptr) << "no after entry in zone 2";
-	EXPECT_EQ(table->getWeatherAfter(entries[4].get()), nullptr) << "no name";
-	EXPECT_EQ(table->getWeatherAfter(nullptr), nullptr);
-	EXPECT_EQ(table->getWeathersForZone(2), (std::vector<const world::WeatherEntry*>{entries[3].get(), entries[4].get()}));
-	EXPECT_TRUE(table->getWeathersForZone(9).empty());
-	world::WeatherEntry created(7, 3);
-	EXPECT_EQ(created.getZoneId(), 7);
-	EXPECT_EQ(created.getCode(), 3);
-	EXPECT_EQ(world::WeatherEntry::NONE.getCode(), 0);
-	EXPECT_EQ(world::WeatherEntry::NONE.getWeatherName(), "");
+TEST(WeatherTableTest, CodesZonesPhasesAndMasks) {
+	// upstream 374336b3b: codes are the record positions, phases name weathers of the same zone, months/hours are masks
+	std::unique_ptr<world::WeatherTable> table = bindXml<world::WeatherTable>(R"(<map id="210010000" zone_count="2">)"
+		R"(<weather code="1" name="rain" zone="1" priority="2" months="1-2,12" hours="0,6-7" occur_prob="40" duration="60" duration_ex="30" state="RAIN">)"
+		R"(<sign name="clouds" probability="100" duration="10"/><sub name="storm" probability="50"/></weather>)"
+		R"(<weather code="2" name="clouds" zone="1" priority="1" occur_prob="0" duration="10"/>)"
+		R"(<weather code="3" name="storm" zone="1" priority="1" months="" hours="1" occur_prob="10" duration="20"/>)"
+		R"(<weather code="4" name="fog" zone="0" priority="0" hours="5" occur_prob="100" duration="10"/></map>)");
+	ASSERT_EQ(table->getEntries().size(), 4u);
+	const world::WeatherEntry* rain = table->getEntry(1);
+	ASSERT_NE(rain, nullptr);
+	EXPECT_EQ(table->getEntry(std::string_view("rain")), rain);
+	EXPECT_EQ(table->getEntry(0), nullptr) << "0 is clear sky";
+	EXPECT_EQ(rain->getState(), world::WeatherState::RAIN);
+	ASSERT_NE(rain->getSign(), nullptr);
+	EXPECT_EQ(rain->getSign()->getWeather(), table->getEntry(2));
+	ASSERT_EQ(rain->getSubWeathers().size(), 1u);
+	EXPECT_EQ(rain->getSubWeathers()[0].getWeather(), table->getEntry(3));
+	EXPECT_EQ(rain->getRemain(), nullptr);
+	EXPECT_TRUE(rain->isDueIn(0, 6)) << "January (month 0 of the game calendar, bit 1 - 1), 06:00";
+	EXPECT_TRUE(rain->isDueIn(11, 0)) << "December";
+	EXPECT_FALSE(rain->isDueIn(3, 6)) << "April";
+	EXPECT_FALSE(rain->isDueIn(0, 5));
+	EXPECT_FALSE(table->getEntry(2)->isDueIn(0, 0)) << "no hours: never on its own";
+	EXPECT_FALSE(table->getEntry(3)->isDueIn(0, 1)) << "empty months: never";
+	EXPECT_TRUE(table->getEntry(4)->isDueIn(7, 5)) << "no months: all year";
+	// zone 1 in priority order, equal priorities in file order
+	EXPECT_EQ(table->getEntriesForZone(1), (std::vector<const world::WeatherEntry*>{table->getEntry(2), table->getEntry(3), rain}));
+	EXPECT_TRUE(table->getEntriesForZone(9).empty());
+	EXPECT_EQ(world::WeatherEntry::parseMask(std::string(" 1 , 3-4 "), 0), 2 | 8 | 16);
+	EXPECT_EQ(world::WeatherEntry::parseMask(std::nullopt, 0), 0);
+}
+
+TEST(WeatherTableTest, InvalidTablesFailTheLoad) {
+	EXPECT_THROW(bindXml<world::WeatherTable>(R"(<map id="1" zone_count="1"><weather code="2" name="a" zone="0" priority="0" occur_prob="0" duration="1"/></map>)"),
+		xml::StaticDataException) << "code is not the record position";
+	EXPECT_THROW(bindXml<world::WeatherTable>(R"(<map id="1" zone_count="1"><weather code="1" name="a" zone="2" priority="0" occur_prob="0" duration="1"/></map>)"),
+		xml::StaticDataException) << "zone above zone_count";
+	EXPECT_THROW(bindXml<world::WeatherTable>(R"(<map id="1" zone_count="1"><weather code="1" name="a" zone="0" priority="0" occur_prob="101" duration="1"/></map>)"),
+		xml::StaticDataException) << "occur_prob above 100";
+	EXPECT_THROW(bindXml<world::WeatherTable>(R"(<map id="1" zone_count="1"><weather code="1" name="a" zone="0" priority="0" occur_prob="0" duration="1">)"
+		R"(<sign name="b"/></weather></map>)"), xml::StaticDataException) << "unknown phase weather";
+	EXPECT_THROW(bindXml<world::WeatherTable>(R"(<map id="1" zone_count="1"><weather code="1" name="a" zone="0" priority="0" occur_prob="0" duration="1">)"
+		R"(<sign name="b"/></weather><weather code="2" name="b" zone="1" priority="0" occur_prob="0" duration="1"/></map>)"), xml::StaticDataException)
+		<< "phase weather of another zone";
+	EXPECT_THROW(bindXml<world::WeatherTable>(R"(<map id="1" zone_count="1"><weather code="1" name="a" zone="0" priority="0" occur_prob="0" duration="1"/>)"
+		R"(<weather code="2" name="a" zone="0" priority="0" occur_prob="0" duration="1"/></map>)"), xml::StaticDataException) << "duplicate name";
 }
 
 // ---- zone ------------------------------------------------------------------------------------------------------------------------------------
@@ -150,10 +183,12 @@ TEST(ZoneTemplateTest, ShapeConstructors) {
 	EXPECT_EQ(semisphere.getR(), 4.0f);
 	zone::Sphere sphere(5, 6, 7, 8);
 	EXPECT_EQ(sphere.getX(), 5.0f);
-	zone::Points points(-1, 10);
+	zone::Points points; // a data struct since upstream 15eaf77b6 (no constructors)
+	points.bottom = -1;
+	points.top = 10;
 	EXPECT_EQ(points.getBottom(), -1.0f);
 	EXPECT_EQ(points.getTop(), 10.0f);
-	EXPECT_TRUE(points.getPoint().empty());
+	EXPECT_TRUE(points.getPoints().empty());
 	zone::Point2D point(3, 4);
 	EXPECT_EQ(point.getX(), 3.0f);
 	EXPECT_EQ(point.getY(), 4.0f);
@@ -165,8 +200,9 @@ TEST(ZoneTemplateTest, NameSetterInternsTheZoneName) {
 	std::unique_ptr<zone::ZoneTemplate> zone = bindXml<zone::ZoneTemplate>(
 		R"(<zone name="DF1_ZONE" mapid="220010000" priority="2" area_type="CYLINDER" zone_type="FLY">)"
 		R"(<cylinder x="1" y="2" r="3" top="4" bottom="5"/></zone>)");
-	ASSERT_NE(zone->getName(), nullptr);
-	EXPECT_EQ(zone->getXmlName(), zone->getName()->name());
+	ASSERT_NE(zone->getZoneName(), nullptr) << "C++-only: the interned ZoneName of the bound name (upstream 4617c9fd2 binds the String)";
+	EXPECT_EQ(zone->getName(), "DF1_ZONE");
+	EXPECT_EQ(zone->getXmlName(), zone->getZoneName()->name());
 	EXPECT_EQ(zone->getMapid(), 220010000);
 	EXPECT_EQ(zone->getFlags(), -1);
 	EXPECT_EQ(zone->getAreaType(), zone::AreaType::CYLINDER);
@@ -175,7 +211,7 @@ TEST(ZoneTemplateTest, NameSetterInternsTheZoneName) {
 TEST(ZoneTemplateTest, WorldZonePointsFollowJavaArithmetic) {
 	auto corners = [](const zone::Points& points) {
 		std::vector<std::pair<float, float>> result;
-		for (const zone::Point2D& point : points.getPoint())
+		for (const zone::Point2D& point : points.getPoints())
 			result.emplace_back(point.getX(), point.getY());
 		return result;
 	};
@@ -200,7 +236,7 @@ TEST(ZoneTemplateTest, WorldZonePointsFollowJavaArithmetic) {
 	// to the float -2147483648 (a tie, rounded to even); + 1 stays -2147483648
 	EXPECT_EQ(zone::WorldZoneTemplate::createMapPoints(2147483647, 3)->getTop(), -2147483648.0f);
 	// size + 1 wraps to Integer.MIN_VALUE before the widening
-	EXPECT_EQ(zone::WorldZoneTemplate::createMapPoints(2147483647, 3)->getPoint()[2].getX(), -2147483648.0f);
+	EXPECT_EQ(zone::WorldZoneTemplate::createMapPoints(2147483647, 3)->getPoints()[2].getX(), -2147483648.0f);
 }
 
 TEST(ZoneTemplateTest, WorldZoneTemplateReadsTheMapFlags) {
@@ -211,7 +247,7 @@ TEST(ZoneTemplateTest, WorldZoneTemplateReadsTheMapFlags) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	EXPECT_THROW(zone::WorldZoneTemplate(1000, 210010000), runtime::NullPointerException) << "WORLD_MAPS_DATA is not published";
 	dataholders::DataManager::WORLD_MAPS_DATA.publish(bindXml<dataholders::WorldMapsData>(
-		R"(<world_maps><map id="210010000" cName="Poeta" death_level="0" water_level="0" flags="BIND FLY PVP"/></world_maps>)"));
+		R"(<world_maps><map id="210010000" cName="Poeta" water_level="0" flags="BIND FLY PVP"/></world_maps>)"));
 	EXPECT_THROW(zone::WorldZoneTemplate(1000, 220010000), runtime::NullPointerException) << "Java: getTemplate(mapId) is null";
 	if (zoneNames) {
 		zone::WorldZoneTemplate zone(1000, 210010000);
@@ -236,10 +272,11 @@ TEST(ZoneTemplateTest, WorldZoneTemplateCoversTheMap) {
 	EXPECT_EQ(zone.getPoints()->getTop(), 1025.0f);
 	EXPECT_EQ(zone.getPoints()->getBottom(), -1.0f);
 	std::vector<std::pair<float, float>> corners;
-	for (const zone::Point2D& point : zone.getPoints()->getPoint())
+	for (const zone::Point2D& point : zone.getPoints()->getPoints())
 		corners.emplace_back(point.getX(), point.getY());
 	EXPECT_EQ(corners, (std::vector<std::pair<float, float>>{{-1.0f, -1.0f}, {-1.0f, 1001.0f}, {1001.0f, 1001.0f}, {1001.0f, -1.0f}}));
-	EXPECT_EQ(zone.getZoneType(), zone::ZoneClassName::DUMMY);
+	EXPECT_EQ(zone.getZoneType(), zone::ZoneClassName::SUB) << "upstream 2b097879f removed DUMMY";
+	EXPECT_TRUE(static_cast<const zone::ZoneTemplate&>(zone).isWholeMapZone());
 	EXPECT_EQ(zone.getMapid(), 210010000);
 	EXPECT_EQ(zone.getFlags(), 77);
 	EXPECT_EQ(zone.getXmlName(), "210010000");

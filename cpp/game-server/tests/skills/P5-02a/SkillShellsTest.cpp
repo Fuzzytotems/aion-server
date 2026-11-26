@@ -481,12 +481,9 @@ TEST(SkillLearnTemplateTest, StigmaFlagsAndSkillLevel) {
 	EXPECT_TRUE(learn(R"( stigma="4")")->isLinkedStigma());
 	EXPECT_FALSE(learn(R"( stigma="-1")")->isStigma());
 
-	EXPECT_THROW(learn("")->getSkillLevel(), runtime::NullPointerException) << "SKILL_DATA is not published";
-	xml::LoadContext context;
-	PublishedSkillData published(
-		xml::bindString<dataholders::SkillData>(context, "<skill_data>" + skillXml(20, R"(activation="ACTIVE" lvl="3")") + "</skill_data>"));
-	EXPECT_EQ(learn("")->getSkillLevel(), 3);
-	EXPECT_THROW(bindXml<model::SkillLearnTemplate>(R"(<skill skillId="21" minLevel="1"/>)")->getSkillLevel(), runtime::NullPointerException);
+	// upstream 267ce6033: the skill level is the skillLevel attribute (Java default 1), not the level of the skill template
+	EXPECT_EQ(learn("")->getSkillLevel(), 1);
+	EXPECT_EQ(learn(R"( skillLevel="3")")->getSkillLevel(), 3);
 }
 
 } // namespace

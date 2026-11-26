@@ -31,11 +31,11 @@ inline constexpr int32_t ANGUISHED_DRAGON_LORDS_REFUGE = 300630000;
 
 /** world_maps.xml's rows of the I4 maps under test */
 inline constexpr const char* I4_MAPS_XML = R"x(<world_maps>
-	<map id="300240000" cName="IDStation" name="Aturam Sky Fortress" name_id="401780" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300170000" cName="IDCatacombs" name="Beshmundir Temple" name_id="401411" instance="true" water_level="100" death_level="0" world_size="2048" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="301390000" cName="IDSeal" name="Drakenspire Depths" name_id="404456" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="300520000" cName="IDTiamat_2" name="Dragon Lord's Refuge" name_id="403523" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300630000" cName="IDTiamat_2_Hard" name="Anguished Dragon Lord's Refuge" name_id="404664" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300240000" cName="IDStation" name="Aturam Sky Fortress" name_id="401780" instance="true" water_level="16" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300170000" cName="IDCatacombs" name="Beshmundir Temple" name_id="401411" instance="true" water_level="100" world_size="2048" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="301390000" cName="IDSeal" name="Drakenspire Depths" name_id="404456" instance="true" water_level="16" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300520000" cName="IDTiamat_2" name="Dragon Lord's Refuge" name_id="403523" instance="true" water_level="16" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300630000" cName="IDTiamat_2_Hard" name="Anguished Dragon Lord's Refuge" name_id="404664" instance="true" water_level="16" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {

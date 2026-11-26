@@ -35,6 +35,16 @@
 #include "aion/gameserver/dataholders/GlobalNpcExclusionData.h"
 #include "aion/gameserver/dataholders/InstanceCooltimeData.bind.h"
 #include "aion/gameserver/dataholders/InstanceCooltimeData.h"
+#include "aion/gameserver/dataholders/DecomposableItemsData.bind.h"
+#include "aion/gameserver/dataholders/DecomposableItemsData.h"
+#include "aion/gameserver/dataholders/MenteeExpLimitTable.bind.h"
+#include "aion/gameserver/dataholders/MenteeExpLimitTable.h"
+#include "aion/gameserver/dataholders/PartyExpModTable.bind.h"
+#include "aion/gameserver/dataholders/PartyExpModTable.h"
+#include "aion/gameserver/dataholders/PvpExpModTable.bind.h"
+#include "aion/gameserver/dataholders/PvpExpModTable.h"
+#include "aion/gameserver/dataholders/PvpExpTable.bind.h"
+#include "aion/gameserver/dataholders/PvpExpTable.h"
 #include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/dataholders/ItemRestrictionCleanupData.bind.h"
@@ -78,7 +88,9 @@
 #include "aion/gameserver/model/templates/globaldrops/GlobalDropNpcs.h"
 #include "aion/gameserver/model/templates/globaldrops/GlobalRule.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
-#include "aion/gameserver/model/templates/item/actions/DecomposeAction.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.h"
+#include "aion/gameserver/model/templates/item/DecomposableSet.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.h"
 #include "aion/gameserver/model/templates/npc/NpcRank.h"
 #include "aion/gameserver/model/templates/npc/NpcRating.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
@@ -399,81 +411,86 @@ TEST(ItemDataTest, ManastonesAndCleanup) {
 	EXPECT_EQ(ItemRestrictionCleanupData().size(), 0);
 }
 
-TEST(DecomposeActionIdsTest, EveryRandomRewardItemMustExist) {
+// ---- DecomposableItemsData (upstream d254ea172, bad68ed81) ------------------------------------------------------------------------------------
+
+TEST(DecomposableItemsDataTest, OverridesReplaceTheOtherEntriesAndEmptyEntriesAreDropped) {
+	xml::LoadContext context;
+	bindXml<ItemData>(context, R"(<item_templates><item_template id="1"/><item_template id="2"/></item_templates>)");
+	std::unique_ptr<DecomposableItemsData> data = bindXml<DecomposableItemsData>(context, R"(<decomposable_items>)"
+		R"(<decomposable item_id="10"><set><item id="1"/></set></decomposable>)"
+		R"(<decomposable item_id="11"><set><item id="1"/></set></decomposable>)"
+		R"(<decomposable item_id="12"/>)"
+		R"(<decomposable item_id="11" override="true"><set><item id="2" count="5"/></set></decomposable>)"
+		R"(<decomposable item_id="10" override="true"/>)"
+		R"(</decomposable_items>)");
+	EXPECT_EQ(data->size(), 1) << "10 overridden by an empty entry and dropped, 12 has no sets";
+	EXPECT_EQ(data->overrideCount(), 2);
+	ASSERT_NE(data->get(11), nullptr);
+	EXPECT_TRUE(data->get(11)->isOverride());
+	EXPECT_EQ(data->get(11)->getSets()[0].getItems()[0].getCount(), 5);
+	EXPECT_EQ(data->get(10), nullptr);
+	EXPECT_EQ(data->get(12), nullptr);
 	try {
-		model::templates::item::actions::DecomposeAction::validateRandomItemIds(ItemData());
-		FAIL() << "expected IllegalArgumentException";
-	} catch (const runtime::IllegalArgumentException& e) {
-		EXPECT_STREQ(e.what(), "Decomposable random reward item ID is invalid: 152000051");
+		bindXml<DecomposableItemsData>(context, R"(<decomposable_items><decomposable item_id="1"/><decomposable item_id="1"/></decomposable_items>)");
+		FAIL() << "a duplicate entry must fail";
+	} catch (const xml::StaticDataException& e) {
+		EXPECT_NE(std::string(e.what()).find("Duplicate decomposable item 1 (override=\"true\" missing?)"), std::string::npos) << e.what();
 	}
+	EXPECT_THROW(bindXml<DecomposableItemsData>(context,
+		R"(<decomposable_items><decomposable item_id="1" override="true"/><decomposable item_id="1" override="true"/></decomposable_items>)"),
+		xml::StaticDataException) << "Duplicate decomposable override item";
 }
 
-// The eleven tables validateRandomItemIds reads, in its order (DecomposeAction.java:404-410), copied from DecomposeAction.java: chunkEarth's
-// ASMODIANS (:61-67) and ELYOS (:68-74) arrays, chunkSand's (:76-79, :80-83), then chunkRock (:44-45), chunkGemstone (:47), scrolls (:49),
-// potion (:51), lesser_potions (:53), potion_50 (:55) and illusion_godstones (:57-58). Java iterates a HashMap<Race, int[]> and leaves the race
-// order open; the C++ takes ASMODIANS first (DecomposeAction.cpp). premiumOphidanRecipe (:85-96) is not validated, in Java or C++.
-const std::vector<std::vector<int32_t>> DECOMPOSE_RANDOM_REWARD_TABLES = {
-  {152000051, 152000052, 152000053, 152000054, 152000055, 152000056, 152000057, 152000058, 152000059, 152000061, 152000062, 152000063,
-    152000101, 152000102, 152000104, 152000107, 152000113, 152000201, 152000202, 152000204, 152000207, 152000214, 152000451, 152000453,
-    152000455, 152000457, 152000459, 152000461, 152000463, 152000465, 152000468, 152000470, 152000551, 152000552, 152000553, 152000554,
-    152000556, 152000651, 152000652, 152000653, 152000654, 152000656, 152000751, 152000752, 152000753, 152000754, 152000755, 152000756,
-    152000757, 152000758, 152000759, 152000760, 152000762, 152000763, 152000851, 152000852, 152000853, 152000854, 152000855, 152000856,
-    152000857, 152000858, 152000860, 152000861, 152001051, 152001052, 152001053, 152001055, 152001056},
-  {152000001, 152000002, 152000003, 152000004, 152000005, 152000006, 152000007, 152000008, 152000009, 152000010, 152000011, 152000012,
-    152000101, 152000102, 152000104, 152000107, 152000113, 152000201, 152000202, 152000204, 152000207, 152000214, 152000401, 152000403,
-    152000405, 152000407, 152000409, 152000411, 152000413, 152000415, 152000417, 152000419, 152000501, 152000502, 152000503, 152000504,
-    152000505, 152000601, 152000602, 152000603, 152000604, 152000605, 152000701, 152000702, 152000703, 152000704, 152000705, 152000706,
-    152000707, 152000708, 152000709, 152000710, 152000711, 152000712, 152000801, 152000802, 152000803, 152000804, 152000805, 152000806,
-    152000807, 152000808, 152000809, 152000810, 152001001, 152001002, 152001003, 152001004, 152001005},
-  {152000452, 152000454, 152000301, 152000302, 152000303, 152000456, 152000458, 152000103, 152000203, 152000304, 152000305, 152000306,
-    152000460, 152000462, 152000105, 152000205, 152000307, 152000309, 152000311, 152000464, 152000466, 152000108, 152000208, 152000313,
-    152000315, 152000317, 152000469, 152000471, 152000114, 152000215, 152000320, 152000322, 152000324},
-  {152000402, 152000404, 152000301, 152000302, 152000303, 152000406, 152000408, 152000103, 152000203, 152000304, 152000305, 152000306,
-    152000410, 152000412, 152000105, 152000205, 152000307, 152000309, 152000311, 152000414, 152000416, 152000108, 152000208, 152000313,
-    152000315, 152000317, 152000418, 152000420, 152000114, 152000215, 152000320, 152000322, 152000324},
-  {152000104, 152000107, 152000113, 152000204, 152000207, 152000214, 152000307, 152000309, 152000311, 152000313, 152000315, 152000317,
-    152000320, 152000322, 152000324},
-  {152000112, 152000116, 152000212, 152000213, 152000217, 152000326, 152000327, 152000328},
-  {164000073, 164000134, 164000076, 164000079, 164000122, 164000131, 164000118},
-  {162000045, 162000079, 162000016, 162000021, 162000027, 162000023},
-  {162000003, 162000008, 162000042, 162000022, 162000013, 162000018, 162000047},
-  {162000075, 162000076, 162000077, 162000078, 162000079, 162000080, 162000081},
-  {168000161, 168000162, 168000163, 168000164, 168000165, 168000166, 168000167, 168000168, 168000169, 168000170, 168000171, 168000172,
-    168000173, 168000174, 168000175, 168000176, 168000177},
-};
+// ---- the PvP, party and mentee tables (upstream d725054e1) --------------------------------------------------------------------------------------
 
-/** An item_templates document with one bare item_template per id */
-std::string itemTemplatesXml(const std::set<int32_t>& ids) {
-	std::string xml = "<item_templates>";
-	for (int32_t id : ids)
-		xml += R"(<item_template id=")" + std::to_string(id) + R"("/>)";
-	return xml + "</item_templates>";
+TEST(ExpModTablesTest, PvpExpTableIndexesByLevelAndClamps) {
+	std::unique_ptr<PvpExpTable> table = bindXml<PvpExpTable>(R"(<pvp_exp_table>)"
+		R"(<level lvl="2" exp="200" get_max_from_all_user="400" get_max_reduce_amount="20" get_max_reduce_interval="60" delay_time="1800"/>)"
+		R"(<level lvl="1" exp="100" get_max_from_all_user="300" get_max_reduce_amount="10" get_max_reduce_interval="30" delay_time="900"/>)"
+		R"(</pvp_exp_table>)");
+	EXPECT_EQ(table->getMaxLevel(), 2);
+	EXPECT_EQ(table->getExp(1), 100);
+	EXPECT_EQ(table->getExp(2), 200);
+	EXPECT_EQ(table->getExp(99), 200) << "Math.clamp(level - 1, 0, length - 1)";
+	EXPECT_EQ(table->getExp(-5), 100);
+	EXPECT_EQ(table->getMaxFromAllUser(2), 400);
+	EXPECT_EQ(table->getReduceAmount(1), 10);
+	EXPECT_EQ(table->getReduceIntervalMillis(2), 60000);
+	EXPECT_EQ(table->getDelayTimeMillis(1), 900000);
+	EXPECT_THROW(bindXml<PvpExpTable>(R"(<pvp_exp_table><level lvl="3" exp="1" get_max_from_all_user="1" get_max_reduce_amount="1")"
+		R"( get_max_reduce_interval="1" delay_time="1"/></pvp_exp_table>)"), xml::StaticDataException) << "ArrayIndexOutOfBoundsException";
 }
 
-TEST(DecomposeActionIdsTest, EveryTableIsValidatedInTurn) {
-	// With the ids of the tables before table k known, the first invalid id is the first id of table k that no earlier table holds (read off
-	// the tables above). So dropping, reordering or swapping the races of any table read changes a message. chunkRock is the exception: its 15
-	// ids are all in chunkEarth or chunkSand, so its check can never fail first, and with tables 0-3 known the message names chunkGemstone's first
-	// id.
-	const std::vector<int32_t> firstNewIds = {152000051, 152000001, 152000452, 152000402, 152000112, 152000112, 164000073, 162000045, 162000003,
-		162000075, 168000161};
-	ASSERT_EQ(firstNewIds.size(), DECOMPOSE_RANDOM_REWARD_TABLES.size());
-	std::set<int32_t> known;
-	for (size_t table = 0; table < DECOMPOSE_RANDOM_REWARD_TABLES.size(); ++table) {
-		std::unique_ptr<ItemData> items = bindXml<ItemData>(itemTemplatesXml(known));
-		try {
-			model::templates::item::actions::DecomposeAction::validateRandomItemIds(*items);
-			ADD_FAILURE() << "table " << table << ": expected IllegalArgumentException";
-		} catch (const runtime::IllegalArgumentException& e) {
-			EXPECT_EQ(std::string(e.what()), "Decomposable random reward item ID is invalid: " + std::to_string(firstNewIds[table]))
-			  << "table " << table;
-		}
-		known.insert(DECOMPOSE_RANDOM_REWARD_TABLES[table].begin(), DECOMPOSE_RANDOM_REWARD_TABLES[table].end());
-	}
-	EXPECT_EQ(known.size(), 222u) << "the distinct ids of the 271 in the eleven tables";
-	std::unique_ptr<ItemData> all = bindXml<ItemData>(itemTemplatesXml(known));
-	EXPECT_NO_THROW(model::templates::item::actions::DecomposeAction::validateRandomItemIds(*all))
-	  << "every table's ids known; premiumOphidanRecipe's are not, and it is not validated";
+TEST(ExpModTablesTest, PvpExpModTableClampsTheLevelDifferenceAndTheColumn) {
+	std::unique_ptr<PvpExpModTable> table = bindXml<PvpExpModTable>(R"(<pvp_exp_mod_table>)"
+		R"(<level_diff_mod level_diff="1" mods="50 60"/><level_diff_mod level_diff="-1" mods="150 160"/><level_diff_mod level_diff="0" mods="100 110"/>)"
+		R"(</pvp_exp_mod_table>)");
+	EXPECT_EQ(table->size(), 3);
+	EXPECT_FLOAT_EQ(table->getMultiplier(5, 5), 1.0f) << "difference 0, column (5 - 1) / 10 = 0";
+	EXPECT_FLOAT_EQ(table->getMultiplier(15, 14), 0.6f) << "difference 1, column 1";
+	EXPECT_FLOAT_EQ(table->getMultiplier(60, 1), 0.6f) << "difference and column beyond the table use the last ones";
+	EXPECT_FLOAT_EQ(table->getMultiplier(1, 60), 1.5f);
+}
+
+TEST(ExpModTablesTest, PartyExpModTableWeights) {
+	std::unique_ptr<PartyExpModTable> table = bindXml<PartyExpModTable>(R"(<party_exp_mod_table>)"
+		R"(<level_diff_mod level_diff="0" mods="100 200 300"/><level_diff_mod level_diff="1" mods="10 20 30"/></party_exp_mod_table>)");
+	EXPECT_EQ(table->size(), 2);
+	EXPECT_FLOAT_EQ(table->getWeight(5, 5), 2.0f) << "difference 0, index 5 / 10 + 1 = 1";
+	EXPECT_FLOAT_EQ(table->getWeight(14, 15), 0.3f) << "difference 1, index 3 + 15 / 10 + 1 = 5";
+	EXPECT_FLOAT_EQ(table->getWeight(1, 40), 0.3f) << "beyond the table: the last row, the index capped at the last value";
+	EXPECT_FLOAT_EQ(table->getWeight(6, 5), 0.0f) << "above the highest level";
+	EXPECT_THROW(bindXml<PartyExpModTable>(R"(<party_exp_mod_table><level_diff_mod level_diff="2" mods="1"/></party_exp_mod_table>)"),
+		xml::StaticDataException) << "System.arraycopy out of bounds";
+}
+
+TEST(ExpModTablesTest, MenteeExpLimitTableClampsTheLevel) {
+	std::unique_ptr<MenteeExpLimitTable> table = bindXml<MenteeExpLimitTable>(
+		R"(<mentee_exp_limit_table><level lvl="1" exp_limit="5000000000"/><level lvl="2" exp_limit="7"/></mentee_exp_limit_table>)");
+	EXPECT_EQ(table->size(), 2);
+	EXPECT_EQ(table->getExpLimit(1), 5000000000LL) << "a long";
+	EXPECT_EQ(table->getExpLimit(9), 7);
+	EXPECT_EQ(table->getExpLimit(0), 5000000000LL);
 }
 
 // ---- NpcShoutData ------------------------------------------------------------------------------------------------------------------------------
@@ -578,9 +595,9 @@ TEST(InstanceCooltimeDataTest, LinkedOrderAndLookups) {
 TEST(WorldMapsDataTest, LinkedHashMapIterationAndCNames) {
 	std::unique_ptr<WorldMapsData> data =
 	  bindXml<WorldMapsData>(R"(<world_maps>)"
-	                         R"(<map id="210010000" cName="Poeta" death_level="0" water_level="0" flags="RECALL"/>)"
-	                         R"(<map id="110010000" cName="Sanctum" death_level="0" water_level="0" flags="RECALL"/>)"
-	                         R"(<map id="210010000" cName="PoetaAgain" death_level="0" water_level="0" flags="RECALL"/>)"
+	                         R"(<map id="210010000" cName="Poeta" water_level="0" flags="RECALL"/>)"
+	                         R"(<map id="110010000" cName="Sanctum" water_level="0" flags="RECALL"/>)"
+	                         R"(<map id="210010000" cName="PoetaAgain" water_level="0" flags="RECALL"/>)"
 	                         R"(</world_maps>)");
 	std::vector<std::string> names;
 	for (const model::templates::world::WorldMapTemplate* map : *data)
@@ -809,7 +826,7 @@ TEST(ZoneDataTest, AreasAndWeatherZoneIds) {
 	  R"(<zone mapid="2" name="P4_09_SUB" area_type="POLYGON" zone_type="SUB"><points bottom="0" top="10">)"
 	  R"(<point x="0" y="0"/><point x="10" y="0"/><point x="10" y="10"/></points></zone>)"
 	  R"(</zones>)");
-	EXPECT_EQ(data->size(), 4) << "a sphere with r <= 0 creates no area";
+	EXPECT_EQ(data->size(), 5) << "the zone names (upstream 2b097879f); a sphere with r <= 0 still creates no area (interim, P4-09.md)";
 	ASSERT_EQ(data->getZones().at(1).size(), 2u);
 	ASSERT_EQ(data->getZones().at(2).size(), 2u);
 	const model::templates::zone::ZoneTemplate* w2 = data->getZones().at(1)[1]->getZoneTemplate();
@@ -869,7 +886,7 @@ TEST_F(ZoneDataSaveTest, SaveDataWritesTheZonesInJaxbsFormattedForm) {
 	  "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
 	  "<zones>\n"
 	  "    <zone flags=\"8\" priority=\"3\" mapid=\"1\" siege_id=\"1011 1012\" town_id=\"5\" area_type=\"POLYGON\" zone_type=\"FLY\" "
-	  "name=\"P4_09_POLY&amp;&lt;&gt;&quot;\">\n"
+	  "name=\"P4_09_poly&amp;&lt;&gt;&quot;\">\n"
 	  "        <points top=\"10.5\" bottom=\"0.0\">\n"
 	  "            <point y=\"2.0\" x=\"1.0\"/>\n"
 	  "            <point y=\"4.0\" x=\"3.25\"/>\n"

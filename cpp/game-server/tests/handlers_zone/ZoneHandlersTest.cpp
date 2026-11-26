@@ -105,7 +105,7 @@ protected:
 		instance = &create(ZONE_TEST_MAP, generalInstanceFactory);
 		enter(*instance, 224.0f, 300.0f, 142.0f);
 		zoneTemplate = std::make_unique<model::templates::zone::WorldZoneTemplate>(3000, ZONE_TEST_MAP, 0);
-		area = model::geometry::PolyArea::create(zoneTemplate->getName(), ZONE_TEST_MAP, zoneTemplate->getPoints()->getPoint(),
+		area = model::geometry::PolyArea::create(zoneTemplate->getZoneName(), ZONE_TEST_MAP, zoneTemplate->getPoints()->getPoints(),
 			zoneTemplate->getPoints()->getBottom(), zoneTemplate->getPoints()->getTop());
 		zoneInfo = model::templates::zone::ZoneInfo::create(*area, zoneTemplate.get());
 		pvpZone = runtime::makeRef<TestPvPZone>(ZONE_TEST_MAP, *zoneInfo);

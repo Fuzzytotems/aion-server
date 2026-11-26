@@ -228,7 +228,7 @@ constexpr int32_t TESTNPC_02 = 207016;
 
 /** npc_templates.xml:37718-37722, verbatim: an Elyos GENERAL npc whose talk distance is 5 (talk_info), without equipment */
 constexpr std::string_view TESTNPC_02_XML =
-	R"(<npc_template npc_id="207016" level="1" name="testnpc 02" name_id="355747" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="useitem" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	R"(<npc_template npc_id="207016" level="1" name="testnpc 02" name_id="355747" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="useitem" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="139" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" is_dialog="true" can_talk_invisible="false" />

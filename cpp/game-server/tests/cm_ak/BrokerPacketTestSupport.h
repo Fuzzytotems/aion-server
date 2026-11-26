@@ -62,7 +62,7 @@ inline constexpr int32_t SORT_PRICE_DESC = 5;
 
 /** npc_templates.xml:547154-547160, verbatim */
 inline constexpr std::string_view TRADE_BROKER_XML = R"(<npc_templates>
-	<npc_template npc_id="831377" level="1" name="trade broker" name_id="463114" height="1.375" title_id="370503" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="831377" level="1" name="trade broker" name_id="463114" title_id="370503" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>

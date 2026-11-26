@@ -14,6 +14,8 @@
 #include <vector>
 
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
@@ -95,6 +97,11 @@ class EmotionRunTest : public InWorldPacketTest {
 protected:
 	void SetUp() override {
 		InWorldPacketTest::SetUp();
+		// EmotionList.canUse asks ItemData for the learnable emotions since upstream f7230c5fa: an empty item holder (no emotion is learnable)
+		if (!dataholders::DataManager::ITEM_DATA) {
+			dataholders::DataManager::ITEM_DATA.publish(std::make_unique<dataholders::ItemData>());
+			publishedItemData = true;
+		}
 		configs::main::CustomConfig::CANCEL_ITEM_USE_ON_TARGET_CHANGE.store(true); // gameserver.custom properties default
 		actor = makePlayer(100001, 9001, "Actor");
 		client = std::make_unique<TestClient>();
@@ -107,8 +114,12 @@ protected:
 			actor.player->setClientConnection(nullptr);
 		client.reset();
 		actor = {};
+		if (publishedItemData)
+			dataholders::DataManager::ITEM_DATA.resetForTests();
 		InWorldPacketTest::TearDown();
 	}
+
+	bool publishedItemData = false;
 
 	/** Reads and runs one CM_EMOTION, after dropping whatever was queued before */
 	void emote(const std::vector<uint8_t>& packetBody) {

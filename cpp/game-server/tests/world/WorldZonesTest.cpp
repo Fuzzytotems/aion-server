@@ -73,7 +73,7 @@ TEST_F(WorldZonesTest, ZoneServiceCreatesTheZoneInstancesOfAMap) {
 
 	const zone::ZoneName* wholeMap = zone::ZoneName::get("210010000");
 	ASSERT_TRUE(zones.contains(wholeMap)) << "WorldZoneTemplate names the whole map zone by the map id";
-	EXPECT_EQ(zones.at(wholeMap)->getZoneTemplate()->getZoneType(), ZoneClassName::DUMMY);
+	EXPECT_TRUE(zones.at(wholeMap)->getZoneTemplate()->isWholeMapZone()); // 51d7a19cb: zone type DUMMY (removed by upstream 2b097879f)
 	EXPECT_EQ(typeid(*zones.at(wholeMap)), typeid(zone::ZoneInstance));
 
 	runtime::Ref<zone::ZoneInstance> fly = zones.at(zone::ZoneName::get("FLY_AREA_210010000"));
@@ -133,10 +133,9 @@ TEST_F(WorldZonesTest, WorldCreatesTheMapsAndTheirInstances) {
 							 "SUB_PRIORITY_210010000"}));
 
 	runtime::Ptr<WorldMap> ishalgen = world.getWorldMap(ISHALGEN);
-	EXPECT_EQ(ishalgen->getInstanceCount(), 3) << "two twins plus one beginner twin";
-	EXPECT_EQ(ishalgen->getAvailableInstanceIds().size(), 3u);
+	EXPECT_EQ(ishalgen->getInstanceCount(), 2) << "two twins; upstream 0199b4b03 removed beginner_twin_count (getBeginnerTwinCount is 0)";
+	EXPECT_EQ(ishalgen->getAvailableInstanceIds().size(), 2u);
 	EXPECT_FALSE(ishalgen->getWorldMapInstance(2)->isBeginnerInstance());
-	EXPECT_TRUE(ishalgen->getWorldMapInstance(3)->isBeginnerInstance());
 
 	runtime::Ptr<WorldMap> dredgion = world.getWorldMap(DREDGION);
 	EXPECT_TRUE(dredgion->isInstanceType());

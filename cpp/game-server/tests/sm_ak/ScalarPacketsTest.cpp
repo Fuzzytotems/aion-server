@@ -37,8 +37,8 @@
 #include "aion/gameserver/model/templates/gather/Material.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
-#include "aion/gameserver/model/templates/item/ResultedItem.bind.h"
-#include "aion/gameserver/model/templates/item/ResultedItem.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.bind.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_RANKING_LEGIONS.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_RANKING_PLAYERS.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ACTION_ANIMATION.h"
@@ -514,13 +514,14 @@ TEST_F(PacketTest, TemplatePackets) {
 		Bytes().H(30002).C(8).D(152000100).D(1).D(2).D(800).D(50).D(1330074).S(l10nOf(2500)).data); // OCCUPIED_BY_OTHER
 	EXPECT_EQ(dataOf(SM_GATHER_UPDATE(gatherable, material, 1, 2, 4, 800, 50)), Bytes().H(30002).C(4).D(152000100).D(1).D(2).D(800).D(50).data);
 
-	// ResultedItem.afterUnmarshal requires the reward item templates as XmlIDs of the same load
+	// DecomposedItem.afterUnmarshal requires the reward item templates as XmlIDs of the same load (C++ interim: the packet lists DecomposedItems)
 	xml::LoadContext decomposables;
 	decomposables.registerXmlId("100", *bindStatic<model::templates::item::ItemTemplate>(R"(<item_template id="100"/>)"));
 	decomposables.registerXmlId("200", *bindStatic<model::templates::item::ItemTemplate>(R"(<item_template id="200"/>)"));
-	const model::templates::item::ResultedItem* first =
-		xml::bindString<model::templates::item::ResultedItem>(decomposables, R"(<item id="100" min_count="2"/>)").release();
-	const model::templates::item::ResultedItem* second = xml::bindString<model::templates::item::ResultedItem>(decomposables, R"(<item id="200"/>)").release();
+	const model::templates::item::DecomposedItem* first =
+		xml::bindString<model::templates::item::DecomposedItem>(decomposables, R"(<item id="100" count="2"/>)").release();
+	const model::templates::item::DecomposedItem* second =
+		xml::bindString<model::templates::item::DecomposedItem>(decomposables, R"(<item id="200"/>)").release();
 	EXPECT_EQ(dataOf(SM_FIRST_SHOW_DECOMPOSABLE(88, {first, second})),
 		Bytes().D(88).D(0).C(2).C(0).D(100).D(2).C(0).C(0).C(0).C(1).C(1).D(200).D(1).C(0).C(0).C(0).C(1).data);
 }

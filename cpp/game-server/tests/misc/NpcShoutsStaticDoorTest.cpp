@@ -65,11 +65,11 @@ constexpr int32_t KEY = items::SPARKIE_CARAPACE_FRAGMENT;
 
 // a minimal row (the npc_template attributes of PortalServiceTest's rows); 798002's aggro range of 20 makes its shout range 20
 constexpr std::string_view NPC_TEMPLATES = R"xml(<npc_templates>
-	<npc_template npc_id="798001" level="1" name="shouter" name_id="300001" height="1" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="dummy" sangle="0" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="798001" level="1" name="shouter" name_id="300001" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="dummy" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="100" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 	</npc_template>
-	<npc_template npc_id="798002" level="1" name="aggressive shouter" name_id="300002" height="1" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="dummy" sangle="0" attack_speed="2000" hpgauge="3" srange="20">
+	<npc_template npc_id="798002" level="1" name="aggressive shouter" name_id="300002" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="dummy" sangle="0" attack_speed="2000" hpgauge="3" srange="20">
 		<stats maxHp="100" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 	</npc_template>

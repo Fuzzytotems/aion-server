@@ -59,7 +59,7 @@ constexpr int32_t SM_QUESTION_WINDOW_OPCODE = ::aion::gameserver::network::aion:
 std::string kiskRow(int32_t npcId, int32_t members) {
 	// npc_templates.xml:440100-440107 with the members count of the case and usemask 0 (Kisk.isUseAllowed: no restriction)
 	return "<npc_template npc_id=\"" + std::to_string(npcId) +
-	       "\" level=\"1\" name=\"portable kisk\" name_id=\"350916\" height=\"2\" group_drop=\"NONE\" rank=\"DISCIPLINED\" rating=\"NORMAL\" "
+	       "\" level=\"1\" name=\"portable kisk\" name_id=\"350916\" group_drop=\"NONE\" rank=\"DISCIPLINED\" rating=\"NORMAL\" "
 	       "race=\"ELYOS\" tribe=\"GENERAL\" type=\"GENERAL\" ai=\"kisk\" srange=\"15\" attack_speed=\"2000\" hpgauge=\"3\"><stats maxHp=\"2961\">"
 	       "<speeds walk=\"1.5\" group_walk=\"1.5\" run=\"6\" run_fight=\"4.2\" group_run_fight=\"4.2\" /></stats><kisk_stats resurrects=\"0\" "
 	       "members=\"" + std::to_string(members) + "\" usemask=\"0\" /><bound_radius front=\"0.25\" side=\"0.35\" upper=\"2\" />"

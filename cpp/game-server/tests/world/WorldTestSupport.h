@@ -16,8 +16,6 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/ZoneData.bind.h"
@@ -40,10 +38,10 @@ inline constexpr int32_t ISHALGEN = 220010000; // 2 twins + 1 beginner twin
 
 /** world_maps.xml of the test maps (the real attribute set of world_maps.xml) */
 inline const char* const WORLD_MAPS_XML = R"(<world_maps>
-	<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0" world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>
-	<map id="400010000" cName="AB1" name="Reshanta" name_id="2" water_level="16" death_level="0" world_type="ABYSS" world_size="512" flags="FLY"/>
-	<map id="300110000" cName="IDAB1" name="Dredgion" name_id="3" water_level="16" death_level="0" world_size="256" instance="true" flags="BIND"/>
-	<map id="220010000" cName="DF1" name="Ishalgen" name_id="4" water_level="16" death_level="0" world_size="256" twin_count="2" beginner_twin_count="1" flags="RIDE"/>
+	<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>
+	<map id="400010000" cName="AB1" name="Reshanta" name_id="2" water_level="16" world_type="ABYSS" world_size="512" flags="FLY"/>
+	<map id="300110000" cName="IDAB1" name="Dredgion" name_id="3" water_level="16" world_size="256" instance="true" flags="BIND"/>
+	<map id="220010000" cName="DF1" name="Ishalgen" name_id="4" water_level="16" world_size="256" twin_count="2" flags="RIDE"/>
 </world_maps>)";
 
 /**
@@ -93,7 +91,6 @@ inline bool publishTestStaticData() {
 		xml::LoadContext context;
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(context, WORLD_MAPS_XML));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(context, ZONES_XML));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(context, "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(xml::bindString<dataholders::MaterialData>(context, "<material_templates/>"));
 		publishedData = PublishedData::TEST;
 	}

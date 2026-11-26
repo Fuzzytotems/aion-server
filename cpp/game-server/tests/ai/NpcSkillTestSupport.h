@@ -104,69 +104,69 @@ inline constexpr int32_t SUMMON_ROCK = 20986;
 /** npc_templates.xml, verbatim except the <equipment> of the templates that have one (see the file comment) */
 inline const char* const NPC_SKILL_NPC_TEMPLATES_XML =
 	// npcs/npc_templates.xml:54505-54510
-	R"(<npc_template npc_id="210133" level="1" name="striped kerub" name_id="300110" height="1.372" group_drop="CHERUBIM" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="210133" level="1" name="striped kerub" name_id="300110" group_drop="CHERUBIM" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="aggressive" srange="7" sangle="240" arange="2" attack_speed="2100")"
 	R"( hpgauge="3"><stats maxHp="143"><speeds walk="0.6" group_walk="0.6" run="7" run_fight="5.5" group_run_fight="7" /></stats>)"
 	R"(<bound_radius front="0.525" side="0.275" upper="1.372" /></npc_template>)"
 	// npcs/npc_templates.xml:372957-372962
-	R"(<npc_template npc_id="282949" level="1" name="tamed pagati" name_id="342548" height="2.1" group_drop="DRAKANSTRIDER" rank="NOVICE")"
+	R"(<npc_template npc_id="282949" level="1" name="tamed pagati" name_id="342548" group_drop="DRAKANSTRIDER" rank="NOVICE")"
 	R"( rating="NORMAL" tribe="HOSTILEONLYMONSTER" ai="homing" srange="10" arange="3" attack_speed="2400" hpgauge="2"><stats maxHp="5547">)"
 	R"(<speeds walk="2.1" group_walk="2.1" run="10" run_fight="10" group_run_fight="10" /></stats>)"
 	R"(<bound_radius front="0.525" side="1.75" upper="2.1" /></npc_template>)"
 	// npcs/npc_templates.xml:567937-567942
-	R"(<npc_template npc_id="855799" level="65" name="apparition of lanmark" name_id="333755" height="2.86" title_id="334663")"
+	R"(<npc_template npc_id="855799" level="65" name="apparition of lanmark" name_id="333755" title_id="334663")"
 	R"( group_drop="DEATHKNIGHT" rank="MASTER" rating="HERO" tribe="AGGRESSIVESINGLEMONSTER" type="MONSTER" ai="aggressive_stonespear" srange="50")"
 	R"( arange="2" attack_speed="1900" hpgauge="22" cancel_level="0"><stats maxHp="2357195" msup="1150"><speeds walk="1.491" group_walk="1.491")"
 	R"( run="6" run_fight="12" group_run_fight="6" /></stats><bound_radius front="0.6825" side="0.455" upper="2.86" /></npc_template>)"
 	// npcs/npc_templates.xml:143349-143357 (without <equipment><item>100001461</item></equipment>)
-	R"(<npc_template npc_id="231105" level="65" name="pashid advance protector" name_id="329273" height="3.77" group_drop="DRAKANFIGHTER")"
+	R"(<npc_template npc_id="231105" level="65" name="pashid advance protector" name_id="329273" group_drop="DRAKANFIGHTER")"
 	R"( rank="SEASONED" rating="ELITE" race="SIEGEDRAKAN" tribe="IDF5_TD_ASSULT" type="MONSTER" ai="eternal_bastion_assaulter" srange="7")"
 	R"( sangle="240" arange="2" attack_speed="2100" hpgauge="12" cancel_level="30"><stats maxHp="140514" msup="151" attack="2124" pdef="1494")"
 	R"( matk="447" mdef="532" accuracy="3263" macc="1853" strike_resist="556" spell_resist="167"><speeds walk="1.37" group_walk="1.37" run="8")"
 	R"( run_fight="8" group_run_fight="10" /></stats><bound_radius front="1.3" side="0.845" upper="3.77" /></npc_template>)"
 	// npcs/npc_templates.xml:191216-191224 (without <equipment><item>100001144</item></equipment>)
-	R"(<npc_template npc_id="235763" level="65" name="runaway hirakiki leader" name_id="333834" height="1.63" title_id="349943")"
+	R"(<npc_template npc_id="235763" level="65" name="runaway hirakiki leader" name_id="333834" title_id="349943")"
 	R"( group_drop="SHULACKPRIEST" rank="VETERAN" rating="HERO" race="SHULACK" tribe="IDF5U1_VRITRA" type="MONSTER" ai="aggressive" srange="20")"
 	R"( arange="2" attack_speed="2040" hpgauge="21"><stats maxHp="671820" msup="957"><speeds walk="1.6" group_walk="1.6" run="7" run_fight="5.5")"
 	R"( group_run_fight="7" /></stats><bound_radius front="0.9" side="0.4" upper="1.63" /></npc_template>)"
 	// npcs/npc_templates.xml:569703-569706
-	R"(<npc_template npc_id="856059" level="1" name=" " name_id="350000" height="1" group_drop="NONE" rank="EXPERT" rating="NORMAL" tribe="USEALL")"
+	R"(<npc_template npc_id="856059" level="1" name=" " name_id="350000" group_drop="NONE" rank="EXPERT" rating="NORMAL" tribe="USEALL")"
 	R"( type="MONSTER" ai="aggressive" srange="5" attack_speed="2000" hpgauge="5" cancel_level="80"><stats maxHp="112" />)"
 	R"(<bound_radius front="0.5" side="0.5" upper="1" /></npc_template>)"
 	// npcs/npc_templates.xml:36469-36473
-	R"(<npc_template npc_id="206292" level="80" name=" " name_id="350000" height="2" group_drop="NONE" rank="EXPERT" rating="NORMAL" tribe="MONSTER")"
+	R"(<npc_template npc_id="206292" level="80" name=" " name_id="350000" group_drop="NONE" rank="EXPERT" rating="NORMAL" tribe="MONSTER")"
 	R"( type="GENERAL" ai="general" srange="10" attack_speed="2000" hpgauge="5" cancel_level="80"><stats maxHp="55684" />)"
 	R"(<bound_radius front="0.25" side="0.35" upper="2" /><talk_info distance="5" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:54673-54681 (without <equipment><item>100000008</item></equipment>)
-	R"(<npc_template npc_id="210161" level="9" name="tursin loudmouth" name_id="300132" height="2.87" group_drop="KRALLWARRIOR" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="210161" level="9" name="tursin loudmouth" name_id="300132" group_drop="KRALLWARRIOR" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="KRALL" tribe="KRALL" type="MONSTER" ai="aggressive" srange="8" sangle="240" arange="2" attack_speed="2100")"
 	R"( hpgauge="3"><stats maxHp="1183"><speeds walk="2" group_walk="2" run="7.6" run_fight="5.5" group_run_fight="7.6" /></stats>)"
 	R"(<bound_radius front="1.35" side="0.7" upper="2.87" /></npc_template>)"
 	// npcs/npc_templates.xml:54682-54690 (without <equipment><item>100000008</item></equipment>)
-	R"(<npc_template npc_id="210162" level="10" name="supervisor duaguru" name_id="300133" height="3.075" group_drop="KRALLWARRIOR")"
+	R"(<npc_template npc_id="210162" level="10" name="supervisor duaguru" name_id="300133" group_drop="KRALLWARRIOR")"
 	R"( rank="SEASONED" rating="NORMAL" race="KRALL" tribe="KRALL" type="MONSTER" ai="aggressive" srange="8" sangle="240" arange="2")"
 	R"( attack_speed="2100" hpgauge="4" cancel_level="90"><stats maxHp="1821"><speeds walk="2" group_walk="2" run="7.6" run_fight="5.5")"
 	R"( group_run_fight="7.6" /></stats><bound_radius front="2.025" side="1.05" upper="3.075" /></npc_template>)"
 	// npcs/npc_templates.xml:435272-435280 (without <equipment><item>100501195</item></equipment>)
-	R"(<npc_template npc_id="297192" level="65" name="ahserion troopers sorcerer" name_id="330922" height="2.45" title_id="332402")"
+	R"(<npc_template npc_id="297192" level="65" name="ahserion troopers sorcerer" name_id="330922" title_id="332402")"
 	R"( group_drop="DRAKANMAGEF" rank="VETERAN" rating="ELITE" tribe="GAB1_SUB_DRAKAN" ai="ahserion_sorcerer" srange="15" arange="37")"
 	R"( attack_speed="2300" hpgauge="14" cancel_level="20"><stats maxHp="239546" msup="817" attack="4282" matk="4282" accuracy="4091")"
 	R"( macc="2260"><speeds walk="1.5" group_walk="1.5" run="6.8" run_fight="6.8" group_run_fight="6.8" /></stats>)"
 	R"(<bound_radius front="0.7" side="0.525" upper="2.45" /></npc_template>)"
 	// npcs/npc_templates.xml:373871-373876
-	R"(<npc_template npc_id="283139" level="60" name="divisive creation" name_id="326675" height="2.46" group_drop="CYCLOPS" rank="VETERAN")"
+	R"(<npc_template npc_id="283139" level="60" name="divisive creation" name_id="326675" group_drop="CYCLOPS" rank="VETERAN")"
 	R"( rating="ELITE" tribe="XDRAKAN" type="MONSTER" ai="divisive_creation" srange="15" arange="2" attack_speed="2205" hpgauge="14")"
 	R"( cancel_level="20"><stats maxHp="217224" msup="207"><speeds walk="1.07" group_walk="1.38" run="9" run_fight="12" group_run_fight="7" />)"
 	R"(</stats><bound_radius front="0.72" side="1.8" upper="2.46" /></npc_template>)"
 	// npcs/npc_templates.xml:140385-140393 (without <equipment><item>100001461</item></equipment>)
-	R"(<npc_template npc_id="230745" level="65" name="pashid assault tribuni protector" name_id="343185" height="4.35" title_id="344518")"
+	R"(<npc_template npc_id="230745" level="65" name="pashid assault tribuni protector" name_id="343185" title_id="344518")"
 	R"( group_drop="DRAKANFIGHTER" rank="VETERAN" rating="ELITE" race="DRAKAN" tribe="VRITRASUPPORT" type="MONSTER")"
 	R"( ai="eternal_bastion_assaulter" srange="10" sangle="240" arange="2" attack_speed="2100" hpgauge="14" cancel_level="20">)"
 	R"(<stats maxHp="420643" msup="817" attack="3009" pdef="1551" mdef="553" accuracy="3576" macc="1950" strike_resist="700")"
 	R"( spell_resist="237"><speeds walk="1.37" group_walk="1.37" run="8" run_fight="8" group_run_fight="10" /></stats>)"
 	R"(<bound_radius front="1.45" side="1.16" upper="4.35" /></npc_template>)"
 	// npcs/npc_templates.xml:50452-50467 (without the <equipment> of eight items)
-	R"(<npc_template npc_id="209556" level="65" name="granir's disciple" name_id="463153" height="2.3" title_id="463660" group_drop="DARK")"
+	R"(<npc_template npc_id="209556" level="65" name="granir's disciple" name_id="463153" title_id="463660" group_drop="DARK")"
 	R"( rank="EXPERT" rating="NORMAL" race="ASMODIANS" tribe="IDF5_TD_GUARD_DARK" type="ABYSS_GUARD" ai="eternal_bastion_aggressive")"
 	R"( srange="10" arange="4" attack_speed="2100" hpgauge="5" cancel_level="80"><stats maxHp="32333" attack="1340" pdef="1316" matk="374")"
 	R"( mdef="469" accuracy="2662" macc="1575" strike_resist="272" spell_resist="105"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="8")"

@@ -14,6 +14,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include "aion/gameserver/skillengine/effect/SubEffect.bind.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+#include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
@@ -40,6 +43,13 @@
 
 namespace aion::gameserver::skillengine::effecttest {
 namespace {
+
+/** SubEffect is a behaviour class with private members since upstream 6c6eee658: bound from XML */
+std::unique_ptr<effect::SubEffect> subEffectOf(int32_t skillId, int32_t chance) {
+	static xml::LoadContext context;
+	return xml::bindString<effect::SubEffect>(context,
+		"<subeffect skill_id=\"" + std::to_string(skillId) + "\" chance=\"" + std::to_string(chance) + "\"/>");
+}
 
 using controllers::attack::AttackStatus;
 using gameserver::model::SkillElement;
@@ -795,8 +805,7 @@ TEST_F(EffectLifecycleTest, ApplyEffectAppliesThePositionsInOrderWhileTheEffecte
 	despawned->getPosition()->setIsSpawned(false);
 	Journal journal;
 	auto withSubEffect = [](std::unique_ptr<ProbeEffect> p) {
-		p->subEffect = std::make_unique<effect::SubEffect>();
-		p->subEffect->skillId = 9215;
+		p->subEffect = subEffectOf(9215, 100);
 		return p;
 	};
 	std::vector<std::unique_ptr<effect::EffectTemplate>> reversed;
@@ -1054,9 +1063,7 @@ TEST_F(EffectLifecycleTest, SubEffectsAreCalculatedOnlyForAnEffectThatLaunchesTh
 	Ref<Npc> target = makeNpc(700361);
 	Journal journal;
 	auto launcher = probe("e1", &journal, 1);
-	launcher->subEffect = std::make_unique<effect::SubEffect>();
-	launcher->subEffect->skillId = 9262;
-	launcher->subEffect->chance = 0;
+	launcher->subEffect = subEffectOf(9262, 0);
 	const model::SkillTemplate* skill = keep(skillWithProbes(skillXml(9261, "LAUNCHER", R"(tslot="DEBUFF")"), probeList(std::move(launcher))));
 	const std::vector<float> stream = chanceStream(SEED, 2);
 

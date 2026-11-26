@@ -88,8 +88,8 @@ TEST(QuestTemplatesTest, ListsAndFlags) {
 	EXPECT_EQ(quest->getQuestDrop()[1].getQuestId(), std::nullopt) << "set by the holder, not by binding";
 
 	ASSERT_EQ(quest->getQuestKill().size(), 1u);
-	EXPECT_EQ(quest->getQuestKill()[0].getNpcIds(), (std::vector<int32_t>{10, 11}));
-	EXPECT_EQ(quest->getQuestKill()[0].getNpcIds(), (std::vector<int32_t>{10, 11})) << "a second call returns the same ids";
+	ASSERT_TRUE(quest->getQuestKill()[0].getNpcIds().has_value()) << "a data struct since upstream 15eaf77b6: null without npc_ids";
+	EXPECT_EQ(*quest->getQuestKill()[0].getNpcIds(), (std::vector<int32_t>{10, 11}));
 	EXPECT_EQ(quest->getClassPermitted(), (std::vector<PlayerClass>{PlayerClass::GLADIATOR, PlayerClass::CLERIC}));
 	EXPECT_EQ(quest->getSelectableRewardByClass(PlayerClass::GLADIATOR).size(), 1u);
 	EXPECT_EQ(quest->getSelectableRewardByClass(PlayerClass::GLADIATOR)[0].getCount(), 3);

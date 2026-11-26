@@ -19,8 +19,6 @@
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/dataholders/MotionData.bind.h"
 #include "aion/gameserver/dataholders/MotionData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/ZoneData.bind.h"

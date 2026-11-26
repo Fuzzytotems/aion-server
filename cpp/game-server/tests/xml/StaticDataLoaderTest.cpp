@@ -318,10 +318,10 @@ TEST(StaticDataRealFilesTest, EveryImportedFileParsesAndMatchesAnIndependentNode
 	auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 	std::cout << "parsed " << files << " files, " << bytes << " bytes, " << elements << " elements, " << attributes << " attributes in " << millis
 	          << " ms\n";
-	// expected values: Python xml.parsers.expat over the same 664 files (xmlns declarations counted as attributes)
-	EXPECT_EQ(files, 664u);
-	EXPECT_EQ(elements, 2106068u);
-	EXPECT_EQ(attributes, 6661924u);
+	// expected values: Python xml.parsers.expat over the same 668 files of 68eccc7b1 (xmlns declarations counted as attributes)
+	EXPECT_EQ(files, 668u);
+	EXPECT_EQ(elements, 2142926u);
+	EXPECT_EQ(attributes, 6685599u);
 }
 
 } // namespace

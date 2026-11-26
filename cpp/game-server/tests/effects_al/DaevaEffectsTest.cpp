@@ -909,10 +909,10 @@ TEST_F(DaevaEffectsTest, DashAttackMovesTheAssassinInFrontOfTheTarget) {
 	Ref<Effect> effect = Effect::create(*skill, Ptr<Creature>(npc));
 	effect->initialize();
 	EXPECT_EQ(effect->getDashStatus(), model::DashStatus::DASH);
-	EXPECT_EQ(skill->getX(), 508.75f);
+	EXPECT_EQ(skill->getX(), 508.5f) << "the monster has the default cylinder (0.25 since upstream da540feec): 1.25 + 0.25";
 	EXPECT_EQ(skill->getY(), 500.0f);
 	EXPECT_EQ(skill->getZ(), 100.0f);
-	EXPECT_EQ(assassin->getX(), 508.75f) << "World.updatePosition(effector, ...)";
+	EXPECT_EQ(assassin->getX(), 508.5f) << "World.updatePosition(effector, ...)";
 	EXPECT_EQ(assassin->getY(), 500.0f);
 	EXPECT_EQ(assassin->getZ(), 100.0f);
 	EXPECT_EQ(assassin->getHeading(), 0) << "the heading towards the target";
@@ -924,7 +924,8 @@ TEST_F(DaevaEffectsTest, DashAttackMovesTheAssassinInFrontOfTheTarget) {
  * (float) toDegrees(atan2(5, 10)) = 26.565052f, getHeadingTowards = (byte) (26.565052f / 3) = (byte) 8.855018f = 8, convertHeadingToAngle(8)
  * = 24 degrees (the heading's rounding moves the point), radian = toRadians(24.0). The point is (510 + (float) cos(PI + radian) * 1.25f,
  * 505 + (float) sin(PI + radian) * 1.25f) = (510 + -0.9135454f * 1.25f, 505 + -0.40673664f * 1.25f) = (510 - 1.1419318f, 505 - 0.5084208f)
- * = (508.85806f, 504.49158f): on the Assassin's side of the monster on both axes.
+ * = (508.85806f, 504.49158f): on the Assassin's side of the monster on both axes. Since upstream da540feec the monster without bounds has
+ * the default cylinder (front/side 0.25), so the distance is 1.5f: (508.62967f, 504.3899f).
  */
 TEST_F(DaevaEffectsTest, ADiagonalDashStopsOnTheAssassinsSideOfTheTarget) {
 	EFFECT_TEST_SCOPE;
@@ -936,11 +937,11 @@ TEST_F(DaevaEffectsTest, ADiagonalDashStopsOnTheAssassinsSideOfTheTarget) {
 	Ref<Effect> effect = Effect::create(*skill, Ptr<Creature>(npc));
 	effect->initialize();
 	EXPECT_EQ(effect->getDashStatus(), model::DashStatus::DASH);
-	EXPECT_EQ(skill->getX(), 508.858063f);
-	EXPECT_EQ(skill->getY(), 504.491577f);
+	EXPECT_EQ(skill->getX(), 508.629669f);
+	EXPECT_EQ(skill->getY(), 504.389893f);
 	EXPECT_EQ(skill->getH(), 8);
-	EXPECT_EQ(assassin->getX(), 508.858063f) << "World.updatePosition(effector, ...)";
-	EXPECT_EQ(assassin->getY(), 504.491577f);
+	EXPECT_EQ(assassin->getX(), 508.629669f) << "World.updatePosition(effector, ...)";
+	EXPECT_EQ(assassin->getY(), 504.389893f);
 	EXPECT_EQ(assassin->getHeading(), 8) << "(byte) (26.565052f / 3)";
 }
 

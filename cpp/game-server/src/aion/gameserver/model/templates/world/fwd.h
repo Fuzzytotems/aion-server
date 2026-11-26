@@ -2,6 +2,8 @@
 // Regenerate after adding a Java class or regenerating xmlgen: python cpp/tools/gen/skeleton.py --fwd --out cpp/game-server/src
 #pragma once
 
+#include <cstdint>
+
 namespace aion::gameserver::model::templates::world {
 
 struct AiInfo;

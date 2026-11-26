@@ -388,7 +388,7 @@ constexpr const char* ITEMS_XML =
 /** npc_templates.xml:1959-1973, without its <equipment> (:1963-1970) */
 constexpr const char* NPCS_XML =
 	R"(<npc_templates>)"
-	R"(<npc_template npc_id="203057" level="20" name="mires" name_id="351103" height="2" title_id="350496" group_drop="LIGHT")"
+	R"(<npc_template npc_id="203057" level="20" name="mires" name_id="351103" title_id="350496" group_drop="LIGHT")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240")"
 	R"( arange="2" attack_speed="2000" hpgauge="3"><stats maxHp="2961"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2")"
 	R"( group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="2" /><talk_info distance="5" is_dialog="true")"

@@ -52,7 +52,7 @@ using runtime::Ref;
 /** npc_templates.xml, verbatim rows (the lines of each row in the comment above it) */
 constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 	<!-- :461604-461610, BUY and SELL, with a tradelist_template -->
-	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" height="1.16875" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798007" level="9" name="minalinerk" name_id="351126" title_id="350377" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -60,7 +60,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :462170-462176, BUY and SELL, no tradelist_template -->
-	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" height="1.16875" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="14535">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -68,7 +68,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :461611-461617, a tradelist_template but only EXTEND_INVENTORY (47) -->
-	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" height="1.16875" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
 		<stats maxHp="2568">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -76,7 +76,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :341797-341803, TRADE_SELL_LIST with a purchase_template -->
-	<npc_template npc_id="279058" level="40" name="amarunerk" name_id="314047" height="1.16875" title_id="314359" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="300" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="279058" level="40" name="amarunerk" name_id="314047" title_id="314359" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" sangle="300" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9419">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -84,7 +84,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="103" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :485469-485483, a purchase_template but only BUY -->
-	<npc_template npc_id="800588" level="65" name="dita" name_id="372663" height="2.5" title_id="370482" group_drop="LIGHT" rank="DISCIPLINED" rating="ELITE" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2100" hpgauge="11" cancel_level="40">
+	<npc_template npc_id="800588" level="65" name="dita" name_id="372663" title_id="370482" group_drop="LIGHT" rank="DISCIPLINED" rating="ELITE" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2100" hpgauge="11" cancel_level="40">
 		<stats maxHp="403456">
 			<speeds walk="1.457" group_walk="1.457" run="6" run_fight="8" group_run_fight="6" />
 		</stats>
@@ -100,7 +100,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="2" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :501658-501671, TRADE_SELL_LIST without a purchase_template -->
-	<npc_template npc_id="801968" level="65" name="epina" name_id="463649" height="2.5" title_id="463648" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="801968" level="65" name="epina" name_id="463649" title_id="463648" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="26116">
 			<speeds walk="1.457" group_walk="1.457" run="6" run_fight="8" group_run_fight="6" />
 		</stats>
@@ -115,7 +115,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="103" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :487514-487520, TRADE_IN with a trade_in_list_template -->
-	<npc_template npc_id="800735" level="60" name="bellmarinerk" name_id="372810" height="1.16875" title_id="463225" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="800735" level="60" name="bellmarinerk" name_id="372810" title_id="463225" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="23691">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -123,7 +123,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" is_dialog="true" func_dialogs="78" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :490432-490438, a trade_in_list_template but no function dialog -->
-	<npc_template npc_id="800953" level="1" name="testonlynpc_item08" name_id="462972" height="1.375" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="800953" level="1" name="testonlynpc_item08" name_id="462972" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="USEALL" type="GENERAL" ai="general" srange="20" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="23691">
 			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
 		</stats>
@@ -131,7 +131,7 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		<talk_info distance="5" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :483062-483068, TRADE_IN without a trade_in_list_template -->
-	<npc_template npc_id="800371" level="1" name="kyrshaka" name_id="356089" height="2.52" title_id="370493" group_drop="DRAKANFIGHTER" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="XDRAKAN_UNATTACK" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="800371" level="1" name="kyrshaka" name_id="356089" title_id="370493" group_drop="DRAKANFIGHTER" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="XDRAKAN_UNATTACK" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="23691">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="7" group_run_fight="6" />
 		</stats>

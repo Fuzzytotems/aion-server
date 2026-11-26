@@ -1,6 +1,6 @@
 // P4-07a item templates (docs/design/handlers-and-porting-plan.md §3.2): the enum companions, the binder hooks and setters of the item package
 // on small XML fixtures, and the logic methods. Expected values are derived by hand from the Java sources (ItemTemplate.java, ItemGroup.java,
-// ItemSlot.java, ItemMask.java, RandomItem.java, ResultedItem.java, Stigma.java, ...).
+// ItemSlot.java, ItemMask.java, DecomposableItem.java, DecomposableSet.java, DecomposedItem.java, Stigma.java, ...).
 
 #include <gtest/gtest.h>
 
@@ -20,15 +20,14 @@
 #include "aion/gameserver/model/templates/item/AcquisitionTypeInfo.h"
 #include "aion/gameserver/model/templates/item/AssembledItem.h"
 #include "aion/gameserver/model/templates/item/AssemblyItem.bind.h"
-#include "aion/gameserver/model/templates/item/ExtractedItemsCollection.bind.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.bind.h"
+#include "aion/gameserver/model/templates/item/DecomposableSet.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.bind.h"
 #include "aion/gameserver/model/templates/item/ItemActivationTargetInfo.h"
 #include "aion/gameserver/model/templates/item/ItemAttackTypeInfo.h"
 #include "aion/gameserver/model/templates/item/ItemQualityInfo.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
-#include "aion/gameserver/model/templates/item/RandomItem.bind.h"
-#include "aion/gameserver/model/templates/item/RandomTypeInfo.h"
 #include "aion/gameserver/model/templates/item/RequireSkill.h"
-#include "aion/gameserver/model/templates/item/ResultedItem.bind.h"
 #include "aion/gameserver/model/templates/item/ReturnLocList.bind.h"
 #include "aion/gameserver/model/templates/item/Stigma.bind.h"
 #include "aion/gameserver/model/templates/item/TradeinItem.bind.h"
@@ -99,8 +98,6 @@ static_assert(getRace(ItemActivationTarget::KRALL) == Race::KRALL && !getRace(It
 static_assert(isMagical(ItemAttackType::MAGICAL_WIND) && getMagicalElement(ItemAttackType::MAGICAL_WIND) == SkillElement::WIND);
 static_assert(!isMagical(ItemAttackType::PHYSICAL) && getMagicalElement(ItemAttackType::PHYSICAL) == SkillElement::NONE);
 static_assert(getQualityId(ItemQuality::JUNK) == 0 && getQualityId(ItemQuality::MYTHIC) == 6);
-static_assert(getLevel(RandomType::ENCHANTMENT) == 0 && getLevel(RandomType::MANASTONE_RARE_GRADE_40) == 40);
-static_assert(getLevel(RandomType::SPECIAL_MANASTONE_EPIC_GRADE) == 70 && getLevel(RandomType::PREMIUM_OPHIDAN_RECIPE) == 0);
 static_assert(getRequiredSlots(WeaponType::DAGGER_1H) == 1 && getRequiredSlots(WeaponType::KEYHAMMER_2H) == 2);
 static_assert(getMask(WeaponType::DAGGER_1H) == 1 && getMask(WeaponType::BOW) == (1 << 12));
 
@@ -289,68 +286,57 @@ TEST(ItemTemplateTest, UseLimitsAndWorldRestrictions) {
 	EXPECT_TRUE(limits->verifyRank(9));
 	EXPECT_FALSE(limits->verifyRank(2));
 	EXPECT_FALSE(limits->verifyRank(10));
-	EXPECT_EQ(limits->getUseArea(), nullptr);
+	EXPECT_EQ(limits->getUseArea(), "") << "the String of upstream 4617c9fd2, empty for Java null";
+	EXPECT_EQ(limits->getUseAreaZoneName(), nullptr);
 	EXPECT_FALSE(bindXml<ItemTemplate>(R"(<item_template id="1"><uselimits/></item_template>)")->getUseLimits()->isRideUsable()) << "Boolean null";
 	EXPECT_FALSE(bindXml<ItemTemplate>(R"(<item_template id="1"/>)")->isItemRestrictedToWorld(1)) << "empty ownership worlds";
 }
 
 // ---- small item classes ------------------------------------------------------------------------------------------------------------------------
 
-TEST(ItemTemplatePartsTest, RandomItemHookDefaultsAndValidatesCounts) {
-	EXPECT_EQ(bindXml<RandomItem>(R"(<random_item type="ENCHANTMENT" min_count="3"/>)")->getMaxCount(), 3) << "max_count 0 becomes min_count";
-	EXPECT_EQ(bindXml<RandomItem>(R"(<random_item type="ENCHANTMENT"/>)")->getMaxCount(), 1);
-	EXPECT_EQ(bindXml<RandomItem>(R"(<random_item type="ENCHANTMENT" min_count="2" max_count="5"/>)")->getMaxCount(), 5);
-	try {
-		bindXml<RandomItem>(R"(<random_item type="POTION" min_count="0"/>)");
-		FAIL() << "min_count 0 must fail";
-	} catch (const xml::StaticDataException& e) {
-		EXPECT_NE(std::string(e.what()).find("Decomposable random reward item of type POTION min_count (0) must be greater than 0"), std::string::npos)
-			<< e.what();
-	}
-	try {
-		bindXml<RandomItem>(R"(<random_item min_count="4" max_count="3"/>)");
-		FAIL() << "max_count below min_count must fail";
-	} catch (const xml::StaticDataException& e) {
-		EXPECT_NE(std::string(e.what()).find("of type null max_count (3) must be unset or greater than min_count (4)"), std::string::npos) << e.what();
-	}
-}
-
-TEST(ItemTemplatePartsTest, ResultedItemHookChecksTheItemIdAgainstTheLoadedItems) {
+TEST(ItemTemplatePartsTest, DecomposedItemHookChecksTheItemCountAndChance) {
+	// upstream d254ea172 (DecomposedItem.java:23-31)
 	xml::LoadContext context;
 	std::unique_ptr<ItemTemplate> item = bindXml<ItemTemplate>(context, R"(<item_template id="188051234"/>)");
-	std::unique_ptr<ResultedItem> resulted = bindXml<ResultedItem>(context, R"(<item id="188051234" min_count="2"/>)");
-	EXPECT_EQ(resulted->getMaxCount(), 2);
-	EXPECT_EQ(resulted->getRace(), Race::PC_ALL);
-	try {
-		bindXml<ResultedItem>(context, R"(<item id="188059999"/>)");
-		FAIL() << "an unknown item id must fail";
-	} catch (const xml::StaticDataException& e) {
-		EXPECT_NE(std::string(e.what()).find("Decomposable reward item ID is invalid: 188059999"), std::string::npos) << e.what();
-	}
-	try {
-		bindXml<ResultedItem>(context, R"(<item id="188051234" min_count="5" max_count="1"/>)");
-		FAIL() << "max_count below min_count must fail";
-	} catch (const xml::StaticDataException& e) {
-		EXPECT_NE(std::string(e.what()).find("Decomposable reward item [188051234] max_count (1) must be unset or greater than min_count (5)"),
-			std::string::npos)
-			<< e.what();
-	}
+	std::unique_ptr<DecomposedItem> decomposed = bindXml<DecomposedItem>(context, R"(<item id="188051234"/>)");
+	EXPECT_EQ(decomposed->getCount(), 1) << "Java: count = 1";
+	EXPECT_FLOAT_EQ(decomposed->getChance(), 100.0f);
+	auto failsWith = [&context](const char* xmlText, const std::string& message) {
+		try {
+			bindXml<DecomposedItem>(context, xmlText);
+			ADD_FAILURE() << xmlText << " must fail";
+		} catch (const xml::StaticDataException& e) {
+			EXPECT_NE(std::string(e.what()).find(message), std::string::npos) << e.what();
+		}
+	};
+	failsWith(R"(<item id="188059999"/>)", "Decomposable reward item ID is invalid: 188059999");
+	failsWith(R"(<item id="188051234" count="0"/>)", "Decomposable reward item [188051234] count (0) must be greater than 0");
+	failsWith(R"(<item id="188051234" chance="100.5"/>)", "Decomposable reward item [188051234] chance (100.5) must be within (0, 100]");
+	failsWith(R"(<item id="188051234" chance="0"/>)", "chance (0.0) must be within (0, 100]");
+	EXPECT_FLOAT_EQ(bindXml<ReturnLocList>(context, R"(<return index="3" worldid="210010000"/>)")->getIndex(), 3.0f);
 }
 
-TEST(ItemTemplatePartsTest, ResultedItemsCollectionListsAreEmptyWhenAbsent) {
+TEST(ItemTemplatePartsTest, DecomposableItemHookChecksSelectableAndOverrideSets) {
 	xml::LoadContext context;
 	bindXml<ItemTemplate>(context, R"(<item_template id="1"/>)");
-	std::unique_ptr<ExtractedItemsCollection> collection =
-		bindXml<ExtractedItemsCollection>(context, R"(<items minlevel="10"><item id="1"/><random_item type="SCROLLS"/></items>)");
-	EXPECT_EQ(collection->getItems().size(), 1u);
-	EXPECT_EQ(collection->getRandomItems().size(), 1u);
-	EXPECT_EQ(collection->getMinLevel(), 10);
-	EXPECT_EQ(collection->getMaxLevel(), 99);
-	EXPECT_FLOAT_EQ(collection->getChance(), 100.0f);
-	std::unique_ptr<ExtractedItemsCollection> empty = bindXml<ExtractedItemsCollection>(context, R"(<items/>)");
-	EXPECT_TRUE(empty->getItems().empty()) << "Collections.emptyList()";
-	EXPECT_TRUE(empty->getRandomItems().empty());
-	EXPECT_FLOAT_EQ(bindXml<ReturnLocList>(context, R"(<return index="3" worldid="210010000"/>)")->getIndex(), 3.0f);
+	std::unique_ptr<DecomposableItem> onlyOne = bindXml<DecomposableItem>(context,
+		R"(<decomposable item_id="7" only_one="true"><set chance="50"><item id="1"/></set><set chance="5"><item id="1"/></set>)"
+		R"(<set chance="50" min_level="10"><item id="1"/></set></decomposable>)");
+	ASSERT_EQ(onlyOne->getSets().size(), 3u);
+	EXPECT_FLOAT_EQ(onlyOne->getSets()[0].getChance(), 5.0f) << "only_one: the rarest branch first (a stable sort)";
+	EXPECT_EQ(onlyOne->getSets()[2].getItems().size(), 1u);
+	EXPECT_TRUE(bindXml<DecomposableItem>(context, R"(<decomposable item_id="8"/>)")->getSets().empty()) << "Collections.emptyList()";
+	EXPECT_TRUE(bindXml<DecomposableItem>(context, R"(<decomposable item_id="9"><set/></decomposable>)")->getSets()[0].getItems().empty());
+	EXPECT_THROW(bindXml<DecomposableItem>(context, R"(<decomposable item_id="10" selectable="true"><set chance="50"><item id="1"/></set></decomposable>)"),
+		xml::StaticDataException) << "selectable sets have no chances";
+	EXPECT_THROW(bindXml<DecomposableItem>(context, R"(<decomposable item_id="11" selectable="true"><set><item id="1" chance="20"/></set></decomposable>)"),
+		xml::StaticDataException);
+	EXPECT_THROW(bindXml<DecomposableItem>(context,
+		R"(<decomposable item_id="12" override="true"><set><item id="1" chance="60"/><item id="1" chance="40.2"/></set></decomposable>)"),
+		xml::StaticDataException) << "an override set must not exceed 100 %";
+	EXPECT_NO_THROW(bindXml<DecomposableItem>(context,
+		R"(<decomposable item_id="13"><set><item id="1" chance="60"/><item id="1" chance="40.2"/></set></decomposable>)"))
+		<< "only override entries are checked";
 }
 
 TEST(ItemTemplatePartsTest, StigmaHookBuildsTheSkillGroups) {

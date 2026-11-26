@@ -108,12 +108,12 @@ inline constexpr std::string_view EXTRA_ITEM_TEMPLATES_XML = R"xml(
 	</item_template>
 </item_templates>)xml";
 
-/** decomposable_items.xml:3-7 */
+/** decomposable_items.xml:3-7 (the format of upstream d254ea172) */
 inline constexpr std::string_view DECOMPOSABLE_ITEMS_XML = R"xml(<decomposable_items>
 	<decomposable item_id="152000065">
-		<items>
-			<item id="152000064" min_count="2" />
-		</items>
+		<set>
+			<item id="152000064" count="2" />
+		</set>
 	</decomposable>
 </decomposable_items>)xml";
 

@@ -347,43 +347,34 @@ inline constexpr std::string_view ENHANCE_ITEM_TEMPLATES_XML = R"xml(<item_templ
 	</item_template>
 </item_templates>)xml";
 
-/** decomposable_items.xml, verbatim rows (the line of each <decomposable> in the comment above it) */
+/** decomposable_items.xml rows of 51d7a19cb, converted to the format of upstream d254ea172 (<set> instead of <items>, count instead of
+ * min_count, race on the set; the shipped rows changed, wave 5 rewrites the decomposable cases against them). Line numbers are those of 51d7a19cb. */
 inline constexpr std::string_view ENHANCE_DECOMPOSABLE_ITEMS_XML = R"xml(<decomposable_items>
 	<!-- :3 -->
 	<decomposable item_id="152000065"><!-- Juicy Pepento -->
-		<items>
-			<item id="152000064" min_count="2" /><!-- Pepento -->
-		</items>
-	</decomposable>
-	<!-- :4014 -->
-	<decomposable item_id="188050584"><!-- Suspicious Old Sack -->
-		<items>
-			<random_item type="ENCHANTMENT" max_count="3" />
-		</items>
-	</decomposable>
-	<!-- :4024 -->
-	<decomposable item_id="188050586"><!-- Suspicious Red Sack -->
-		<items>
-			<random_item type="ENCHANTMENT" max_count="5" />
-		</items>
+		<set>
+			<item id="152000064" count="2" /><!-- Pepento -->
+		</set>
 	</decomposable>
 	<!-- :4213 -->
 	<decomposable item_id="188050714"><!-- Chocolate Candy Box -->
-		<items>
-			<item id="160010109" min_count="3" race="ELYOS" /><!-- Enamored Tiger Form Candy -->
-			<item id="160010110" min_count="3" race="ASMODIANS" /><!-- Enamored Tiger Form Candy -->
-		</items>
+		<set race="ELYOS">
+			<item id="160010109" count="3" /><!-- Enamored Tiger Form Candy -->
+		</set>
+		<set race="ASMODIANS">
+			<item id="160010110" count="3" /><!-- Enamored Tiger Form Candy -->
+		</set>
 	</decomposable>
 	<!-- :7309 -->
 	<decomposable item_id="188051090" selectable="true"><!-- [Event] Cold Box -->
-		<items>
+		<set>
 			<item id="125045164" /><!-- Rattan Hat -->
 			<item id="125045242" /><!-- Aquablue Sunhat -->
 			<item id="125040180" /><!-- Sports Cap -->
 			<item id="125045297" /><!-- Lawful Shades -->
 			<item id="125045346" /><!-- Dapper Fedora -->
-			<item id="188053609" min_count="3" /><!-- [Event] Level 60 Composite Manastone Bundle -->
-		</items>
+			<item id="188053609" count="3" /><!-- [Event] Level 60 Composite Manastone Bundle -->
+		</set>
 	</decomposable>
 </decomposable_items>)xml";
 
@@ -479,8 +470,8 @@ class EnhanceTest : public ItemServicesTest {
 protected:
 	void SetUp() override {
 		ItemServicesTest::SetUp();
-		// the base fixture's item rows, replaced by this lane's, bound in one load context with the decomposables (ResultedItem finds its item
-		// through the context's XmlIDs, ResultedItem.cpp)
+		// the base fixture's item rows, replaced by this lane's, bound in one load context with the decomposables (DecomposedItem finds its item
+		// through the context's XmlIDs, DecomposedItem.cpp)
 		dataholders::DataManager::ITEM_DATA.resetForTests();
 		xml::LoadContext context;
 		dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(context, ENHANCE_ITEM_TEMPLATES_XML));
