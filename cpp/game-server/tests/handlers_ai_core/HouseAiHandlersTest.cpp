@@ -119,16 +119,16 @@ constexpr int32_t SM_HOUSE_SCRIPTS_OPCODE = 131; // ServerPacketsOpcodes.java:14
 
 constexpr const char* NPC_ROWS = R"(<npc_templates>)"
 	// npc_templates.xml:530145-530151
-	R"(<npc_template npc_id="810021" level="1" name="studio butler" name_id="461900" height="1.16875" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" type="HOUSING" ai="butler" sangle="0" attack_speed="2000" hpgauge="3">)"
+	R"(<npc_template npc_id="810021" level="1" name="studio butler" name_id="461900" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" type="HOUSING" ai="butler" sangle="0" attack_speed="2000" hpgauge="3">)"
 	R"(<stats maxHp="2256"><speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" /></stats>)"
 	R"(<bound_radius front="0.595" side="0.3774" upper="1.16875" />)"
 	R"(<talk_info distance="2" is_dialog="true" func_dialogs="88 86 98" can_talk_invisible="false" /></npc_template>)"
 	// npc_templates.xml:530021-530025
-	R"(<npc_template npc_id="810007" level="1" name="&lt;resident information&gt;" name_id="461466" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" type="HOUSING" ai="housesign" sangle="0" attack_speed="2000" hpgauge="3">)"
+	R"(<npc_template npc_id="810007" level="1" name="&lt;resident information&gt;" name_id="461466" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" type="HOUSING" ai="housesign" sangle="0" attack_speed="2000" hpgauge="3">)"
 	R"(<stats maxHp="172" /><bound_radius front="0.25" side="0.35" upper="3.2" />)"
 	R"(<talk_info distance="1" is_dialog="true" func_dialogs="88 99 84 97 87" can_talk_invisible="false" /></npc_template>)"
 	// npc_templates.xml:454683-454687
-	R"(<npc_template npc_id="730517" level="1" name="studio entrance" name_id="461469" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="studioportal" sangle="0" attack_speed="2000" hpgauge="3">)"
+	R"(<npc_template npc_id="730517" level="1" name="studio entrance" name_id="461469" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="studioportal" sangle="0" attack_speed="2000" hpgauge="3">)"
 	R"(<stats maxHp="172" /><bound_radius front="0.25" side="0.35" upper="3.2" />)"
 	R"(<talk_info distance="5" delay="2" is_dialog="true" func_dialogs="83" can_talk_invisible="false" /></npc_template>)"
 	R"(</npc_templates>)";

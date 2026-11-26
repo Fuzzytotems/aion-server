@@ -100,12 +100,12 @@ constexpr float VERTERON_X = 2500.0f, VERTERON_Y = 800.0f, VERTERON_Z = 100.0f;
 
 /** npc_templates.xml:453720-453723, :453730-453733 */
 constexpr std::string_view PORTAL_NPC_TEMPLATES = R"xml(
-	<npc_template npc_id="730318" level="1" name="haramel secret entrance" name_id="371605" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal" sangle="0" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="730318" level="1" name="haramel secret entrance" name_id="371605" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="172" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" delay="3" is_dialog="true" can_talk_invisible="false" />
 	</npc_template>
-	<npc_template npc_id="730320" level="1" name="haramel exit" name_id="371715" height="2" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal" sangle="0" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="730320" level="1" name="haramel exit" name_id="371715" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="portal" sangle="0" attack_speed="2000" hpgauge="3">
 		<stats maxHp="172" />
 		<bound_radius front="0.25" side="0.35" upper="2" />
 		<talk_info distance="5" delay="3" can_talk_invisible="false" />

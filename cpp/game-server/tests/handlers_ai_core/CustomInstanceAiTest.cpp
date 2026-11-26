@@ -60,7 +60,7 @@ constexpr int32_t BOSS = 231918;
 
 std::string row(int32_t npcId, const char* name) {
 	return "<npc_template npc_id=\"" + std::to_string(npcId) + "\" level=\"65\" name=\"" + name
-		   + "\" name_id=\"350971\" height=\"2\" group_drop=\"NONE\" rank=\"DISCIPLINED\" rating=\"NORMAL\" tribe=\"GENERAL\" type=\"GENERAL\" ai=\"general\""
+		   + "\" name_id=\"350971\" group_drop=\"NONE\" rank=\"DISCIPLINED\" rating=\"NORMAL\" tribe=\"GENERAL\" type=\"GENERAL\" ai=\"general\""
 			 " sangle=\"0\" attack_speed=\"2000\" hpgauge=\"3\"><stats maxHp=\"172\" /><bound_radius front=\"0.25\" side=\"0.35\" upper=\"2\" />"
 			 "<talk_info distance=\"5\" is_dialog=\"true\" can_talk_invisible=\"false\" /></npc_template>";
 }

@@ -564,7 +564,7 @@ inline constexpr std::string_view RECIPE_TEMPLATES_XML = R"xml(<recipe_templates
 /** npc_templates.xml, verbatim: the craft masters and a merchant */
 inline constexpr std::string_view CRAFT_NPC_TEMPLATES_XML = R"xml(<npc_templates>
 	<!-- :10376 -->
-	<npc_template npc_id="203780" level="40" name="cornelius" name_id="351271" height="2" title_id="350399" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203780" level="40" name="cornelius" name_id="351271" title_id="350399" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -579,7 +579,7 @@ inline constexpr std::string_view CRAFT_NPC_TEMPLATES_XML = R"xml(<npc_templates
 		<talk_info distance="5" is_dialog="true" func_dialogs="45" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :10432 -->
-	<npc_template npc_id="203784" level="40" name="hestia" name_id="351275" height="2" title_id="350401" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203784" level="40" name="hestia" name_id="351275" title_id="350401" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -594,7 +594,7 @@ inline constexpr std::string_view CRAFT_NPC_TEMPLATES_XML = R"xml(<npc_templates
 		<talk_info distance="5" is_dialog="true" func_dialogs="46 79 58 80" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :10446 -->
-	<npc_template npc_id="203785" level="10" name="luelas" name_id="351276" height="2" title_id="350368" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="203785" level="10" name="luelas" name_id="351276" title_id="350368" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="1392">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>
@@ -610,7 +610,7 @@ inline constexpr std::string_view CRAFT_NPC_TEMPLATES_XML = R"xml(<npc_templates
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :14943 -->
-	<npc_template npc_id="204100" level="40" name="lainita" name_id="352342" height="2" title_id="350401" group_drop="DARK" rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="204100" level="40" name="lainita" name_id="352342" title_id="350401" group_drop="DARK" rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="300" arange="2" attack_speed="2000" hpgauge="3">
 		<stats maxHp="9426">
 			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
 		</stats>

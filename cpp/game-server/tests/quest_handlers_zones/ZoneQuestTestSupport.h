@@ -101,7 +101,6 @@ inline bool publishZoneWorldData() {
 	static std::deque<xml::LoadContext> contexts;
 	dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), zoneWorldMapsXml()));
 	dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-	dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 	dataholders::DataManager::MATERIAL_DATA.publish(xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 	world::geo::GeoService::getInstance().init(); // geo data off: one empty GeoMap per map (AscensionTestSupport.h)
 	world::test::publishedData = world::test::PublishedData::REAL;

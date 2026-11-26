@@ -255,39 +255,39 @@ inline constexpr const char* HANDLER_ITEMS_XML =
 inline constexpr const char* HANDLER_NPCS_XML =
 	R"(<npc_templates>)"
 	// npc_templates.xml:1959-1973 without its <equipment> (:1963-1970)
-	R"(<npc_template npc_id="203057" level="20" name="mires" name_id="351103" height="2" title_id="350496" group_drop="LIGHT")"
+	R"(<npc_template npc_id="203057" level="20" name="mires" name_id="351103" title_id="350496" group_drop="LIGHT")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" arange="2")"
 	R"( attack_speed="2000" hpgauge="3"><stats maxHp="2961"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2")"
 	R"( group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="2" /><talk_info distance="5" is_dialog="true")"
 	R"( can_talk_invisible="false" /></npc_template>)"
 	// npc_templates.xml:2539-2553 without its <equipment> (:2543-2550)
-	R"(<npc_template npc_id="203098" level="27" name="spatalos" name_id="351022" height="2" title_id="350502" group_drop="LIGHT")"
+	R"(<npc_template npc_id="203098" level="27" name="spatalos" name_id="351022" title_id="350502" group_drop="LIGHT")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GUARD" type="ABYSS_GUARD" ai="simple_abyssguard" srange="7" sangle="240")"
 	R"( arange="2" attack_speed="2000" hpgauge="3" state="6"><stats maxHp="4622"><speeds walk="1.5" group_walk="1.5" run="6")"
 	R"( run_fight="4.2" group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="2" /><talk_info distance="5")"
 	R"( is_dialog="true" can_talk_invisible="false" /></npc_template>)"
 	// npc_templates.xml:54505-54510
-	R"(<npc_template npc_id="210133" level="1" name="striped kerub" name_id="300110" height="1.372" group_drop="CHERUBIM")"
+	R"(<npc_template npc_id="210133" level="1" name="striped kerub" name_id="300110" group_drop="CHERUBIM")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="MAGICALMONSTER" tribe="MONSTER" type="MONSTER" ai="aggressive" srange="7" sangle="240")"
 	R"( arange="2" attack_speed="2100" hpgauge="3"><stats maxHp="143"><speeds walk="0.6" group_walk="0.6" run="7" run_fight="5.5")"
 	R"( group_run_fight="7" /></stats><bound_radius front="0.525" side="0.275" upper="1.372" /></npc_template>)"
 	// npc_templates.xml:440035-440039
-	R"(<npc_template npc_id="700105" level="1" name="kerub grain sack" name_id="350753" height="2" group_drop="NONE" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="700105" level="1" name="kerub grain sack" name_id="350753" group_drop="NONE" rank="DISCIPLINED")"
 	R"( rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="quest_use_item" sangle="0" attack_speed="2000" hpgauge="3"><stats)"
 	R"( maxHp="172" /><bound_radius front="0.25" side="0.35" upper="2" /><talk_info distance="3" delay="3" can_talk_invisible="false")"
 	R"( /></npc_template>)"
 	// npc_templates.xml:441825-441829
-	R"(<npc_template npc_id="700462" level="35" name="ancient treasure box" name_id="371198" height="4" group_drop="DRAGONBOX" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="700462" level="35" name="ancient treasure box" name_id="371198" group_drop="DRAGONBOX" rank="DISCIPLINED")"
 	R"( rating="NORMAL" tribe="FIELD_OBJECT_ALL" type="GENERAL" ai="chest" sangle="0" attack_speed="2000" hpgauge="3"><stats maxHp="7445" />)"
 	R"(<bound_radius front="0.5" side="0.7" upper="4" /><talk_info distance="3" delay="4" can_talk_invisible="false" /></npc_template>)"
 	// npc_templates.xml:557883-557889
-	R"(<npc_template npc_id="832822" level="15" name="anmurnerk" name_id="465611" height="1.16875" title_id="350621" group_drop="NONE")"
+	R"(<npc_template npc_id="832822" level="15" name="anmurnerk" name_id="465611" title_id="350621" group_drop="NONE")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="7" arange="2")"
 	R"( attack_speed="2000" hpgauge="3"><stats maxHp="2256"><speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23")"
 	R"( group_run_fight="4.23" /></stats><bound_radius front="0.595" side="0.3774" upper="1.16875" /><talk_info distance="5")"
 	R"( is_dialog="true" can_talk_invisible="false" /></npc_template>)"
 	// npc_templates.xml:559193-559207 without its <equipment> (:559197-559204)
-	R"(<npc_template npc_id="832967" level="65" name="sonatine" name_id="465897" height="1.8" title_id="465900" group_drop="LIGHT")"
+	R"(<npc_template npc_id="832967" level="65" name="sonatine" name_id="465897" title_id="465900" group_drop="LIGHT")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="20" arange="2")"
 	R"( attack_speed="2000" hpgauge="3"><stats maxHp="26116"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2")"
 	R"( group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="1.8" /><talk_info distance="5" is_dialog="true")"

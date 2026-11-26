@@ -149,7 +149,7 @@ protected:
 				if (std::ranges::find(seen, zone.get()) != seen.end())
 					continue;
 				seen.push_back(zone.get());
-				names.push_back(zone->getZoneTemplate()->getName()->name());
+				names.push_back(zone->getZoneTemplate()->getZoneName()->name());
 			}
 		}
 		std::ranges::sort(names);

@@ -1728,10 +1728,14 @@ void runM5iGate(bool geo) {
 		const decoders::PlayerSpawn entered = spawnOfBurst(relocate(g, cg, RESHANTA, s1)); // lastOnline after the start: no relocation
 		ASSERT_EQ(entered.worldId, RESHANTA);
 		ASSERT_NEAR(entered.x, s1[0], 1.0f) << "G enters at S1 (validateFortressZone: logged out after the start)";
-		// M1 outside the shield, M2 through it. Without geo shields the sphere of siege_shields.xml (ShieldObserver), on its upper half; with them
-		// ShieldService.attachShield drops the sphere and the geo mesh kills (SiegeShield, CollisionDieActor): the oracle's m5i-geoshield crossing
+		// M1 outside the shield, M2 through it: the geo mesh kills (SiegeShield, CollisionDieActor), the oracle's m5i-geoshield crossing. Upstream
+		// 84d3f7559 removed the sphere shields of siege_shields.xml (ShieldObserver) that a run without geo data used: there is no shield then
 		std::array<float, 3> m1{}, m2{};
-		if (geo) {
+		if (!geo) {
+			std::cout << "C5: no shield without geo data (upstream 84d3f7559 removed the sphere shields), the crossing is skipped" << std::endl;
+			return;
+		}
+		{
 			const json crossing = json::parse(oracle->run({"m5i-geoshield"}));
 			ASSERT_FALSE(crossing.is_null()) << "m5i-geoshield: no geo shield crossing for 1131";
 			ASSERT_TRUE(crossing.at("M1inZone").get<bool>()) << "M1 inside the shield's zone sphere";
@@ -1740,14 +1744,6 @@ void runM5iGate(bool geo) {
 				m2[i] = crossing.at("M2").at(i).get<float>();
 			}
 			std::cout << "C5: the geo shield " << crossing.at("geometry").get<std::string>() << ", crossing at " << crossing.at("hit").dump() << std::endl;
-		} else {
-			const json& shield = spots.at("shield");
-			const float cx = shield.at("center").at(0).get<float>(), cy = shield.at("center").at(1).get<float>(), cz = shield.at("center").at(2).get<float>();
-			const float radius = shield.at("radius").get<float>();
-			const float dx = s1[0] - cx, dy = s1[1] - cy, d = std::hypot(dx, dy);
-			const float top = cz + 2.0f; // the upper half of the sphere (ShieldObserver.moved)
-			m1 = {cx + dx / d * (radius + 3.0f), cy + dy / d * (radius + 3.0f), top};
-			m2 = {cx + dx / d * (radius - 5.0f), cy + dy / d * (radius - 5.0f), top};
 		}
 		// G is invulnerable (and invisible) since his login: the GM's login commands (//invis, //invul, //enemy none, //see in the server log).
 		// He flies (CM_EMOTION FLY, EmotionType.java:21): M1 and M2 are on the sphere's upper half, above the ground a geo run keeps walkers on

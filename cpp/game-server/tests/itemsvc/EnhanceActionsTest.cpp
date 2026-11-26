@@ -20,7 +20,9 @@
 #include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
-#include "aion/gameserver/model/templates/item/ResultedItem.h"
+#include "aion/gameserver/model/templates/item/DecomposableItem.h"
+#include "aion/gameserver/model/templates/item/DecomposableSet.h"
+#include "aion/gameserver/model/templates/item/DecomposedItem.h"
 #include "aion/gameserver/model/templates/item/actions/DecomposeAction.h"
 #include "aion/gameserver/model/templates/item/actions/EnchantItemAction.h"
 #include "aion/gameserver/model/templates/item/actions/ExtractAction.h"
@@ -480,7 +482,7 @@ TEST_F(DecomposeActionTest, OnlyASpawnedLivingPlayerDecomposesADecomposableItemW
 		inCube(objId, TRAINING_SWORD, 1);
 	clearSent();
 	EXPECT_FALSE(decompose.canAct(player(), Ptr<Item>(pepento), nullptr));
-	EXPECT_EQ(sent(), cp::exactly({systemMessage(SM_SYSTEM_MESSAGE::STR_DECOMPOSE_ITEM_INVENTORY_IS_FULL())}));
+	EXPECT_EQ(sent(), cp::exactly({systemMessage(SM_SYSTEM_MESSAGE::STR_WAREHOUSE_FULL_INVENTORY())})) << "68eccc7b1 canAct (P5-07.md)";
 }
 
 TEST_F(DecomposeActionTest, AFixedRewardArrivesAfterTheCastingDelay) {
@@ -507,6 +509,7 @@ TEST_F(DecomposeActionTest, AFixedRewardArrivesAfterTheCastingDelay) {
 }
 
 TEST_F(DecomposeActionTest, ARandomEnchantmentRewardIsOneOfTheFourStonesOfTheLevel) {
+	GTEST_SKIP() << "the random reward types are gone with upstream d254ea172; wave 5 rewrites the case against the new data";
 	// DecomposeAction.java:190-201, 358-361: the Suspicious Old Sack (level 30, item_templates.xml:904910; decomposable_items.xml:4014: one
 	// random ENCHANTMENT, max_count 3) gives 166000191 + Math.round(30 / 100f) (0) + Rnd.nextInt(4), retried while the id is no item, and
 	// Rnd.get(1, 3) of it. The draws: Chance.selectElement's nextFloat(100), then nextInt(4), then the count
@@ -533,6 +536,7 @@ TEST_F(DecomposeActionTest, ARandomEnchantmentRewardIsOneOfTheFourStonesOfTheLev
 }
 
 TEST_F(DecomposeActionTest, ALevelFiftySackGivesTheStonesFromBetaOnAndStartsItsCooldown) {
+	GTEST_SKIP() << "the random reward types are gone with upstream d254ea172; wave 5 rewrites the case against the new data";
 	// DecomposeAction.java:175, 192-200: the Suspicious Red Sack is level 50 (item_templates.xml:904922; decomposable_items.xml:4024: one random
 	// ENCHANTMENT, max_count 5), so its stone is 166000191 + Math.round(50 / 100f) (1) + Rnd.nextInt(4): Beta to Epsilon, never Alpha, and
 	// Rnd.get(1, 5) of it. finishUse starts the sack's cooldown (usedelay 5000, usedelayid 85; Player.startCooldown)
@@ -592,9 +596,12 @@ TEST_F(DecomposeActionTest, ASelectableItemOnlyShowsItsChoice) {
 	// DecomposeAction.java:119-124: a selectable decomposable sends SM_FIRST_SHOW_DECOMPOSABLE with the items the player may obtain (all six of
 	// the Cold Box, which name no race or class) and returns: no animation, no task, nothing used up
 	Item& box = inCube(833401, EVENT_COLD_BOX, 1);
-	std::optional<std::vector<const model::templates::item::ResultedItem*>> choice =
-		dataholders::DataManager::DECOMPOSABLE_ITEMS_DATA->getSelectableItems(EVENT_COLD_BOX);
-	ASSERT_TRUE(choice);
+	// C++ interim: the selectable set of upstream d254ea172 (DecomposableItem.getSelectableSet), shown with SM_FIRST_SHOW_DECOMPOSABLE
+	const model::templates::item::DecomposableSet* set = dataholders::DataManager::DECOMPOSABLE_ITEMS_DATA->get(EVENT_COLD_BOX)->getSelectableSet(player());
+	ASSERT_NE(set, nullptr);
+	std::optional<std::vector<const model::templates::item::DecomposedItem*>> choice{std::in_place};
+	for (const model::templates::item::DecomposedItem& item : set->getItems())
+		choice->push_back(&item);
 	ASSERT_EQ(choice->size(), 6u);
 	onlyActionOf<DecomposeAction>(EVENT_COLD_BOX).act(player(), Ptr<Item>(box), nullptr);
 	EXPECT_EQ(sent(), cp::exactly({serialized(SM_FIRST_SHOW_DECOMPOSABLE(833401, *choice))}));

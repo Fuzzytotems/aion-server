@@ -105,7 +105,7 @@ struct BookmarkPeer : handlers::admincommands::Bookmark {
 
 /** The marker npc of Collide.java:91-100, its row of npc_templates.xml verbatim */
 constexpr std::string_view MARKER_NPC_TEMPLATES_XML = R"xml(<npc_templates>
-	<npc_template npc_id="200000" level="1" name=" " name_id="350000" height="0.3" group_drop="WORM" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" ai="skillarea" srange="15" sangle="240" attack_speed="2000" hpgauge="3">
+	<npc_template npc_id="200000" level="1" name=" " name_id="350000" group_drop="WORM" rank="DISCIPLINED" rating="NORMAL" tribe="GENERAL" ai="skillarea" srange="15" sangle="240" attack_speed="2000" hpgauge="3">
 		<stats maxHp="2522" />
 		<bound_radius front="0.06" side="0.1728" upper="0.3" />
 	</npc_template>

@@ -142,9 +142,9 @@ TEST_F(StaticDataRealDataTest, LoadsAllImportsStrictlyWithHooksAndPostProcessing
 	}
 	auto loaded = std::chrono::steady_clock::now();
 
-	// V2: the 90 lines in Java wording and order, carrying the 92 numbers of the count oracle
+	// V2: the 92 lines in Java wording and order (68eccc7b1), carrying the 95 numbers of the count oracle
 	std::vector<std::string> expected = readLines(ORACLE / "expected/static_data_counts.txt");
-	ASSERT_EQ(expected.size(), 90u);
+	ASSERT_EQ(expected.size(), 92u);
 	EXPECT_EQ(lines.size(), expected.size());
 	for (size_t i = 0; i < std::min(lines.size(), expected.size()); ++i)
 		EXPECT_EQ(lines[i], expected[i]) << "line " << i + 1;

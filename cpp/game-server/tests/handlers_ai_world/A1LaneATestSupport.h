@@ -38,7 +38,7 @@ inline std::string a1NpcTemplatesXml(std::initializer_list<int32_t> ids) {
 	std::string xml = "<npc_templates>";
 	for (int32_t id : ids)
 		xml += R"(<npc_template npc_id=")" + std::to_string(id) +
-			R"(" level="30" name="a1 npc" name_id="1" height="1" rank="SEASONED" rating="NORMAL" race="NONE" tribe="GENERAL" type="GENERAL">)"
+			R"(" level="30" name="a1 npc" name_id="1" rank="SEASONED" rating="NORMAL" race="NONE" tribe="GENERAL" type="GENERAL">)"
 			R"(<stats maxHp="1000"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2"/></stats>)"
 			R"(<bound_radius front="0.5" side="0.5" upper="1"/><talk_info distance="10" is_dialog="true"/></npc_template>)";
 	return xml + "</npc_templates>";

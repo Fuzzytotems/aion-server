@@ -43,8 +43,6 @@
 #include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/SkillTreeData.bind.h"
@@ -286,8 +284,8 @@ inline const char* const PLAYER_EXPERIENCE_TABLE_XML = "<player_experience_table
 	"<exp>490331</exp><exp>649169</exp><exp>844378</exp></player_experience_table>";
 
 inline const char* const WORLD_MAPS_XML = R"(<world_maps>
-	<map id="210010000" cName="LF1" name="Poeta" name_id="400234" water_level="100" death_level="0" world_type="ELYSEA" world_size="3072" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE"/>
-	<map id="220010000" cName="DF1" name="Ishalgen" name_id="400259" water_level="248" death_level="0" world_type="ASMODAE" world_size="3072" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE"/>
+	<map id="210010000" cName="LF1" name="Poeta" name_id="400234" water_level="100" world_type="ELYSEA" world_size="3072" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE"/>
+	<map id="220010000" cName="DF1" name="Ishalgen" name_id="400259" water_level="248" world_type="ASMODAE" world_size="3072" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE"/>
 </world_maps>)";
 
 /** Publishes the slice's static data holders once per process (DataManager holders are published once) */
@@ -310,8 +308,6 @@ inline void publishStaticDataOnce() {
 		}
 		if (!dataholders::DataManager::ZONE_DATA)
 			dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(context, "<zones/>"));
-		if (!dataholders::DataManager::SHIELD_DATA)
-			dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(context, "<shields/>"));
 		if (!dataholders::DataManager::MATERIAL_DATA)
 			dataholders::DataManager::MATERIAL_DATA.publish(xml::bindString<dataholders::MaterialData>(context, "<material_templates/>"));
 		// GMService::getInstance() (AuditLogger, enter world) reads the skill templates

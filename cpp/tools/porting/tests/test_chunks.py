@@ -541,7 +541,7 @@ class RealTreeTest(unittest.TestCase):
         self.assertEqual(self.own.problems(), [])
         self.assertGreater(len(self.own.cpp_files), 4000)
         self.assertGreater(len(self.own.test_files), 100)
-        self.assertEqual(len(self.own.java_files), 2310 + 1729)
+        self.assertEqual(len(self.own.java_files), 2316 + 1750)  # Java 68eccc7b1: src and data/handlers
 
     def test_design_chunks_and_generated_file_assignments(self):
         names = {p.name for p in self.manifest.parts}

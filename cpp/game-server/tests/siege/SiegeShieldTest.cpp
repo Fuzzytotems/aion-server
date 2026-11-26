@@ -44,8 +44,8 @@ struct ShieldGeometry {
 struct ShieldZone {
 	std::unique_ptr<model::templates::zone::WorldZoneTemplate> template_ =
 		std::make_unique<model::templates::zone::WorldZoneTemplate>(3000, 400010000, 0);
-	runtime::Ref<model::geometry::PolyArea> area = model::geometry::PolyArea::create(template_->getName(), 400010000,
-		template_->getPoints()->getPoint(), template_->getPoints()->getBottom(), template_->getPoints()->getTop());
+	runtime::Ref<model::geometry::PolyArea> area = model::geometry::PolyArea::create(template_->getZoneName(), 400010000,
+		template_->getPoints()->getPoints(), template_->getPoints()->getBottom(), template_->getPoints()->getTop());
 	runtime::Ref<model::templates::zone::ZoneInfo> info = model::templates::zone::ZoneInfo::create(*area, template_.get());
 	runtime::Ref<world::zone::ZoneInstance> zone = world::zone::ZoneInstance::create(400010000, *info);
 };

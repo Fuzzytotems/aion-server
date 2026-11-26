@@ -68,63 +68,63 @@ inline constexpr int32_t ANCIENT_CUBE = 700001;
 /** npcs/npc_templates.xml, verbatim except the <equipment> of each row (see the file comment) */
 inline const char* const QUEST_NPC_AI_TEMPLATES_XML =
 	// npcs/npc_templates.xml:9953-9968 (without the <equipment> of seven items)
-	R"(<npc_template npc_id="203752" level="55" name="jucleas" name_id="351244" height="2" title_id="370041" group_drop="LIGHT")"
+	R"(<npc_template npc_id="203752" level="55" name="jucleas" name_id="351244" title_id="370041" group_drop="LIGHT")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GUARD" type="ABYSS_GUARD" ai="simple_abyssguard" srange="7" sangle="300")"
 	R"( arange="2" attack_speed="2000" hpgauge="3"><stats maxHp="18756"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2")"
 	R"( group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="2" />)"
 	R"(<talk_info distance="5" is_dialog="true" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:14565-14580 (without the <equipment> of seven items)
-	R"(<npc_template npc_id="204075" level="55" name="balder" name_id="352317" height="2" title_id="370041" group_drop="DARK")"
+	R"(<npc_template npc_id="204075" level="55" name="balder" name_id="352317" title_id="370041" group_drop="DARK")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ASMODIANS" tribe="GUARD_DARK" type="ABYSS_GUARD" ai="simple_abyssguard" srange="7")"
 	R"( sangle="300" arange="2" attack_speed="2000" hpgauge="3"><stats maxHp="18756"><speeds walk="1.5" group_walk="1.5" run="6")"
 	R"( run_fight="4.2" group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="2" />)"
 	R"(<talk_info distance="5" is_dialog="true" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:17500-17513 (without the <equipment> of five items)
-	R"(<npc_template npc_id="204275" level="1" name="shadow court" name_id="352536" height="2" group_drop="DARK" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="204275" level="1" name="shadow court" name_id="352536" group_drop="DARK" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="ASMODIANS" tribe="GUARD_DARK" type="ABYSS_GUARD" ai="simple_abyssguard" srange="7" sangle="300" arange="2")"
 	R"( attack_speed="2000" hpgauge="3"><stats maxHp="18756"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2")"
 	R"( group_run_fight="4.2" /></stats><bound_radius front="0.25" side="0.35" upper="2" />)"
 	R"(<talk_info distance="5" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:9587-9598 (without the <equipment> of three items)
-	R"(<npc_template npc_id="203725" level="40" name="leah" name_id="351406" height="1.44" title_id="350442" group_drop="NONE")"
+	R"(<npc_template npc_id="203725" level="40" name="leah" name_id="351406" title_id="350442" group_drop="NONE")"
 	R"( rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="240")"
 	R"( attack_speed="2000" hpgauge="3"><stats maxHp="9426"><speeds walk="1.3" group_walk="1.68" run="6" run_fight="4.2")"
 	R"( group_run_fight="4.2" /></stats><bound_radius front="0.2" side="0.28" upper="1.44" />)"
 	R"(<talk_info distance="5" is_dialog="true" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:60615-60623 (without <equipment><item>100000018</item></equipment>)
-	R"(<npc_template npc_id="211042" level="9" name="raider" name_id="302770" height="2.8860002" title_id="355021")"
+	R"(<npc_template npc_id="211042" level="9" name="raider" name_id="302770" title_id="355021")"
 	R"( group_drop="LIZARDMANFIGHTER" rank="NOVICE" rating="NORMAL" race="NAGA" tribe="AGGRESSIVESINGLEMONSTER" type="MONSTER")"
 	R"( ai="ascensationquestnpc" srange="20" arange="2" attack_speed="2356" hpgauge="2"><stats maxHp="177"><speeds walk="1.76")"
 	R"( group_walk="1.76" run="7" run_fight="6" group_run_fight="7" /></stats><bound_radius front="1.025" side="2" upper="2.886" />)"
 	R"(</npc_template>)"
 	// npcs/npc_templates.xml:60624-60632 (without <equipment><item>100900013</item></equipment>)
-	R"(<npc_template npc_id="211043" level="9" name="orissan" name_id="355006" height="4.6" title_id="355007" group_drop="NAGAWARRIOR")"
+	R"(<npc_template npc_id="211043" level="9" name="orissan" name_id="355006" title_id="355007" group_drop="NAGAWARRIOR")"
 	R"( rank="SEASONED" rating="NORMAL" race="NAGA" tribe="AGGRESSIVESINGLEMONSTER" type="MONSTER" ai="ascensationquestnpc" srange="20")"
 	R"( arange="2" attack_speed="2142" hpgauge="4" cancel_level="90"><stats maxHp="1461"><speeds walk="1" group_walk="1" run="7")"
 	R"( run_fight="6" group_run_fight="7" /></stats><bound_radius front="2" side="3.8" upper="4.6" /></npc_template>)"
 	// npcs/npc_templates.xml:199779-199788 (without the <equipment> of two items)
-	R"(<npc_template npc_id="250109" level="2" name="balaur monster falling from carrier level 2" name_id="301534" height="2.3")"
+	R"(<npc_template npc_id="250109" level="2" name="balaur monster falling from carrier level 2" name_id="301534")"
 	R"( group_drop="DRAKANFIGHTER" rank="DISCIPLINED" rating="NORMAL" race="DRAKAN" tribe="GUARD_DRAGON" type="ABYSS_GUARD" abyss_type="RAID")"
 	R"( ai="aggressive" srange="10" sangle="270" arange="2" attack_speed="2100" cast_speed="100" hpgauge="3" floatcorpse="true">)"
 	R"(<stats maxHp="4162"><speeds walk="1.07" group_walk="1.07" run="8" run_fight="6" group_run_fight="8" /></stats>)"
 	R"(<bound_radius front="0.75" side="0.475" upper="2.3" /></npc_template>)"
 	// npcs/npc_templates.xml:121225-121229
-	R"(<npc_template npc_id="218610" level="60" name="defensive artillery" name_id="324686" height="7.2" group_drop="SIEGEWEAPON" rank="NOVICE")"
+	R"(<npc_template npc_id="218610" level="60" name="defensive artillery" name_id="324686" group_drop="SIEGEWEAPON" rank="NOVICE")"
 	R"( rating="ELITE" race="CONSTRUCT" tribe="USEALL" type="GENERAL" ai="useitem" srange="10" attack_speed="2260" hpgauge="10")"
 	R"( cancel_level="50"><stats maxHp="46115" /><bound_radius front="2" side="4" upper="7.2" />)"
 	R"(<talk_info distance="1" delay="3" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:8883-8887
-	R"(<npc_template npc_id="203671" level="1" name="altgard teleport device" name_id="352239" height="2" group_drop="NONE" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="203671" level="1" name="altgard teleport device" name_id="352239" group_drop="NONE" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="useitem" srange="20" sangle="0" attack_speed="2000")"
 	R"( hpgauge="3"><stats maxHp="172" /><bound_radius front="0.25" side="0.35" upper="2" />)"
 	R"(<talk_info distance="6" is_dialog="true" func_dialogs="44" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:440035-440039
-	R"(<npc_template npc_id="700105" level="1" name="kerub grain sack" name_id="350753" height="2" group_drop="NONE" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="700105" level="1" name="kerub grain sack" name_id="350753" group_drop="NONE" rank="DISCIPLINED")"
 	R"( rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="quest_use_item" sangle="0" attack_speed="2000" hpgauge="3">)"
 	R"(<stats maxHp="172" /><bound_radius front="0.25" side="0.35" upper="2" />)"
 	R"(<talk_info distance="3" delay="3" can_talk_invisible="false" /></npc_template>)"
 	// npcs/npc_templates.xml:439522-439526
-	R"(<npc_template npc_id="700001" level="1" name="ancient cube" name_id="350700" height="0.3" group_drop="NONE" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="700001" level="1" name="ancient cube" name_id="350700" group_drop="NONE" rank="DISCIPLINED")"
 	R"( rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="quest_use_item" sangle="0" attack_speed="2000" hpgauge="3">)"
 	R"(<stats maxHp="172" /><bound_radius front="0.375" side="0.525" upper="0.3" />)"
 	R"(<talk_info distance="3" delay="3" is_dialog="true" can_talk_invisible="false" /></npc_template>)";

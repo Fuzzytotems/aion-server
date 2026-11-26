@@ -30,8 +30,6 @@
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/dataholders/QuestsData.bind.h"
 #include "aion/gameserver/dataholders/QuestsData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
@@ -76,7 +74,7 @@ inline std::string handlerNpcTemplatesXml() {
 	std::string xml = "<npc_templates>";
 	for (int32_t id : handlerNpcIds())
 		xml += R"(<npc_template npc_id=")" + std::to_string(id) +
-			R"(" level="30" name="instance npc" name_id="1" height="1" rank="SEASONED" rating="NORMAL" race="DRAKAN" tribe="GENERAL")" +
+			R"(" level="30" name="instance npc" name_id="1" rank="SEASONED" rating="NORMAL" race="DRAKAN" tribe="GENERAL")" +
 			// a named AI the test executable has not gives a DummyAI<Npc> (the chunk's handlerNpcAi)
 			(handlerNpcAi(id).empty() ? std::string(">") : R"( ai=")" + handlerNpcAi(id) + R"(">)") +
 			R"(<stats maxHp="1000"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2"/></stats>)"
@@ -93,7 +91,6 @@ inline void publishInstanceWorldOnce() {
 		static std::deque<xml::LoadContext> contexts;
 		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), instanceMapsXml()));
 		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		dataholders::DataManager::MATERIAL_DATA.publish(
 			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
 		world::geo::GeoService::getInstance().init(); // geo data off: one empty GeoMap per map, as the server's startup

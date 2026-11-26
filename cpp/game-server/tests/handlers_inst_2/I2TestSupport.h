@@ -38,15 +38,15 @@ using crucible::EmpyreanCrucibleInstance_instanceFactory;
 
 /** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60, 59, 32, 94, 107, 138, 108, 88) */
 inline constexpr const char* I2_MAPS_XML = R"x(<world_maps>
-	<map id="301500000" cName="IDLegion" name="Stonespear Reach" name_id="404646" instance="true" water_level="90" death_level="0" world_size="512" drop_type="NONE" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="300320000" cName="IDArena_Solo" name="Crucible Challenge" name_id="401841" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300300000" cName="IDArena" name="Empyrean Crucible" name_id="401828" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="300040000" cName="IDLF1" name="Dark Poeta" name_id="401172" instance="true" water_level="100" death_level="0" world_type="ABYSS" world_size="1536" drop_type="ABYSS_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="301230000" cName="IDLDF5_Under_03" name="Illuminary Obelisk" name_id="404057" instance="true" water_level="16" death_level="235" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301370000" cName="IDLDF5_Under_03_H" name="Infernal Illuminary Obelisk" name_id="404404" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="320150000" cName="IDDramata_01" name="Padmarashka's Cave" name_id="402100" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
-	<map id="301380000" cName="IDLDF5_Under_02_E" name="Danuar Sanctuary" name_id="404447" instance="true" water_level="16" death_level="0" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
-	<map id="301140000" cName="IDLDF5_Under_02" name="Seized Danuar Sanctuary" name_id="403794" instance="true" water_level="16" death_level="0" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301500000" cName="IDLegion" name="Stonespear Reach" name_id="404646" instance="true" water_level="90" world_size="512" drop_type="NONE" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300320000" cName="IDArena_Solo" name="Crucible Challenge" name_id="401841" instance="true" water_level="16" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300300000" cName="IDArena" name="Empyrean Crucible" name_id="401828" instance="true" water_level="16" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300040000" cName="IDLF1" name="Dark Poeta" name_id="401172" instance="true" water_level="100" world_type="ABYSS" world_size="1536" drop_type="ABYSS_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="301230000" cName="IDLDF5_Under_03" name="Illuminary Obelisk" name_id="404057" instance="true" water_level="16" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301370000" cName="IDLDF5_Under_03_H" name="Infernal Illuminary Obelisk" name_id="404404" instance="true" water_level="16" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="320150000" cName="IDDramata_01" name="Padmarashka's Cave" name_id="402100" instance="true" water_level="16" world_size="1024" drop_type="BALAUREA_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="301380000" cName="IDLDF5_Under_02_E" name="Danuar Sanctuary" name_id="404447" instance="true" water_level="16" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301140000" cName="IDLDF5_Under_02" name="Seized Danuar Sanctuary" name_id="403794" instance="true" water_level="16" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {

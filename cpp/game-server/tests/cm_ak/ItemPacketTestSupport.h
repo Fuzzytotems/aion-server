@@ -34,8 +34,6 @@
 #include "aion/gameserver/dataholders/MaterialData.h"
 #include "aion/gameserver/dataholders/MotionData.bind.h"
 #include "aion/gameserver/dataholders/MotionData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
@@ -263,12 +261,10 @@ inline void publishPoetaWorldDataOnce() {
 		// tests/skills/P5-02b/EffectTestSupport.h publishes, so the executable sees the same map whichever fixture publishes first
 		if (!dataholders::DataManager::WORLD_MAPS_DATA)
 			dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(),
-				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
+				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16")"
 				R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/></world_maps>)"));
 		if (!dataholders::DataManager::ZONE_DATA)
 			dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		if (!dataholders::DataManager::SHIELD_DATA)
-			dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
 		if (!dataholders::DataManager::MATERIAL_DATA)
 			dataholders::DataManager::MATERIAL_DATA.publish(
 				xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));

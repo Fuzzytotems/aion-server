@@ -73,7 +73,7 @@ constexpr const char* QUESTS_XML =
 
 /** npc_templates.xml:57842-57847 */
 constexpr const char* PINKBEAK_AIRON_XML =
-	R"(<npc_template npc_id="210668" level="4" name="pinkbeak airon" name_id="301027" height="2.02" group_drop="HIIV" rank="DISCIPLINED")"
+	R"(<npc_template npc_id="210668" level="4" name="pinkbeak airon" name_id="301027" group_drop="HIIV" rank="DISCIPLINED")"
 	R"( rating="NORMAL" race="BEAST" tribe="MONSTER" ai="aggressive" srange="8" sangle="240" arange="2" attack_speed="2142" hpgauge="3")"
 	R"( floatcorpse="true"><stats maxHp="383"><speeds walk="0.955" group_walk="0.955" run="6.806" run_fight="5.3" group_run_fight="6.806" />)"
 	R"(</stats><bound_radius front="0.35" side="0.78" upper="2.02" /></npc_template>)";

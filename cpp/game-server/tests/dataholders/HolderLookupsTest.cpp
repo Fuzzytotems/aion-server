@@ -143,9 +143,9 @@ TEST(ItemSetDataTest, EmptyHolder) {
 TEST(WorldMapsDataTest, TemplatesById) {
 	std::unique_ptr<WorldMapsData> data =
 	  bindXml<WorldMapsData>(R"(<world_maps>)"
-	                         R"(<map id="110010000" cName="Sanctum" death_level="0" water_level="0" flags="BIND FLY"/>)"
-	                         R"(<map id="210010000" cName="Poeta" death_level="0" water_level="0" flags="RECALL"/>)"
-	                         R"(<map id="110010000" cName="SanctumAgain" death_level="0" water_level="0" flags="GLIDE"/>)"
+	                         R"(<map id="110010000" cName="Sanctum" water_level="0" flags="BIND FLY"/>)"
+	                         R"(<map id="210010000" cName="Poeta" water_level="0" flags="RECALL"/>)"
+	                         R"(<map id="110010000" cName="SanctumAgain" water_level="0" flags="GLIDE"/>)"
 	                         R"(</world_maps>)");
 	ASSERT_NE(data->getTemplate(210010000), nullptr);
 	EXPECT_EQ(data->getTemplate(210010000)->getCName(), "Poeta");
