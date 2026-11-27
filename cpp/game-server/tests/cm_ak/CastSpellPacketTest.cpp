@@ -215,11 +215,9 @@ TEST(CastSpellPacketReadTest, AShortBodyUnderflowsAndASpareByteIsLeft) {
 		PacketWriter w = head(ACTIVE_SKILL, 1, 2);
 		for (int i = 0; i < 10; i++)
 			w.F(1.0f);
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
 		int32_t unread = -1;
-		ASSERT_NE(readPacket(w.H(1).D(1).data, &unread), nullptr);
-		EXPECT_EQ(unread, 0);
-		EXPECT_TRUE(capture.contains("Missing")) << "11 floats are read in arm 2: " << capture.dump();
+		// 11 floats are read in arm 2; upstream e1a399e62: the underflow fails the read
+		EXPECT_EQ(readPacket(w.H(1).D(1).data, &unread), nullptr);
 	}
 	{ // the unk D is the last field: one byte more is left over
 		std::vector<uint8_t> body = objectBody(ACTIVE_SKILL, 1, 7, 0);

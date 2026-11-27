@@ -262,7 +262,26 @@ TEST(AConnectionTest, PacketLargerThanReadBufferClosesConnection) {
 	EXPECT_TRUE(client.waitForClose());
 	ASSERT_TRUE(waitUntil([&] { return server.probe->disconnectCount == 1; }));
 	EXPECT_EQ(server.probe->receivedCount(), 0u);
-	EXPECT_TRUE(logs.contains("exceeds the read buffer size of 64 bytes"));
+	EXPECT_TRUE(logs.contains("warning|com.aionemu.commons.network.Dispatcher|TestConnection 127.0.0.1 announced a packet of 65 bytes, which exceeds "
+														"the read buffer size of 64 bytes"));
+}
+
+// upstream e1a399e62: the announced size is checked for every packet in the buffer, so the packets before an oversized one are still processed
+TEST(AConnectionTest, PacketLargerThanReadBufferAfterAValidPacketClosesConnection) {
+	LogCapture& logs = LogCapture::instance();
+	logs.clear();
+	TestServer server;
+	server.rbSize = 64;
+	server.start();
+	TestClient client(server.port);
+	std::vector<uint8_t> data;
+	append(data, frame({1}));
+	append(data, bytes({0xFF, 0xFF, 0x01}));
+	client.send(data);
+	EXPECT_TRUE(client.waitForClose());
+	ASSERT_TRUE(waitUntil([&] { return server.probe->disconnectCount == 1; }));
+	EXPECT_EQ(server.probe->receivedCount(), 1u);
+	EXPECT_TRUE(logs.contains("announced a packet of 65535 bytes, which exceeds the read buffer size of 64 bytes"));
 }
 
 TEST(AConnectionTest, ProcessDataReturningFalseClosesImmediately) {

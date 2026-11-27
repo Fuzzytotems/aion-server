@@ -124,17 +124,15 @@ TEST_F(TeleportSelectPacketTest, ReadsItsTenBytes) {
 	EXPECT_EQ(packet.remaining(), 0) << "the trailing readH is consumed";
 }
 
-TEST_F(TeleportSelectPacketTest, ANineByteBodyReadsTheTwoIdsAndLogsTheMissingShort) {
+TEST_F(TeleportSelectPacketTest, ANineByteBodyIsRejectedAsTooShort) {
 	spawnActor(0);
 	network::test::LogCapture capture({"com.aionemu.commons.network.packet.BaseClientPacket"}, spdlog::level::info);
 	SelectDriver packet;
 
-	// BaseClientPacket.readH catches the underflow, logs it and answers 0 (the Java commons do the same)
-	EXPECT_TRUE(packet.readBody(PacketWriter().D(7).D(4).C(0).data, actorClient->get()));
+	// upstream e1a399e62: BaseClientPacket.readH throws on the underflow, read() logs it and fails (the connection is closed)
+	EXPECT_FALSE(packet.readBody(PacketWriter().D(7).D(4).C(0).data, actorClient->get()));
 
-	EXPECT_EQ(CM_TELEPORT_SELECTTestAccess::targetObjId(packet), 7);
-	EXPECT_EQ(CM_TELEPORT_SELECTTestAccess::locId(packet), 4);
-	EXPECT_TRUE(capture.contains("Missing H for")) << capture.dump();
+	EXPECT_TRUE(capture.contains("is shorter than expected")) << capture.dump();
 }
 
 // ---- runImpl -------------------------------------------------------------------------------------------------------------------------------

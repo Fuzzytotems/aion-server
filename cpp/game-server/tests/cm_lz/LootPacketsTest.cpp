@@ -108,13 +108,10 @@ TEST(LootPacketsReadTest, LootItemReadsTheIndexUnsigned) {
 	EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 }
 
-TEST(LootPacketsReadTest, ShortBodiesLogTheMissingField) {
-	LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
+TEST(LootPacketsReadTest, ShortBodiesFailToRead) {
 	int32_t unread = -1;
-	ASSERT_NE(readPacket<CM_START_LOOT>(PacketWriter().D(CORPSE).data, CM_START_LOOT_OPCODE, unread), nullptr);
-	EXPECT_EQ(capture.count("Missing C"), 1) << capture.dump();
-	ASSERT_NE(readPacket<CM_LOOT_ITEM>(PacketWriter().H(1).data, CM_LOOT_ITEM_OPCODE, unread), nullptr);
-	EXPECT_TRUE(capture.contains("Missing D")) << capture.dump();
+	EXPECT_EQ(readPacket<CM_START_LOOT>(PacketWriter().D(CORPSE).data, CM_START_LOOT_OPCODE, unread), nullptr); // upstream e1a399e62: a too short body fails to read
+	EXPECT_EQ(readPacket<CM_LOOT_ITEM>(PacketWriter().H(1).data, CM_LOOT_ITEM_OPCODE, unread), nullptr);
 }
 
 TEST(LootPacketsReadTest, TheMarkersRegisterBothClassesUnderTheirJavaOpcodes) {

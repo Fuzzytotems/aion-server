@@ -118,7 +118,8 @@ protected:
 
 	/** CM_PLAYER_SEARCH's body: S name (25 characters), D region, D class mask, C min level, C max level, C lfg only, C */
 	static std::vector<uint8_t> search(std::string_view name, int32_t minLevel = 0xFF, int32_t maxLevel = 0xFF, int32_t lfgOnly = 0) {
-		return PacketWriter().S(name).D(0).D(0).C(minLevel).C(maxLevel).C(lfgOnly).C(0).data;
+		// readS(25): the client pads the name to 25 characters (upstream e1a399e62: a body without the padding is too short)
+		return PacketWriter().S(name).zeros((25 - name.size()) * 2).D(0).D(0).C(minLevel).C(maxLevel).C(lfgOnly).C(0).data;
 	}
 
 	std::vector<uint8_t> searchResult(const std::vector<runtime::Ptr<Player>>& players) { return serializedFor(serverpackets::SM_PLAYER_SEARCH(players)); }

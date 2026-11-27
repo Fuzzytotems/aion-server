@@ -103,11 +103,9 @@ TEST(EquipDeleteReadTest, EquipReadsAByteALongAndAnInt) {
 	EXPECT_EQ(EquipAccess::action(*negative), -1);
 }
 
-TEST(EquipDeleteReadTest, AShortEquipBodyLogsTheMissingField) {
-	LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
+TEST(EquipDeleteReadTest, AShortEquipBodyFailsToRead) {
 	int32_t unread = -1;
-	ASSERT_NE(readPacket<CM_EQUIP_ITEM>(PacketWriter().C(0).Q(1).H(5).data, CM_EQUIP_ITEM_OPCODE, unread), nullptr);
-	EXPECT_TRUE(capture.contains("Missing D")) << capture.dump();
+	EXPECT_EQ(readPacket<CM_EQUIP_ITEM>(PacketWriter().C(0).Q(1).H(5).data, CM_EQUIP_ITEM_OPCODE, unread), nullptr); // upstream e1a399e62: a too short body fails to read
 }
 
 TEST(EquipDeleteReadTest, DeleteReadsTheObjectId) {

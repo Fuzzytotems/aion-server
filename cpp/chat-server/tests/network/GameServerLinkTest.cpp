@@ -103,15 +103,14 @@ TEST_F(GameServerLinkTest, TheTokenHashesAsManyUtf8BytesAsTheAccountNameHasChars
 	EXPECT_EQ(hex(digest), "33 E6 D7 3F EE 82 90 4C 8D 7A FB 78 DE 11 54 D1 E8 DC 2A 0E DB 08 12 0E 63 DF 5B 93 85 C2 D9 CC");
 }
 
-TEST_F(GameServerLinkTest, TruncatedPlayerAuthIsReadWithDefaults) {
-	// commons' read helpers (Java BaseClientPacket) log the missing raceId and accessLevel and return 0, and the packet still runs
+TEST_F(GameServerLinkTest, TruncatedPlayerAuthIsNotExecuted) {
+	// upstream e1a399e62: commons' read helpers (Java BaseClientPacket) throw on the missing raceId and accessLevel, read() logs the packet as too
+	// short and it is not executed
 	LogCapture log({"com.aionemu.commons.network.packet.BaseClientPacket"});
 	auto gs = connectGameServer();
 	gs->send(PacketWriter().C(0x01).D(nextPlayerId()).S("acc").S("Nick").frame()); // raceId and accessLevel missing
-	EXPECT_TRUE(log.waitFor("Missing D for: [001] CM_PLAYER_AUTH")) << log.dump();
-	EXPECT_TRUE(log.waitFor("Missing C for: [001] CM_PLAYER_AUTH")) << log.dump();
-	Bytes response = gs->expectFrame("SM_PLAYER_AUTH_RESPONSE");
-	EXPECT_EQ(response.size(), 56u) << hex(response);
+	EXPECT_TRUE(log.waitFor("[001] CM_PLAYER_AUTH from Gameserver 127.0.0.1 is shorter than expected")) << log.dump();
+	EXPECT_TRUE(gs->socket.expectSilence());
 }
 
 } // namespace

@@ -90,11 +90,9 @@ TEST(RemoveAlteredStateReadTest, ASkillIdAndTwoBytes) {
 		EXPECT_EQ(unread, 0) << "2 + 1 + 1 bytes";
 		EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 	}
-	{ // the second byte missing: the last readC underflows
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
+	{ // the second byte missing: the last readC underflows, so the read fails (upstream e1a399e62)
 		int32_t unread = -1;
-		ASSERT_NE(readPacket(PacketWriter().H(3195).C(0).data, unread), nullptr);
-		EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
+		EXPECT_EQ(readPacket(PacketWriter().H(3195).C(0).data, unread), nullptr);
 	}
 	{ // a spare byte is left: readImpl reads nothing after the second C
 		std::vector<uint8_t> data = body(3195);

@@ -154,7 +154,16 @@ void AConnectionBase::onRead(const std::error_code& error, size_t bytesRead) {
 	utils::ByteBuffer& rb = readBuffer;
 	rb.position(rb.position() + static_cast<int32_t>(bytesRead));
 	rb.flip();
-	while (rb.remaining() > 2 && rb.remaining() >= static_cast<uint16_t>(rb.getShort(rb.position()))) {
+	while (rb.remaining() > 2) {
+		int32_t size = static_cast<uint16_t>(rb.getShort(rb.position()));
+		if (size > rb.capacity()) {
+			log().warn(fmt::format("{} announced a packet of {} bytes, which exceeds the read buffer size of {} bytes", describe(*this), size,
+				rb.capacity()));
+			disconnect();
+			return;
+		}
+		if (rb.remaining() < size)
+			break;
 		// got full message
 		if (!parse(rb)) {
 			disconnect();
@@ -171,18 +180,6 @@ void AConnectionBase::onRead(const std::error_code& error, size_t bytesRead) {
 		rb.clear();
 		doRead();
 		return;
-	}
-
-	// Deviation: Java waits forever for a packet that is bigger than the read buffer (the selector spins on a full buffer), here the connection is
-	// closed as soon as the declared size is known.
-	if (rb.position() >= 2) {
-		int32_t declaredSize = static_cast<uint16_t>(rb.getShort(0));
-		if (declaredSize > rb.capacity()) {
-			log().warn(fmt::format("Received packet with a size of {} bytes from {}, which exceeds the read buffer size of {} bytes", declaredSize,
-				describe(*this), rb.capacity()));
-			disconnect();
-			return;
-		}
 	}
 
 	doRead();

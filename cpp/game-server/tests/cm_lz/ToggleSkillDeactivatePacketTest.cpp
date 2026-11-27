@@ -79,13 +79,11 @@ TEST(ToggleSkillDeactivateReadTest, ASkillIdAndTwoShorts) {
 		EXPECT_EQ(packet->getRemainingBytes(), 0) << "2 + 2 + 2 bytes";
 		EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 	}
-	{ // the last short missing: the second readH underflows
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
+	{ // the last short missing: the second readH underflows, so the read fails (upstream e1a399e62)
 		std::vector<uint8_t> data = PacketWriter().H(TOGGLE_SKILL).H(0).data;
 		auto packet = std::make_unique<CM_TOGGLE_SKILL_DEACTIVATE>(OPCODE, StateSet{AionConnection_State::IN_GAME});
 		packet->setBuffer(commons::utils::ByteBuffer::wrap(data));
-		ASSERT_TRUE(packet->read());
-		EXPECT_TRUE(capture.contains("Missing H")) << capture.dump();
+		EXPECT_FALSE(packet->read());
 	}
 }
 

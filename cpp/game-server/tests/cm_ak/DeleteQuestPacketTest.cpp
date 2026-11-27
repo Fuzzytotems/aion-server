@@ -147,8 +147,7 @@ TEST(DeleteQuestReadTest, TheBodyIsTheQuestId) {
 	EXPECT_EQ(unread, 0);
 	EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 
-	ASSERT_NE(readPacket(PacketWriter().H(7).data, unread), nullptr);
-	EXPECT_EQ(capture.count("Missing D"), 1) << capture.dump();
+	EXPECT_EQ(readPacket(PacketWriter().H(7).data, unread), nullptr); // upstream e1a399e62: a too short body fails to read
 }
 
 TEST(DeleteQuestReadTest, TheMarkerRegistersTheClassUnderItsJavaOpcode) {
