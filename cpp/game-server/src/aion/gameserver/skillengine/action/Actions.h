@@ -10,8 +10,7 @@ namespace aion::gameserver::skillengine::action {
 /**
  * Java com.aionemu.gameserver.skillengine.action.Actions.
  * <p>
- * C++ notes (P4-08): `getActions()` returns the bound list; Java creates an empty list on first access when none was bound, which the empty
- * vector stands for (a template is const after load, and no Java caller adds to the live list).
+ * C++ notes (P4-08): `getActions()` returns the bound list, empty when none was bound (Java: List.of(), upstream 15eaf77b6).
  *
  * @author ATracer
  */

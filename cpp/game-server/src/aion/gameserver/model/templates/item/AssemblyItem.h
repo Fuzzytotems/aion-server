@@ -11,7 +11,7 @@ namespace aion::gameserver::model::templates::item {
 class AssemblyItem : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/item/AssemblyItem.xml.inc"
 public:
-	/** @return the parts; Java creates an empty list on first use when the attribute is absent (the attribute is required) */
+	/** @return the parts; Java: List.of() when the attribute is absent (the attribute is required) */
 	const std::vector<int32_t>& getParts() const;
 };
 

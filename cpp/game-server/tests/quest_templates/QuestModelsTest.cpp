@@ -79,7 +79,7 @@ TEST(QuestEventTest, IdsAndMonsters) {
 	EXPECT_EQ(kill->getMonsters()[1].getVar(), 1);
 	EXPECT_EQ(*kill->getMonsters()[1].getNpcIds(), (std::vector<int32_t>{210002, 210003}));
 	EXPECT_EQ(kill->getIds(), (std::vector<int32_t>{1})) << "inherited from QuestEvent";
-	EXPECT_TRUE(bindXml<xmlQuest::events::OnKillEvent>("<on_kill_event/>")->getMonsters().empty()) << "Java: a new empty list";
+	EXPECT_TRUE(bindXml<xmlQuest::events::OnKillEvent>("<on_kill_event/>")->getMonsters().empty()) << "Java: List.of()";
 }
 
 TEST(QuestOperationsTest, OverrideDefaultsToTrue) {

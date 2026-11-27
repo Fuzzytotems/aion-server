@@ -19,11 +19,11 @@ namespace aion::gameserver::questEngine::handlers::models::xmlQuest::events {
 
 using network::aion::serverpackets::SM_QUEST_ACTION;
 
-// C++: Java's `monster == null` test is dead once the quest is registered (XmlQuest.register calls getMonsters(), which stores an empty list
-// into a null field), so the bound vector - empty without <monster> children - stands for that list and there is no early return for it.
+// C++: the empty bound vector is Java's null `monster` (no <monster> children); upstream 15eaf77b6 made the test live (getMonsters() no longer
+// stores an empty list into the field at registration)
 bool OnKillEvent::operate(model::QuestEnv& env) const {
 	runtime::Ptr<gameserver::model::gameobjects::Npc> npc = runtime::as<gameserver::model::gameobjects::Npc>(env.getVisibleObject());
-	if (!npc)
+	if (monster.empty() || !npc)
 		return false;
 	runtime::Ptr<gameserver::model::gameobjects::player::Player> player = env.getPlayer();
 	runtime::Ptr<model::QuestState> qs = player->getQuestStateList()->getQuestState(env.getQuestId());
