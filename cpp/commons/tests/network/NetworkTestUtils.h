@@ -141,6 +141,10 @@ struct Probe {
 	std::atomic<int32_t> maxSendQueueSize = std::numeric_limits<int32_t>::max();
 	/** AConnection::getMaxSendStallMillis of the connections */
 	std::atomic<int64_t> maxSendStallMillis = std::numeric_limits<int64_t>::max();
+	/** AConnection::getAuthTimeoutMillis of the connections */
+	std::atomic<int64_t> authTimeoutMillis = 0;
+	/** AConnection::isAuthenticated of the connections */
+	std::atomic<bool> authenticated = true;
 
 	std::vector<std::vector<uint8_t>> receivedCopy() {
 		std::lock_guard lock(mutex);
@@ -202,6 +206,10 @@ protected:
 	int32_t getMaxSendQueueSize() const override { return probe->maxSendQueueSize; }
 
 	int64_t getMaxSendStallMillis() const override { return probe->maxSendStallMillis; }
+
+	bool isAuthenticated() const override { return probe->authenticated; }
+
+	int64_t getAuthTimeoutMillis() const override { return probe->authTimeoutMillis; }
 
 	void onServerClose() override {
 		probe->serverCloseCount++;

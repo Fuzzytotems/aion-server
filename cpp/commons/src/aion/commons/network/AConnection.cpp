@@ -75,7 +75,7 @@ void logCurrentException(std::string_view message, const AConnectionBase& connec
 
 AConnectionBase::AConnectionBase(asio::ip::tcp::socket connectedSocket, NioServer& server, int32_t rbSize, int32_t wbSize)
 	: context(server.context), socket(std::move(connectedSocket)), strand(asio::make_strand(context->ioContext)), closeTimer(strand),
-		ip(remoteIp(socket)), readBuffer(allocateBuffer(rbSize, "Read")), writeBuffer(allocateBuffer(wbSize, "Write")) {
+		ip(remoteIp(socket)), connectedAtMillis(utils::currentTimeMillis()), readBuffer(allocateBuffer(rbSize, "Read")), writeBuffer(allocateBuffer(wbSize, "Write")) {
 	if (&asio::query(socket.get_executor(), asio::execution::context) != &static_cast<asio::execution_context&>(context->ioContext))
 		throw utils::IllegalArgumentException("The socket of a connection must belong to the io_context of its NioServer");
 }
@@ -114,6 +114,23 @@ bool AConnectionBase::isSendQueueStuck(size_t queuedPackets) const {
 		return true;
 	}
 	return false;
+}
+
+void AConnectionBase::closeIfTimedOut(int64_t nowMillis) {
+	std::lock_guard lock(guard);
+	if (!canSend())
+		return;
+	int64_t authTimeoutMillis = getAuthTimeoutMillis();
+	if (authTimeoutMillis > 0 && nowMillis - connectedAtMillis > authTimeoutMillis && !isAuthenticated()) {
+		connectionLog().info(fmt::format("{} didn't authenticate within {} ms, disconnecting", describe(*this), authTimeoutMillis));
+		close();
+		return;
+	}
+	size_t queuedPackets = getSendQueueSize();
+	if (queuedPackets > 0 && isSendQueueStuck(queuedPackets)) {
+		clearSendQueue();
+		close();
+	}
 }
 
 void AConnectionBase::onDataWritten() noexcept {

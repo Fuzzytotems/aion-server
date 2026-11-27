@@ -86,7 +86,7 @@ TEST(ConfigDescribeTest, DescribeListsEveryBindOfEveryConfigClassAsTheGoldenDump
 	}
 	EXPECT_EQ(unnamed, 1);
 	const std::vector<std::string> golden = goldenRows();
-	ASSERT_EQ(golden.size(), 451u);
+	ASSERT_EQ(golden.size(), 452u);
 	EXPECT_EQ(rows, golden);
 }
 
