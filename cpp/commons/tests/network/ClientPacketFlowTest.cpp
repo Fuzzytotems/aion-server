@@ -103,7 +103,7 @@ std::vector<uint8_t> valueFrame(int32_t value) {
 
 struct FlowServer {
 	std::shared_ptr<FlowState> state = std::make_shared<FlowState>();
-	network::PacketProcessor<FlowConnection> processor{1, 1, 50, 3};
+	network::PacketProcessor<FlowConnection> processor{1, 1, 50, 3, 500};
 	std::mutex mutex;
 	std::weak_ptr<FlowConnection> connection;
 	std::unique_ptr<network::NioServer> server;

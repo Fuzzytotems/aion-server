@@ -57,7 +57,7 @@ template <typename C>
 class CapturingServer {
 public:
 	CapturingServer() {
-		auto packetProcessor = std::make_shared<typename C::Processor>(1, 2, 50, 3);
+		auto packetProcessor = std::make_shared<typename C::Processor>(1, 2, 50, 3, 500);
 		auto pingScheduler = std::make_shared<utils::ScheduledExecutor>("TestPingPong");
 		processor = packetProcessor;
 		scheduler = pingScheduler;

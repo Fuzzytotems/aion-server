@@ -65,6 +65,9 @@ struct NetworkConfig {
 	/** Threshold that will be used to decide when extra threads should be spawned. (it doesn't have any effect if min threads == max threads) */
 	static inline std::atomic<int32_t> PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD{0};
 
+	/** Maximum number of packets of one client that may wait for execution. A client exceeding it gets disconnected. */
+	static inline std::atomic<int32_t> PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION{0};
+
 	/** If aion client packets unknown by the server should be logged. */
 	static inline std::atomic<bool> LOG_UNKNOWN_PACKETS{false};
 

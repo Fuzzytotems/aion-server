@@ -38,8 +38,10 @@ bool LoginConnection::processData(commons::utils::ByteBuffer& data) {
 	std::unique_ptr<AionClientPacket> pck = factories::AionPacketHandlerFactory::handle(data, sharedFromThis());
 
 	// Execute packet only if packet exists and read was ok.
-	if (pck && pck->read())
-		processor->executePacket(std::move(pck));
+	if (pck && pck->read() && !processor->executePacket(std::move(pck))) {
+		log().warn(toString() + " has more than " + std::to_string(MAX_PENDING_PACKETS) + " packets waiting for execution, disconnecting");
+		return false;
+	}
 
 	return true;
 }

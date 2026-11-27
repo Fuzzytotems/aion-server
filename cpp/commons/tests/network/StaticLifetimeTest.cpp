@@ -34,7 +34,7 @@ std::atomic<bool> processorConstructed = false;
 // constructed during static initialization of this test executable, before main
 network::PacketProcessor<StaticConnection> staticProcessor = [] {
 	processorConstructed = true;
-	return network::PacketProcessor<StaticConnection>(1, 2, 50, 3);
+	return network::PacketProcessor<StaticConnection>(1, 2, 50, 3, 500);
 }();
 
 // started in a test, shut down by its destructor after main returned (logs "Closing ServerChannels...")

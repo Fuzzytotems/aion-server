@@ -20,6 +20,7 @@ void NetworkConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	AION_BIND(p, "gameserver.network.packet.processor.threads.max", PACKET_PROCESSOR_MAX_THREADS, "4");
 	AION_BIND(p, "gameserver.network.packet.processor.threshold.kill", PACKET_PROCESSOR_THREAD_KILL_THRESHOLD, "3");
 	AION_BIND(p, "gameserver.network.packet.processor.threshold.spawn", PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD, "50");
+	AION_BIND(p, "gameserver.network.packet.processor.max_pending_per_connection", PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION, "500");
 	AION_BIND(p, "gameserver.network.logging.unknown_packets", LOG_UNKNOWN_PACKETS, "false");
 	AION_BIND(p, "gameserver.network.logging.ignored_packets", LOG_IGNORED_PACKETS, "false");
 	AION_BIND(p, "gameserver.network.trace.client_packets", TRACE_CLIENT_PACKETS, ""); // C++ only (docs/deviations/P4-01.md)

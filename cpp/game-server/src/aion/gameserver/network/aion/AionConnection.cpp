@@ -117,7 +117,7 @@ commons::network::PacketProcessor<AionConnection>& AionConnection::packetProcess
 	// Java: private static final field, created with the class; here on first use (it reads the configs), never destroyed
 	static auto* const processor = new commons::network::PacketProcessor<AionConnection>(NetworkConfig::PACKET_PROCESSOR_MIN_THREADS.load(),
 		NetworkConfig::PACKET_PROCESSOR_MAX_THREADS.load(), NetworkConfig::PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD.load(),
-		NetworkConfig::PACKET_PROCESSOR_THREAD_KILL_THRESHOLD.load(),
+		NetworkConfig::PACKET_PROCESSOR_THREAD_KILL_THRESHOLD.load(), NetworkConfig::PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION.load(),
 		[wrapper = commons::utils::concurrent::ExecuteWrapper(configs::main::ThreadConfig::MAXIMUM_RUNTIME_IN_MILLISEC_WITHOUT_WARNING.load())](
 			commons::network::packet::ClientPacketBase& packet) {
 			runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::PACKET});
@@ -245,7 +245,11 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 
 		if (pck->read()) {
 			sendPacketInfo(*pck);
-			packetProcessor().executePacket(std::move(pck));
+			if (!packetProcessor().executePacket(std::move(pck))) {
+				log.warn(toString() + " has more than " + std::to_string(configs::network::NetworkConfig::PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION.load()) +
+					" packets waiting for execution, disconnecting");
+				return false;
+			}
 		}
 	}
 

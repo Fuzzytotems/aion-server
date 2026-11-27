@@ -1,5 +1,6 @@
 #include "aion/loginserver/network/NetConnector.h"
 
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -58,9 +59,9 @@ void connect() {
 	if (s.instance)
 		throw commons::utils::IllegalStateException("NetConnector is already connected");
 
-	auto loginProcessor = std::make_shared<LoginConnection::Processor>(1, 8, 50, 3);
+	auto loginProcessor = std::make_shared<LoginConnection::Processor>(1, 8, 50, 3, LoginConnection::MAX_PENDING_PACKETS);
 	// Deviation: Java runs game server packets on a cached thread pool (unordered, unbounded); see GsConnection
-	auto gsProcessor = std::make_shared<GsConnection::Processor>(4, 8, 50, 3);
+	auto gsProcessor = std::make_shared<GsConnection::Processor>(4, 8, 50, 3, std::numeric_limits<int32_t>::max());
 	auto pingPongExecutor = std::make_shared<utils::ScheduledExecutor>("PingPong");
 
 	ServerCfg aionCfg{Config::CLIENT_SOCKET_ADDRESS, "Aion game clients", [loginProcessor](asio::ip::tcp::socket socket, NioServer& server) {

@@ -8,7 +8,7 @@
  * The network of the login server: a NioServer listening on Config::CLIENT_SOCKET_ADDRESS for Aion game clients (LoginConnection) and on
  * Config::GAMESERVER_SOCKET_ADDRESS for game servers (GsConnection), plus the executors the connections use:
  * <ul>
- * <li>the Aion client packet processor (Java: LoginConnection's static PacketProcessor(1, 8, 50, 3))</li>
+ * <li>the Aion client packet processor (Java: LoginConnection's static PacketProcessor(1, 8, 50, 3, MAX_PENDING_PACKETS))</li>
  * <li>the game server packet processor (Java: GsConnection.PACKET_EXECUTOR, a cached thread pool; see GsConnection)</li>
  * <li>the ping scheduler (Java: GsConnection.PINGPONG_EXECUTOR)</li>
  * <li>DISCONNECT_THREADS threads running onDisconnect (Java: a cached thread pool); LoginConnection::onDisconnect writes to the database</li>
