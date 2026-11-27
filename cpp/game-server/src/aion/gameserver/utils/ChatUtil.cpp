@@ -298,12 +298,16 @@ std::string ChatUtil::item(int32_t itemId) {
 	return std::format("[item:{}]", itemId);
 }
 
-std::string ChatUtil::itemName(int32_t itemId) {
-	return std::format("[item_ex:{}]", itemId);
+std::string ChatUtil::itemName(int32_t itemId, std::string_view playerName) {
+	return std::format("[item_ex:{};{}]", itemId, playerName);
 }
 
 std::string ChatUtil::recipe(int32_t recipeId) {
 	return std::format("[recipe:{}]", recipeId);
+}
+
+std::string ChatUtil::recipeName(int32_t recipeId, std::string_view playerName) {
+	return std::format("[recipe_ex:{};{}]", recipeId, playerName);
 }
 
 std::string ChatUtil::quest(int32_t questId) {
