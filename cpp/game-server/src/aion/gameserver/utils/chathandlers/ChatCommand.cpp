@@ -26,7 +26,7 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 namespace {
 
 /**
- * Java ChatUtil.color(message, Color.WHITE): `[color:<message>;1 1 1]` (DecimalFormat ".##" formats 255 / 255f as "1"). A local helper
+ * Java ChatUtil.color(message, Color.WHITE): `[color:<message>;1 1 1]` (ChatUtil.format, upstream b7bc32976, formats 255 / 255f as "1"). A local helper
  * because the constructor runs while the command registry is built; ChatCommandTest checks it equals ChatUtil::color(message, WHITE).
  */
 std::string colorWhite(std::string_view message) {
