@@ -69,6 +69,7 @@ target_compile_definitions(aion_gs_build_options INTERFACE AION_GAMESERVER_JAVA_
 target_include_directories(aion_gs_build_options INTERFACE "${GS_SRC}" "${GS_GENERATED}")
 
 find_package(pugixml CONFIG REQUIRED)
+find_package(ZLIB REQUIRED) # CompressUtil (java.util.zip Deflater/Inflater)
 find_package(Python3 3.12 COMPONENTS Interpreter)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -132,6 +133,9 @@ elseif(AION_BUILD_TESTS)
 	message(FATAL_ERROR "aion_gs_quest_tests does not exist before this point any more (cmake/AionChunks.cmake): the QuestSpawnAnalyzer tests "
 		"need the real npcids table linked here")
 endif()
+
+# P4-05: CompressUtil calls zlib (java.util.zip bundles it). PRIVATE on the static library still reaches every link that uses aion_gs_base.
+target_link_libraries(aion_gs_base PRIVATE ZLIB::ZLIB)
 
 # The server: every core library, every handler library (through the registries) and main.cpp (MAIN of chunk P5-14).
 add_executable(aion_game_server ${AION_GS_MAIN_SOURCES})
@@ -381,7 +385,7 @@ if(AION_BUILD_TESTS)
 	# (working directories, config and sql) through compile definitions. CTest registrations: tests/scenario/ScenarioTests.cmake (P5-SC).
 	if(TARGET aion_gs_scenario_tests)
 		target_include_directories(aion_gs_scenario_tests PRIVATE "${CMAKE_SOURCE_DIR}/login-server/tests/support")
-		target_link_libraries(aion_gs_scenario_tests PRIVATE aion_loginserver_crypto)
+		target_link_libraries(aion_gs_scenario_tests PRIVATE aion_loginserver_crypto ZLIB::ZLIB) # zlib: the client's house script blocks (M5h)
 		get_filename_component(gs_ls_java_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../login-server" ABSOLUTE)
 		target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_GAME_SERVER_EXECUTABLE="$<TARGET_FILE:aion_game_server>"
 			AION_LOGIN_SERVER_EXECUTABLE="$<TARGET_FILE:aion_login_server>" AION_LOGINSERVER_JAVA_DIR="${gs_ls_java_dir}"

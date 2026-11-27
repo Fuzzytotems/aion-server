@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
 #include <vector>
 
 #include "LegionHouseTestSupport.h"
@@ -17,17 +18,20 @@
 #include "aion/gameserver/dataholders/HousingObjectData.h"
 #include "aion/gameserver/model/gameobjects/ChairObject.h"
 #include "aion/gameserver/model/gameobjects/PassiveObject.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerScripts.h"
 #include "aion/gameserver/services/item/HouseObjectFactory.h"
 #include "aion/gameserver/model/gameobjects/Persistable.h"
 #include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/model/house/HouseBids.h"
 #include "aion/gameserver/model/house/HouseDoorStateInfo.h"
 #include "aion/gameserver/model/house/HouseRegistry.h"
+#include "aion/gameserver/model/house/PlayerScript.h"
 #include "aion/gameserver/model/templates/housing/Building.h"
 #include "aion/gameserver/model/templates/housing/HouseAddress.h"
 #include "aion/gameserver/model/templates/housing/HousingLand.h"
 #include "aion/gameserver/services/cron/CronExpression.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.h"
+#include "aion/gameserver/utils/xml/CompressUtil.h"
 
 namespace aion::gameserver::legionhouse::test {
 namespace {
@@ -227,6 +231,34 @@ TEST_F(HouseModelTest, AuctionEndTaskWithoutCronExpressionIsDeactivated) {
 	EXPECT_FALSE(task.getLastRun());
 	EXPECT_FALSE(task.isAuctionProlonged(4711));
 	EXPECT_EQ(executor->pendingTaskCount(), 0u) << "nothing is scheduled";
+}
+
+TEST_F(HouseModelTest, PlayerScriptsAcceptARealScriptBlockWithTheClientsTrailingBytes) {
+	// CM_HOUSE_SCRIPT -> PlayerScripts.set (Java 51d7a19cb, PlayerScripts.java:44-57, 79-93): the block must inflate to exactly the declared
+	// size. The client's block is the UTF-16LE script compressed by zlib, followed by the 8 bytes SM_HOUSE_SCRIPTS padded it with
+	const std::u16string xml = u"<?xml version=\"1.0\" encoding=\"UTF-16\" ?>\n<lboxes>\n\t<lbox>\n\t\t<id>7</id>\n\t\t<script><![CDATA[\n_G.io = nil\n"
+		u"]]></script>\n\t</lbox>\n</lboxes>\n";
+	std::vector<uint8_t> utf16;
+	for (char16_t c : xml) {
+		utf16.push_back(static_cast<uint8_t>(c & 0xFF));
+		utf16.push_back(static_cast<uint8_t>(c >> 8));
+	}
+	std::vector<uint8_t> compressed = utils::xml::CompressUtil::compress(utf16);
+	compressed.insert(compressed.end(), 8, 0xCD);
+	runtime::Ref<runtime::Array<int8_t>> block = runtime::Array<int8_t>::make(static_cast<int32_t>(compressed.size()));
+	for (size_t i = 0; i < compressed.size(); i++)
+		(*block)[static_cast<int32_t>(i)].set(static_cast<int8_t>(compressed[i]));
+	const int32_t size = static_cast<int32_t>(utf16.size());
+
+	runtime::Ref<model::gameobjects::player::PlayerScripts> scripts = model::gameobjects::player::PlayerScripts::create(900);
+	EXPECT_FALSE(scripts->set(3, block, size + 2, false)) << "a block that does not inflate to the declared size is refused";
+	EXPECT_FALSE(scripts->get(3)->hasData());
+	ASSERT_TRUE(scripts->set(3, block, size, false));
+	runtime::Ptr<model::house::PlayerScript> script = scripts->get(3);
+	ASSERT_TRUE(script);
+	EXPECT_EQ(script->id(), 3);
+	EXPECT_EQ(script->compressedBytes().get(), block.get()) << "Java 51d7a19cb keeps the block as it came, trailing bytes included";
+	EXPECT_EQ(script->uncompressedSize(), size);
 }
 
 } // namespace
