@@ -96,24 +96,13 @@ class RealStaticDataTest(unittest.TestCase):
 		self.assertEqual(paths["world_maps/map@flags"]["flags"]["EMPTY"], 1)
 		self.assertEqual(paths["npc_shouts/shout_group@client_ai"]["flags"]["EMPTY"], 1)
 
-	@unittest.skipUnless(os.name == "nt", "NTFS enumeration order can only be observed on Windows")
-	def test_directory_order_matches_file_system_enumeration(self):
-		def scandir_order(directory, out):
-			with os.scandir(directory) as it:
-				for entry in it:
-					if entry.is_dir(follow_symlinks=False):
-						scandir_order(entry.path, out)
-					elif entry.name.lower().endswith(".xml"):
-						out.append(Path(entry.path))
-			return out
-
-		checked = 0
-		for imp in resolve_imports(DATA / "static_data.xml"):
-			if imp.is_directory:
-				directory = DATA / imp.rel
-				self.assertEqual(list_xml_files(directory, True), scandir_order(directory, []), imp.rel)
-				checked += len(imp.files)
-		self.assertGreater(checked, 500)
+	def test_directory_order_is_file_compare_to(self):
+		"""upstream 2cd926056: names the NTFS enumeration order of 51d7a19cb listed differently"""
+		imports = {imp.rel: imp for imp in resolve_imports(DATA / "static_data.xml")}
+		quests = [f.rel for f in imports["quest_script_data"].files]
+		self.assertLess(quests.index("quest_script_data/abyss_entry.xml"), quests.index("quest_script_data/abyssal_splinter.xml"))
+		self.assertLess(quests.index("quest_script_data/the_hexway.xml"), quests.index("quest_script_data/theobomos.xml"))
+		self.assertEqual(imports["zones"].files[0].rel, "zones/zone_abyss_shields.xml")
 
 	@unittest.skipUnless(JAVA.is_dir(), "Java sources not present")
 	def test_enum_tables_match_java(self):

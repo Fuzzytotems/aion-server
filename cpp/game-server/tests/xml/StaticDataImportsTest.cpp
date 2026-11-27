@@ -56,34 +56,27 @@ TEST(StaticDataImportsTest, RegionOverrideAppliesOnlyToRegularFiles) {
 	EXPECT_EQ(relativeOverride("spawns", 7), "spawns_russia") << "a name without dot gets the suffix appended (Java quirk)";
 }
 
-TEST(StaticDataImportsTest, DirectoriesAreListedDepthFirstInUppercaseOrdinalOrder) {
+// upstream 2cd926056: XmlUtil.listFiles sorts the Files.find results in File.compareTo order
+TEST(StaticDataImportsTest, DirectoriesAreListedInFileCompareToOrder) {
 	TempDir dir;
 	for (std::string_view file : {"d/Zeta.xml", "d/alpha.xml", "d/_under.xml", "d/item_b.xml", "d/item.xml", "d/UPPER.XML", "d/notes.txt",
-	                              "d/a.xml.bak", "d/sub/2.xml", "d/sub/10.xml", "d/sub/deeper/x.xml", "d/Sub2/y.xml"})
+	                              "d/a.xml.bak", "d/sub/2.xml", "d/sub/10.xml", "d/sub/deeper/x.xml", "d/Sub2/y.xml", "d/sub-x.xml"})
 		dir.write(file, "<r/>");
 	dir.mkdir("d/empty");
 
-	std::vector<std::string> expected{"d/alpha.xml",        "d/item.xml",   "d/item_b.xml", "d/sub/10.xml", "d/sub/2.xml",
-	                                  "d/sub/deeper/x.xml", "d/Sub2/y.xml", "d/UPPER.XML",  "d/Zeta.xml",   "d/_under.xml"};
-	EXPECT_EQ(relativeAll(dir, StaticDataImports::listFiles(dir.path() / "d", true)), expected)
-	  << "'.' < '_' and 'A'..'Z' < '_': ITEM.XML before ITEM_B.XML, ZETA.XML before _UNDER.XML; directories descended in place";
-	EXPECT_EQ(relativeAll(dir, StaticDataImports::listFiles(dir.path() / "d", false)),
-	          (std::vector<std::string>{"d/alpha.xml", "d/item.xml", "d/item_b.xml", "d/UPPER.XML", "d/Zeta.xml", "d/_under.xml"}));
-
-	EXPECT_LT(StaticDataImports::orderKey("a"), StaticDataImports::orderKey("B"));
-	EXPECT_EQ(StaticDataImports::orderKey(u8"été.xml"), u"ÉTÉ.XML");
-
 #ifdef _WIN32
-	// the comparator is what NTFS enumeration returns (FindFirstFile / Files.find on Windows)
-	for (const char* sub : {"d", "d/sub"}) {
-		std::vector<std::u16string> native;
-		for (const auto& entry : std::filesystem::directory_iterator(dir.path() / sub))
-			native.push_back(entry.path().filename().u16string());
-		std::vector<std::u16string> sorted = native;
-		std::ranges::sort(sorted, [](const auto& a, const auto& b) { return StaticDataImports::orderKey(a) < StaticDataImports::orderKey(b); });
-		EXPECT_EQ(native, sorted) << sub;
-	}
+	// WinNTFileSystem: compareToIgnoreCase of the paths, '-' (0x2D) < '2' (0x32) < backslash (0x5C) < '_' (0x5F) < letters
+	std::vector<std::string> expected{"d/_under.xml", "d/alpha.xml", "d/item.xml",  "d/item_b.xml",       "d/sub-x.xml", "d/Sub2/y.xml",
+	                                  "d/sub/10.xml", "d/sub/2.xml", "d/sub/deeper/x.xml", "d/UPPER.XML", "d/Zeta.xml"};
+	std::vector<std::string> flat{"d/_under.xml", "d/alpha.xml", "d/item.xml", "d/item_b.xml", "d/sub-x.xml", "d/UPPER.XML", "d/Zeta.xml"};
+#else
+	// UnixFileSystem: compareTo of the paths, '-' < '/' < '2' < upper case < '_' < lower case
+	std::vector<std::string> expected{"d/Sub2/y.xml", "d/UPPER.XML",  "d/Zeta.xml",  "d/_under.xml",       "d/alpha.xml", "d/item.xml",
+	                                  "d/item_b.xml", "d/sub-x.xml", "d/sub/10.xml", "d/sub/2.xml", "d/sub/deeper/x.xml"};
+	std::vector<std::string> flat{"d/UPPER.XML", "d/Zeta.xml", "d/_under.xml", "d/alpha.xml", "d/item.xml", "d/item_b.xml", "d/sub-x.xml"};
 #endif
+	EXPECT_EQ(relativeAll(dir, StaticDataImports::listFiles(dir.path() / "d", true)), expected);
+	EXPECT_EQ(relativeAll(dir, StaticDataImports::listFiles(dir.path() / "d", false)), flat);
 }
 
 TEST(StaticDataImportsTest, ResolvesImportsInDocumentOrder) {
@@ -172,26 +165,22 @@ TEST(StaticDataImportsTest, RealStaticDataTreeResolvesLikeXmlMerger) {
 	EXPECT_EQ(goodsEurope->files.front().filename(), "goodslists_europe.xml");
 
 #ifdef _WIN32
-	// every imported directory level enumerates in the order of the comparator (the design's NTFS claim, 587 files)
-	for (const StaticDataImport& entry : imports) {
-		if (!entry.directory)
-			continue;
-		std::vector<std::filesystem::path> native;
-		std::vector<std::filesystem::path> pending{entry.path};
-		while (!pending.empty()) {
-			std::filesystem::path current = pending.back();
-			pending.pop_back();
-			std::vector<std::u16string> names;
-			for (const auto& child : std::filesystem::directory_iterator(current)) {
-				names.push_back(child.path().filename().u16string());
-				if (child.is_directory())
-					pending.push_back(child.path());
-			}
-			std::vector<std::u16string> sorted = names;
-			std::ranges::stable_sort(sorted, [](const auto& a, const auto& b) { return StaticDataImports::orderKey(a) < StaticDataImports::orderKey(b); });
-			EXPECT_EQ(names, sorted) << current.generic_string();
+	// the real tree has names that the NTFS enumeration order of 51d7a19cb listed differently (upstream 2cd926056)
+	auto filesOf = [&](std::string_view import) {
+		auto entry = std::ranges::find(imports, std::string(import), &StaticDataImport::file);
+		EXPECT_NE(entry, imports.end()) << import;
+		std::vector<std::string> relative;
+		if (entry != imports.end()) {
+			for (const std::filesystem::path& file : entry->files)
+				relative.push_back(file.lexically_relative(main.parent_path()).generic_string());
 		}
-	}
+		return relative;
+	};
+	std::vector<std::string> quests = filesOf("quest_script_data");
+	auto position = [](const std::vector<std::string>& list, std::string_view file) { return std::ranges::find(list, file) - list.begin(); };
+	EXPECT_LT(position(quests, "quest_script_data/abyss_entry.xml"), position(quests, "quest_script_data/abyssal_splinter.xml"));
+	EXPECT_LT(position(quests, "quest_script_data/the_hexway.xml"), position(quests, "quest_script_data/theobomos.xml"));
+	EXPECT_EQ(filesOf("zones").front(), "zones/zone_abyss_shields.xml");
 #endif
 }
 

@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/JavaFile.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataException.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlDocument.h"
@@ -34,9 +35,9 @@ bool endsWithXml(const std::filesystem::path& fileName) {
 	return suffix == ".xml";
 }
 
+/** Files.find: every regular .xml file below `directory` (the order does not matter, listFiles sorts) */
 void walk(const std::filesystem::path& directory, bool recursive, std::vector<std::filesystem::path>& out) {
 	struct Entry {
-		std::u16string key;
 		std::filesystem::path path;
 		std::filesystem::file_status status;
 	};
@@ -49,15 +50,10 @@ void walk(const std::filesystem::path& directory, bool recursive, std::vector<st
 		std::filesystem::file_status status = it->symlink_status(error);
 		if (error)
 			throw StaticDataException("Cannot read " + it->path().generic_string() + ": " + error.message());
-		entries.push_back(Entry{StaticDataImports::orderKey(it->path().filename()), it->path(), status});
+		entries.push_back(Entry{it->path(), status});
 	}
 	if (error)
 		throw StaticDataException("Cannot list directory " + directory.generic_string() + ": " + error.message());
-	std::ranges::sort(entries, [](const Entry& a, const Entry& b) {
-		if (a.key != b.key)
-			return a.key < b.key;
-		return a.path.filename().u16string() < b.path.filename().u16string(); // case-sensitive directories only
-	});
 	for (const Entry& entry : entries) {
 		if (std::filesystem::is_regular_file(entry.status)) {
 			if (endsWithXml(entry.path.filename()))
@@ -107,21 +103,10 @@ std::filesystem::path StaticDataImports::applyCountryOverride(const std::filesys
 	return std::filesystem::is_regular_file(override, error) ? override : file;
 }
 
-std::u16string StaticDataImports::orderKey(const std::filesystem::path& fileName) {
-	std::u16string key = fileName.u16string();
-	for (char16_t& unit : key) {
-		if (unit >= 0xD800 && unit <= 0xDFFF)
-			continue;
-		char32_t upper = commons::utils::StringUtils::toUpperCase(static_cast<char32_t>(unit));
-		if (upper <= 0xFFFF)
-			unit = static_cast<char16_t>(upper);
-	}
-	return key;
-}
-
 std::vector<std::filesystem::path> StaticDataImports::listFiles(const std::filesystem::path& directory, bool recursive) {
 	std::vector<std::filesystem::path> files;
 	walk(directory, recursive, files);
+	commons::utils::JavaFile::sort(files); // Java (upstream 2cd926056): XmlUtil.listFiles sorts the Files.find results
 	return files;
 }
 

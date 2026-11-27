@@ -54,6 +54,14 @@ char32_t toUpperCase(char32_t codePoint) noexcept;
 bool equalsIgnoreCase(std::string_view a, std::string_view b) noexcept;
 
 /**
+ * Java: String.compareToIgnoreCase - compares the UTF-16 code units in order; two units that differ are compared after toUpperCase and then
+ * toLowerCase of that, and the difference of the lower-cased values is returned. Equal prefixes compare by length.
+ * <p>
+ * Deviation: see the case mapping deviation of toLowerCase(char32_t); a surrogate pair is compared unit by unit (Java maps the code point).
+ */
+int32_t compareToIgnoreCase(std::u16string_view a, std::u16string_view b) noexcept;
+
+/**
  * Java: String.toLowerCase(Locale.ROOT) / String.toUpperCase(Locale.ROOT), including the special cases U+0130 -&gt; "i\u0307" and
  * U+00DF -&gt; "SS". Deviation: see toLowerCase(char32_t); the context-dependent final sigma rule is not applied.
  */
