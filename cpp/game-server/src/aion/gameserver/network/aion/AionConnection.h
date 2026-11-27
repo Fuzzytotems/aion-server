@@ -163,6 +163,16 @@ protected:
 	/** Java: getSendMsgQueue() (final override). The caller must hold guard. */
 	std::deque<SerializedBody>& getSendMsgQueue() noexcept { return sendMsgQueue; }
 
+	size_t getSendQueueSize() const override final { return sendMsgQueue.size(); }
+
+	void clearSendQueue() override final { sendMsgQueue.clear(); }
+
+	/** @return NetworkConfig::MAX_PENDING_SERVER_PACKETS */
+	int32_t getMaxSendQueueSize() const override;
+
+	/** @return NetworkConfig::MAX_SEND_STALL_SECONDS in milliseconds */
+	int64_t getMaxSendStallMillis() const override;
+
 	/**
 	 * Called by the IO strand. ByteBuffer data contains one packet that should be processed.
 	 *

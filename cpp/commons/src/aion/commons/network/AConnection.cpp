@@ -29,6 +29,12 @@ const logging::Logger& log() {
 	return *logger;
 }
 
+/** Java: AConnection.log */
+const logging::Logger& connectionLog() {
+	static const auto* logger = new logging::Logger(logging::LoggerFactory::getLogger("com.aionemu.commons.network.AConnection"));
+	return *logger;
+}
+
 /** Java: pendingCloseUntilMillis = System.currentTimeMillis() + 2000 in AConnection.close */
 constexpr int64_t PENDING_CLOSE_MILLIS = 2000;
 
@@ -83,6 +89,35 @@ std::string AConnectionBase::toString() const {
 void AConnectionBase::close() {
 	std::lock_guard lock(guard);
 	beginClose(false);
+}
+
+bool AConnectionBase::admitToSendQueue(size_t queuedPackets) {
+	if (queuedPackets == 0) {
+		lastWriteProgressMillis = utils::currentTimeMillis();
+	} else if (isSendQueueStuck(queuedPackets)) {
+		clearSendQueue();
+		close();
+		return false;
+	}
+	return true;
+}
+
+bool AConnectionBase::isSendQueueStuck(size_t queuedPackets) const {
+	if (queuedPackets >= static_cast<size_t>(std::max(0, getMaxSendQueueSize()))) {
+		connectionLog().warn(fmt::format("{} has {} server packets waiting to be sent, disconnecting", describe(*this), queuedPackets));
+		return true;
+	}
+	int64_t millisWithoutProgress = utils::currentTimeMillis() - lastWriteProgressMillis.load();
+	if (millisWithoutProgress > getMaxSendStallMillis()) {
+		connectionLog().warn(fmt::format("{} hasn't received any data for {} ms while {} server packets are waiting to be sent, disconnecting",
+			describe(*this), millisWithoutProgress, queuedPackets));
+		return true;
+	}
+	return false;
+}
+
+void AConnectionBase::onDataWritten() noexcept {
+	lastWriteProgressMillis = utils::currentTimeMillis();
 }
 
 bool AConnectionBase::beginClose(bool withClosePacket) {
@@ -252,7 +287,16 @@ void AConnectionBase::doWrite() {
 		return;
 
 	writeInProgress = true;
-	asio::async_write(socket, asio::buffer(outgoing), asio::bind_executor(strand, [self = shared_from_this()](const std::error_code& error, size_t) {
+	// the completion condition sees the bytes written so far before every partial write, so the write progress is noticed like in Java's
+	// Dispatcher, which calls onDataWritten after each socket write that wrote something
+	auto noteProgress = [self = shared_from_this(), written = size_t(0)](const std::error_code& error, size_t transferred) mutable -> size_t {
+		if (transferred > written) {
+			written = transferred;
+			self->onDataWritten();
+		}
+		return asio::transfer_all()(error, transferred);
+	};
+	asio::async_write(socket, asio::buffer(outgoing), std::move(noteProgress), asio::bind_executor(strand, [self = shared_from_this()](const std::error_code& error, size_t) {
 		self->writeInProgress = false;
 		if (error) {
 			self->disconnect();

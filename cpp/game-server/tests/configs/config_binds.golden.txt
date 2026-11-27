@@ -302,6 +302,8 @@ NetworkConfig	bind	PACKET_PROCESSOR_MAX_THREADS	gameserver.network.packet.proces
 NetworkConfig	bind	PACKET_PROCESSOR_THREAD_KILL_THRESHOLD	gameserver.network.packet.processor.threshold.kill	3
 NetworkConfig	bind	PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD	gameserver.network.packet.processor.threshold.spawn	50
 NetworkConfig	bind	PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION	gameserver.network.packet.processor.max_pending_per_connection	500
+NetworkConfig	bind	MAX_PENDING_SERVER_PACKETS	gameserver.network.client.max_pending_server_packets	20000
+NetworkConfig	bind	MAX_SEND_STALL_SECONDS	gameserver.network.client.max_send_stall_seconds	60
 NetworkConfig	bind	LOG_UNKNOWN_PACKETS	gameserver.network.logging.unknown_packets	false
 NetworkConfig	bind	LOG_IGNORED_PACKETS	gameserver.network.logging.ignored_packets	false
 NetworkConfig	bind	TRACE_CLIENT_PACKETS	gameserver.network.trace.client_packets	

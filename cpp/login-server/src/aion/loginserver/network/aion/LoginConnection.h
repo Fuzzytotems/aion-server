@@ -135,6 +135,8 @@ public:
 protected:
 	bool processData(commons::utils::ByteBuffer& data) override;
 	bool writeData(commons::utils::ByteBuffer& data) override;
+	int32_t getMaxSendQueueSize() const override { return 100; }
+	int64_t getMaxSendStallMillis() const override { return 60'000; }
 	void onDisconnect() override;
 	void onServerClose() override;
 	void initialized() override;
