@@ -59,16 +59,11 @@ TEST(InWorldPacketReadTest, NoServicePacketBodies) {
 }
 
 TEST(InWorldPacketReadTest, ShortBodiesLogTheMissingField) {
-	{ // CM_CUSTOM_SETTINGS: the second unsigned short is missing (one byte short); the failed getShort consumes nothing
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_CUSTOM_SETTINGS>(PacketWriter().H(1).C(0).data, 210), 1);
-		EXPECT_TRUE(capture.contains("Missing H")) << capture.dump();
-	}
-	{ // CM_CHAT_AUTH: readB(6) underflows, and (Java ByteBuffer.get(byte[])) consumes nothing
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_CHAT_AUTH>(PacketWriter().D(1).C(0).C(0).C(0).C(0).C(0).data, 211), 5);
-		EXPECT_TRUE(capture.contains("Missing byte[]")) << capture.dump();
-	}
+	// upstream e1a399e62: a too short body fails to read (and closes the connection)
+	// CM_CUSTOM_SETTINGS: the second unsigned short is missing (one byte short)
+	EXPECT_EQ(unreadBytesAfterRead<CM_CUSTOM_SETTINGS>(PacketWriter().H(1).C(0).data, 210), -1);
+	// CM_CHAT_AUTH: readB(6) underflows
+	EXPECT_EQ(unreadBytesAfterRead<CM_CHAT_AUTH>(PacketWriter().D(1).C(0).C(0).C(0).C(0).C(0).data, 211), -1);
 	{ // a body longer than the layout leaves the extra bytes unread
 		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
 		EXPECT_EQ(unreadBytesAfterRead<CM_CHECK_MAIL_UNK>(PacketWriter().D(1).data, 212), 4);

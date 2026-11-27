@@ -22,8 +22,10 @@ public:
 	void setBuffer(utils::ByteBuffer buffer) noexcept { buf = std::move(buffer); }
 
 	/**
-	 * Reads data from the packet buffer by calling readImpl(). Exceptions thrown by readImpl are logged together with a hex dump of the packet,
-	 * and false is returned (the packet should not be executed). If readImpl leaves bytes unread, a warning is logged once per opcode.
+	 * Reads data from the packet buffer by calling readImpl(). A packet that is shorter than readImpl expects (utils::BufferUnderflowException)
+	 * logs a warning with a hex dump of the packet, other exceptions thrown by readImpl are logged as errors together with a hex dump, and false
+	 * is returned in both cases (the packet should not be executed and the connection is closed). If readImpl leaves bytes unread, a warning is
+	 * logged once per opcode.
 	 * <p>
 	 * The buffer usually refers to the connection's read buffer, which is only valid during AConnection::processData, so read() must be
 	 * called from processData (like all consumers of the Java server do).
@@ -56,8 +58,8 @@ protected:
 	/** @return the owning connection's toString(), or "null", for log messages */
 	virtual std::string connectionToString() const = 0;
 
-	// All read helpers log "Missing X for: <packet> (sent from <connection>)" on buffer underflow and return 0 (or the data read so far for
-	// readS, or zeroes for readB), like Java.
+	// All read helpers throw utils::BufferUnderflowException if the packet has fewer bytes left than they read, which read() turns into a
+	// warning and false, like Java.
 
 	/** Reads an int. */
 	int32_t readD();
@@ -78,9 +80,9 @@ protected:
 	/** Reads a UTF-16LE string up to (and consuming) the terminating 0 char and returns it as UTF-8. */
 	std::string readS();
 	/**
-	 * Reads length bytes. On underflow nothing is consumed and a zero-filled vector of the requested length is returned (Java: get(byte[])).
+	 * Reads length bytes. The length is validated before anything is allocated, so a forged length cannot allocate a huge vector.
 	 *
-	 * @throws utils::IllegalArgumentException if length is negative (Java: NegativeArraySizeException)
+	 * @throws utils::BufferUnderflowException if length is negative or exceeds the remaining bytes (nothing is consumed then)
 	 */
 	std::vector<uint8_t> readB(int32_t length);
 
@@ -88,8 +90,6 @@ protected:
 	utils::ByteBuffer& getBuffer() noexcept { return buf; }
 
 private:
-	void logMissing(const char* type) const;
-
 	/** ByteBuffer that contains this packet data */
 	utils::ByteBuffer buf;
 };
