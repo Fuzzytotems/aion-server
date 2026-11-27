@@ -645,19 +645,6 @@ const templates::item::Improvement* Item::getImprovement() {
 	return nullptr;
 }
 
-runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> Item::getCurrentModifiers() {
-	runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> modifiers = currentModifiers.get();
-	if (!modifiers) // Deviation (D6): see publishLazily
-		modifiers = publishLazily(currentModifiers,
-			runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>::create(AION_LOCK_CLASS(Item::currentModifiers)));
-	return modifiers;
-}
-
-void Item::setCurrentModifiers(const std::vector<runtime::Ptr<stats::calc::functions::StatFunction>>& currentModifiersValue) {
-	getCurrentModifiers()->clear();
-	getCurrentModifiers()->addAll(currentModifiersValue);
-}
-
 int32_t Item::getBonusStatsId() {
 	runtime::Ptr<items::RandomBonusEffect> effect = bonusStatsEffect.get();
 	return !effect ? 0 : effect->getStatBonusId();
