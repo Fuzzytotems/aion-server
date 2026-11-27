@@ -48,7 +48,7 @@ inline constexpr std::string_view SERVER_CONSOLE_FILE_PATTERN = "${date} %-5leve
 inline constexpr std::string_view WARNINGS_AND_ERRORS_FILE_PATTERN = "${date} %logger - %message%n";
 /** app_status_discord, ${avatarUrl} is replaced by the configured avatar URL */
 inline constexpr std::string_view STATUS_DISCORD_PATTERN =
-	"%logger{0} [%thread]|${avatarUrl}|%msg%replace(%n```qml%n%ex```){\\r?\\n```qml\\r?\\n```, ''}%nopex";
+	"%logger{0} [%thread]|${avatarUrl}|%msg%replace(%n```yml%n%ex```){\\r?\\n```yml\\r?\\n```, ''}%nopex";
 
 struct Config {
 	/** logback.xml property "logFolder" */

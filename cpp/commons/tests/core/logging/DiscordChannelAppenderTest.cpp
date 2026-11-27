@@ -156,20 +156,20 @@ TEST(DiscordChannelAppenderTest, CodeBlocksAreContinuedInEachPart) {
 	std::vector<std::string> trace;
 	for (int i = 1; i <= 30; i++)
 		trace.push_back(repeat(static_cast<char>('A' + i % 26), 97) + (i < 10 ? "0" : "") + std::to_string(i));
-	std::string message = "Error\n```qml\n" + joinLines(trace) + "\n```";
+	std::string message = "Error\n```yml\n" + joinLines(trace) + "\n```";
 	auto parts = DiscordChannelAppender::createMessageParts(message);
 	ASSERT_EQ(parts.size(), 2u);
 	std::vector<std::string> first(trace.begin(), trace.begin() + 19);
 	std::vector<std::string> second(trace.begin() + 19, trace.end());
-	EXPECT_EQ(parts[0], "Error\n```qml\n" + joinLines(first) + "\n```");
-	EXPECT_EQ(parts[1], "```qml\n" + joinLines(second) + "\n```");
+	EXPECT_EQ(parts[0], "Error\n```yml\n" + joinLines(first) + "\n```");
+	EXPECT_EQ(parts[1], "```yml\n" + joinLines(second) + "\n```");
 }
 
 TEST(DiscordChannelAppenderTest, SplitPartsRespectTheLimit) {
 	std::vector<std::string> lines;
 	for (int i = 0; i < 400; i++)
 		lines.push_back("\tat frame " + std::to_string(i) + " " + repeat('z', static_cast<size_t>(i % 50) * 7));
-	std::string message = "Something failed\n```qml\naion::Exception: x\n" + joinLines(lines) + "\n```";
+	std::string message = "Something failed\n```yml\naion::Exception: x\n" + joinLines(lines) + "\n```";
 	auto parts = DiscordChannelAppender::createMessageParts(message);
 	ASSERT_GT(parts.size(), 5u);
 	for (const auto& part : parts) {
