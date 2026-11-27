@@ -39,7 +39,7 @@ Java rules, each with the method the value comes from (paths below game-server/s
   report gives the exact probability that it is not 0: rules and custom groups draw independently, no quest drop as `entries` assumes), and
   SM_LOOT_ITEMLIST.writeImpl (:37-58: showLootConfirmation 0 for a solo looter);
 - the global rule order (ruleIndex, and so which rule an entry index belongs to) is GlobalDropData's: the files of the global_rules import in
-  the order XmlUtil.listFiles (Files.find) returns them, which staticdata_oracle/imports.py models as NTFS order.
+  the order XmlUtil.listFiles returns them (sorted in File.compareTo order since upstream 2cd926056, staticdata_oracle/imports.py).
 
 Randomness: Rnd.chance() is RandomGenerator.nextFloat(100f) (commons/src/com/aionemu/commons/utils/Rnd.java:32-34), which the JDK implements as
 `(nextInt() >>> 8) * 0x1.0p-24f * bound`, corrected to Math.nextDown(bound) when it rounds up to bound (RandomGenerator.nextFloat,
@@ -1778,7 +1778,7 @@ class DropEvaluator:
 				"before :244), so a level-up from this kill counts",
 				"the killer dealt the most damage (NpcController.doReward registers the drop for the winner only)",
 				"ruleIndex (and so the rule each entry index belongs to) follows GlobalDropData's order: the global_rules files in the order Java "
-				"lists them (XmlUtil.listFiles, Files.find), taken as NTFS order - another file system may order the files differently",
+				"lists them (XmlUtil.listFiles, File.compareTo order on Windows since upstream 2cd926056; Linux compares case-sensitively)",
 			],
 		}
 
@@ -1953,7 +1953,7 @@ def gate_assertions(report: dict) -> list[str]:
 		lines.append(f"rule {rule['ruleIndex']} '{rule['ruleName']}'{certain}: {where} hold {what}" + (f"; counts {counts}" if counts else "; count 1"))
 	files = sorted({r["file"] for r in report["rules"] if r["indexes"]})
 	if len(files) > 1:
-		lines.append(f"which rule each index belongs to assumes Java lists the global_rules files {files} in NTFS order (Files.find); a gate that "
+		lines.append(f"which rule each index belongs to assumes Java lists the global_rules files {files} in File.compareTo order (XmlUtil.listFiles); a gate that "
 		             "does not depend on it asserts the entry count, the indexes and a one-to-one match of entries to rules by candidate membership")
 	for kinah in report["kinah"] or []:
 		values = [v["count"] for v in kinah["countValues"]] if kinah["countValues"] else None

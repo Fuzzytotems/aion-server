@@ -6,6 +6,7 @@
 #include <string>
 
 #include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/JavaFile.h"
 #include "aion/commons/utils/StringUtils.h"
 
 namespace aion::gameserver::utils::xml {
@@ -57,6 +58,7 @@ std::vector<std::filesystem::path> XmlUtil::listFiles(const std::filesystem::pat
 			return files;
 		}
 		walk(root, 0, recursive ? std::numeric_limits<int32_t>::max() : 1, files);
+		commons::utils::JavaFile::sort(files); // Java (upstream 2cd926056): paths.map(Path::toFile).sorted()
 	} catch (const std::filesystem::filesystem_error& e) {
 		try {
 			throw commons::utils::IOException(e.what(), std::current_exception());

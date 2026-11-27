@@ -677,6 +677,12 @@ TEST(XmlUtilTest, ListFiles) {
 	EXPECT_EQ(flat.size(), 2u);
 	std::vector<std::filesystem::path> recursive = xml::XmlUtil::listFiles(dir.path, true);
 	EXPECT_EQ(recursive.size(), 3u);
+	// upstream 2cd926056: sorted in File.compareTo order
+#ifdef _WIN32
+	EXPECT_EQ(recursive, (std::vector<std::filesystem::path>{dir.path / "a.xml", dir.path / "B.XML", dir.path / "sub" / "d.xml"}));
+#else
+	EXPECT_EQ(recursive, (std::vector<std::filesystem::path>{dir.path / "B.XML", dir.path / "a.xml", dir.path / "sub" / "d.xml"}));
+#endif
 	std::vector<std::filesystem::path> single = xml::XmlUtil::listFiles(dir.path / "a.xml", true);
 	EXPECT_EQ(single, std::vector<std::filesystem::path>{dir.path / "a.xml"}) << "Files.find visits the start file";
 	// Java: RuntimeException wrapping NoSuchFileException

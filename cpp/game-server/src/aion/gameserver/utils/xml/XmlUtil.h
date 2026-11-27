@@ -27,7 +27,7 @@ public:
 	 *          - Absolute/relative path to the base directory
 	 * @param recursive
 	 *          - If set to true, include all subdirectories of the root directory
-	 * @return List of .xml files inside the root directory (regular files whose path ends with ".xml" in any case, in directory walk order;
+	 * @return List of .xml files inside the root directory (regular files whose path ends with ".xml" in any case, sorted in File.compareTo order;
 	 *         symbolic links are not followed).
 	 * @throws commons::utils::Exception
 	 *           (Java: RuntimeException) with the IOException as its cause if the root does not exist or cannot be read
