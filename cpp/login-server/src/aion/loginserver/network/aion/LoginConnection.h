@@ -27,7 +27,7 @@ namespace aion::loginserver::network::aion {
  * Object representing connection between LoginServer and Aion Client.
  * <p>
  * <b>Threads.</b> Received packets are read on the connection's IO strand (processData) and executed on the PacketProcessor passed to the
- * constructor (Java: the static PacketProcessor(1, 8, 50, 3)), one packet of a connection at a time. Server packets are written on the IO strand
+ * constructor (Java: the static PacketProcessor(1, 8, 50, 3, MAX_PENDING_PACKETS)), one packet of a connection at a time. Server packets are written on the IO strand
  * with the connection's guard held. The fields below are also read by other threads (game server packet threads via AccountController, IO
  * threads writing SM_SERVER_LIST, the disconnect executor), so the state and joinedGs are atomics and the account and session key are guarded by
  * an internal leaf mutex (no other lock is taken while holding it). Getters return copies. Packets attaching an account run inside an
@@ -40,6 +40,9 @@ namespace aion::loginserver::network::aion {
 class LoginConnection : public commons::network::AConnection<AionServerPacket> {
 public:
 	using Processor = commons::network::PacketProcessor<LoginConnection>;
+
+	/** Java: MAX_PENDING_PACKETS, the limit of the packet processor */
+	static constexpr int32_t MAX_PENDING_PACKETS = 50;
 
 	/** Possible states of AionConnection */
 	enum class State {

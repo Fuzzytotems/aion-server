@@ -60,10 +60,15 @@ public:
 	int32_t getWaitingPacketCount() const;
 
 protected:
-	PacketProcessorBase(int32_t minThreads, int32_t maxThreads, int32_t threadSpawnThreshold, int32_t threadKillThreshold, Executor executor);
+	PacketProcessorBase(int32_t minThreads, int32_t maxThreads, int32_t threadSpawnThreshold, int32_t threadKillThreshold,
+		int32_t maxPendingPacketsPerConnection, Executor executor);
 
-	/** Queues the packet; packets with the same connectionKey are executed one at a time in queue order. */
-	void execute(const void* connectionKey, std::unique_ptr<packet::ClientPacketBase> packet);
+	/**
+	 * Queues the packet; packets with the same connectionKey are executed one at a time in queue order.
+	 *
+	 * @return false if the connection already has the maximum number of packets waiting for execution (the packet is dropped)
+	 */
+	bool execute(const void* connectionKey, std::unique_ptr<packet::ClientPacketBase> packet);
 
 private:
 	struct Worker {
@@ -73,10 +78,13 @@ private:
 		bool finished = false; // guarded by mutex
 	};
 
-	/** The packets of one connection. Exists while the connection has waiting or running packets. */
+	/**
+	 * The packets of one connection (Java: AConnection.pendingPackets and scheduledForProcessing). Exists while the connection has waiting or
+	 * running packets.
+	 */
 	struct ConnectionQueue {
 		std::deque<std::unique_ptr<packet::ClientPacketBase>> packets;
-		/** true while a worker executes a packet of this connection (Java: AConnection.tryLockConnection) */
+		/** true while a worker executes a packet of this connection */
 		bool running = false;
 	};
 
@@ -91,6 +99,8 @@ private:
 	const int32_t maxThreads;
 	const int32_t threadSpawnThreshold;
 	const int32_t threadKillThreshold;
+	/** Max. number of packets of a single connection that may wait for execution. */
+	const int32_t maxPendingPacketsPerConnection;
 	const Executor executor;
 
 	mutable std::mutex mutex;
@@ -100,7 +110,7 @@ private:
 	/** notified when a worker thread exits */
 	std::condition_variable workerFinished;
 	std::unordered_map<const void*, ConnectionQueue> queues;
-	/** connections with waiting packets and no running packet, in the order they became ready */
+	/** Connections that have pending packets and none of them is being executed right now. */
 	std::deque<const void*> readyConnections;
 	int32_t waitingPackets = 0;
 	int32_t previousPacketCount = 0; // checker state
@@ -117,15 +127,15 @@ private:
  * <li>only one packet per connection is executed at a time</li>
  * <li>packets of a connection are executed in the order they were received</li>
  * </ul>
+ * Every connection keeps its own queue of pending packets, and connections with pending packets take turns, so a client flooding packets neither
+ * slows down the selection of other clients' packets nor gets more than its share of the working threads. A connection may have at most
+ * maxPendingPacketsPerConnection packets waiting for execution.
  * Packets of different connections run in parallel on up to maxThreads threads (named "PacketProcessor:&lt;n&gt;"). The thread count is adjusted
  * between minThreads and maxThreads by a checker thread (see checkThreadCount()). Exceptions thrown while executing a packet are logged and never
  * stop a worker.
  * <p>
  * Packets are passed as std::unique_ptr: after reading, a packet has exactly one owner (the queue, then the executing worker) and is destroyed
  * right after its execution. Shared state lives in the connection, which the packet keeps alive through its shared_ptr.
- * <p>
- * Deviation: Java scans one global packet list for the first packet whose connection is not busy. Here each connection has its own queue and
- * ready connections are served in FIFO order, which gives the same guarantees without a linear scan.
  * <p>
  * Java: com.aionemu.commons.network.PacketProcessor
  *
@@ -145,20 +155,28 @@ public:
 	 *          if more packets than this wait for execution, a new thread is spawned (&gt; 0)
 	 * @param threadKillThreshold
 	 *          if at most this many packets wait for execution, a thread is stopped (&gt; 0)
+	 * @param maxPendingPacketsPerConnection
+	 *          max. number of packets of a single connection that may wait for execution (&gt; 0)
 	 * @param executor
 	 *          optional decorator executing the packets, see Executor
 	 * @throws utils::IllegalArgumentException
 	 *           if a parameter is invalid (same messages as Java)
 	 */
-	PacketProcessor(int32_t minThreads, int32_t maxThreads, int32_t threadSpawnThreshold, int32_t threadKillThreshold, Executor executor = {})
-		: PacketProcessorBase(minThreads, maxThreads, threadSpawnThreshold, threadKillThreshold, std::move(executor)) {}
+	PacketProcessor(int32_t minThreads, int32_t maxThreads, int32_t threadSpawnThreshold, int32_t threadKillThreshold,
+		int32_t maxPendingPacketsPerConnection, Executor executor = {})
+		: PacketProcessorBase(minThreads, maxThreads, threadSpawnThreshold, threadKillThreshold, maxPendingPacketsPerConnection, std::move(executor)) {}
 
-	/** Adds the packet to the execution queue; it will be executed as soon as possible on a worker thread. */
-	void executePacket(std::unique_ptr<packet::BaseClientPacket<TConnection>> packet) {
+	/**
+	 * Queues the packet for execution after all previously received packets of its connection.
+	 *
+	 * @return False if the connection already has the maximum number of packets waiting for execution. The packet is dropped in that case and the
+	 *         connection should be closed. A null packet, and packets passed after shutdown() (which are discarded), return true.
+	 */
+	bool executePacket(std::unique_ptr<packet::BaseClientPacket<TConnection>> packet) {
 		if (!packet)
-			return;
+			return true;
 		const void* connectionKey = packet->getConnection().get();
-		execute(connectionKey, std::move(packet));
+		return execute(connectionKey, std::move(packet));
 	}
 };
 

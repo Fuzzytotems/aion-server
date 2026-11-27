@@ -1,6 +1,7 @@
 #include "aion/chatserver/network/netty/NettyServer.h"
 
 #include <chrono>
+#include <limits>
 #include <utility>
 
 #include "aion/chatserver/configs/network/NetworkConfig.h"
@@ -33,7 +34,7 @@ NettyServer::NettyServer() {
 		aionClientServer = initChannel(ServerCfg{NetworkConfig::CLIENT_SOCKET_ADDRESS, "Aion game clients", {}});
 
 		// Deviation: Java runs game server packets on a cached thread pool (unordered), see GsConnection
-		gsPacketExecutor = std::make_shared<gameserver::GsConnection::Processor>(1, 1, 50, 3);
+		gsPacketExecutor = std::make_shared<gameserver::GsConnection::Processor>(1, 1, 50, 3, std::numeric_limits<int32_t>::max());
 		nioServer = std::make_unique<NioServer>(NetworkConfig::NIO_READ_WRITE_THREADS,
 			std::vector<ServerCfg>{ServerCfg{NetworkConfig::GAMESERVER_SOCKET_ADDRESS, "game servers", gameserver::GsConnectionFactoryImpl(gsPacketExecutor)}}, 1);
 		nioServer->connect(); // Java: connect(Executors.newSingleThreadExecutor()), here the server's own disconnect thread
