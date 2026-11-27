@@ -32,6 +32,7 @@ void Config::bind(ConfigurableProcessor& p) {
 	p.bind("loginserver.network.client.logintrybeforeban", LOGIN_TRY_BEFORE_BAN, "5");
 	p.bind("loginserver.network.client.bantimeforbruteforcing", WRONG_LOGIN_BAN_TIME, "15");
 	p.bind("loginserver.network.nio.threads", NIO_READ_WRITE_THREADS, "0");
+	p.bind("loginserver.network.client.auth_timeout_seconds", CLIENT_AUTH_TIMEOUT_SECONDS, "60");
 	p.bind("loginserver.accounts.autocreate", ACCOUNT_AUTO_CREATION, "true");
 	p.bind("loginserver.accounts.external_auth.url", EXTERNAL_AUTH_URL, "");
 	p.bind("loginserver.server.bruteforceprotector", ENABLE_BRUTEFORCE_PROTECTION, "true");

@@ -319,6 +319,14 @@ void AionConnection::onDisconnect() {
 	log.info("Client disconnected:" + msg);
 }
 
+bool AionConnection::isAuthenticated() const {
+	return state.get() != State::CONNECTED;
+}
+
+int64_t AionConnection::getAuthTimeoutMillis() const {
+	return configs::network::NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS.load() * 1000LL;
+}
+
 int32_t AionConnection::getMaxSendQueueSize() const {
 	return configs::network::NetworkConfig::MAX_PENDING_SERVER_PACKETS.load();
 }

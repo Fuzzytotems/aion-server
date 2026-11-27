@@ -5,6 +5,7 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Rnd.h"
+#include "aion/loginserver/configs/Config.h"
 #include "aion/loginserver/controller/AccountController.h"
 #include "aion/loginserver/controller/AccountTimeController.h"
 #include "aion/loginserver/model/Account.h"
@@ -110,6 +111,10 @@ LoginConnection::AccountAttachScope::~AccountAttachScope() {
 			// nothing may escape the destructor
 		}
 	}
+}
+
+int64_t LoginConnection::getAuthTimeoutMillis() const {
+	return configs::Config::CLIENT_AUTH_TIMEOUT_SECONDS * 1000LL;
 }
 
 void LoginConnection::onServerClose() {

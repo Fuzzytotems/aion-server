@@ -37,6 +37,8 @@ struct ServerContext;
  * <tr><td>AcceptDispatcherImpl + Acceptor</td><td>one asio acceptor per ServerCfg with an async accept loop on the IO threads</td></tr>
  * <tr><td>AcceptReadWriteDispatcherImpl (read/write/pending close)</td><td>per connection async read/write loops on a strand, and a close
  * deadline timer (see AConnectionBase)</td></tr>
+ * <tr><td>AcceptReadWriteDispatcherImpl.closeTimedOutConnections (every second)</td><td>a timer calling AConnectionBase::closeIfTimedOut for
+ * every active connection once per second</td></tr>
  * <tr><td>Dispatcher.register(channel, OP_READ, con) + con.initialized()</td><td>done by the server for accepted connections, registerConnection for
  * outbound ones</td></tr>
  * <tr><td>dcExecutor passed to connect()</td><td>the DisconnectExecutor passed to connect(dcExecutor), or a disconnect thread pool owned by the server
@@ -160,6 +162,7 @@ public:
 private:
 	friend class AConnectionBase;
 	struct Listener;
+	struct TimeoutChecker;
 	enum class State { NEW, RUNNING, SHUTTING_DOWN, SHUT_DOWN };
 
 	/** @param dcExecutor the executor for onDisconnect callbacks, or empty to use the own disconnect threads */
@@ -171,6 +174,12 @@ private:
 	void onAccept(const std::shared_ptr<Listener>& listener, const std::error_code& error, asio::ip::tcp::socket socket);
 	void acceptConnection(const Listener& listener, asio::ip::tcp::socket socket);
 	void scheduleAcceptRetry(const std::shared_ptr<Listener>& listener);
+	/** Schedules the next run of closeTimedOutConnections. */
+	void scheduleTimeoutCheck();
+	/** Java: AcceptReadWriteDispatcherImpl.closeTimedOutConnections */
+	void closeTimedOutConnections();
+	/** Stops the timeout checks and waits until a running check finished. */
+	void stopTimeoutChecks();
 	void waitForDisconnectCallbacks(std::chrono::milliseconds timeout);
 	void closeListeners();
 	void stopThreads(std::chrono::milliseconds timeout);
@@ -185,6 +194,7 @@ private:
 	mutable std::mutex stateMutex;
 	State state = State::NEW;
 	std::vector<std::shared_ptr<Listener>> listeners;
+	std::shared_ptr<TimeoutChecker> timeoutChecker;
 	std::optional<asio::executor_work_guard<asio::io_context::executor_type>> ioWork;
 	std::optional<asio::executor_work_guard<asio::io_context::executor_type>> disconnectWork;
 	std::vector<std::thread> ioThreads;

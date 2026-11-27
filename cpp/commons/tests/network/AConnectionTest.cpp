@@ -341,6 +341,35 @@ TEST(AConnectionTest, WrittenDataKeepsAConnectionWithAStallLimitOpen) {
 	EXPECT_EQ(server.probe->disconnectCount, 0);
 }
 
+// upstream 31ad0571f: connections that don't authenticate in time are closed by the periodic check (about once per second)
+TEST(AConnectionTest, ConnectionsThatDoNotAuthenticateInTimeAreClosed) {
+	LogCapture& logs = LogCapture::instance();
+	logs.clear();
+	TestServer server;
+	server.probe->authTimeoutMillis = 100;
+	server.probe->authenticated = false;
+	server.start();
+	TestClient client(server.port);
+	auto started = std::chrono::steady_clock::now();
+	EXPECT_TRUE(client.waitForClose(5s));
+	EXPECT_GE(std::chrono::steady_clock::now() - started, 100ms);
+	ASSERT_TRUE(waitUntil([&] { return server.probe->disconnectCount == 1; }));
+	EXPECT_TRUE(logs.contains("info|com.aionemu.commons.network.AConnection|TestConnection 127.0.0.1 didn't authenticate within 100 ms, "
+														"disconnecting"));
+}
+
+TEST(AConnectionTest, AuthenticatedConnectionsOutliveTheAuthTimeout) {
+	TestServer server;
+	server.probe->authTimeoutMillis = 100;
+	server.start();
+	TestClient client(server.port);
+	auto connection = server.connection(0);
+	ASSERT_TRUE(connection);
+	std::this_thread::sleep_for(1500ms); // at least one periodic check after the timeout
+	EXPECT_FALSE(connection->isPendingClose());
+	EXPECT_FALSE(connection->isClosed());
+}
+
 TEST(AConnectionTest, ProcessDataReturningFalseClosesImmediately) {
 	TestServer server;
 	std::atomic<int> processed = 0;

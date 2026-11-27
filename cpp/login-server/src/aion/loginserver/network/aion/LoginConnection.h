@@ -135,6 +135,8 @@ public:
 protected:
 	bool processData(commons::utils::ByteBuffer& data) override;
 	bool writeData(commons::utils::ByteBuffer& data) override;
+	bool isAuthenticated() const override { return getState() == State::AUTHED_LOGIN; }
+	int64_t getAuthTimeoutMillis() const override;
 	int32_t getMaxSendQueueSize() const override { return 100; }
 	int64_t getMaxSendStallMillis() const override { return 60'000; }
 	void onDisconnect() override;

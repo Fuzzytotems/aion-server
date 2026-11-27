@@ -167,6 +167,12 @@ protected:
 
 	void clearSendQueue() override final { sendMsgQueue.clear(); }
 
+	/** @return true once the client left the state CONNECTED */
+	bool isAuthenticated() const override;
+
+	/** @return NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS in milliseconds */
+	int64_t getAuthTimeoutMillis() const override;
+
 	/** @return NetworkConfig::MAX_PENDING_SERVER_PACKETS */
 	int32_t getMaxSendQueueSize() const override;
 

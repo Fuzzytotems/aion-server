@@ -619,9 +619,13 @@ TEST_F(ConfigDefaultsTest, NetworkConfig) {
 	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_MAX_THREADS.load(), 4);
 	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_THREAD_KILL_THRESHOLD.load(), 3);
 	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD.load(), 50);
+	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION.load(), 500);
+	EXPECT_EQ(network::NetworkConfig::MAX_PENDING_SERVER_PACKETS.load(), 20000);
+	EXPECT_EQ(network::NetworkConfig::MAX_SEND_STALL_SECONDS.load(), 60);
+	EXPECT_EQ(network::NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS.load(), 60);
 	EXPECT_FALSE(network::NetworkConfig::LOG_UNKNOWN_PACKETS.load());
 	EXPECT_FALSE(network::NetworkConfig::LOG_IGNORED_PACKETS.load());
-	EXPECT_FALSE(network::NetworkConfig::ENABLE_FLOOD_CONNECTIONS.load());
+	EXPECT_TRUE(network::NetworkConfig::ENABLE_FLOOD_CONNECTIONS.load());
 	EXPECT_EQ(network::NetworkConfig::Flood_Tick.load(), 1000);
 	EXPECT_EQ(network::NetworkConfig::Flood_SWARN.load(), 10);
 	EXPECT_EQ(network::NetworkConfig::Flood_SReject.load(), 20);

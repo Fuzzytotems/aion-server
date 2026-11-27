@@ -304,12 +304,13 @@ NetworkConfig	bind	PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD	gameserver.network.pa
 NetworkConfig	bind	PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION	gameserver.network.packet.processor.max_pending_per_connection	500
 NetworkConfig	bind	MAX_PENDING_SERVER_PACKETS	gameserver.network.client.max_pending_server_packets	20000
 NetworkConfig	bind	MAX_SEND_STALL_SECONDS	gameserver.network.client.max_send_stall_seconds	60
+NetworkConfig	bind	CLIENT_AUTH_TIMEOUT_SECONDS	gameserver.network.client.auth_timeout_seconds	60
 NetworkConfig	bind	LOG_UNKNOWN_PACKETS	gameserver.network.logging.unknown_packets	false
 NetworkConfig	bind	LOG_IGNORED_PACKETS	gameserver.network.logging.ignored_packets	false
 NetworkConfig	bind	TRACE_CLIENT_PACKETS	gameserver.network.trace.client_packets	
 NetworkConfig	bind	TRACE_SERVER_PACKETS	gameserver.network.trace.server_packets	
 NetworkConfig	bind	DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS	gameserver.network.diag.instant_item_reply_hold_ms	0
-NetworkConfig	bind	ENABLE_FLOOD_CONNECTIONS	gameserver.network.flood.connections	false
+NetworkConfig	bind	ENABLE_FLOOD_CONNECTIONS	gameserver.network.flood.connections	true
 NetworkConfig	bind	Flood_Tick	gameserver.network.flood.tick	1000
 NetworkConfig	bind	Flood_SWARN	gameserver.network.flood.short.warn	10
 NetworkConfig	bind	Flood_SReject	gameserver.network.flood.short.reject	20

@@ -45,7 +45,10 @@ struct ServerContext;
  * <p>
  * <b>Stalled clients.</b> A client could stop reading from its socket while staying alive, so every packet sent to it would pile up in memory.
  * The connection is closed once nothing could be written to it for getMaxSendStallMillis() while packets wait, or getMaxSendQueueSize()
- * packets are waiting (checked when a packet is queued). Both are unlimited by default.
+ * packets are waiting (checked when a packet is queued, and by NioServer about once per second). Both are unlimited by default.
+ * <p>
+ * <b>Authentication timeout.</b> A connection whose isAuthenticated() is still false getAuthTimeoutMillis() after it was established is closed
+ * by NioServer's periodic check (no limit by default).
  * <p>
  * <b>Closing.</b> close() marks the connection as pending close. It is disconnected as soon as the send queue is empty and all written bytes were
  * handed to the socket, or after 2 seconds at the latest. With a close packet, received data is discarded and EOF or read errors do not disconnect
@@ -175,6 +178,15 @@ protected:
 	 */
 	bool admitToSendQueue(size_t queuedPackets);
 
+	/**
+	 * @return True if the remote side has authenticated itself. Connections that didn't authenticate within getAuthTimeoutMillis() get closed.
+	 *         Called with {@link #guard} held.
+	 */
+	virtual bool isAuthenticated() const { return true; }
+
+	/** @return The time in milliseconds the remote side has to authenticate itself, or 0 for no limit. */
+	virtual int64_t getAuthTimeoutMillis() const { return 0; }
+
 	/** @return the number of server packets waiting to be sent. The caller must hold {@link #guard}. */
 	virtual size_t getSendQueueSize() const { return 0; }
 
@@ -191,6 +203,11 @@ private:
 	void startIo();
 	/** Disconnects on the strand (bypassing the close deadline), used by NioServer::shutdown for connections that did not close. */
 	void forceDisconnect();
+	/**
+	 * Called by NioServer about once per second to close connections which didn't authenticate in time or stopped receiving data (Java: called
+	 * by the Dispatcher Thread periodically).
+	 */
+	void closeIfTimedOut(int64_t nowMillis);
 
 	void doRead();
 	void onRead(const std::error_code& error, size_t bytesRead);
@@ -211,6 +228,8 @@ private:
 	asio::strand<asio::io_context::executor_type> strand;
 	asio::steady_timer closeTimer;
 	const std::string ip;
+	/** Time when this connection was established */
+	const int64_t connectedAtMillis;
 
 	utils::ByteBuffer readBuffer; // strand only
 	utils::ByteBuffer writeBuffer; // strand only (with guard held while writeData fills it)
