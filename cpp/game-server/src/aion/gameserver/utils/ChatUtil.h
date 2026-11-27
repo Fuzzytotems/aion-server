@@ -20,8 +20,9 @@ namespace aion::gameserver::utils {
  * C++: a static-only class (fieldmap K5). Strings are UTF-8; everything Java measures or cuts in UTF-16 code units (split, getRealCharName) is
  * computed on UTF-16 and converted back.
  * <ul>
- * <li>DF (`DecimalFormat(".##")`, Locale.US) is the private helper formatDecimal: at most two fraction digits rounded HALF_EVEN from the exact
- * binary value, no integer zero before a fraction (".5"), "0" for zero, a kept minus sign ("-0" for -0.001).</li>
+ * <li>format(float) (upstream b7bc32976) rounds the shortest decimal of the float widened to double (Java 25 Double.toString) HALF_UP to at
+ * most two fraction digits: "0.5", "1", "0" for zero and for a negative value that rounds to zero; NaN and infinities throw
+ * NumberFormatException like new BigDecimal("NaN").</li>
  * <li>l10n returns "" where Java returns null (id 0), the convention of L10n::getL10n. The client string id is two UTF-16 code units, kept as
  * WTF-8 (commons StringUtils::toWtf8) so that a lone surrogate unit reaches the wire unchanged through writeS; split decodes and encodes
  * WTF-8 as well.</li>
@@ -165,8 +166,8 @@ private:
 	/** Java's indexes are UTF-16 code unit indexes into chatMessage */
 	static int32_t findSplitIndex(std::u16string_view chatMessage, int32_t startIndex, int32_t endIndex);
 
-	/** C++ only: Java DF.format(double) with the DecimalFormat pattern ".##" (Locale.US), see the class comment */
-	static std::string formatDecimal(double value);
+	/** Java: BigDecimal.valueOf(number).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString(), see the class comment */
+	static std::string format(float number);
 };
 
 } // namespace aion::gameserver::utils
