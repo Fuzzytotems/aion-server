@@ -108,9 +108,19 @@ public:
 
 	static std::string item(int32_t itemId);
 
-	static std::string itemName(int32_t itemId);
+	/**
+	 * @return A tag that prints the localized item name in chat.<br>
+	 * The playerName parameter is relevant for crafted items that carry the player's name, such as {@code [item_ex:100200836;Ownername]}.
+	 */
+	static std::string itemName(int32_t itemId, std::string_view playerName);
 
 	static std::string recipe(int32_t recipeId);
+
+	/**
+	 * @return A tag that prints the localized recipe name in chat.<br>
+	 * The playerName parameter is relevant for recipes that carry the player's name, such as {@code [recipe_ex:155006741;Ownername]}.
+	 */
+	static std::string recipeName(int32_t recipeId, std::string_view playerName);
 
 	static std::string quest(int32_t questId);
 

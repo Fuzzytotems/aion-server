@@ -222,8 +222,9 @@ TEST(ChatUtilTest, LinksAndIds) {
 	EXPECT_EQ(ChatUtil::path("Mune"), "[where:Mune]");
 	EXPECT_EQ(ChatUtil::path("Mune", 203060), "[where:Mune;203060]");
 	EXPECT_EQ(ChatUtil::item(182400001), "[item:182400001]");
-	EXPECT_EQ(ChatUtil::itemName(182400001), "[item_ex:182400001]");
+	EXPECT_EQ(ChatUtil::itemName(100200836, "Ownername"), "[item_ex:100200836;Ownername]");
 	EXPECT_EQ(ChatUtil::recipe(155000001), "[recipe:155000001]");
+	EXPECT_EQ(ChatUtil::recipeName(155006741, "Ownername"), "[recipe_ex:155006741;Ownername]");
 	EXPECT_EQ(ChatUtil::quest(1006), "[quest:1006]");
 	EXPECT_EQ(ChatUtil::getItemId("[item: 100000094]"), 100000094);
 	EXPECT_EQ(ChatUtil::getItemId("100000094"), 100000094);
