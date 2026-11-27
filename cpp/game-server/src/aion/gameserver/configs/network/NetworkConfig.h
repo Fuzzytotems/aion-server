@@ -68,6 +68,12 @@ struct NetworkConfig {
 	/** Maximum number of packets of one client that may wait for execution. A client exceeding it gets disconnected. */
 	static inline std::atomic<int32_t> PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION{0};
 
+	/** Maximum number of server packets that may wait to be sent to one client. A client exceeding it gets disconnected. */
+	static inline std::atomic<int32_t> MAX_PENDING_SERVER_PACKETS{0};
+
+	/** Time in seconds a client may not receive any data while server packets are waiting to be sent to it, before it gets disconnected. */
+	static inline std::atomic<int32_t> MAX_SEND_STALL_SECONDS{0};
+
 	/** If aion client packets unknown by the server should be logged. */
 	static inline std::atomic<bool> LOG_UNKNOWN_PACKETS{false};
 

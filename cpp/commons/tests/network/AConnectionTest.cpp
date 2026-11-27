@@ -284,6 +284,63 @@ TEST(AConnectionTest, PacketLargerThanReadBufferAfterAValidPacketClosesConnectio
 	EXPECT_TRUE(logs.contains("announced a packet of 65535 bytes, which exceeds the read buffer size of 64 bytes"));
 }
 
+// upstream d9800d686: a client that does not receive its packets is disconnected instead of growing its send queue forever
+TEST(AConnectionTest, TooManyQueuedServerPacketsCloseTheConnection) {
+	LogCapture& logs = LogCapture::instance();
+	logs.clear();
+	TestServer server;
+	server.probe->maxSendQueueSize = 5;
+	std::atomic<int> accepted = 0;
+	server.probe->onInitialized = [&](TestConnection& connection) {
+		// before IO starts nothing is written, so the queue grows like the queue of a client that stopped reading
+		for (int i = 0; i < 6; i++) {
+			connection.sendPacket(makePacket({static_cast<uint8_t>(i)}));
+			if (!connection.isPendingClose())
+				accepted++;
+		}
+	};
+	server.start();
+	TestClient client(server.port);
+	EXPECT_TRUE(client.waitForClose());
+	ASSERT_TRUE(waitUntil([&] { return server.probe->disconnectCount == 1; }));
+	EXPECT_EQ(accepted, 5);
+	EXPECT_TRUE(logs.contains("warning|com.aionemu.commons.network.AConnection|TestConnection 127.0.0.1 has 5 server packets waiting to be sent, "
+														"disconnecting"));
+}
+
+TEST(AConnectionTest, ServerPacketsWaitingWithoutWriteProgressCloseTheConnection) {
+	LogCapture& logs = LogCapture::instance();
+	logs.clear();
+	TestServer server;
+	server.probe->maxSendStallMillis = 10;
+	server.probe->onInitialized = [&](TestConnection& connection) {
+		connection.sendPacket(makePacket({1})); // the queue was empty: the stall time starts now
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		connection.sendPacket(makePacket({2})); // nothing was written for 50 ms while a packet waits
+	};
+	server.start();
+	TestClient client(server.port);
+	EXPECT_TRUE(client.waitForClose());
+	ASSERT_TRUE(waitUntil([&] { return server.probe->disconnectCount == 1; }));
+	EXPECT_TRUE(logs.contains("TestConnection 127.0.0.1 hasn't received any data for "));
+	EXPECT_TRUE(logs.contains(" ms while 1 server packets are waiting to be sent, disconnecting"));
+}
+
+TEST(AConnectionTest, WrittenDataKeepsAConnectionWithAStallLimitOpen) {
+	TestServer server;
+	server.probe->maxSendStallMillis = 1000;
+	server.start();
+	TestClient client(server.port);
+	auto connection = server.connection(0);
+	ASSERT_TRUE(connection);
+	for (int i = 0; i < 20; i++) {
+		connection->sendPacket(makePacket({static_cast<uint8_t>(i)}));
+		ASSERT_TRUE(client.readFrame()) << i;
+	}
+	EXPECT_FALSE(connection->isPendingClose());
+	EXPECT_EQ(server.probe->disconnectCount, 0);
+}
+
 TEST(AConnectionTest, ProcessDataReturningFalseClosesImmediately) {
 	TestServer server;
 	std::atomic<int> processed = 0;

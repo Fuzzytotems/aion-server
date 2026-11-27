@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -136,6 +137,10 @@ struct Probe {
 	std::function<void(TestConnection& connection)> onInitialized;
 	/** optional: called in every writeData() call */
 	std::function<void(TestConnection& connection)> onWriteData;
+	/** AConnection::getMaxSendQueueSize of the connections */
+	std::atomic<int32_t> maxSendQueueSize = std::numeric_limits<int32_t>::max();
+	/** AConnection::getMaxSendStallMillis of the connections */
+	std::atomic<int64_t> maxSendStallMillis = std::numeric_limits<int64_t>::max();
 
 	std::vector<std::vector<uint8_t>> receivedCopy() {
 		std::lock_guard lock(mutex);
@@ -193,6 +198,10 @@ protected:
 			probe->onDisconnectOnIoThread = true;
 		probe->disconnectCount++;
 	}
+
+	int32_t getMaxSendQueueSize() const override { return probe->maxSendQueueSize; }
+
+	int64_t getMaxSendStallMillis() const override { return probe->maxSendStallMillis; }
 
 	void onServerClose() override {
 		probe->serverCloseCount++;

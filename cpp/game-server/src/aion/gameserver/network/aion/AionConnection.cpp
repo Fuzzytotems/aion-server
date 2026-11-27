@@ -164,6 +164,8 @@ void AionConnection::enqueue(SerializedBody body) {
 	std::lock_guard lock(guard);
 	if (!canSend())
 		return;
+	if (!admitToSendQueue(sendMsgQueue.size()))
+		return;
 	// ordered by serialization sequence (runtime-architecture.md §8.4): packets of one thread arrive in order, so the scan usually stops at once
 	auto position = sendMsgQueue.end();
 	while (position != sendMsgQueue.begin() && std::prev(position)->seq > body.seq)
@@ -315,6 +317,14 @@ void AionConnection::onDisconnect() {
 		msg = " " + toString();
 
 	log.info("Client disconnected:" + msg);
+}
+
+int32_t AionConnection::getMaxSendQueueSize() const {
+	return configs::network::NetworkConfig::MAX_PENDING_SERVER_PACKETS.load();
+}
+
+int64_t AionConnection::getMaxSendStallMillis() const {
+	return configs::network::NetworkConfig::MAX_SEND_STALL_SECONDS.load() * 1000LL;
 }
 
 void AionConnection::onServerClose() {
