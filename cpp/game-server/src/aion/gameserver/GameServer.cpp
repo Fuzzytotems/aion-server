@@ -87,6 +87,7 @@
 #include "aion/gameserver/services/player/PlayerLimitService.h"
 #include "aion/gameserver/services/transfers/PlayerTransferService.h"
 #include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/taskmanager/AbstractPeriodicTaskManager.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.h"
 #include "aion/gameserver/taskmanager/tasks/housing/MaintenanceTask.h"
@@ -204,6 +205,7 @@ bool GameServer::main(StartupObserver& observer) {
 	runStep(observer, step, "MaintenanceTask.getInstance()", [] { taskmanager::tasks::housing::MaintenanceTask::getInstance(); });
 	runStep(observer, step, "ChallengeTaskService.getInstance()", [] { services::ChallengeTaskService::getInstance(); });
 
+	runStep(observer, step, "AbstractPeriodicTaskManager.startAll()", [] { taskmanager::AbstractPeriodicTaskManager::startAll(); });
 	runStep(observer, step, "SpawnEngine.spawnAll()", [] { spawnengine::SpawnEngine::spawnAll(); });
 	runStep(observer, step, "TownService.getInstance()", [] { services::TownService::getInstance(); });
 	runStep(observer, step, "FlyRingService.getInstance()", [] { services::FlyRingService::getInstance(); });

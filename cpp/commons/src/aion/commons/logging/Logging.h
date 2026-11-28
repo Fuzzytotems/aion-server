@@ -118,13 +118,19 @@ void shutdown();
 std::filesystem::path getLogFolder();
 
 /**
- * Moves the *.log files of the log folder (including subfolders) of the previous run into a ZIP archive
- * "&lt;log folder&gt;/archived/&lt;last start&gt; to &lt;last modification&gt;.zip" (dates as "yyyy-MM-dd HH.mm", or "Unknown" if the
- * start marker file "[server_start_marker]" did not exist) and updates the start marker to the start time of this process.
+ * Moves the *.log files of the log folder (including subfolders, except "archived") of the previous run into the staging folder
+ * "&lt;log folder&gt;/archived/&lt;last start or now&gt;", updates the start marker file "[server_start_marker]" to the start time of this
+ * process (only after the files were moved), and then packs the staged files into the ZIP archive
+ * "&lt;log folder&gt;/archived/&lt;last start&gt; to &lt;last modification&gt;.zip" (dates as "yyyy-MM-dd HH.mm", "Unknown" without a start
+ * marker) in the background thread "Log-Archiver" (upstream 8912ec714), which deletes them afterwards. Errors of that thread go to the
+ * UncaughtExceptionHandler ("Error archiving old logs").
  *
- * @throws Exception "Error gathering and archiving old logs" with the cause
+ * @throws Exception "Error gathering old logs" with the cause
  */
 void archiveLogs(const std::filesystem::path& logFolder);
+
+/** C++ only: waits for the background archiving of archiveLogs (shutdown and the next archiveLogs wait for it too) */
+void awaitLogArchiver();
 
 /**
  * Java: the ${...} references to server properties in config/logback.xml that are read by Logging's configuration (Config), which servers exclude

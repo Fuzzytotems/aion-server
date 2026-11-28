@@ -143,6 +143,7 @@ TEST(LoggingTest, ReinitializingArchivesFilesOfOpenConfigAppenders) {
 		EXPECT_NO_THROW(Logging::init({.logFolder = folder.path, .console = false})); // archives item.log while the appender still has it open
 		LoggerFactory::removeConfig("test.reinit.ITEM_LOG");
 	}
+	Logging::awaitLogArchiver();
 	EXPECT_EQ(std::distance(fs::directory_iterator(folder.path / "archived"), fs::directory_iterator()), 1);
 	EXPECT_FALSE(fs::exists(folder.path / "item.log"));
 }
@@ -222,9 +223,13 @@ TEST(LoggingTest, ArchivesLogsOfPreviousRun) {
 	writeFile(folder.path / "notes.txt", "kept", fileTime(lastStart));
 
 	Logging::archiveLogs(folder.path);
+	// upstream 8912ec714: the files are moved to the staging folder at once and packed in the background
+	EXPECT_FALSE(fs::exists(folder.path / "server_console.log"));
+	Logging::awaitLogArchiver();
 
 	auto format = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm");
 	fs::path archive = folder.path / "archived" / (format.format(lastStart) + " to " + format.format(lastStop) + ".zip");
+	EXPECT_FALSE(fs::exists(folder.path / "archived" / format.format(lastStart))) << "the staging folder is removed after packing";
 	EXPECT_TRUE(fs::exists(archive)) << archive;
 	EXPECT_FALSE(fs::exists(folder.path / "server_console.log"));
 	EXPECT_FALSE(fs::exists(folder.path / "chat.LOG"));
@@ -240,6 +245,7 @@ TEST(LoggingTest, ArchivesLogsOfPreviousRun) {
 
 	// next start: no log files, nothing to archive
 	Logging::archiveLogs(folder.path);
+	Logging::awaitLogArchiver();
 	EXPECT_EQ(std::distance(fs::directory_iterator(folder.path / "archived"), fs::directory_iterator()), 1);
 }
 
@@ -264,7 +270,7 @@ TEST(LoggingTest, ArchiveErrorsAreWrapped) {
 		Logging::archiveLogs(folder.path / "file");
 		FAIL() << "no exception";
 	} catch (const utils::Exception& e) {
-		EXPECT_STREQ(e.what(), "Error gathering and archiving old logs");
+		EXPECT_STREQ(e.what(), "Error gathering old logs"); // upstream 8912ec714
 		EXPECT_TRUE(e.cause());
 	}
 }
@@ -281,4 +287,20 @@ TEST(LoggingTest, BannerLines) {
 	EXPECT_EQ(plain.find('\x1b'), std::string::npos);
 	EXPECT_EQ(std::count(plain.begin(), plain.end(), '\n'), 9);
 	EXPECT_NE(Banner::createBanner(3, 1, true).find("\x1b[38;5;81;40m"), std::string::npos);
+}
+
+// upstream 8912ec714: the start marker is updated only after the old files were moved, so a failed attempt keeps the archive name
+TEST(LoggingTest, FailedArchivingKeepsTheStartMarker) {
+	using namespace std::chrono;
+	TempFolder folder("aion_LoggingTest_marker");
+	auto lastStart = sys_days(2026y / August / 1) + 10h + 5min;
+	writeFile(folder.path / "[server_start_marker]", "", fileTime(lastStart));
+	writeFile(folder.path / "server_console.log", "console content", fileTime(lastStart + 1h));
+	// a file where the staging folder must be created makes the move fail
+	auto format = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm");
+	writeFile(folder.path / "archived" / format.format(lastStart), "blocks the staging folder", fileTime(lastStart));
+	EXPECT_THROW(Logging::archiveLogs(folder.path), utils::Exception);
+	auto markerTime = floor<minutes>(clock_cast<system_clock>(fs::last_write_time(folder.path / "[server_start_marker]")));
+	EXPECT_EQ(markerTime, floor<minutes>(lastStart));
+	EXPECT_TRUE(fs::exists(folder.path / "server_console.log"));
 }

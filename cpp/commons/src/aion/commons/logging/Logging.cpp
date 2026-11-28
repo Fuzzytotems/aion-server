@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <mutex>
 #include <regex>
 #include <set>
@@ -22,6 +23,8 @@
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/ZipWriter.h"
+#include "aion/commons/utils/concurrent/ThreadName.h"
+#include "aion/commons/utils/concurrent/UncaughtExceptionHandler.h"
 #include "aion/commons/utils/info/SystemInfo.h"
 
 namespace aion::commons::logging::Logging {
@@ -43,6 +46,8 @@ struct State {
 	bool shutdownRegistered = false;
 	/** loads the debug symbols for stack traces in the background, see init */
 	std::thread symbolLoader;
+	/** Java: the "Log-Archiver" thread of archiveLogs */
+	std::thread logArchiver;
 	bool symbolsLoading = false;
 };
 
@@ -88,60 +93,121 @@ void createArchive(const fs::path& file, const std::vector<fs::path>& files, con
 	fs::create_directories(file.parent_path());
 	utils::ZipWriter zip(file);
 	for (const fs::path& logFile : files)
-		zip.addFile(toUtf8(logFile.lexically_relative(rootDirectory)), logFile);
+		zip.addFile(toUtf8(logFile.lexically_relative(rootDirectory)), logFile); // the entry gets the file's modification time
 	zip.finish();
 }
 
 void remove(const std::vector<fs::path>& files) {
-	for (const fs::path& logFile : files)
-		fs::remove(logFile);
-	// attempt to delete parent folders (only deletes empty folders)
-	std::set<fs::path> parents;
-	for (const fs::path& logFile : files)
-		parents.insert(logFile.parent_path());
-	for (const fs::path& parent : parents) {
+	std::set<fs::path, std::greater<>> parents; // Java: TreeSet<>(Comparator.reverseOrder()), the deepest folders first
+	for (const fs::path& logFile : files) {
 		std::error_code ignored;
-		fs::remove(parent, ignored);
+		fs::remove(logFile, ignored); // Java: Files.deleteIfExists (C++: an error is ignored like a missing file)
+		parents.insert(logFile.parent_path());
 	}
+	for (const fs::path& parent : parents) {
+		std::error_code notEmpty;
+		fs::remove(parent, notEmpty); // only deletes empty folders
+	}
+}
+
+/** Java: moveOldLogFiles - moves the *.log files (outside the archive folder) into the staging folder and removes the folders they leave empty */
+std::vector<fs::path> moveOldLogFiles(const fs::path& logFolder, const fs::path& oldLogsFolder, const fs::path& stagingFolder,
+	std::optional<fs::file_time_type>& lastStopTime) {
+	if (!fs::exists(logFolder))
+		return {};
+	std::vector<fs::path> logFiles;
+	std::vector<fs::path> directories;
+	for (auto it = fs::recursive_directory_iterator(logFolder); it != fs::recursive_directory_iterator(); ++it) {
+		const fs::directory_entry& entry = *it;
+		if (entry.is_directory()) {
+			// Skip the archived/ folder to avoid re-processing leftover subdirectories
+			if (entry.path() == oldLogsFolder) {
+				it.disable_recursion_pending();
+				continue;
+			}
+			directories.push_back(entry.path());
+		} else if (entry.is_regular_file() && utils::StringUtils::toLowerCase(toUtf8(entry.path())).ends_with(".log")) {
+			fs::file_time_type lastModified = entry.last_write_time();
+			fs::path target = stagingFolder / entry.path().lexically_relative(logFolder);
+			fs::create_directories(target.parent_path());
+			fs::rename(entry.path(), target); // Java: Files.move(file, target, REPLACE_EXISTING)
+			logFiles.push_back(target);
+			if (!lastStopTime || *lastStopTime < lastModified)
+				lastStopTime = lastModified;
+		}
+	}
+	// Java: postVisitDirectory deletes each visited folder but the log folder, if it is empty now (the deepest first)
+	for (auto dir = directories.rbegin(); dir != directories.rend(); ++dir) {
+		std::error_code notEmpty;
+		fs::remove(*dir, notEmpty);
+	}
+	return logFiles;
+}
+
+/** Java: updateStartTime */
+void updateStartTime(const fs::path& startTimeFile) {
+	if (!fs::exists(startTimeFile)) {
+		fs::create_directories(startTimeFile.parent_path());
+		if (!std::ofstream(startTimeFile))
+			throw utils::IOException("Could not create " + startTimeFile.string());
+	}
+	auto startTime = std::chrono::floor<std::chrono::milliseconds>(utils::info::SystemInfo::getProcessStartTime());
+	fs::last_write_time(startTimeFile, std::chrono::clock_cast<fs::file_time_type::clock>(startTime));
 }
 
 } // namespace
 
 void archiveLogs(const fs::path& logFolder) {
+	awaitLogArchiver(); // C++: the archiver of an earlier call is done before the files are gathered again
 	try {
 		fs::path oldLogsFolder = logFolder / "archived";
 		fs::path startTimeFile = logFolder / "[server_start_marker]";
-		std::vector<fs::path> logFiles;
 		std::optional<std::chrono::system_clock::time_point> lastStartTime;
-		std::optional<fs::file_time_type> lastStopTime;
-
-		fs::create_directories(logFolder);
-		if (fs::exists(startTimeFile)) {
+		if (fs::exists(startTimeFile))
 			lastStartTime = toSystemTime(fs::last_write_time(startTimeFile));
-		} else if (!std::ofstream(startTimeFile)) {
-			throw utils::IOException("Could not create " + startTimeFile.string());
-		}
-		auto startTime = std::chrono::floor<std::chrono::milliseconds>(utils::info::SystemInfo::getProcessStartTime());
-		fs::last_write_time(startTimeFile, std::chrono::clock_cast<fs::file_time_type::clock>(startTime)); // update with new start time
+		std::optional<fs::file_time_type> lastStopTime;
+		utils::DateTimeFormatter dtf = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm"); // system default time zone
+		std::string stagingName = dtf.format(lastStartTime ? *lastStartTime : std::chrono::system_clock::now());
+		fs::path stagingFolder = oldLogsFolder / fs::path(std::u8string(stagingName.begin(), stagingName.end()));
 
-		for (const fs::directory_entry& entry : fs::recursive_directory_iterator(logFolder)) {
-			if (entry.is_regular_file() && utils::StringUtils::toLowerCase(toUtf8(entry.path())).ends_with(".log")) {
-				logFiles.push_back(entry.path());
-				fs::file_time_type lastModified = entry.last_write_time();
-				if (!lastStopTime || *lastStopTime < lastModified)
-					lastStopTime = lastModified;
-			}
-		}
+		std::vector<fs::path> logFiles = moveOldLogFiles(logFolder, oldLogsFolder, stagingFolder, lastStopTime);
+		// update the start time after old log files have been moved successfully, so that exceptions don't alter the time for the next archival attempt
+		updateStartTime(startTimeFile);
 
 		if (!logFiles.empty()) {
-			utils::DateTimeFormatter dtf = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm"); // system default time zone
 			std::string outFilename = (lastStartTime ? dtf.format(*lastStartTime) : "Unknown") + " to " + dtf.format(toSystemTime(*lastStopTime)) + ".zip";
-			createArchive(oldLogsFolder / fs::path(std::u8string(outFilename.begin(), outFilename.end())), logFiles, logFolder);
-			remove(logFiles);
+			fs::path archive = oldLogsFolder / fs::path(std::u8string(outFilename.begin(), outFilename.end()));
+			// Java: a platform thread "Log-Archiver", so that the JVM completes this task before shutting down (C++: joined by shutdown)
+			State& s = state();
+			std::lock_guard lock(s.mutex);
+			s.logArchiver = std::thread([archive, logFiles = std::move(logFiles), stagingFolder] {
+				utils::concurrent::setCurrentThreadName("Log-Archiver");
+				try {
+					try {
+						createArchive(archive, logFiles, stagingFolder);
+						remove(logFiles);
+					} catch (const std::exception&) {
+						throw utils::Exception("Error archiving old logs", std::current_exception());
+					}
+				} catch (...) {
+					utils::concurrent::UncaughtExceptionHandler::uncaughtException("Log-Archiver", std::current_exception());
+				}
+			});
 		}
 	} catch (const std::exception&) {
-		throw utils::Exception("Error gathering and archiving old logs", std::current_exception());
+		throw utils::Exception("Error gathering old logs", std::current_exception());
 	}
+}
+
+void awaitLogArchiver() {
+	std::thread archiver;
+	{
+		State& s = state();
+		std::lock_guard lock(s.mutex);
+		archiver.swap(s.logArchiver);
+	}
+	if (archiver.joinable())
+		archiver.join();
 }
 
 std::vector<std::string> getPropertyKeys(std::string_view serverName) {
@@ -350,6 +416,7 @@ void shutdown() {
 		appender->stop(); // messages logged meanwhile still reach the other appenders
 	if (symbolLoader.joinable())
 		symbolLoader.join(); // must not run while the process exits
+	awaitLogArchiver(); // Java: the JVM waits for the platform thread
 	std::vector<spdlog::sink_ptr> previousSinks = LoggerFactory::rootSink()->sinks(); // destroyed after the root sink's lock is released
 	LoggerFactory::rootSink()->set_sinks({std::make_shared<spdlog::sinks::stderr_sink_mt>()});
 }
