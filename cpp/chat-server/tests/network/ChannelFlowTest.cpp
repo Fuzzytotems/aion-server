@@ -49,7 +49,7 @@ TEST_F(ChannelFlowTest, LocalizedJobNamesShareTheChannelOfTheirClass) {
 	// the identifier arrives as UTF-16LE: the Korean and the Russian name of the Cleric class give the channel of "job_Cleric"
 	auto gs = connectGameServer();
 	Player player = loginPlayer(*gs, "Kim", 0);
-	std::u16string restrictions = u"\x01" u"77.0.AION.KOR"; // a game server id no other test uses
+	std::u16string restrictions = u"\x01" u"1.0.AION.KOR"; // upstream b0317f967: the registered game server
 	int32_t cleric = player.client->joinChannel(1, u"@\x01" u"job_Cleric" + restrictions);
 	EXPECT_EQ(player.client->joinChannel(2, u"@\x01" u"job_치유성" + restrictions), cleric);
 	EXPECT_EQ(player.client->joinChannel(3, u"@\x01" u"job_Целитель" + restrictions), cleric);
@@ -62,10 +62,9 @@ TEST_F(ChannelFlowTest, MalformedIdentifiersGetNoResponse) {
 	// two parts only: null channel, nothing sent
 	player.client->send(FakeChatClient::buildChannelRequest(1, "@\x01public_map"));
 	EXPECT_TRUE(player.client->socket.expectSilence());
-	// no '_' in the type part: Java ArrayIndexOutOfBoundsException, logged by AbstractClientPacket.run
+	// no '_' in the type part: upstream b0317f967 refuses it with a warning (formerly an ArrayIndexOutOfBoundsException)
 	player.client->send(FakeChatClient::buildChannelRequest(2, "@\x01public\x01" "1.0.AION.KOR"));
-	EXPECT_TRUE(log.waitFor("Could not execute [016] CM_CHANNEL_REQUEST from Player [name=Mal", EXCEPTION_LOG_TIMEOUT)) << log.dump();
-	EXPECT_TRUE(log.contains("Index 1 out of bounds for length 1")) << log.dump();
+	EXPECT_TRUE(log.waitFor("requested a channel without name: ")) << log.dump();
 	EXPECT_TRUE(player.client->socket.expectSilence());
 }
 

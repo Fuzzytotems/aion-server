@@ -39,14 +39,14 @@ TEST_F(BroadcastTest, MembersOfTheChannelReceiveTheMessageOthersDoNot) {
 	EXPECT_TRUE(dave.client->socket.expectSilence());
 }
 
-TEST_F(BroadcastTest, AnyClientCanSendToAChannelById) {
-	// Java does not check that the sender is in the channel: the members get the message, the sender does not (it is not in the channel)
+TEST_F(BroadcastTest, OnlyMembersCanSendToAChannel) {
+	// upstream b0317f967: the client may name any channel id, so the sender must be a member
 	auto gs = connectGameServer();
 	Player member = loginPlayer(*gs, "Member", 0);
 	Player outsider = loginPlayer(*gs, "Outsider", 1);
 	int32_t channelId = member.client->joinChannel(1, channelIdentifier("public", uniqueName("map"), GS_ID, 0));
 	outsider.client->send(FakeChatClient::buildChannelMessage(channelId, "psst"));
-	EXPECT_EQ(member.client->expectFrame("SM_CHANNEL_MESSAGE"), expectedChannelMessage(channelId, outsider.id, "Outsider@AION", "psst"));
+	EXPECT_TRUE(member.client->socket.expectSilence());
 	EXPECT_TRUE(outsider.client->socket.expectSilence());
 }
 

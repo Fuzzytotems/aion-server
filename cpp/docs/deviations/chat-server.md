@@ -42,7 +42,7 @@ not listed behaves like Java.
 | `Channel.toString()` | `Object.toString()`: class name and identity hash code | Class name and the channel id in hex | No identity hash codes; used in one warning of `CM_CHANNEL_LEAVE` |
 | Strings | Java `String` (UTF-16) | UTF-8 `std::string`. Client texts are decoded exactly like `new String(bytes, UTF_16LE)` (`utils::Utf16Le`, including the replacement rules for malformed input; over the network: `ChannelFlowTest.LocalizedJobNamesShareTheChannelOfTheirClass`, `BroadcastTest.ChatLogWritesChannelNameSenderAndText`). The token hashes as many UTF-8 bytes of the account name as it has UTF-16 chars, like Java (`GameServerLinkTest.TheTokenHashesAsManyUtf8BytesAsTheAccountNameHasChars`). Strings from the game server are read by commons' `readS`, which turns a lone surrogate into U+FFFD where Java keeps it, and the account name hashed for the token is then U+FFFD's UTF-8 bytes where Java's `getBytes(UTF_8)` writes '?' | Account and character names are plain text; commons' string rules |
 | `NoSuchAlgorithmException` | `MessageDigest.getInstance("SHA-256")` fails | OpenSSL's `EVP_Digest` fails | No JCE; SHA-256 is OpenSSL's |
-| Numbers in channel identifiers | `Integer.parseInt` accepts every Unicode decimal digit: "١.٠.AION.KOR" (Arabic-Indic digits) is game server 1, race 0 | commons `utils::parseInt` accepts ASCII digits only: `NumberFormatException` (logged by the packet's `run`, no answer) | Inherited from commons (deviation in `commons/utils/Numbers.h`); the client sends ASCII digits |
+| Numbers in channel identifiers | `Integer.parseInt` accepts every Unicode decimal digit: "١.٠.AION.KOR" (Arabic-Indic digits) is game server 1, race 0 | commons `utils::parseInt` accepts ASCII digits only: the request is refused as malformed (upstream b0317f967 catches the `NumberFormatException`) | Inherited from commons (deviation in `commons/utils/Numbers.h`); the client sends ASCII digits |
 | Account name comparison (`equalsIgnoreCase`) | Java's full simple case mapping | commons `StringUtils::equalsIgnoreCase`: simple case mapping for ASCII, Latin-1, Latin Extended-A, Greek and Cyrillic, other characters compared as they are | Inherited from commons (deviation in `commons/utils/StringUtils.h`); account names are ASCII in practice |
 
 ## Startup, configuration, logging
@@ -66,7 +66,6 @@ These look like bugs but are the specification; tests pin them down.
   player can still chat. `ChatService.gagPlayer` also logs the value as minutes. Ported as is on both sides (test
   `BroadcastTest.GagWithADurationDoesNotGag`; a point in time does gag: `BroadcastTest.GaggedPlayerGetsANoticeAndNobodyElseAnything`). Fixing it
   means changing the protocol on one side; see docs/design/chat-server-port.md.
-- **A client may post to any channel by id** without being in it; the members get the message (`BroadcastTest.AnyClientCanSendToAChannelById`).
 - **A player registered again replaces the first registration** in ChatService and BroadcastService: only the new token logs in, and the
   broadcasts go to the new connection; the old connection is not closed (`ClientAuthTest.ARegistrationAgainReplacesTheFirstOne`).
 - **A login racing a logout.** `registerPlayerConnection` looks the player up, then sets the connection AUTHED and adds the `ChatClient` to
