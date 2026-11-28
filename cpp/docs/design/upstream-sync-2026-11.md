@@ -247,6 +247,29 @@ aion_gs_regscan.cli.java_tree, tools.gen, tools.oracle).
 | `546f96bd2` | 2026-11-18 | Speed up game server startup (#252) | 824 | 0 | T2, P4-05, P5-14, P4-09 |  |
 | `620fc69b0` | 2026-11-18 | Fixed NPE from merged startup changes (546f96b) | 4 | 0 | P4-09 |  |
 
+### Wave 1, network part (lane C, 2026-11-27)
+
+Branch `sync/wave1`, one C++ commit per upstream commit. The logging, startup and shutdown commits (`d22a9af5b` `36bdccb4d` `7840be30d`
+`9d8eeb2f2` `b028752d0` `8912ec714` `546f96bd2` `620fc69b0`) are lane D's; the log texts they change (e.g. "Gameserver ..." of the login
+server's GsConnection, `7840be30d`) are left to them.
+
+| Commit | Ported |
+|---|---|
+| `e1a399e62` | Read helpers of `BaseClientPacket` throw on an underflow, `read()` logs "shorter than expected" and fails; `readB` validates the length; the framing checks every announced size against the read buffer (the former C++ deviation is gone). The game server's packet read tests expect the failed read now |
+| `76b2f2bca` | `PacketProcessor(..., maxPendingPacketsPerConnection)`, `executePacket` returns false at the limit; `gameserver.network.packet.processor.max_pending_per_connection` (500); the per connection queues were already C++'s design |
+| `d9800d686` | `AConnectionBase::admitToSendQueue` (queue size and send stall limits, write progress after each partial write); `gameserver.network.client.max_pending_server_packets` (20000) and `max_send_stall_seconds` (60) |
+| `31ad0571f` | `NioServer` checks `AConnectionBase::closeIfTimedOut` once per second (auth timeout, stuck send queue); `gameserver.network.client.auth_timeout_seconds`, `loginserver.network.client.auth_timeout_seconds` (60); `gameserver.network.flood.connections` defaults to true |
+| `459b35094` | Chat server on one commons `NioServer` with the classes of the migration (`NetConnector`, `NettyConnection`, `ConnectionHandler`, `NettyPipeline`, `AionConnection`, `GsConnection`, `PacketExecutorGroup`); Netty's framing, write water marks, limits and messages reproduced on asio (docs/deviations/chat-server.md); `chatserver.network.client.auth_timeout_seconds` (60) |
+| `01aadf926` | Empty chat server game server password only from loopback, failed attempts closed, only the authenticated game server goes offline, 30 s auth timeout on the game server ports of chat and login server, constant time password comparison (`utils::MessageDigest::isEqual`) |
+| `81e409c5e` | "shorter than expected" once per opcode; packet flood filter mode 2 disconnects |
+| `bce89b2fc` | Netty classes moved to commons; login server on them (`NetConnector`, `LoginConnection`, `GsConnection`); the login packets of the 4.8 client (`readFields`, CM_LOGIN fields, SM_* layouts), whole-payload encryption with zeroed padding (upstream's CryptEngine vectors pass), `STR_RESTRICTED_TIME_BY_TEENAGER_POLICY`, the game server's `CM_L2AUTH_LOGIN_CHECK` passport key |
+| `a485569df` | `MultiClientService` with `multi_client.max_clients_per_computer` (2) and `multi_client.allow_both_factions` (true); the keys moved to `multi_client.*` |
+| `55d0af937` | Packet flood filter mode 1 drops the flooding packet (the new pff.properties entries are shared config) |
+| `4ca531afc` | Character counts removed with the account; `BruteForceProtector` purge above 1024 IPs and 64-bit window |
+| `b0317f967` | Chat channel request validations and the 256 channel cap; broadcasts only from members |
+| `17093650f` | Chat channel membership (`ChatChannels::join/leave/leaveAll`), empty channels removed, female class names match |
+| `92da2dd62` | Continuation mark (U+200B) in front of the split chat message parts |
+
 ## Wave 2: Exploit and validation fixes (the October hardening batch)
 
 35 commits, 3,611 Java lines, 3,263 data lines.
