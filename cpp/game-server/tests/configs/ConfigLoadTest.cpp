@@ -167,14 +167,14 @@ TEST_F(ConfigLoadTest, ParsedValuesOfShippedConfig) {
 	          (std::unordered_set<int32_t>{210020000, 210040000, 210050000, 210070000, 220020000, 220040000, 220070000, 220080000}));
 	EXPECT_TRUE(main::DropConfig::DISABLE_RANGE_CHECK_MAPS.get()->empty());
 	EXPECT_TRUE(main::EventsConfig::DISABLED_EVENTS.get()->empty());
-	EXPECT_TRUE(main::SecurityConfig::MULTI_CLIENTING_IGNORED_MAC_ADDRESSES.get()->empty());
+	EXPECT_TRUE(main::SecurityConfig::MULTI_CLIENT_IGNORED_MAC_ADDRESSES.get()->empty());
 	EXPECT_EQ(*main::HousingConfig::HOUSE_AUCTION_REGISTER_DAYS.get(), (std::vector<int32_t>{1, 5}));
 	EXPECT_EQ(*main::RatesConfig::CRAFT_CRIT_CHANCES.get(), (std::vector<float>{15.0f, 30.0f}));
 	EXPECT_EQ(*main::RatesConfig::AP_PVP_LOSS_RATES.get(), (std::vector<float>{1.0f, 1.0f}));
 	EXPECT_EQ(main::DropConfig::MIN_ANNOUNCE_QUALITY.load(), detail::ItemQuality::MYTHIC);
 	EXPECT_EQ(main::InstanceConfig::INSTANCE_SCALING_NPC_MIN_RATING.load(), detail::NpcRating::ELITE);
 	EXPECT_EQ(main::RankingConfig::XFORM_MIN_RANK.load(), detail::AbyssRankEnum::STAR5_OFFICER);
-	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load(), main::SecurityConfig::MultiClientingRestrictionMode::NONE);
+	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER.load(), 2);
 	EXPECT_EQ(*network::NetworkConfig::CLIENT_SOCKET_ADDRESS.get(), (InetSocketAddress{"0.0.0.0", 7777}));
 	EXPECT_EQ(*network::NetworkConfig::LOGIN_ADDRESS.get(), (InetSocketAddress{"localhost", 9014}));
 	// ${gameserver.network.client.socket_address} = 0.0.0.0:7777, replaced by the discovered local address

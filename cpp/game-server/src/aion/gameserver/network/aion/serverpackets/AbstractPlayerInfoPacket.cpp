@@ -9,6 +9,7 @@
 #include "aion/gameserver/model/GenderInfo.h"
 #include "aion/gameserver/model/PlayerClassInfo.h"
 #include "aion/gameserver/model/RaceInfo.h"
+#include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/account/CharacterBanInfo.h"
 #include "aion/gameserver/model/account/PlayerAccountData.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
@@ -18,6 +19,7 @@
 #include "aion/gameserver/model/team/legion/Legion.h"
 #include "aion/gameserver/model/team/legion/LegionMember.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/serverpackets/detail/PacketLookups.h"
 #include "aion/gameserver/runtime/collections/ArrayList.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
@@ -171,13 +173,17 @@ runtime::Ref<model::account::CharacterBanInfo> AbstractPlayerInfoPacket::getChar
 	int64_t nowSeconds = commons::utils::currentTimeMillis() / 1000;
 	if (cbi != nullptr && nowSeconds >= cbi->getEnd())
 		cbi.reset();
-	if (cbi == nullptr
-		&& configs::main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load() == configs::main::SecurityConfig::MultiClientingRestrictionMode::SAME_FACTION) {
-		int32_t cdMinutes = configs::main::SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES.load();
-		if (cdMinutes > 0 && detail::checkForFactionSwitchCooldownTime(playerAccountData.getPlayerCommonData()->getRace(), con).has_value()) {
+	if (cbi == nullptr && con->getAccount()->getAccessLevel() == 0 && !configs::main::SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS.load()) {
+		model::Race race = playerAccountData.getPlayerCommonData()->getRace();
+		if (detail::checkForFactionSwitchCooldownTime(race, con).has_value()) {
+			int32_t cdMinutes = configs::main::SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES.load();
+			std::string reason;
+			if (cdMinutes > 0)
+				reason = "\xEE\x80\xA6 " + std::to_string(cdMinutes) + " minute cooldown between switching factions";
+			else
+				reason = std::string("Please log out all ") + (race == model::Race::ELYOS ? "Asmodian" : "Elyos") + " characters in your household";
 			int32_t durationSeconds = 61; // client will send CM_CHARACTER_LIST after this duration to update the ban info (<61s corrupts the ban info)
-			cbi = model::account::CharacterBanInfo::create(nowSeconds, durationSeconds,
-				"\n\n\n\xEE\x80\xA6 " + std::to_string(cdMinutes) + " minute cooldown between switching factions\n\n\n\n\n\n\n");
+			cbi = model::account::CharacterBanInfo::create(nowSeconds, durationSeconds, "\n\n\n" + reason + "\n\n\n\n\n\n\n");
 		}
 	}
 	return cbi;

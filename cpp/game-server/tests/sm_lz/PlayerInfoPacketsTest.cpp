@@ -358,27 +358,28 @@ TEST_F(PlayerInfoPacketsTest, CharacterListEntryBanInfoExpiryAndFactionSwitchCoo
 	Ref<model::account::CharacterBanInfo> oldBan = model::account::CharacterBanInfo::create(nowSeconds - 100, 50, "old");
 	model::account::PlayerAccountData& expired = addCharacter(*account, 100041, oldBan, {});
 	TestConnection connection;
+	connection.get()->setAccount(*account); // upstream a485569df: the cooldown check reads the access level of the connection's account
 
 	Bytes tail;
 	for (int i = 0; i < 16; i++)
 		tail.C(0).D(0).D(0).dye(std::nullopt);
 	tail.D(0).D(0).D(0).D(0).D(0).D(0).zeros(68).D(expired.getDeletionTimeInSeconds()).H(0).H(0).D(0).D(0).D(0).D(0).Q(0).D(0).D(0).D(0).D(0).D(0);
 
-	// an expired ban info is not sent (restriction mode NONE: no cooldown check)
+	// an expired ban info is not sent (both factions allowed: no cooldown check)
 	TestPlayerInfoPacket expiredPacket(&expired, {});
 	Bytes withoutBan;
 	withoutBan.header(32);
 	playerInfoHead(withoutBan, 100041, 100001).raw(tail.data).D(0).D(0).S("");
 	EXPECT_EQ(serialized(expiredPacket, connection.get()), withoutBan.data);
 
-	// SAME_FACTION with a cooldown: a new ban info of 61 seconds with Java's text (" " is EE 80 A6 in UTF-8)
+	// both factions not allowed, with a cooldown: a new ban info of 61 seconds with Java's text (" " is EE 80 A6 in UTF-8)
 	using configs::main::SecurityConfig;
-	SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE = SecurityConfig::MultiClientingRestrictionMode::SAME_FACTION;
-	SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES = 15;
+	SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS = false;
+	SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES = 15;
 	TestPlayerInfoPacket cooldownPacket(&expired, {});
 	std::vector<uint8_t> bytes = serialized(cooldownPacket, connection.get());
-	SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE = SecurityConfig::MultiClientingRestrictionMode::NONE;
-	SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES = 0;
+	SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS = true;
+	SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES = 0;
 	Bytes head;
 	head.header(32);
 	playerInfoHead(head, 100041, 100001).raw(tail.data);

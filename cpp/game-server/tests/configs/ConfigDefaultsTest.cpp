@@ -558,9 +558,10 @@ TEST_F(ConfigDefaultsTest, SecurityConfig) {
 	EXPECT_EQ(main::SecurityConfig::FLOOD_MSG.load(), 6);
 	EXPECT_FALSE(main::SecurityConfig::ENABLE_FLYPATH_VALIDATOR.load());
 	EXPECT_EQ(main::SecurityConfig::SURVEY_DELAY.load(), 20);
-	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load(), main::SecurityConfig::MultiClientingRestrictionMode::NONE);
-	EXPECT_EQ(*main::SecurityConfig::MULTI_CLIENTING_IGNORED_MAC_ADDRESSES.get(), (std::unordered_set<std::string>{}));
-	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES.load(), 20);
+	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER.load(), 2);
+	EXPECT_TRUE(main::SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS.load());
+	EXPECT_EQ(*main::SecurityConfig::MULTI_CLIENT_IGNORED_MAC_ADDRESSES.get(), (std::unordered_set<std::string>{}));
+	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES.load(), 20);
 	EXPECT_FALSE(main::SecurityConfig::HDD_SERIAL_LOCK_ENABLE.load());
 	EXPECT_FALSE(main::SecurityConfig::HDD_SERIAL_LOCK_UNLOCKED_ACCOUNTS.load());
 }

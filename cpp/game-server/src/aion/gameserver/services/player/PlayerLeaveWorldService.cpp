@@ -51,7 +51,7 @@
 #include "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.h"
 #include "aion/gameserver/services/findgroup/FindGroupService.h"
 #include "aion/gameserver/services/instance/InstanceService.h"
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
 #include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/services/summons/SummonsService.h"
@@ -110,7 +110,7 @@ void PlayerLeaveWorldService::leaveWorld(Player& player) {
 	if (configs::main::AutoGroupConfig::AUTO_GROUP_ENABLE.load())
 		AutoGroupService::getInstance().onLogout(player);
 	conquerorAndProtectorSystem::ConquerorAndProtectorService::getInstance().onLeaveMap(player);
-	MultiClientingService::onLeaveWorld(player);
+	MultiClientService::onLeaveWorld(player);
 	instance::InstanceService::onLogout(player);
 	utils::audit::GMService::getInstance().onPlayerLogout(player);
 	KiskService::getInstance().onLogout(player);
