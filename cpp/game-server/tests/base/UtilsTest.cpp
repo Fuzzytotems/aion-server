@@ -291,7 +291,10 @@ TEST(ChatUtilTest, SplitLongMessages) {
 	std::vector<std::string> parts = ChatUtil::split(words); // 1500 chars: split at the last space before 1022 characters
 	ASSERT_EQ(parts.size(), 2u);
 	EXPECT_EQ(parts[0].size(), 1019u); // the space at index 1019 is the last one before the limit
-	EXPECT_EQ(parts[0] + " " + parts[1], words);
+	// upstream 92da2dd62: the parts after the first start with an invisible continuation mark (U+200B, E2 80 8B in UTF-8)
+	const std::string mark = "\xE2\x80\x8B";
+	EXPECT_EQ(parts[1].substr(0, 3), mark);
+	EXPECT_EQ(parts[0] + " " + parts[1].substr(3), words);
 	std::string links;
 	for (int i = 0; i < 40; ++i)
 		links += "[item:182400001] "; // estimated as 31 for the link and 1 for the space
@@ -299,7 +302,7 @@ TEST(ChatUtilTest, SplitLongMessages) {
 	std::vector<std::string> linkParts = ChatUtil::split(links);
 	ASSERT_EQ(linkParts.size(), 2u);
 	EXPECT_EQ(linkParts[0].size(), 526u);
-	EXPECT_EQ(linkParts[1].size(), 9u * 17u);
+	EXPECT_EQ(linkParts[1].size(), 3u + 9u * 17u);
 	// split keeps the WTF-8 l10n ids of a long message: 128 ids of 4 chars, where "$" and its two chars count as 16 and the space as 1, so the
 	// 61st id of each part reaches 1022 and the part ends before the space in front of it
 	std::string l10ns;
@@ -308,9 +311,9 @@ TEST(ChatUtilTest, SplitLongMessages) {
 	std::vector<std::string> l10nParts = ChatUtil::split(l10ns);
 	ASSERT_EQ(l10nParts.size(), 3u);
 	EXPECT_EQ(l10nParts[0].size(), 60u * 6u - 1u); // 5 WTF-8 bytes per id plus the spaces between them
-	EXPECT_EQ(l10nParts[1], l10nParts[0]);
-	EXPECT_EQ(l10nParts[2].size(), 8u * 6u);
-	EXPECT_EQ(l10nParts[0] + " " + l10nParts[1] + " " + l10nParts[2], l10ns);
+	EXPECT_EQ(l10nParts[1], mark + l10nParts[0]); // the mark counts as one character of the estimate
+	EXPECT_EQ(l10nParts[2].size(), 3u + 8u * 6u);
+	EXPECT_EQ(l10nParts[0] + " " + l10nParts[1].substr(3) + " " + l10nParts[2].substr(3), l10ns);
 	EXPECT_EQ(l10nParts[0].substr(0, 5), ChatUtil::l10n(27648));
 }
 

@@ -399,8 +399,10 @@ std::vector<std::string> ChatUtil::split(std::string_view chatMessageValue) {
 	std::vector<std::string> parts;
 	for (int32_t start = 0, length = static_cast<int32_t>(chatMessage.size()); start < length;) {
 		int32_t splitIndex = findSplitIndex(chatMessage, start, length);
-		std::u16string_view part = std::u16string_view(chatMessage).substr(static_cast<size_t>(start), static_cast<size_t>(splitIndex - start));
-		parts.push_back(StringUtils::toWtf8(part));
+		std::u16string messagePart(std::u16string_view(chatMessage).substr(static_cast<size_t>(start), static_cast<size_t>(splitIndex - start)));
+		if (start > 0)
+			messagePart = CONTINUATION_MARK + messagePart;
+		parts.push_back(StringUtils::toWtf8(messagePart));
 		start = splitIndex;
 		if (start < length) {
 			char16_t splitChar = chatMessage[static_cast<size_t>(start)];
@@ -412,7 +414,8 @@ std::vector<std::string> ChatUtil::split(std::string_view chatMessageValue) {
 }
 
 int32_t ChatUtil::findSplitIndex(std::u16string_view chatMessage, int32_t startIndex, int32_t endIndex) {
-	int32_t estimatedDisplayLength = 0;
+	// account for the length of the CONTINUATION_MARK if this is a subsequent part (start > 0)
+	int32_t estimatedDisplayLength = startIndex > 0 ? 1 : 0;
 	int32_t lastNewLineIndex = -1;
 	int32_t lastSpaceIndex = -1;
 	for (int32_t i = startIndex; i < endIndex; i++) {
