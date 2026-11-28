@@ -11,9 +11,8 @@ default on. Deviations: [../deviations/chat-server.md](../deviations/chat-server
 | `configs/Config`, `configs/main/LoggingConfig`, `configs/network/NetworkConfig` | same paths | `./config/main`, `./config/network`, `./config/mycs.properties`; the `CHAT_LOG` logger of logback.xml is set up in code |
 | `dao/ChatLogDAO` | `dao/ChatLogDAO` | table `chatlog` of `chat-server/sql/aion_cs.sql` |
 | `model/*`, `model/channel/*`, `model/message/Message` | same paths | enums as `enum class` + free functions (`getById`, `getByIdentifier`, `name`) |
-| `common/netty/*` (packet bases of the client side) | `common/netty/*` | Netty's `ChannelBuffer` is commons' little endian `ByteBuffer` (`ChannelBuffer.h`) |
 | `network/aion/*` (client packets and handler) | `network/aion/*` | 9 client packets, 4 server packets |
-| `network/netty/*` (Netty server, coders, handlers, pipeline) | `network/netty/*` | on commons' `NioServer`/`AConnection`; `pipeline/ExecutionHandler` replaces Netty's `ExecutionHandler` + `OrderedMemoryAwareThreadPoolExecutor` |
+| `network/NetConnector`, `network/netty/*` (Netty 4 since upstream 459b35094: `NettyConnection`, `ConnectionHandler`, `NettyPipeline`, `PacketEncoder`) | same paths | on one commons `NioServer`; `ConnectionHandler` is the channel (a commons connection), `PacketExecutorGroup` replaces Netty's `DefaultEventExecutorGroup` |
 | `network/gameserver/*`, `network/factories/GsPacketHandlerFactory` | same paths | 4 game server packets in, 2 out |
 | `service/*`, `utils/IdFactory` | same paths | thread safe (mutexes where Java relies on unsynchronized fields) |
 | (C++ helper) | `utils/Utf16Le` | `new String(bytes, UTF_16LE)` with Java's replacement rules for malformed client input |
@@ -107,20 +106,11 @@ Open items on the game server side before the link is switched on:
   so gags have no effect in Java either; `PunishmentService` even passes minutes where `ChatBanService.banPlayer` expects milliseconds. A fix
   belongs to both servers at once (e.g. the game server sends `System.currentTimeMillis() + duration`), and is a deliberate protocol change.
 
-## Hardening proposals (not in Java, not done)
+## Hardening (done upstream)
 
-The port keeps Java's exposure to a misbehaving client, apart from queuing only the encoded bytes of a sent packet (Java keeps the whole
-16 KiB buffer; see the deviations):
-
-- **Per-connection limits.** The event queue of a connection (`ExecutionHandler`) and its send queue are unbounded; Netty's executor limits
-  (1 MB per channel, 128 MB in total) are not reproduced. A client that floods frames or never reads its answers grows them until it
-  disconnects. Proposal: disconnect a connection whose queued events or queued send bytes exceed a limit (e.g. 1 MB), logged like commons'
-  oversized-packet warning.
-- **Idle timeout before the login.** A connection that never sends `CM_PLAYER_AUTH` stays open (Java too). Proposal: close connections that
-  are not AUTHED after e.g. 60 s.
-
-Both are behaviour changes and belong in a deliberate follow-up, together with the commons additions listed in the port's report (a
-per-key ordered executor, an immediate close for subclasses).
+Upstream 459b35094 (Netty 4.2) added the limits this section proposed, and the port follows it: at most 100 queued packets per client and
+10,000 per game server, at most 256 KiB waiting to be sent to a client, a client whose send buffer stays full for 60 s is closed, and a client
+has `chatserver.network.client.auth_timeout_seconds` (60) to authenticate.
 
 ## Protocol check against the game server (read-only)
 

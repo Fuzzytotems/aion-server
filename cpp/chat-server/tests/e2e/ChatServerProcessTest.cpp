@@ -130,7 +130,7 @@ TEST(ChatServerProcessTest, FakeGameServerAndTwoClientsChat) {
 	EXPECT_EQ(*exitCode, 0) << server.readLog();
 	std::string log = server.readLog();
 	EXPECT_NE(log.find("Stop file"), std::string::npos) << log;
-	EXPECT_NE(log.find("Gameserver #1 is disconnected"), std::string::npos) << log;
+	EXPECT_NE(log.find("Game server #1 disconnected"), std::string::npos) << log;
 	EXPECT_EQ(log.find("ERROR"), std::string::npos) << log;
 	EXPECT_EQ(log.find("WARN"), std::string::npos) << log;
 

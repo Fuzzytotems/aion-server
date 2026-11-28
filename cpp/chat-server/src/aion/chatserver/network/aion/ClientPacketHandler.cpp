@@ -9,15 +9,32 @@
 #include "aion/chatserver/network/aion/clientpackets/CM_PING.h"
 #include "aion/chatserver/network/aion/clientpackets/CM_PLAYER_AUTH.h"
 #include "aion/chatserver/network/aion/clientpackets/CM_PLAYER_INFO.h"
-#include "aion/chatserver/network/netty/handler/ClientChannelHandler.h"
+#include <fmt/format.h>
+
+#include "aion/chatserver/network/aion/AionConnection.h"
+#include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/NetworkUtils.h"
 
 namespace aion::chatserver::network::aion {
 
 using namespace clientpackets;
-using ClientChannelHandlerState = netty::handler::ClientChannelHandler::ClientChannelHandlerState;
+using State = AionConnection::State;
 
-std::unique_ptr<AbstractClientPacket> ClientPacketHandler::handle(common::netty::ChannelBuffer& buf,
-	const std::shared_ptr<netty::handler::ClientChannelHandler>& channelHandler) const {
+namespace {
+
+const commons::logging::Logger& log() {
+	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.chatserver.network.aion.ClientPacketHandler"));
+	return *logger;
+}
+
+void logUnknownPacket(int8_t opCode, State state, const commons::utils::ByteBuffer& buf) {
+	log().warn("Unknown packet received from client: opCode=0x{} state={} length={} data=[{}]", fmt::format("{:02X}", static_cast<uint8_t>(opCode)),
+		toString(state), buf.remaining(), commons::utils::NetworkUtils::toHex(buf));
+}
+
+} // namespace
+
+std::unique_ptr<AbstractClientPacket> ClientPacketHandler::handle(commons::utils::ByteBuffer& buf, const std::shared_ptr<AionConnection>& connection) {
 	/*
 		retail (KOR 8.2.22) client packet names for opcodes:
 		0x0012  (Leave channel)
@@ -88,47 +105,47 @@ std::unique_ptr<AbstractClientPacket> ClientPacketHandler::handle(common::netty:
 		0x4920 ?
 	 */
 	int8_t opCode = buf.get();
-	ClientChannelHandlerState state = channelHandler->getState();
+	State state = connection->getState();
 	std::unique_ptr<AbstractClientPacket> clientPacket;
 
 	switch (state) {
-		case ClientChannelHandlerState::CONNECTED:
+		case State::CONNECTED:
 			switch (opCode) {
 				case 0x30:
-					clientPacket = std::make_unique<CM_CHAT_INI>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_CHAT_INI>(buf, connection, opCode);
 					break;
 				case 0x05:
-					clientPacket = std::make_unique<CM_PLAYER_AUTH>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_PLAYER_AUTH>(buf, connection, opCode);
 					break;
 				default:
-					logUnknownPacket(opCode, netty::handler::toString(state), buf);
+					logUnknownPacket(opCode, state, buf);
 			}
 			break;
-		case ClientChannelHandlerState::AUTHED:
+		case State::AUTHED:
 			switch (opCode) {
 				case 0x0B:
-					clientPacket = std::make_unique<CM_CHANNEL_CREATE>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_CHANNEL_CREATE>(buf, connection, opCode);
 					break;
 				case 0x0D:
-					clientPacket = std::make_unique<CM_CHANNEL_JOIN>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_CHANNEL_JOIN>(buf, connection, opCode);
 					break;
 				case 0x10:
-					clientPacket = std::make_unique<CM_CHANNEL_REQUEST>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_CHANNEL_REQUEST>(buf, connection, opCode);
 					break;
 				case 0x12:
-					clientPacket = std::make_unique<CM_CHANNEL_LEAVE>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_CHANNEL_LEAVE>(buf, connection, opCode);
 					break;
 				case 0x18:
-					clientPacket = std::make_unique<CM_CHANNEL_MESSAGE>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_CHANNEL_MESSAGE>(buf, connection, opCode);
 					break;
 				case 0x2C:
-					clientPacket = std::make_unique<CM_PLAYER_INFO>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_PLAYER_INFO>(buf, connection, opCode);
 					break;
 				case static_cast<int8_t>(0xFF):
-					clientPacket = std::make_unique<CM_PING>(buf, channelHandler, opCode);
+					clientPacket = std::make_unique<CM_PING>(buf, connection, opCode);
 					break;
 				default:
-					logUnknownPacket(opCode, netty::handler::toString(state), buf);
+					logUnknownPacket(opCode, state, buf);
 			}
 			break;
 	}

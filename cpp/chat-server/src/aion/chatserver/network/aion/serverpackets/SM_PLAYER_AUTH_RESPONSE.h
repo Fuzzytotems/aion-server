@@ -16,7 +16,7 @@ public:
 	SM_PLAYER_AUTH_RESPONSE() noexcept : AbstractServerPacket(0x02) {}
 
 protected:
-	void writeImpl(netty::handler::ClientChannelHandler* clientChannelHandler, common::netty::ChannelBuffer& buf) const override {
+	void writeImpl(AionConnection* connection, commons::utils::ByteBuffer& buf) const override {
 		writeC(buf, getOpCode());
 		writeC(buf, 0x40); // ?
 		writeH(buf, 0x01); // ?

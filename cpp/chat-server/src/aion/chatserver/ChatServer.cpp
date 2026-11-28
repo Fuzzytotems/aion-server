@@ -16,7 +16,7 @@
 #endif
 
 #include "aion/chatserver/configs/Config.h"
-#include "aion/chatserver/network/netty/NettyServer.h"
+#include "aion/chatserver/network/NetConnector.h"
 #include "aion/chatserver/service/BroadcastService.h"
 #include "aion/chatserver/service/ChatService.h"
 #include "aion/chatserver/service/GameServerService.h"
@@ -62,8 +62,6 @@ ShutdownState& shutdownState() {
 	return *s;
 }
 
-/** true once NettyServer was created, so a failed startup does not create it just to shut it down */
-std::atomic<bool> nettyServerStarted = false;
 
 /**
  * logback.xml: &lt;logger name="CHAT_LOG" additivity="false"&gt; with the appenders app_chat (log/chat.log, "${date} %message%n") and
@@ -192,8 +190,7 @@ void startup(const Properties& overrides) {
 	commons::utils::info::VersionInfo::logAll();
 	commons::utils::info::SystemInfo::logAll();
 
-	network::netty::NettyServer::getInstance();
-	nettyServerStarted = true;
+	network::NetConnector::connect();
 }
 
 commons::database::DatabaseFactory::Options databaseOptions() {
@@ -202,8 +199,7 @@ commons::database::DatabaseFactory::Options databaseOptions() {
 }
 
 void shutdown() {
-	if (nettyServerStarted)
-		network::netty::NettyServer::getInstance().shutdownAll();
+	network::NetConnector::shutdown();
 	// shut down logger factory to flush all pending log messages
 	Logging::shutdown();
 }

@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "aion/chatserver/model/channel/Channel.h"
-#include "aion/chatserver/network/netty/handler/ClientChannelHandler.h"
+#include "aion/chatserver/network/aion/AionConnection.h"
 #include "aion/commons/utils/TimeUtils.h"
 
 namespace aion::chatserver::model {
@@ -27,14 +27,14 @@ void ChatClient::setIdentifier(std::vector<uint8_t> value) {
 	identifier = std::move(value);
 }
 
-std::shared_ptr<network::netty::handler::ClientChannelHandler> ChatClient::getChannelHandler() const {
+std::shared_ptr<network::aion::AionConnection> ChatClient::getConnection() const {
 	std::lock_guard lock(mutex);
-	return channelHandler;
+	return connection;
 }
 
-void ChatClient::setChannelHandler(std::shared_ptr<network::netty::handler::ClientChannelHandler> value) {
+void ChatClient::setConnection(std::shared_ptr<network::aion::AionConnection> value) {
 	std::lock_guard lock(mutex);
-	channelHandler = std::move(value);
+	connection = std::move(value);
 }
 
 void ChatClient::addChannel(std::shared_ptr<channel::Channel> channel) {

@@ -12,7 +12,7 @@
 #include "aion/chatserver/model/channel/ChatChannels.h"
 #include "aion/chatserver/network/aion/serverpackets/SM_CHANNEL_RESPONSE.h"
 #include "aion/chatserver/network/aion/serverpackets/SM_PLAYER_AUTH_RESPONSE.h"
-#include "aion/chatserver/network/netty/handler/ClientChannelHandler.h"
+#include "aion/chatserver/network/aion/AionConnection.h"
 #include "aion/chatserver/service/BroadcastService.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Rnd.h"
@@ -21,8 +21,7 @@
 namespace aion::chatserver::service {
 
 using model::ChatClient;
-using network::netty::handler::ClientChannelHandler;
-using ClientChannelHandlerState = ClientChannelHandler::ClientChannelHandlerState;
+using network::aion::AionConnection;
 
 namespace {
 
@@ -40,9 +39,9 @@ std::vector<uint8_t> sha256(std::string_view data) {
 	return std::vector<uint8_t>(digest.begin(), digest.begin() + digestLength);
 }
 
-/** Java: clientChannelHandler.getChatClient(), which must not be null here */
-std::shared_ptr<ChatClient> requireChatClient(const ClientChannelHandler& clientChannelHandler) {
-	std::shared_ptr<ChatClient> chatClient = clientChannelHandler.getChatClient();
+/** Java: connection.getChatClient(), which must not be null here */
+std::shared_ptr<ChatClient> requireChatClient(const AionConnection& connection) {
+	std::shared_ptr<ChatClient> chatClient = connection.getChatClient();
 	if (!chatClient)
 		throw commons::utils::IllegalStateException(
 			"Cannot invoke \"com.aionemu.chatserver.model.ChatClient.addChannel(...)\" because the return value of \"getChatClient()\" is null");
@@ -82,7 +81,7 @@ std::vector<uint8_t> ChatService::generateToken(std::span<const uint8_t> account
 }
 
 void ChatService::registerPlayerConnection(int32_t playerId, std::span<const uint8_t> token, std::vector<uint8_t> identifier, std::string_view name,
-	std::string_view accName, const std::shared_ptr<ClientChannelHandler>& channelHandler) {
+	std::string_view accName, const std::shared_ptr<AionConnection>& connection) {
 	std::shared_ptr<ChatClient> chatClient;
 	{
 		std::lock_guard lock(mutex);
@@ -100,20 +99,20 @@ void ChatService::registerPlayerConnection(int32_t playerId, std::span<const uin
 		log().warn("Client tried to connect with character name: {} (expected: {})", name, chatClient->getName());
 	else {
 		chatClient->setIdentifier(std::move(identifier));
-		chatClient->setChannelHandler(channelHandler);
-		channelHandler->sendPacket(network::aion::serverpackets::SM_PLAYER_AUTH_RESPONSE());
-		channelHandler->setState(ClientChannelHandlerState::AUTHED);
-		channelHandler->setChatClient(chatClient);
+		chatClient->setConnection(connection);
+		connection->sendPacket(network::aion::serverpackets::SM_PLAYER_AUTH_RESPONSE());
+		connection->setState(AionConnection::State::AUTHED);
+		connection->setChatClient(chatClient);
 		BroadcastService::getInstance().addClient(chatClient);
 	}
 }
 
-void ChatService::registerPlayerWithChannel(const std::shared_ptr<ClientChannelHandler>& clientChannelHandler, int32_t channelRequestId,
+void ChatService::registerPlayerWithChannel(const std::shared_ptr<AionConnection>& connection, int32_t channelRequestId,
 	std::string_view identifier) {
-	std::shared_ptr<model::channel::Channel> channel = model::channel::ChatChannels::getOrCreate(clientChannelHandler->getChatClient(), identifier);
+	std::shared_ptr<model::channel::Channel> channel = model::channel::ChatChannels::getOrCreate(connection->getChatClient(), identifier);
 	if (channel) {
-		requireChatClient(*clientChannelHandler)->addChannel(channel);
-		clientChannelHandler->sendPacket(network::aion::serverpackets::SM_CHANNEL_RESPONSE(*channel, channelRequestId));
+		requireChatClient(*connection)->addChannel(channel);
+		connection->sendPacket(network::aion::serverpackets::SM_CHANNEL_RESPONSE(*channel, channelRequestId));
 	}
 }
 
@@ -130,8 +129,8 @@ void ChatService::playerLogout(int32_t playerId) {
 	if (chatClient) {
 		BroadcastService::getInstance().removeClient(*chatClient);
 		log().info("Player[id={}] logged out ", playerId);
-		if (std::shared_ptr<ClientChannelHandler> channelHandler = chatClient->getChannelHandler())
-			channelHandler->close();
+		if (std::shared_ptr<AionConnection> connection = chatClient->getConnection())
+			connection->close();
 		else
 			log().warn("Received logout event without client authentication for player {}", playerId);
 	}

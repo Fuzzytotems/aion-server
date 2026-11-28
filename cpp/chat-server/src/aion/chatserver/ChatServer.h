@@ -56,7 +56,7 @@ int main(std::span<const std::string_view> args);
 /**
  * Java: ChatServer.main - Logging::init (with the CHAT_LOG logger of logback.xml), UncaughtExceptionHandler::install, Config::load (with the
  * overrides), DatabaseFactory::init (with databaseOptions()), IdFactory, GameServerService, ChatService, BroadcastService,
- * VersionInfo/SystemInfo, NettyServer.
+ * VersionInfo/SystemInfo, NetConnector::connect.
  *
  * @throws std::exception if a step fails
  */
@@ -69,7 +69,7 @@ void startup(const commons::configuration::Properties& overrides);
  */
 commons::database::DatabaseFactory::Options databaseOptions();
 
-/** Java: ShutdownHook.run - NettyServer::shutdownAll, then Logging::shutdown (flushes all pending log messages). */
+/** Java: ShutdownHook.run - NetConnector::shutdown, then Logging::shutdown (flushes all pending log messages). */
 void shutdown();
 
 /** Wakes up main() to shut the server down (what the console control handler / signal handler does). Thread safe, may be called at any time. */

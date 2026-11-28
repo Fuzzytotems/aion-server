@@ -12,36 +12,36 @@
 #include <unordered_map>
 #include <vector>
 
-namespace aion::chatserver::network::netty::pipeline {
+namespace aion::chatserver::network::netty {
 
 /**
- * Runs the upstream events of the client channels (connected, message received, disconnected) on a thread pool, the events of one channel one
- * at a time in the order they were submitted, the events of different channels in parallel.
+ * Runs the packets of the connections (and their disconnect callbacks) on a thread pool, the tasks of one connection one at a time in the order
+ * they were submitted, the tasks of different connections in parallel.
  * <p>
- * C++ replacement of Netty's org.jboss.netty.handler.execution.ExecutionHandler with an OrderedMemoryAwareThreadPoolExecutor, which
- * LoginToClientPipeLineFactory puts in front of the ClientChannelHandler. Up to maxThreads threads ("ExecutionHandler-&lt;n&gt;") are started
- * on demand, one for each channel that is ready while no idle thread is left to take it (Java's ThreadPoolExecutor starts a thread for each task
- * below its core size), and stay until shutdown(). Deviation: the executor's memory limits (1 MB per channel, 128 MB in total, beyond which Netty
- * blocks the IO thread) are not enforced; the queues are unbounded like the send queues of all connections.
+ * C++ replacement of Netty's DefaultEventExecutorGroup(8, new DefaultThreadFactory("PacketProcessor")) of NetConnector, whose next() executor
+ * every connection gets. Deviation: Netty binds each connection to one of the 8 threads, so a slow packet also delays the connections sharing
+ * its thread; here a connection is only bound to its own queue, and up to maxThreads threads ("PacketProcessor-&lt;n&gt;") are started on
+ * demand, one for each connection that is ready while no idle thread is left to take it, and stay until shutdown(). The number of queued
+ * packets per connection is limited by NettyConnection.
  * <p>
  * Must be owned by a std::shared_ptr (std::make_shared): every thread holds a reference until it ends, so a thread that shutdown() leaves behind
  * can still finish its task. Thread safe. Exceptions escaping a task are logged, the thread continues.
  */
-class ExecutionHandler : public std::enable_shared_from_this<ExecutionHandler> {
+class PacketExecutorGroup : public std::enable_shared_from_this<PacketExecutorGroup> {
 public:
 	using Task = std::function<void()>;
 
 	/** @param maxThreads maximum number of threads (&gt; 0) */
-	explicit ExecutionHandler(int32_t maxThreads);
+	explicit PacketExecutorGroup(int32_t maxThreads);
 
 	/**
-	 * Calls shutdown() with a zero timeout. The threads hold references to the handler, so it is only destroyed when none was started or after
-	 * shutdown() stopped them; the owner must call shutdown() (LoginToClientPipeLineFactory does).
+	 * Calls shutdown() with a zero timeout. The threads hold references to the group, so it is only destroyed when none was started or after
+	 * shutdown() stopped them; the owner must call shutdown() (NetConnector does).
 	 */
-	~ExecutionHandler();
+	~PacketExecutorGroup();
 
-	ExecutionHandler(const ExecutionHandler&) = delete;
-	ExecutionHandler& operator=(const ExecutionHandler&) = delete;
+	PacketExecutorGroup(const PacketExecutorGroup&) = delete;
+	PacketExecutorGroup& operator=(const PacketExecutorGroup&) = delete;
 
 	/**
 	 * Queues a task of a channel. Tasks with the same channel key run one at a time in submission order. Tasks submitted after shutdown() are
@@ -50,6 +50,12 @@ public:
 	 * @param channel identifies the channel (its connection); only compared, never dereferenced
 	 */
 	void execute(const void* channel, Task task);
+
+	/**
+	 * Java: next() - an executor for one connection, which runs its tasks one after another in submission order (on any of the threads). It keeps
+	 * this group alive.
+	 */
+	std::function<void(Task task)> next();
 
 	/**
 	 * Waits up to timeout until all queued and running tasks ran, then discards the queued ones that are left and stops the threads: the idle ones
@@ -99,4 +105,4 @@ private:
 	std::vector<bool> exited;
 };
 
-} // namespace aion::chatserver::network::netty::pipeline
+} // namespace aion::chatserver::network::netty

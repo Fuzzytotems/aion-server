@@ -10,13 +10,13 @@ void CM_CHANNEL_REQUEST::readImpl() {
 	readH(); // 0
 	channelRequestId = readD(); // client increases this by 1 for each request (e.g. after teleport)
 	readB(16); // 0
-	int32_t length = (readH() * 2);
+	int32_t length = (readUH() * 2);
 	channelIdentifier = readB(length);
 	readD(); // 0
 }
 
 void CM_CHANNEL_REQUEST::runImpl() {
-	service::ChatService::getInstance().registerPlayerWithChannel(clientChannelHandler, channelRequestId, utils::Utf16Le::newString(channelIdentifier));
+	service::ChatService::getInstance().registerPlayerWithChannel(getConnection(), channelRequestId, utils::Utf16Le::newString(channelIdentifier));
 }
 
 } // namespace aion::chatserver::network::aion::clientpackets

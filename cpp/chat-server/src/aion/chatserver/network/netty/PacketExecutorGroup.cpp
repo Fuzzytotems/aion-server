@@ -1,4 +1,4 @@
-#include "aion/chatserver/network/netty/pipeline/ExecutionHandler.h"
+#include "aion/chatserver/network/netty/PacketExecutorGroup.h"
 
 #include <utility>
 
@@ -6,23 +6,23 @@
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
 
-namespace aion::chatserver::network::netty::pipeline {
+namespace aion::chatserver::network::netty {
 
 namespace {
 
 const commons::logging::Logger& log() {
-	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("org.jboss.netty.handler.execution.ExecutionHandler"));
+	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.chatserver.network.netty.PacketExecutorGroup"));
 	return *logger;
 }
 
 } // namespace
 
-ExecutionHandler::ExecutionHandler(int32_t maxThreads) : maxThreads(maxThreads) {
+PacketExecutorGroup::PacketExecutorGroup(int32_t maxThreads) : maxThreads(maxThreads) {
 	if (maxThreads < 1)
 		throw commons::utils::IllegalArgumentException("maxThreads must be at least 1, but was " + std::to_string(maxThreads));
 }
 
-ExecutionHandler::~ExecutionHandler() {
+PacketExecutorGroup::~PacketExecutorGroup() {
 	try {
 		shutdown(std::chrono::milliseconds(0));
 	} catch (...) {
@@ -33,7 +33,7 @@ ExecutionHandler::~ExecutionHandler() {
 	}
 }
 
-void ExecutionHandler::execute(const void* channel, Task task) {
+void PacketExecutorGroup::execute(const void* channel, Task task) {
 	std::lock_guard lock(mutex);
 	if (stopping)
 		return; // the task is destroyed when this call returns
@@ -48,7 +48,7 @@ void ExecutionHandler::execute(const void* channel, Task task) {
 	if (std::cmp_greater(ready.size(), idleThreads) && std::cmp_less(threads.size(), maxThreads)) {
 		size_t index = threads.size();
 		threads.emplace_back([self = shared_from_this(), index] {
-			commons::utils::concurrent::setCurrentThreadName("ExecutionHandler-" + std::to_string(index));
+			commons::utils::concurrent::setCurrentThreadName("PacketProcessor-" + std::to_string(index));
 			self->workerLoop(index);
 		});
 		exited.push_back(false);
@@ -59,7 +59,12 @@ void ExecutionHandler::execute(const void* channel, Task task) {
 	}
 }
 
-void ExecutionHandler::workerLoop(size_t index) {
+std::function<void(PacketExecutorGroup::Task task)> PacketExecutorGroup::next() {
+	auto key = std::make_shared<char>(); // its address identifies the connection while the executor lives
+	return [self = shared_from_this(), key](Task task) { self->execute(key.get(), std::move(task)); };
+}
+
+void PacketExecutorGroup::workerLoop(size_t index) {
 	std::unique_lock lock(mutex);
 	for (;;) {
 		readyChanged.wait(lock, [this] { return stopping || !ready.empty(); });
@@ -80,7 +85,7 @@ void ExecutionHandler::workerLoop(size_t index) {
 			task();
 		} catch (...) {
 			try {
-				log().errorCurrentException("Exception while executing a channel event");
+				log().errorCurrentException("Exception while executing a task");
 			} catch (...) {
 			}
 		}
@@ -105,7 +110,7 @@ void ExecutionHandler::workerLoop(size_t index) {
 	threadExited.notify_all();
 }
 
-void ExecutionHandler::shutdown(std::chrono::milliseconds timeout) {
+void PacketExecutorGroup::shutdown(std::chrono::milliseconds timeout) {
 	std::vector<std::thread> toJoin;
 	std::vector<bool> ended;
 	std::vector<Task> discarded; // destroyed outside the lock
@@ -130,7 +135,7 @@ void ExecutionHandler::shutdown(std::chrono::milliseconds timeout) {
 		ended = exited;
 	}
 	if (!discarded.empty())
-		log().warn("Discarded {} channel events on shutdown", discarded.size());
+		log().warn("Discarded {} tasks on shutdown", discarded.size());
 	discarded.clear();
 	size_t leftRunning = 0;
 	for (size_t i = 0; i < toJoin.size(); i++) {
@@ -142,17 +147,17 @@ void ExecutionHandler::shutdown(std::chrono::milliseconds timeout) {
 		}
 	}
 	if (leftRunning > 0)
-		log().warn("{} threads still run a channel event after the shutdown timeout, they end after it", leftRunning);
+		log().warn("{} threads still run a task after the shutdown timeout, they end after it", leftRunning);
 }
 
-size_t ExecutionHandler::getPendingTaskCount() const {
+size_t PacketExecutorGroup::getPendingTaskCount() const {
 	std::lock_guard lock(mutex);
 	return pendingTasks;
 }
 
-size_t ExecutionHandler::getChannelCount() const {
+size_t PacketExecutorGroup::getChannelCount() const {
 	std::lock_guard lock(mutex);
 	return queues.size();
 }
 
-} // namespace aion::chatserver::network::netty::pipeline
+} // namespace aion::chatserver::network::netty

@@ -3,7 +3,7 @@
 // scratch copy of chat-server/ with its own mycs.properties (ports probed at run time, a test password, the chat log to the database) and its
 // OWN schema per run, aion_cs_test_chat_<hash> on the server of AION_TEST_CS_DATABASE_URL, created from chat-server/sql/aion_cs.sql (§17.9: never
 // aion_cs_test itself and never its named lock). Three Elyos accounts: G (access level 9, the gag of Y5), A and B (players, the chat of Y4).
-//   Y1  "Gameserver #1 is now online" in the chat server log and "Connected to chat server" in the game server's, before the first client;
+//   Y1  "Game server #1 is now online" in the chat server log and "Connected to chat server" in the game server's, before the first client;
 //   Y2  SM_VERSION_CHECK announces ONE chat server at 127.0.0.1 and the chat client port, and the channel-chat level byte is
 //       gameserver.chatserver.min_level (10);
 //   Y3  CM_CHAT_AUTH -> SM_CHAT_INIT with a 48-byte token; a fake chat client (chat-server/tests/support/FakePeers.h) authenticates with it;
@@ -627,8 +627,8 @@ void runChatGate() {
 		servers.startGameServer();
 	});
 
-	runCase("Y1", "the link: \"Gameserver #1 is now online\" in the chat server log, \"Connected to chat server\" in the game server's", [&] {
-		EXPECT_TRUE(cs.process->waitForLog("Gameserver #1 is now online", 60s)) << cs.process->readLogTail(4000);
+	runCase("Y1", "the link: \"Game server #1 is now online\" in the chat server log, \"Connected to chat server\" in the game server's", [&] {
+		EXPECT_TRUE(cs.process->waitForLog("Game server #1 is now online", 60s)) << cs.process->readLogTail(4000);
 		ASSERT_NE(servers.gameServer(), nullptr);
 		EXPECT_TRUE(servers.gameServer()->waitForLog("Connected to chat server", 60s));
 	});
@@ -698,7 +698,7 @@ void runChatGate() {
 		const auto dropped = std::chrono::steady_clock::now();
 		std::this_thread::sleep_for(downFor);
 		cs.start();
-		if (!cs.process->waitForLog("Gameserver #1 is now online", 60s))
+		if (!cs.process->waitForLog("Game server #1 is now online", 60s))
 			throw std::runtime_error("the game server did not come back:\n" + cs.process->readLogTail(4000));
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dropped);
 	};

@@ -25,7 +25,7 @@ protected:
 	explicit GsClientPacket(int32_t opCode) noexcept : BaseClientPacket(opCode) {}
 
 	/** Send new GsServerPacket to connection that is owner of this packet. This method is equivalent to: getConnection()->sendPacket(msg); */
-	void sendPacket(std::shared_ptr<GsServerPacket> msg) const;
+	void sendPacket(const GsServerPacket& msg) const;
 };
 
 } // namespace aion::chatserver::network::gameserver
