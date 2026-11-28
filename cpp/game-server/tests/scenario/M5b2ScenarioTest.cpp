@@ -1644,6 +1644,7 @@ void runM5b2Gate(const GateVariant& variant) {
 	runCase("S6", "the Warrior quits and the Mage enters the world with its seeded skills (X1, D3)", [&] {
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
+		database.awaitAccountOffline(schema, a.account); // registerLeaveWorld (upstream d22a9af5b)
 		std::this_thread::sleep_for(1500ms); // gameserver.character.reentry.time is 1 second in the scenario profile
 		std::vector<OracleSkill> expected = mageSkills.characterSkills;
 		for (const uint16_t seeded : {HEALING_LIGHT, FOCUSED_EVASION})
@@ -2177,6 +2178,7 @@ void runM5b2Gate(const GateVariant& variant) {
 		ASSERT_TRUE(rootCastAt);
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
+		database.awaitAccountOffline(schema, a.account); // registerLeaveWorld (upstream d22a9af5b)
 		const int64_t leftAtQuit = root.cooldownMillis - millisBetween(*rootCastAt, std::chrono::steady_clock::now());
 		ASSERT_GT(leftAtQuit, 28000) << "S12 took too long: PlayerCooldownsDAO only stores a cooldown with more than 28 s left";
 		// PlayerLeaveWorldService -> PlayerCooldownsDAO.storePlayerCooldowns: one row per cooldown id with more than 28 s left
@@ -2406,6 +2408,7 @@ void runM5b2Gate(const GateVariant& variant) {
 		ASSERT_TRUE(sicknessLeftAtRevive && revivedAt);
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
+		database.awaitAccountOffline(schema, a.account); // registerLeaveWorld (upstream d22a9af5b)
 		// PlayerEffectsDAO.storePlayerEffects: every effect with canSaveOnLogout() and more than 28 s left (PlayerEffectsDAO.java:60-80)
 		const std::vector<std::vector<std::optional<std::string>>> rows = database.queryRows(
 		  schema, "SELECT skill_id, skill_lvl, remaining_time FROM player_effects WHERE player_id = " + std::to_string(a.mageId), 3);

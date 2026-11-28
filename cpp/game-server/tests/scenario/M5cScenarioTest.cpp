@@ -878,9 +878,10 @@ std::vector<Packet> levelReady(ScenarioClient& client) {
 }
 
 /** CM_QUIT(1): back to the character list, the connection kept; then CM_CHARACTER_LIST as the client does (M5a's Q1). @return the list */
-decoders::CharacterList quitToCharacterList(ScenarioClient& client) {
+decoders::CharacterList quitToCharacterList(ScenarioClient& client, const ScenarioDatabase& database, std::string_view schema) {
 	client.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 	waitFor(*client.game, "SM_QUIT_RESPONSE", 30s);
+	database.awaitAccountOffline(schema, client.account); // registerLeaveWorld (upstream d22a9af5b): AUTHED again only after leaveWorld
 	client.game->send(GameSession::CM_CHARACTER_LIST, GameSession::buildCM_CHARACTER_LIST(client.key.playOk2));
 	const Packet list = waitFor(*client.game, "SM_CHARACTER_LIST", 15s);
 	client.model.sync();
@@ -2257,7 +2258,7 @@ void runM5cGate() {
 
 	// ---- C12: mail, offline, and a wrong name (X14) ----
 	runCase("C12", "B quits; A mails B offline and a name that does not exist; B re-enters (X14)", [&] {
-		const decoders::CharacterList atSelect = quitToCharacterList(b);
+		const decoders::CharacterList atSelect = quitToCharacterList(b, database, schema);
 		(void)atSelect;
 		const std::string bId = std::to_string(b.playerId);
 		const int64_t lettersBefore = database.queryLong(schema, "SELECT mailbox_letters FROM players WHERE id = " + bId).value_or(-1);
@@ -2561,7 +2562,7 @@ void runM5cGate() {
 		EXPECT_EQ(animations.back().end, 1) << "X24: the closing animation says success";
 
 		// the socket is stored at the quit as an item_stones row, and comes back at the re-entry
-		quitToCharacterList(b);
+		quitToCharacterList(b, database, schema);
 		const auto stones = database.queryRows(schema, "SELECT item_id, slot, category FROM item_stones WHERE item_unique_id = " + std::to_string(armour), 3);
 		ASSERT_EQ(stones.size(), 1u) << "X24: one item_stones row for the tunic after the quit";
 		EXPECT_EQ(stones[0][0].value_or(""), std::to_string(MANASTONE));
