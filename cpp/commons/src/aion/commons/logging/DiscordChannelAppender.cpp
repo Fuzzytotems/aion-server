@@ -411,6 +411,7 @@ std::string DiscordChannelAppender::toJson(const Message& message) {
 		json["username"] = *message.username;
 	if (message.avatarUrl)
 		json["avatar_url"] = *message.avatarUrl;
+	json["allowed_mentions"] = {{"parse", nlohmann::json::array()}}; // upstream b028752d0: mentions are disabled
 	return json.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
 

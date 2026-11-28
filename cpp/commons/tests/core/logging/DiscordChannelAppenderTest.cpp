@@ -183,8 +183,10 @@ TEST(DiscordChannelAppenderTest, SplitPartsRespectTheLimit) {
 
 TEST(DiscordChannelAppenderTest, Json) {
 	auto json = nlohmann::json::parse(DiscordChannelAppender::toJson({"c\"ontent\n", "user", "https://a"}));
-	EXPECT_EQ(json, (nlohmann::json{{"content", "c\"ontent\n"}, {"username", "user"}, {"avatar_url", "https://a"}}));
-	EXPECT_EQ(nlohmann::json::parse(DiscordChannelAppender::toJson({"only content", std::nullopt, std::nullopt})), (nlohmann::json{{"content", "only content"}}));
+	const nlohmann::json noMentions = {{"parse", nlohmann::json::array()}}; // upstream b028752d0
+	EXPECT_EQ(json, (nlohmann::json{{"content", "c\"ontent\n"}, {"username", "user"}, {"avatar_url", "https://a"}, {"allowed_mentions", noMentions}}));
+	EXPECT_EQ(nlohmann::json::parse(DiscordChannelAppender::toJson({"only content", std::nullopt, std::nullopt})),
+		(nlohmann::json{{"content", "only content"}, {"allowed_mentions", noMentions}}));
 	EXPECT_NO_THROW(DiscordChannelAppender::toJson({"invalid \xFF utf-8", std::nullopt, std::nullopt}));
 }
 

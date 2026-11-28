@@ -215,6 +215,7 @@ void requestShutdown() noexcept {
 
 int main(std::span<const std::string_view> args) {
 	commons::utils::concurrent::setCurrentThreadName("main"); // Java: the main thread's name in log lines
+	const auto startTimeNanos = std::chrono::steady_clock::now(); // Java: long startTimeNanos = System.nanoTime(), before Logging.init
 	commons::utils::concurrent::UncaughtExceptionHandler::install();
 	Arguments arguments = parseArguments(args);
 	try {
@@ -232,6 +233,7 @@ int main(std::span<const std::string_view> args) {
 		log().warn("Unknown command line argument ignored: " + argument);
 
 	installShutdownHook();
+	log().info(Logging::formatStartupMessage("Chat server", startTimeNanos));
 	waitForShutdownRequest(arguments.stopFile);
 
 	shutdown();

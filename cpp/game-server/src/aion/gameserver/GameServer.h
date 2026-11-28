@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -46,6 +47,9 @@ namespace aion::gameserver {
  */
 class GameServer {
 public:
+	/** Java: private static final long START_TIME_NANOS = System.nanoTime() (the start of the startup message's time) */
+	static const std::chrono::steady_clock::time_point START_TIME_NANOS;
+
 	/** Java: (int) (ManagementFactory.getRuntimeMXBean().getStartTime() / 1000): the process start time in seconds since the epoch */
 	static const int32_t START_TIME_SECONDS;
 

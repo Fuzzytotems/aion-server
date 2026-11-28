@@ -184,7 +184,7 @@ TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) 
 		// System.gc() has no counterpart
 		"VersionInfo.logAll()",
 		"initNioServer()", "ShutdownHook",
-		// "Game server started in N seconds" is logged here, after the hook and before the login server
+		// "Game server started in N seconds (process running for U)" is logged here, after the hook and before the login server
 		"LoginServer.connect(nioServer)", "ChatServer.connect(nioServer)",
 	};
 

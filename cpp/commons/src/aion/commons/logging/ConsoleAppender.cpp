@@ -69,11 +69,27 @@ void ConsoleAppender::sink_it_(const spdlog::details::log_msg& msg) {
 	write(std::string_view(buffer.data(), buffer.size()));
 }
 
-void ConsoleAppender::write(std::string_view text) {
+void ConsoleAppender::printToStandardOutput(std::string_view text) {
 #ifdef _WIN32
-	if (windowsConsole) {
+	write(text, Target::STDOUT, isWindowsConsole(Target::STDOUT));
+#else
+	write(text, Target::STDOUT, false);
+#endif
+}
+
+bool ConsoleAppender::standardOutputSupportsColors() noexcept {
+	return enableColors(Target::STDOUT);
+}
+
+void ConsoleAppender::write(std::string_view text) {
+	write(text, target, windowsConsole);
+}
+
+void ConsoleAppender::write(std::string_view text, Target outputTarget, [[maybe_unused]] bool toWindowsConsole) {
+#ifdef _WIN32
+	if (toWindowsConsole) {
 		std::u16string utf16 = utils::StringUtils::toUtf16(text);
-		HANDLE handle = handleOf(target);
+		HANDLE handle = handleOf(outputTarget);
 		const wchar_t* data = reinterpret_cast<const wchar_t*>(utf16.data());
 		size_t remaining = utf16.size();
 		while (remaining > 0) {
@@ -87,7 +103,7 @@ void ConsoleAppender::write(std::string_view text) {
 		return;
 	}
 #endif
-	std::FILE* stream = streamOf(target);
+	std::FILE* stream = streamOf(outputTarget);
 	std::fwrite(text.data(), 1, text.size(), stream);
 	std::fflush(stream); // Java: immediateFlush
 }
