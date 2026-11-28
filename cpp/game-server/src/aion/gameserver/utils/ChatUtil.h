@@ -36,6 +36,7 @@ class ChatUtil {
 private:
 	static constexpr char16_t ASMO_NAME_PREFIX = u'';
 	static constexpr char16_t ELYOS_NAME_PREFIX = u'';
+	static constexpr char16_t CONTINUATION_MARK = u'\u200B'; // zero-width space, which our client mod detects to skip the chat time prefix
 
 public:
 	ChatUtil() = delete;
