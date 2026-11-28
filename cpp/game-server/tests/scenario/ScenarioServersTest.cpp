@@ -602,13 +602,13 @@ TEST(HermeticServersTest, TheGameServerOfAGateDoesNotReadTheOperatorsProfile) {
 	config.gameServerJavaDir = moduleWithProfile(config.outputDir / "game-server", AION_GAMESERVER_JAVA_DIR, {"administration", "main", "network"},
 		"mygs.properties", "gameserver.timezone = Mygs/NoSuchZone\n");
 	ScenarioServers servers(config, offlineEnvironment());
-	EXPECT_THROW(servers.startGameServer(), std::runtime_error) << "the offline database ends the startup at step 2";
+	EXPECT_THROW(servers.startGameServer(), std::runtime_error) << "the offline database ends the startup at step 3";
 	ASSERT_NE(servers.gameServer(), nullptr);
 	EXPECT_TRUE(servers.gameServer()->waitForExit(60s));
 	const std::string log = servers.gameServer()->readLog();
 	EXPECT_NE(log.find("Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)"), std::string::npos) << log;
 	EXPECT_EQ(log.find("Mygs/NoSuchZone"), std::string::npos) << "the gate's server read the profile\n" << log;
-	EXPECT_NE(log.find("startup step 2: DatabaseFactory.init()"), std::string::npos) << "Config.load did not pass\n" << log;
+	EXPECT_NE(log.find("startup step 3: initDatabase()"), std::string::npos) << "Config.load did not pass\n" << log;
 	EXPECT_EQ(log.find("Unknown command line argument ignored: --ignore-mygs-properties"), std::string::npos) << "main.cpp parses the switch\n"
 	                                                                                                             << log;
 

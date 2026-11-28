@@ -26,6 +26,7 @@
 #include "aion/commons/utils/concurrent/ThreadName.h"
 #include "aion/commons/utils/concurrent/UncaughtExceptionHandler.h"
 #include "aion/commons/utils/info/SystemInfo.h"
+#include "aion/commons/utils/info/VersionInfo.h"
 
 namespace aion::commons::logging::Logging {
 
@@ -251,7 +252,25 @@ std::string resolvePattern(std::string_view pattern) {
 	return resolved;
 }
 
-std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTime) {
+void logStartupStats(std::string_view serverClass, std::chrono::steady_clock::time_point startTimeNanos, const utils::info::VersionInfo* versionInfo,
+	const std::chrono::time_zone* timeZoneId) {
+	using namespace std::chrono;
+	auto startedNanos = steady_clock::now();
+	auto uptimeMillis = duration_cast<milliseconds>(system_clock::now() - utils::info::SystemInfo::getProcessStartTime());
+	std::string_view simpleName = serverClass.substr(serverClass.rfind('.') == std::string_view::npos ? 0 : serverClass.rfind('.') + 1);
+	std::string serverName = utils::StringUtils::replace(simpleName, "Server", " server");
+	std::string startupMessage = formatStartupMessage(serverName, startTimeNanos, startedNanos, uptimeMillis);
+	if (versionInfo == nullptr)
+		utils::info::VersionInfo::logAll();
+	else
+		utils::info::VersionInfo::logAll(*versionInfo, timeZoneId);
+	// System.gc(): no counterpart
+	utils::info::SystemInfo::logAll();
+	LoggerFactory::getLogger(std::string(serverClass)).info(startupMessage);
+}
+
+std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTimeNanos,
+	std::chrono::steady_clock::time_point startedNanos, std::chrono::milliseconds uptime) {
 	using namespace std::chrono;
 	auto decimalFormat = [](float seconds) { // DecimalFormat("0.0##", Locale.US): one to three decimals, HALF_EVEN
 		std::string text = std::format("{:.3f}", seconds);
@@ -259,10 +278,9 @@ std::string formatStartupMessage(std::string_view server, std::chrono::steady_cl
 			text.pop_back();
 		return text;
 	};
-	float startSeconds = static_cast<float>(duration_cast<milliseconds>(steady_clock::now() - startTime).count()) / 1000.0f;
-	float processUptime =
-		static_cast<float>(duration_cast<milliseconds>(system_clock::now() - utils::info::SystemInfo::getProcessStartTime()).count()) / 1000.0f;
-	return std::format("{} started in {} seconds (process running for {})", server, decimalFormat(startSeconds), decimalFormat(processUptime));
+	float startTime = static_cast<float>(duration_cast<milliseconds>(startedNanos - startTimeNanos).count()) / 1000.0f;
+	return std::format("{} started in {} seconds (process running for {})", server, decimalFormat(startTime),
+		decimalFormat(static_cast<float>(uptime.count()) / 1000.0f));
 }
 
 fs::path getLogFolder() {

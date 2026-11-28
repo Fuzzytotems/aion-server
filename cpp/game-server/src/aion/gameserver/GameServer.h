@@ -36,10 +36,11 @@ namespace aion::gameserver {
  * - Java's parallel stream over the six engines runs them one after another in the stream's source order (like the M4 startup did for
  *   ZoneService and GeoService; docs/deviations/P5-14.md). A StartupObserver may skip the four handler engines (the --check-* modes of M4).
  * - initUtilityServicesAndConfig: PropertyTransformers.register(CronExpressionTransformer) is a compile-time transformer specialization; the
- *   thread pools, CronService and IDFactory start through runtime::RuntimeLifecycle (runtime-architecture.md §23).
+ *   thread pools and CronService start through runtime::RuntimeLifecycle (runtime-architecture.md §23), which configures IDFactory; initDatabase
+ *   locks its used ids. Java runs initDatabase concurrently with DataManager.getInstance(); C++ runs it as the step before (P5-14.md).
  * - Every Java statement of main() is wired; F-01b (stage 2) makes the whole startup pass with 0 AION_UNPORTED hits.
  * - The NioServer of the game clients is created once and never freed (LoginServer and ChatServer keep a plain pointer to it for the whole
- *   run); shutdownNioServer() shuts it down and clears the pointer like Java. The staff clients it sends to the server selection screen
+ *   run); shutdownNioServer() shuts it down and keeps the pointer like Java (isStarting() is "no NioServer yet"). The staff clients it sends to the server selection screen
  *   first get 200 ms (Java: LockSupport.parkNanos) for the login server's reconnection keys.
  * - `System.gc()` has no counterpart.
  *
@@ -72,8 +73,11 @@ public:
 		/** false skips the handler engines QuestEngine, AIEngine, InstanceEngine and ChatProcessor (the M4 check modes) */
 		virtual bool initHandlerEngines() { return true; }
 
-		/** after the runtime (thread pools, CronService, IDFactory) started: false ends the startup here */
+		/** after the runtime (thread pools, CronService) started: false ends the startup here */
 		virtual bool continueAfterRuntime() { return true; }
+
+		/** after initDatabase (DatabaseFactory, PlayerDAO.setAllPlayersOffline, the cleaning, IDFactory's used ids): false ends the startup here */
+		virtual bool continueAfterDatabase() { return true; }
 
 		/** after World was created: false ends the startup here */
 		virtual bool continueAfterWorld() { return true; }
@@ -108,12 +112,15 @@ private:
 	static commons::network::NioServer* initNioServer();
 
 	/**
-	 * Initialize all helper services, that are not directly related to aion gs, which includes: Database factory, Thread pool, Cron service.
-	 * This method also initializes Config.
+	 * Initialize all helper services, that are not directly related to aion gs, which includes: Thread pool, Cron service.
+	 * This method also initializes Config. The database is initialized afterwards, see initDatabase().
 	 *
 	 * @return false if the observer ended the startup after the runtime start
 	 */
 	static bool initUtilityServicesAndConfig(StartupObserver& observer, int32_t& step);
+
+	/** DatabaseFactory.init, PlayerDAO.setAllPlayersOffline, the cleaning service and IDFactory's used ids (upstream 546f96bd2) */
+	static void initDatabase();
 
 	/** C++ only: logs "startup step N: name" and runs the body through the observer inside a STARTUP TaskScope */
 	static void runStep(StartupObserver& observer, int32_t& step, std::string_view name, const std::function<void()>& body);
@@ -131,6 +138,9 @@ public:
 
 	static bool isShutdownScheduled();
 
+	/** @return true while the server is starting up and has not opened its port yet */
+	static bool isStarting();
+
 	static bool isShuttingDownSoon();
 
 	static void initShutdown(int32_t exitCode, int32_t delaySeconds);
@@ -142,7 +152,7 @@ public:
 
 	static int32_t getCountFor(model::Race race);
 
-	/** C++ only: the running client NioServer (null before initNioServer and after shutdownNioServer) */
+	/** C++ only: the client NioServer (null before initNioServer) */
 	static commons::network::NioServer* getNioServer() noexcept;
 };
 

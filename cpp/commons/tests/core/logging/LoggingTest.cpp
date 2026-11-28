@@ -277,8 +277,11 @@ TEST(LoggingTest, ArchiveErrorsAreWrapped) {
 
 // upstream b028752d0: Logging.formatStartupMessage
 TEST(LoggingTest, StartupMessage) {
-	std::string message = Logging::formatStartupMessage("Game server", std::chrono::steady_clock::now() - std::chrono::milliseconds(12340));
-	EXPECT_TRUE(std::regex_match(message, std::regex(R"(Game server started in 12\.3[4-9]?\d? seconds \(process running for \d+\.\d{1,3}\))"))) << message;
+	auto started = std::chrono::steady_clock::now();
+	EXPECT_EQ(Logging::formatStartupMessage("Game server", started - std::chrono::milliseconds(12340), started, std::chrono::milliseconds(15005)),
+		"Game server started in 12.34 seconds (process running for 15.005)");
+	EXPECT_EQ(Logging::formatStartupMessage("Login server", started - std::chrono::seconds(2), started, std::chrono::milliseconds(2100)),
+		"Login server started in 2.0 seconds (process running for 2.1)");
 }
 
 // upstream b028752d0: Banner

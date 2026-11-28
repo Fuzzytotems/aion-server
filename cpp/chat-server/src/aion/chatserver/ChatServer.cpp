@@ -187,9 +187,6 @@ void startup(const Properties& overrides) {
 	service::ChatService::getInstance();
 	service::BroadcastService::getInstance();
 
-	commons::utils::info::VersionInfo::logAll();
-	commons::utils::info::SystemInfo::logAll();
-
 	network::NetConnector::connect();
 }
 
@@ -233,7 +230,7 @@ int main(std::span<const std::string_view> args) {
 		log().warn("Unknown command line argument ignored: " + argument);
 
 	installShutdownHook();
-	log().info(Logging::formatStartupMessage("Chat server", startTimeNanos));
+	Logging::logStartupStats("com.aionemu.chatserver.ChatServer", startTimeNanos);
 	waitForShutdownRequest(arguments.stopFile);
 
 	shutdown();

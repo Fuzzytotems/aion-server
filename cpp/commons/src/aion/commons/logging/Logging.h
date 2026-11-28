@@ -40,6 +40,10 @@
  * Every file appender is a logback RollingFileAppender (upstream 36bdccb4d): "x.log" rolls over to "x.%i.log" (FixedWindowRollingPolicy,
  * indexes 1 to Config::maxRolledFiles) when it reaches Config::maxFileSize (SizeBasedTriggeringPolicy).
  */
+namespace aion::commons::utils::info {
+class VersionInfo;
+} // namespace aion::commons::utils::info
+
 namespace aion::commons::logging::Logging {
 
 /** logback.xml property "date" */
@@ -150,12 +154,26 @@ std::vector<std::string> getPropertyKeys(std::string_view serverName);
 std::string resolvePattern(std::string_view pattern);
 
 /**
- * Java: Logging.formatStartupMessage (upstream b028752d0): "&lt;server&gt; started in S seconds (process running for U)", both with one to
- * three decimals (DecimalFormat "0.0##").
+ * Java: Logging.logStartupStats (upstream 546f96bd2): logs the version information (VersionInfo.logAll, of versionInfo with timeZoneId if
+ * given, else of the executable), the system information (SystemInfo.logAll; Java runs System.gc() before) and then, through the server
+ * class's logger, the startup message (see formatStartupMessage), whose times are taken when this function is called.
  *
- * @param startTime when the server's startup began (Java: System.nanoTime() in the server class)
+ * @param serverClass the Java name of the server class (e.g. "com.aionemu.gameserver.GameServer"): the logger name, and its simple name with
+ *          "Server" replaced by " server" is the server name of the message
+ * @param startTimeNanos when the server's startup began (Java: System.nanoTime() in the server class)
  */
-std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTime);
+void logStartupStats(std::string_view serverClass, std::chrono::steady_clock::time_point startTimeNanos,
+	const utils::info::VersionInfo* versionInfo = nullptr, const std::chrono::time_zone* timeZoneId = nullptr);
+
+/**
+ * Java private: "&lt;server&gt; started in S seconds (process running for U)", both with one to three decimals (DecimalFormat "0.0##").
+ * Public in C++ for the tests.
+ *
+ * @param startedNanos when the server was started
+ * @param uptime process uptime when the server was started
+ */
+std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTimeNanos,
+	std::chrono::steady_clock::time_point startedNanos, std::chrono::milliseconds uptime);
 
 /**
  * Java: a logback RollingFileAppender with PatternLayoutEncoder, FixedWindowRollingPolicy (fileNamePattern "&lt;name&gt;.%i&lt;extension&gt;",

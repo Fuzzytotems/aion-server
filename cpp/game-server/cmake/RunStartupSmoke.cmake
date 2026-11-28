@@ -607,7 +607,7 @@ endif()
 if(NOT result STREQUAL "1" OR stopped_at STREQUAL "")
 	fail("${test_name}: the startup did not complete (exit code '${result}', last step ${last_step}; see the log above)")
 endif()
-if(NOT orderly AND log MATCHES "startup step [0-9]+: ThreadPoolManager, CronService, IDFactory")
+if(NOT orderly AND log MATCHES "startup step [0-9]+: ThreadPoolManager, CronService")
 	fail("${test_name}: the startup stopped at ${stopped_at}, but the runtime did not report its shutdown")
 endif()
 
