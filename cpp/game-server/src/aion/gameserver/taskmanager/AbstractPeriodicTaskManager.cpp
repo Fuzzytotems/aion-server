@@ -21,7 +21,7 @@ AbstractPeriodicTaskManager::AbstractPeriodicTaskManager(int32_t period)
 // method reference at AbstractPeriodicTaskManager.java:18 (fieldmap key AbstractPeriodicTaskManager@L18:55): scheduleAtFixedRate(this::run), pin
 // {this}
 AbstractPeriodicTaskManager::AbstractPeriodicTaskManager(int32_t period, std::string_view simpleClassName) {
-	log.info(std::string(simpleClassName) + " initialized.");
+	log.info("{} initialized", simpleClassName);
 	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] { run(); }, commons::utils::Rnd::get(500, 550), period);
 }
 

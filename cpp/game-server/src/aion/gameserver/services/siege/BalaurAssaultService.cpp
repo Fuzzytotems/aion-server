@@ -81,15 +81,15 @@ void BalaurAssaultService::onSiegeFinish(Siege& siege) {
 	if (fortressAssaults.containsKey(locId)) {
 		fortressAssaults.remove(locId)->finishAssault(isBossKilled);
 		if (isBossKilled && siege.getSiegeLocation()->getRace() == SiegeRace::BALAUR)
-			log.info(siege.toString() + " has been captured by Balaur assault!");
+			log.info("{} has been captured by Balaur assault!", siege.toString());
 		else
-			log.info(siege.toString() + " Balaur assault finished without capture!");
+			log.info("{} Balaur assault finished without capture!", siege.toString());
 	} else if (artifactAssaults.containsKey(locId)) {
 		artifactAssaults.remove(locId)->finishAssault(isBossKilled);
 		if (isBossKilled && siege.getSiegeLocation()->getRace() == SiegeRace::BALAUR)
-			log.info(siege.toString() + " has been captured by Balaur assault!");
+			log.info("{} has been captured by Balaur assault!", siege.toString());
 		else
-			log.info(siege.toString() + " Balaur assault finished without capture!");
+			log.info("{} Balaur assault finished without capture!", siege.toString());
 	}
 }
 
@@ -141,7 +141,7 @@ void BalaurAssaultService::newAssault(Siege& siege, int32_t delay) {
 		throw runtime::IllegalArgumentException("Unsupported fortress siege type: " + simpleNameOf(siege));
 	}
 	if (configs::main::LoggingConfig::LOG_SIEGE.load())
-		log.info("Scheduled assault of " + siege.toString() + " in " + std::to_string(delay) + " seconds");
+		log.info("Scheduled assault of {} in {} seconds", siege.toString(), delay);
 }
 
 // Java BalaurAssaultService.java:123-133

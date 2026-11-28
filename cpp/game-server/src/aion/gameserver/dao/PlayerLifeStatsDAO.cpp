@@ -38,7 +38,7 @@ void PlayerLifeStatsDAO::loadPlayerLifeStat(model::gameobjects::player::Player& 
 		} else
 			insertPlayerLifeStat(player);
 	} catch (const std::exception& e) {
-		log.error("Could not restore PlayerLifeStat data for playerObjId: " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not restore PlayerLifeStat data for playerObjId: {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 }
 
@@ -52,7 +52,7 @@ void PlayerLifeStatsDAO::insertPlayerLifeStat(model::gameobjects::player::Player
 		stmt->setInt(4, player.getLifeStats()->getCurrentFp());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not store PlayerLifeStat data for player " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not store PlayerLifeStat data for player {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 }
 
@@ -66,7 +66,7 @@ void PlayerLifeStatsDAO::updatePlayerLifeStat(model::gameobjects::player::Player
 		stmt->setInt(4, player.getObjectId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not update PlayerLifeStat data for player " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not update PlayerLifeStat data for player {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 }
 

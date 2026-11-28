@@ -30,7 +30,7 @@ bool update(std::string_view serial, Timestamp time) {
 		ps->setTimestamp(2, time);
 		return ps->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		logger().error("Error storing hdd serial ban " + std::string(serial), e);
+		logger().error("Error storing hdd serial ban {}", serial, e);
 	}
 	return false;
 }
@@ -42,7 +42,7 @@ bool remove(std::string_view serial) {
 		ps->setString(1, serial);
 		return ps->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		logger().error("Error removing hdd serial " + std::string(serial), e);
+		logger().error("Error removing hdd serial {}", serial, e);
 	}
 	return false;
 }

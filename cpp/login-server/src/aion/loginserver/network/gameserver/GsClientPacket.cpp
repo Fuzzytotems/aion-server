@@ -22,7 +22,7 @@ void GsClientPacket::run() {
 		runImpl();
 	} catch (...) {
 		try {
-			log().warnCurrentException("error handling gs (" + getConnection()->getIP() + ") message " + toString());
+			log().warnCurrentException(fmt::format("error handling gs ({}) message {}", getConnection()->getIP(), toString()));
 		} catch (...) {
 			// logging must not throw out of the packet processor
 		}

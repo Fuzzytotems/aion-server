@@ -104,7 +104,7 @@ TEST(AionClientPacketFactoryTest, CreatesEveryPacketOnlyInItsStates) {
 		}
 	}
 	EXPECT_EQ(created + rejected, 186 * 3);
-	EXPECT_EQ(logs.count("is invalid for this packet. Packet won't be instantiated."), rejected);
+	EXPECT_EQ(logs.count("is invalid for this packet - packet won't be instantiated"), rejected);
 }
 
 TEST(AionClientPacketFactoryTest, UnknownOpcodesAndUnportedClasses) {

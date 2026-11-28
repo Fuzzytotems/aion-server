@@ -19,7 +19,7 @@ void PingPongTask::run() {
 		stop();
 		std::shared_ptr<GameServerInfo> gsi = connection.getGameServerInfo();
 		commons::logging::LoggerFactory::getLogger("com.aionemu.loginserver.PingPongTask")
-			.warn("Gameserver #" + (gsi ? std::to_string(gsi->getId()) : std::string("null")) + " connection died, closing it.");
+			.warn("Game server #{} connection died, closing it.", gsi ? std::to_string(gsi->getId()) : std::string("null"));
 		connection.close();
 	}
 }

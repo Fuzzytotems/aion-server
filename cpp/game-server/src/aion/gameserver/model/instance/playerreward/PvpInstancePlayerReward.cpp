@@ -101,8 +101,7 @@ int32_t PvpInstancePlayerReward::getMythicKunaxEquipment(gameobjects::player::Pl
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.model.instance.playerreward.PvpInstancePlayerReward")
-				.warn("Couldn't get mythic Kunax equipment for " + player.toString() + ". Rewards for " +
-					std::string(xml::enumName(player.getPlayerClass())) + " are not implemented");
+				.warn("Couldn't get mythic Kunax equipment for {}. Rewards for {} are not implemented", player.toString(), xml::enumName(player.getPlayerClass()));
 			return 0;
 	}
 	const std::vector<int32_t>& possibleRewards = commons::utils::Rnd::chance() < 17.5f ? weapons : armor;

@@ -108,12 +108,12 @@ void InstanceWalkerFormations::organizeAndSpawn() {
 			}
 		}
 		if (maxSize == 0 || npcs == nullptr) {
-			log.warn("Walkers missing for route: " + routeIdOf(candidates));
+			log.warn("Walkers missing for route: {}", routeIdOf(candidates));
 			continue;
 		}
 		if (maxSize == 1) {
 			if (candidates.size() != 1) {
-				log.warn("Walkers not aligned for route: " + routeIdOf(candidates));
+				log.warn("Walkers not aligned for route: {}", routeIdOf(candidates));
 				for (const runtime::Ptr<ClusteredNpc>& snpc : candidates)
 					snpc->spawn(snpc->getNpc()->getSpawn()->getZ());
 			} else {
@@ -133,7 +133,7 @@ void InstanceWalkerFormations::organizeAndSpawn() {
 		} else {
 			runtime::Ref<WalkerGroup> wg = WalkerGroup::create(*npcs);
 			if (candidates[0]->getWalkTemplate()->getPool() != static_cast<int32_t>(candidates.size()))
-				log.warn("Incorrect pool for route: " + routeIdOf(candidates));
+				log.warn("Incorrect pool for route: {}", routeIdOf(candidates));
 			walkFormations.put(routeIdOf(candidates), wg);
 			wg->form();
 			if (wg->getVersionId().empty()) { // Java: wg.getVersionId() == null

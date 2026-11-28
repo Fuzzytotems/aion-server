@@ -220,8 +220,8 @@ void MailService::sendMail(model::gameobjects::player::Player& sender, std::stri
 		return;
 
 	if (attachedItem && configs::main::LoggingConfig::LOG_MAIL.load())
-		log.info("Player: " + sender.getName() + " sent item " + std::to_string(attachedItem->getItemId()) + " [" + attachedItem->getItemName() +
-			"] (count: " + std::to_string(attachedItem->getItemCount()) + ") to player " + std::string(recipientName));
+		log.info("Player: {} sent item {} [{}] (count: {}) to player {}", sender.getName(), attachedItem->getItemId(), attachedItem->getItemName(),
+			attachedItem->getItemCount(), recipientName);
 
 	PacketSendUtility::sendPacket(sender, SM_MAIL_SERVICE(status));
 	SystemMailService::updateRecipientMailbox(*recipientCommonData, *newLetter);
@@ -264,7 +264,7 @@ float MailService::getQualityPriceRate(model::gameobjects::Item& senderItem) {
 void MailService::readMail(model::gameobjects::player::Player& player, int32_t letterId) {
 	Ptr<Letter> letter = player.getMailbox()->getLetterFromMailbox(letterId);
 	if (!letter) {
-		log.warn("Cannot read mail " + std::to_string(player.getObjectId()) + " " + std::to_string(letterId));
+		log.warn("Cannot read mail {} {}", player.getObjectId(), letterId);
 		return;
 	}
 

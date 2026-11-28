@@ -125,8 +125,8 @@ void Invasion::addPlayer(Player& player, bool isInvader) {
 			defAlliance.set(PlayerAllianceService::createAlliance(*otherPlayer, player, model::team::TeamType::ALLIANCE_DEFENCE));
 	} else if (participants.size() > 1) { // should never happen
 		commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.vortex.Invasion")
-			.warn("Couldn't add " + player.toString() + " to " + (isInvader ? "invaders" : "defenders") +
-				" (alliance not initialized). Current participants: " + std::to_string(participants.size()));
+			.warn("Couldn't add {} to {} (alliance not initialized). Current participants: {}", player.toString(), isInvader ? "invaders" : "defenders",
+				participants.size());
 		return;
 	}
 	participants.put(player.getObjectId(), runtime::Ref<Player>(player));

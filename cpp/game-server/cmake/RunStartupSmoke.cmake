@@ -302,7 +302,7 @@ if(NOT EXISTS "${OUTPUT_DIR}/log/server_console.log")
 endif()
 
 set(started FALSE)
-if(log MATCHES "Game server started in [0-9-]+ seconds\\.")
+if(log MATCHES "Game server started in [0-9-]+ seconds")
 	set(started TRUE)
 endif()
 # HTMLCache.getInstance() is a startup step (GameServer.cpp), so a started server has written its cache file - into OUTPUT_DIR, not below the
@@ -618,7 +618,7 @@ if(MODE STREQUAL "progress")
 endif()
 
 # MODE smoke and geo
-if(NOT log MATCHES "Static Data loaded in [0-9.,]+ seconds" OR NOT log MATCHES "World: 161 world maps created\\.")
+if(NOT log MATCHES "Static Data loaded in [0-9.,]+ seconds" OR NOT log MATCHES "Created 161 world maps")
 	fail("${test_name}: the startup stopped at ${stopped_at} before the M4 path (static data, 161 world maps) completed")
 endif()
 if(REQUIRE_STARTED)

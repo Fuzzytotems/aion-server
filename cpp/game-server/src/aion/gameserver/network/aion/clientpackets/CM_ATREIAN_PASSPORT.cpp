@@ -43,8 +43,8 @@ void CM_ATREIAN_PASSPORT::readImpl() {
 				data += "}";
 				runtime::Ptr<model::gameobjects::player::Player> activePlayer = getConnection()->getActivePlayer();
 				commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_ATREIAN_PASSPORT")
-					.warn("Received invalid passport count " + std::to_string(count) + " with only data for " + std::to_string(i) + " passports from " +
-						(activePlayer ? activePlayer->toString() : std::string("null")) + "\nCurrent passport data: " + data);
+					.warn("Received invalid passport count {} with only data for {} passports from {}\nCurrent passport data: {}", count, i,
+						activePlayer ? activePlayer->toString() : std::string("null"), data);
 			}
 			break;
 		}

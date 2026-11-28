@@ -159,7 +159,7 @@ TEST_F(QuestEngineTest, InitRegistersQuestDropsAndSchedulesTheDailyMessageWithAn
 	EXPECT_EQ(drops[1]->getItemId(), 182200002);
 	// the quest id of a drop is set by the holder while loading (QuestDrop.h, P4-09 QuestsData), not by QuestEngine::init; not checked here
 	EXPECT_TRUE(services::QuestService::getQuestDrop(210002).empty());
-	EXPECT_NE(capture.text().find("info|Loaded 0 quest handlers."), std::string::npos) << capture.text();
+	EXPECT_NE(capture.text().find("info|Loaded 0 quest handlers"), std::string::npos) << capture.text();
 	EXPECT_EQ(QuestEngine::getInstance().getQuestHandlerCount(), 0);
 	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "no XML quests and no quest handler analysis: no partial site";
 	EXPECT_EQ(services::cron::CronService::getInstance().getJobCount(), 1u) << "the 09:00 daily/weekly reset message";
@@ -191,9 +191,9 @@ TEST_F(QuestEngineTest, ReloadClearsTheEngineAndInitsItAgainFromTheCurrentData) 
 	EXPECT_EQ(drops[0]->getItemId(), 182200005);
 	EXPECT_EQ(services::cron::CronService::getInstance().getJobCount(), 1u) << "the message task cancelled, then scheduled again";
 	const std::string text = capture.text();
-	const size_t first = text.find("info|Loaded 0 quest handlers.");
+	const size_t first = text.find("info|Loaded 0 quest handlers");
 	ASSERT_NE(first, std::string::npos) << text;
-	EXPECT_NE(text.find("info|Loaded 0 quest handlers.", first + 1), std::string::npos) << "init ran again: " << text;
+	EXPECT_NE(text.find("info|Loaded 0 quest handlers", first + 1), std::string::npos) << "init ran again: " << text;
 }
 
 TEST_F(QuestEngineTest, InitRegistersEveryXmlQuestAndRunsTheSpawnAnalysisOnTheLongRunningPool) {
@@ -232,7 +232,7 @@ TEST_F(QuestEngineTest, InitRegistersEveryXmlQuestAndRunsTheSpawnAnalysisOnTheLo
 	EXPECT_TRUE(qe.getQuestNpc(700001)->getOnQuestStart().contains(1000)) << "ItemCollecting.register: the start npc offers the quest";
 	EXPECT_TRUE(qe.getQuestNpc(700002)->getOnQuestStart().contains(1002));
 	EXPECT_TRUE(qe.getQuestNpc(700002)->getOnQuestStart().contains(1003));
-	EXPECT_NE(capture.text().find("info|Loaded 3 quest handlers."), std::string::npos) << capture.text();
+	EXPECT_NE(capture.text().find("info|Loaded 3 quest handlers"), std::string::npos) << capture.text();
 	EXPECT_EQ(analysis.text(), "") << "the analysis waits for the long-running pool";
 
 	// QuestEngine.java:108, executeLongRunning: one task on the long-running pool and none on the instant pool (addMessageSendingTask's cron

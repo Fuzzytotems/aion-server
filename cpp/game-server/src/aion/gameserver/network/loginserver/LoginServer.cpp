@@ -144,10 +144,10 @@ void LoginServer::connect(commons::network::NioServer& value) {
 		const std::string address = NetworkConfig::LOGIN_ADDRESS.get()->toString();
 		if (dynamic_cast<const commons::network::SocketException*>(&e) != nullptr) {
 			delay = 10;
-			log.info("Could not connect to login server at " + address + ", trying again in " + std::to_string(delay) + "s");
+			log.info("Could not connect to login server at {}, trying again in {} seconds", address, delay);
 		} else {
 			delay = 60;
-			log.error("Could not connect to login server at " + address + ", trying again in " + std::to_string(delay) + "s", e);
+			log.error("Could not connect to login server at {}, trying again in {} seconds", address, delay, e);
 		}
 		scheduleConnect(&value, delay * 1000);
 	}
@@ -171,7 +171,7 @@ void LoginServer::reconnect() {
 		return;
 	int32_t delay = con->getState() == LoginServerConnection::State::AUTHED ? 5 : 15;
 	disconnect();
-	log.info("Reconnecting to login server in " + std::to_string(delay) + "s...");
+	log.info("Reconnecting to login server in {} seconds", delay);
 	scheduleConnect(nioServer.get(), delay * 1000);
 }
 
@@ -241,7 +241,7 @@ void LoginServer::accountAuthenticationResponse(int32_t accountId, std::string_v
 	client->setAccount(*account);
 	client->setState(AionConnection::State::AUTHED);
 	loggedInAccounts.put(accountId, loginRequest->connection);
-	log.info(account->toString() + " authed with MAC: " + client->getMacAddress() + " and HDD serial: " + client->getHddSerial());
+	log.info("{} authed with MAC: {} and HDD serial: {}", account->toString(), client->getMacAddress(), client->getHddSerial());
 	client->sendPacket(network::aion::serverpackets::SM_L2AUTH_LOGIN_CHECK(true, accountName));
 	sendPacket(serverpackets::SM_ACCOUNT_CONNECTION_INFO(account->getId(), commons::utils::currentTimeMillis(), client->getIP(), client->getMacAddress(),
 		client->getHddSerial()));
@@ -250,16 +250,16 @@ void LoginServer::accountAuthenticationResponse(int32_t accountId, std::string_v
 bool LoginServer::validateMacAndHddSerial(AionConnection* client, std::string_view allowedHddSerial) {
 	static const std::regex macPattern("^([0-9A-F]{2}-){5}[0-9A-F]{2}$");
 	if (!std::regex_match(client->getMacAddress(), macPattern)) {
-		log.warn(client->toString() + " sent an invalid MAC address (modified client or hack): " + client->getMacAddress());
+		log.warn("{} sent an invalid MAC address (modified client or hack): {}", client->toString(), client->getMacAddress());
 		return false;
 	} else if (BannedMacManager::getInstance().isBanned(client->getMacAddress())) {
-		log.info(client->toString() + " was kicked due to mac ban");
+		log.info("{} was kicked due to mac ban", client->toString());
 		return false;
 	} else if (services::ban::HDDBanService::getInstance().isBanned(client->getHddSerial())) {
-		log.info(client->toString() + " was kicked because hdd serial " + client->getHddSerial() + " is banned");
+		log.info("{} was kicked because hdd serial {} is banned", client->toString(), client->getHddSerial());
 		return false;
 	} else if (configs::main::SecurityConfig::HDD_SERIAL_LOCK_ENABLE.load() && !allowedHddSerial.empty() && allowedHddSerial != client->getHddSerial()) {
-		log.info(client->toString() + " was kicked due to hdd serial mismatch. Expected " + std::string(allowedHddSerial) + " but client connected with " +
+		log.info("{} was kicked due to hdd serial mismatch. Expected {} but client connected with {}", client->toString(), allowedHddSerial,
 			client->getHddSerial());
 		return false;
 	}
@@ -301,7 +301,7 @@ void LoginServer::authReconnectionResponse(int32_t accountId, int32_t reconnectK
 void LoginServer::kickAccount(int32_t accountId, bool notifyDoubleLogin) {
 	std::shared_ptr<AionConnection> client = loggedInAccounts.get(accountId);
 	if (client) {
-		log.info("Kicking account ID " + std::to_string(accountId) + " by LS request.");
+		log.info("Kicking account ID {} by LS request", accountId);
 		if (notifyDoubleLogin)
 			client->close(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_KICK_ANOTHER_USER_TRY_LOGIN());
 		else

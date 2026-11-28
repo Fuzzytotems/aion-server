@@ -152,7 +152,7 @@ bool Kisk::isUseAllowed(player::Player& player) {
 				return true;
 			break;
 		default:
-			log.warn("Unhandled UseMask " + std::to_string(getUseMask()) + " for Kisk " + std::to_string(getNpcId()));
+			log.warn("Unhandled UseMask {} for Kisk {}", getUseMask(), getNpcId());
 	}
 
 	return false;

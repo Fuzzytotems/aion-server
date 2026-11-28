@@ -131,7 +131,7 @@ TEST_F(IDFactoryTest, DaoSeedingLocksIds) {
 	EXPECT_THROW(factory.lockIds({-1}), IDFactoryError);
 	LogCapture capture("com.aionemu.gameserver.utils.idfactory.IDFactory");
 	factory.logUsedCount();
-	EXPECT_TRUE(capture.contains("IDFactory: 9 IDs used."));
+	EXPECT_TRUE(capture.contains("IDFactory: 9 IDs used"));
 }
 
 TEST_F(IDFactoryTest, ReleasingAnIdThatIsNotTakenWarns) {

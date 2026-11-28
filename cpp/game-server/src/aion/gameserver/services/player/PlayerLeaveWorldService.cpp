@@ -107,7 +107,7 @@ void PlayerLeaveWorldService::leaveWorld(Player& player) {
 
 	Ptr<world::WorldPosition> pos = player.getPosition();
 	if (!pos || !pos->getMapRegion()) { // ensure safe logout
-		log.warn(player.toString() + " had invalid position: " + (pos ? pos->toString() : std::string("null")) + " so he was reset to bind point");
+		log.warn("{} had invalid position: {} so he was reset to bind point", player.toString(), pos ? pos->toString() : std::string("null"));
 		Ptr<model::gameobjects::player::BindPointPosition> bp = player.getBindPoint();
 		runtime::Ref<world::WorldPosition> newPosition;
 		if (bp)

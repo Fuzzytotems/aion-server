@@ -156,7 +156,7 @@ void WorldRaid::spawnAndInitRandomBoss() {
 		"world_raid_aggressive");
 	runtime::Ptr<model::gameobjects::Npc> bossNpc = runtime::cast<model::gameobjects::Npc>(spawnengine::SpawnEngine::spawnObject(*bossTemplate, 1));
 	if (!bossNpc) {
-		log.warn("Cannot initialize world raid boss with ID " + std::to_string(bossNpcTemplate->getNpcId()) + ". No boss was spawned.");
+		log.warn("Cannot initialize world raid boss with ID {} - no boss was spawned", bossNpcTemplate->getNpcId());
 		return;
 	}
 	boss.set(bossNpc);

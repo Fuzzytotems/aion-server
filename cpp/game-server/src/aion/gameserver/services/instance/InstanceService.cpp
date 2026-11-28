@@ -177,8 +177,7 @@ runtime::Ptr<world::WorldMapInstance> InstanceService::getNextAvailableInstance(
 			utils::ThreadPoolManager::getInstance().scheduleAtFixedRate(runtime::Pin(checker), [task = checker.get()] { task->run(); }, 60000, 60000));
 	}
 
-	log.info("Created new instance: " + std::to_string(worldId) + " [" + std::to_string(instance->getInstanceId()) + "] owner:" +
-		std::to_string(ownerId) + " difficultyId:" + std::to_string(difficultyId));
+	log.info("Created new instance: {} [{}] owner:{} difficultyId:{}", worldId, instance->getInstanceId(), ownerId, difficultyId);
 	return instance;
 }
 
@@ -213,7 +212,7 @@ void InstanceService::destroyInstance(world::WorldMapInstance& instance) {
 
 	map->removeWorldMapInstance(instanceId);
 
-	log.info("Destroying " + instance.toString());
+	log.info("Destroying {}", instance.toString());
 
 	spawnengine::TemporarySpawnEngine::onInstanceDestroy(instance); // first unregister all temporary spawns, then despawn mobs
 	for (runtime::Ptr<model::gameobjects::VisibleObject> obj : instance) {

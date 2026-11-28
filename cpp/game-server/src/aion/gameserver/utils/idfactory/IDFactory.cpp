@@ -191,7 +191,7 @@ void IDFactory::lockIds(std::span<const int32_t> ids) {
 }
 
 void IDFactory::logUsedCount() const {
-	log().info("IDFactory: {} IDs used.", getUsedCount());
+	log().info("IDFactory: {} IDs used", getUsedCount());
 }
 
 int32_t IDFactory::nextId() {

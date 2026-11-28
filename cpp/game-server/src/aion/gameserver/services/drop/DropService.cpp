@@ -192,7 +192,7 @@ void DropService::requestDropList(runtime::Ptr<model::gameobjects::player::Playe
 			throw runtime::NullPointerException("dropNpc.getLootingPlayer()");
 		if (!lootingPlayer->isOnline()) {
 			runtime::Ptr<model::gameobjects::VisibleObject> corpse = world::World::getInstance().findVisibleObject(npcObjectId);
-			log.warn(lootingPlayer->toString() + " is offline but was still set as drop looter for " + (corpse ? corpse->toString() : "null"));
+			log.warn("{} is offline but was still set as drop looter for {}", lootingPlayer->toString(), corpse ? corpse->toString() : "null");
 		} else {
 			utils::PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_LOOT_FAIL_ONLOOTING());
 			return;

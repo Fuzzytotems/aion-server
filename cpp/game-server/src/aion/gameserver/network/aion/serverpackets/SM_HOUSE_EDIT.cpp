@@ -51,7 +51,7 @@ void SM_HOUSE_EDIT::writeImpl(AionConnection* con) {
 		if (!obj) {
 			runtime::Ptr<model::gameobjects::HouseDecoration> deco = house->getRegistry()->getDecorByObjId(itemObjectId);
 			if (!deco) {
-				log.warn("House item with object ID " + std::to_string(itemObjectId) + " wasn't found in registry of " + house->toString());
+				log.warn("House item with object ID {} wasn't found in registry of {}", itemObjectId, house->toString());
 				return;
 			}
 			templateId = deco->getTemplateId();

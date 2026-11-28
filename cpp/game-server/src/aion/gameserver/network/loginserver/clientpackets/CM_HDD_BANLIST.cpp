@@ -22,7 +22,7 @@ void CM_HDD_BANLIST::readImpl() {
 }
 
 void CM_HDD_BANLIST::runImpl() {
-	log.info("Loaded " + std::to_string(count) + " HDD ban entries.");
+	log.info("Loaded {} HDD ban entries", count);
 }
 
 } // namespace aion::gameserver::network::loginserver::clientpackets

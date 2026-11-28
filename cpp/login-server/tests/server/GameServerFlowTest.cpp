@@ -87,14 +87,14 @@ TEST_F(GameServerFlowTest, GameServerAuthentication) {
 		gs.send(GsTestClient::buildCM_GS_AUTH(50, GS1_PASSWORD));
 		EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(1).data); // NOT_AUTHED
 		EXPECT_TRUE(gs.socket.waitClosed());
-		EXPECT_TRUE(logs.waitFor("Gameserver 127.0.0.1 requestedID: 50 is not registered in LS database!")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server 127.0.0.1 requestedID: 50 is not registered in LS database!")) << logs.dump();
 	}
 	{
 		GsTestClient gs(gsPort);
 		gs.send(GsTestClient::buildCM_GS_AUTH(1, "wrong"));
 		EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(1).data);
 		EXPECT_TRUE(gs.socket.waitClosed());
-		EXPECT_TRUE(logs.waitFor("Gameserver 127.0.0.1 requested ID: 1 has wrong IP or password!")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server 127.0.0.1 requested ID: 1 has wrong IP or password!")) << logs.dump();
 	}
 	{
 		GsTestClient gs(gsPort, "127.0.0.7"); // right password, but the mask of #1 is 127.0.0.1
@@ -106,7 +106,7 @@ TEST_F(GameServerFlowTest, GameServerAuthentication) {
 		GsTestClient gs(gsPort);
 		gs.send(GsTestClient::buildCM_GS_AUTH(1, GS1_PASSWORD, {192, 168, 0, 10}, 7778, 1, 3000));
 		EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(0).C(2).data); // AUTHED, 2 registered game servers
-		EXPECT_TRUE(logs.waitFor("Gameserver #1 is now online")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server #1 is now online")) << logs.dump();
 		auto gsi = GameServerTable::getGameServerInfo(1);
 		ASSERT_TRUE(gsi);
 		EXPECT_TRUE(waitUntil([&] { return gsi->isOnline(); }));
@@ -125,7 +125,7 @@ TEST_F(GameServerFlowTest, GameServerAuthentication) {
 		EXPECT_TRUE(logs.waitFor("Unknown packet received from Game Server: 0x00 state=AUTHED")) << logs.dump();
 
 		gs.socket.close();
-		EXPECT_TRUE(logs.waitFor("Gameserver #1 127.0.0.1 disconnected")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server #1 127.0.0.1 disconnected")) << logs.dump();
 		EXPECT_TRUE(waitUntil([&] { return !gsi->isOnline() && !gsi->getConnection(); }));
 	}
 	// the id is free again, and #2 accepts any address
@@ -274,7 +274,7 @@ TEST_F(GameServerFlowTest, FastReconnectWithCmUpdateSession) {
 	PacketReader key2(gs.expectPacket(3));
 	key2.C();
 	EXPECT_EQ(key2.D(), joined.accountId);
-	EXPECT_TRUE(logs.waitFor("Gameserver #1 127.0.0.1 requested reconnection for account " + std::to_string(joined.accountId) +
+	EXPECT_TRUE(logs.waitFor("Game server #1 127.0.0.1 requested reconnection for account " + std::to_string(joined.accountId) +
 		", but account is not registered on game server"))
 		<< logs.dump();
 
@@ -325,7 +325,7 @@ TEST_F(GameServerFlowTest, PingTimeoutClosesSilentGameServersOnly) {
 	}
 	EXPECT_GE(pings, 5);
 	EXPECT_TRUE(silent.socket.waitClosed(3s));
-	EXPECT_TRUE(logs.waitFor("Gameserver #1 connection died, closing it.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("Game server #1 connection died, closing it.")) << logs.dump();
 	EXPECT_FALSE(answering.socket.isClosed());
 	EXPECT_TRUE(GameServerTable::getGameServerInfo(2)->isOnline());
 	EXPECT_EQ(logs.count("connection died"), 1);
@@ -547,7 +547,7 @@ TEST_F(GameServerFlowTest, GameServerDisconnectUpdatesTheServerListOfLoggedInCli
 	PacketReader offline(client.expectPacket(0x04));
 	offline.B(18);
 	EXPECT_EQ(offline.C(), 0);
-	EXPECT_TRUE(logs.waitFor("Gameserver #1 127.0.0.1 disconnected")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("Game server #1 127.0.0.1 disconnected")) << logs.dump();
 	EXPECT_FALSE(gsi->isAccountOnGameServer(joined.accountId));
 	EXPECT_EQ(gsi->getCurrentPlayers(), 0);
 }

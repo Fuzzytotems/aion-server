@@ -38,7 +38,7 @@ protected:
 	/** Java: protected static final Logger log = LoggerFactory.getLogger(AbstractPeriodicTaskManager.class) */
 	static const commons::logging::Logger log;
 
-	/** Logs "AbstractPeriodicTaskManager initialized."; subclasses use the two-argument constructor instead (class comment) */
+	/** Logs "AbstractPeriodicTaskManager initialized"; subclasses use the two-argument constructor instead (class comment) */
 	explicit AbstractPeriodicTaskManager(int32_t period);
 
 	/** C++ only: the Java constructor with the subclass's getClass().getSimpleName() for the log line (class comment) */

@@ -177,9 +177,9 @@ void FortressAssault::calculateDifficultySettings() {
 	if (minSpawnDelay.get() < 30) // just in case SIEGE_DIFFICULTY_MULTIPLIER is set beyond 1.0 (100%)
 		minSpawnDelay.set(30);
 
-	log.info("Initialized fortress assault on [locationID=" + std::to_string(locationId) + "] with [difficulty=" + javaFloat(difficulty.get()) +
-		"] [factionBalance=" + javaFloat(factionBalance) + "] [influence=" + javaFloat(influence) + "] [difficultyMultiplier=" +
-		javaFloat(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER.load()) + "]");
+	log.info("Initialized fortress assault on [locationID={}] with [difficulty={}] [factionBalance={}] [influence={}] [difficultyMultiplier={}]",
+		locationId, javaFloat(difficulty.get()), javaFloat(factionBalance), javaFloat(influence),
+		javaFloat(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER.load()));
 }
 
 // Java FortressAssault.java:141-154
@@ -222,8 +222,8 @@ void FortressAssault::onDredgionCommanderKilled() {
 		});
 		if (runtime::FutureRef task = spawnTask.get())
 			task->cancel(true);
-		log.info("Finished fortress assault on [locationID=" + std::to_string(locationId) + "] by defeating " +
-			std::to_string(possibleCommanderCount.get()) + " dredgion commanders after " + std::to_string(waveCount.get()) + " waves.");
+		log.info("Finished fortress assault on [locationID={}] by defeating {} dredgion commanders after {} waves", locationId,
+			possibleCommanderCount.get(), waveCount.get());
 	}
 }
 

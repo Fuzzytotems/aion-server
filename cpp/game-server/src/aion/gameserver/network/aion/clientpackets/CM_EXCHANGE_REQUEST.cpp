@@ -17,6 +17,7 @@
 #include "aion/gameserver/services/ExchangeService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
+#include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/world/World.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -105,7 +106,7 @@ void CM_EXCHANGE_REQUEST::runImpl() {
 	}
 
 	if (activePlayer->getRace() != targetPlayer->getRace()) {
-		log.info("[AUDIT] Player " + activePlayer->getName() + " tried trade with player (" + targetPlayer->getName() + ") another race.");
+		utils::audit::AuditLogger::log(*activePlayer, "tried to trade with player of another race: " + targetPlayer->toString());
 		return;
 	}
 

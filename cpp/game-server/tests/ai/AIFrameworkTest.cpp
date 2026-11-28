@@ -196,7 +196,7 @@ TEST_F(AiTest, InitValidatesTheNpcTemplateAiNames) {
 						"these NPCs get a DummyAI)"),
 		std::string::npos)
 		<< text;
-	EXPECT_NE(text.find("info|Loaded 0 AI handlers."), std::string::npos) << text;
+	EXPECT_NE(text.find("info|Loaded 0 AI handlers"), std::string::npos) << text;
 }
 
 TEST_F(AiTest, RegisterAiAcceptsTheEntryTheRegistryHoldsUnderItsName) {

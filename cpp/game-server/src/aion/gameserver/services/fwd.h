@@ -105,7 +105,6 @@ class WorldRaidService;
 //   ShieldService::SingletonHolder
 //   StaticDoorService::SingletonHolder
 //   SurveyService::SingletonHolder
-//   SurveyService::TaskUpdate
 //   TownService::SingletonHolder
 //   UpgradeArcadeService::SingletonHolder
 //   VortexService::VortexServiceHolder

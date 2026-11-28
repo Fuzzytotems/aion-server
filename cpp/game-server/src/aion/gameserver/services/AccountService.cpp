@@ -35,7 +35,7 @@ using model::account::PlayerAccountData;
 
 runtime::Ref<Account> AccountService::getAccount(int32_t accountId, std::string_view accountName, int64_t creationDate,
 	model::account::AccountTime& accountTime, int8_t accessLevel, int8_t membership, std::string_view allowedHddSerial) {
-	log.debug("[AS] request for account: " + std::to_string(accountId));
+	log.debug("[AS] request for account: {}", accountId);
 
 	runtime::Ref<Account> account = loadAccount(accountId);
 	account->setName(accountName);

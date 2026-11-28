@@ -184,7 +184,7 @@ bool TradeService::performBuyFromShop(model::gameobjects::Npc& npc, model::gameo
 		case TradeNpcType::REWARD:
 			return performBuyTransaction(npc, player, tradeList, false); // trade without kinah
 		default:
-			log.warn("Unhandled TradeNpcType:" + std::string(xml::enumName(npcType)));
+			log.warn("Unhandled TradeNpcType:{}", std::string(xml::enumName(npcType)));
 	}
 	return false;
 }

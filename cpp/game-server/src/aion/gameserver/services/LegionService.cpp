@@ -1027,23 +1027,23 @@ void LegionService::sendEmblemData(model::gameobjects::player::Player& player, m
 		for (int8_t value : *customEmblemData)
 			buf.push_back(static_cast<uint8_t>(value));
 		int32_t position = 0;
-		log.debug("legionEmblem size: " + std::to_string(buf.size()) + " bytes");
+		log.debug("legionEmblem size: {} bytes", buf.size());
 		int32_t maxSize = 7993;
 		int32_t currentSize;
 		do {
-			log.debug("legionEmblem data position: " + std::to_string(position));
+			log.debug("legionEmblem data position: {}", position);
 			currentSize = dataLength - position;
-			log.debug("legionEmblem data remaining capacity: " + std::to_string(currentSize) + " bytes");
+			log.debug("legionEmblem data remaining capacity: {} bytes", currentSize);
 
 			if (currentSize >= maxSize) {
 				std::span<const uint8_t> bytes(buf.data() + position, static_cast<size_t>(maxSize));
 				position += maxSize;
-				log.debug("legionEmblem data send size: " + std::to_string(bytes.size()) + " bytes");
+				log.debug("legionEmblem data send size: {} bytes", bytes.size());
 				utils::PacketSendUtility::sendPacket(player, SM_LEGION_SEND_EMBLEM_DATA(maxSize, bytes));
 			} else {
 				std::span<const uint8_t> bytes(buf.data() + position, static_cast<size_t>(currentSize));
 				position += currentSize;
-				log.debug("legionEmblem data send size: " + std::to_string(bytes.size()) + " bytes");
+				log.debug("legionEmblem data send size: {} bytes", bytes.size());
 				utils::PacketSendUtility::sendPacket(player, SM_LEGION_SEND_EMBLEM_DATA(currentSize, bytes));
 			}
 		} while (dataLength != position);
@@ -1062,7 +1062,7 @@ void LegionService::changeAnnouncement(model::gameobjects::player::Player& activ
 		// Java: String.length() and substring(0, 256) count UTF-16 code units
 		const int32_t length = commons::utils::StringUtils::utf16Length(message);
 		if (length > 256) {
-			log.warn("Truncated legion announcement sent by " + activePlayer.toString() + " (old length: " + std::to_string(length) + ")");
+			log.warn("Truncated legion announcement sent by {} (old length: {})", activePlayer.toString(), length);
 			message = commons::utils::StringUtils::substring(message, 0, 256);
 		}
 		announcement = Legion::Announcement::create(message, commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis())));

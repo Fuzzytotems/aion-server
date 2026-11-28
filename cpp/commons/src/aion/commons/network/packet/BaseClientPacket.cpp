@@ -50,8 +50,8 @@ bool ClientPacketBase::read() {
 		readImpl();
 
 		if (getRemainingBytes() > 0 && addPartiallyReadPacket(getOpCode()))
-			log().warn(toString() + " was not fully read! Last " + std::to_string(getRemainingBytes()) + " bytes were not read from buffer:\n" +
-							 utils::NetworkUtils::toHex(buf, startPos, buf.limit()));
+			log().warn("{} was not fully read! Last {} bytes were not read from buffer:\n{}", toString(), getRemainingBytes(),
+				utils::NetworkUtils::toHex(buf, startPos, buf.limit()));
 
 		return true;
 	} catch (const utils::BufferUnderflowException&) {

@@ -97,7 +97,7 @@ void CM_FIND_GROUP::readImpl() {
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_FIND_GROUP")
-				.warn("Unknown find group action " + std::to_string(action));
+				.warn("Unknown find group action {}", action);
 			break;
 	}
 }

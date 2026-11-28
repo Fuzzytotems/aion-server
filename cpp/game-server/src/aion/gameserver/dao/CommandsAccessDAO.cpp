@@ -36,7 +36,7 @@ std::unordered_map<int32_t, std::unordered_set<std::string>> CommandsAccessDAO::
 			accesses[playerId].insert(std::move(command));
 		}
 	} catch (const std::exception& e) {
-		log.error("Error while loading commands accesses.", e);
+		log.error("Error while loading commands accesses", e);
 	}
 	return accesses;
 }
@@ -49,7 +49,7 @@ void CommandsAccessDAO::addAccess(int32_t playerId, std::string_view commandName
 		stmt->setString(2, commandName);
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
-		log.error("Error while adding access on command " + std::string(commandName) + " to player " + std::to_string(playerId), e);
+		log.error("Error while adding access on command {} to player {}", commandName, playerId, e);
 	}
 }
 
@@ -61,7 +61,7 @@ void CommandsAccessDAO::removeAccess(int32_t playerId, std::string_view commandN
 		stmt->setString(2, commandName);
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
-		log.error("Error while removing access on command " + std::string(commandName) + " from player " + std::to_string(playerId), e);
+		log.error("Error while removing access on command {} from player {}", commandName, playerId, e);
 	}
 }
 
@@ -72,7 +72,7 @@ void CommandsAccessDAO::removeAllAccesses(int32_t playerId) {
 		stmt->setInt(1, playerId);
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
-		log.error("Error while removing all accesses from player " + std::to_string(playerId), e);
+		log.error("Error while removing all accesses from player {}", playerId, e);
 	}
 }
 

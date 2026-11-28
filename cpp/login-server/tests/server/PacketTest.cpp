@@ -405,7 +405,7 @@ TEST_F(GsPacketTest, LayoutOfGameServerPackets) {
 	con->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::OK, std::shared_ptr<const PlayerTransferRequest>(request)));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(12).D(21).D(9).data);
 
-	EXPECT_EQ(con->toString(), "Gameserver 127.0.0.1");
+	EXPECT_EQ(con->toString(), "Game server 127.0.0.1");
 	EXPECT_EQ(con->getState(), GsConnection::State::CONNECTED);
 }
 
@@ -429,9 +429,9 @@ TEST_F(GsPacketTest, CmGsAuthWithUnknownIdAndUnknownOrMalformedPackets) {
 		gs.send(GsTestClient::buildCM_GS_AUTH(99, "password"));
 		EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(1).data);
 		EXPECT_TRUE(gs.socket.waitClosed());
-		EXPECT_TRUE(logs.waitFor("Gameserver 127.0.0.1 requestedID: 99 is not registered in LS database!")) << logs.dump();
-		EXPECT_TRUE(logs.waitFor("Gameserver connection attempt from: 127.0.0.1")) << logs.dump();
-		EXPECT_TRUE(logs.waitFor("Gameserver 127.0.0.1 disconnected")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server 127.0.0.1 requestedID: 99 is not registered in LS database!")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server connected: 127.0.0.1")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server 127.0.0.1 disconnected")) << logs.dump();
 	}
 	{
 		// an empty packet (only parsed when more data follows, like Java) closes the connection
@@ -452,7 +452,7 @@ TEST_F(GsPacketTest, PingPongTaskStartsWhenAuthedAndClosesDeadConnections) {
 	for (int i = 0; i < 3; i++)
 		EXPECT_EQ(gs.readPacket(2s, true), (std::vector<uint8_t>{11}));
 	EXPECT_TRUE(gs.socket.waitClosed(3s));
-	EXPECT_TRUE(logs.waitFor("Gameserver #null connection died, closing it.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("Game server #null connection died, closing it.")) << logs.dump();
 	PingPongTask::PERIOD = oldPeriod;
 }
 

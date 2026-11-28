@@ -58,8 +58,7 @@ runtime::Ref<model::gameobjects::player::BlockList> BlockListDAO::load(int32_t p
 				int32_t blockedOid = rset.getInt("blocked_player");
 				std::optional<std::string> name = services::player::PlayerService::getPlayerName(blockedOid);
 				if (!name) {
-					log.error("Attempt to load block list for player " + std::to_string(playerObjId) +
-						" tried to load a player which does not exist: " + std::to_string(blockedOid));
+					log.error("Attempt to load block list for player {} tried to load a player which does not exist: {}", playerObjId, blockedOid);
 				} else {
 					runtime::Ref<BlockedPlayer> blocked = BlockedPlayer::create(blockedOid, *name, rset.getString("reason"));
 					list.insert_or_assign(blockedOid, runtime::Ptr<BlockedPlayer>(blocked));

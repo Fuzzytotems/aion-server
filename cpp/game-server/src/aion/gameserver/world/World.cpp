@@ -154,7 +154,7 @@ World::World() : allPlayers(container::PlayerContainer::create()) {
 		},
 		runtime::Isolation::PER_ELEMENT);
 	services::ShieldService::getInstance().logDetachedShields();
-	log.info("World: " + std::to_string(worldMaps.size()) + " world maps created.");
+	log.info("Created {} world maps", worldMaps.size());
 }
 
 World::~World() = default;
@@ -194,12 +194,12 @@ bool World::removeObject(VisibleObject& object) {
 					despawn(object);
 				object.getController().onDelete();
 			} catch (const std::exception& e) {
-				log.error(object.toString() + " did not leave world cleanly", e);
+				log.error("{} did not leave world cleanly", object.toString(), e);
 			}
 			dropStaleRegionEntries(object); // C++ only, noexcept (see there)
 			removed = allObjects.remove(object.getObjectId(), runtime::Ref<VisibleObject>(object));
 		} else if (worldObject) {
-			log.warn("Attempt to remove " + object.toString() + " from world but ID already belongs to " + worldObject->toString(),
+			log.warn("Attempt to remove {} from world but ID already belongs to {}", object.toString(), worldObject->toString(),
 				stackTrace("java.lang.Exception"));
 		}
 	}

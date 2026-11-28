@@ -23,7 +23,7 @@ bool WalkerFormator::processClusteredNpc(model::gameobjects::Npc& npc, int32_t w
 	if (walkerId) {
 		const model::templates::walker::WalkerTemplate* template_ = dataholders::DataManager::WALKER_DATA->getWalkerTemplate(*walkerId);
 		if (template_ == nullptr) {
-			log.warn("Missing walker ID: " + *walkerId);
+			log.warn("Missing walker ID: {}", *walkerId);
 			return false;
 		}
 		if (template_->getPool() < 2)

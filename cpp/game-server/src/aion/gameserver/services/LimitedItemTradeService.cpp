@@ -36,7 +36,7 @@ void LimitedItemTradeService::start() {
 		for (const model::templates::tradelist::TradeListTemplate::TradeTab& list : npc->getTradeTablist()) {
 			const model::templates::goods::GoodsList* goodsList = dataholders::DataManager::GOODSLIST_DATA->getGoodsListById(list.getId());
 			if (goodsList == nullptr) {
-				log.warn("No goodslist for tradelist of npc " + std::to_string(npcId));
+				log.warn("No goodslist for tradelist of npc {}", npcId);
 				continue;
 			}
 			std::vector<runtime::Ref<LimitedItem>> limitedItems = goodsList->getLimitedItems();
@@ -56,7 +56,7 @@ void LimitedItemTradeService::start() {
 				limitedItem->getSalesTime());
 		}
 	}
-	log.info("Scheduled Limited Items based on cron expression size: " + std::to_string(limitedTradeNpcs.size()));
+	log.info("Scheduled Limited Items based on cron expression size: {}", limitedTradeNpcs.size());
 }
 
 runtime::Ptr<model::limiteditems::LimitedItem> LimitedItemTradeService::getLimitedItem(int32_t itemId, int32_t npcId) {

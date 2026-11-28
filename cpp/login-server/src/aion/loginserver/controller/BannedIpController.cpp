@@ -55,7 +55,7 @@ void reload() {
 		std::lock_guard lock(state().mutex);
 		state().banList.swap(bans);
 	}
-	log().info("BannedIpController loaded " + std::to_string(size) + " IP bans.");
+	log().info("BannedIpController loaded {} IP bans", size);
 }
 
 bool isBanned(std::string_view ip) {

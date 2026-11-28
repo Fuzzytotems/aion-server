@@ -91,11 +91,11 @@ std::optional<Response> authenticate(std::string_view user, std::string_view pas
 		if (response.status_code == 200) {
 			info = parseResponse(response.text);
 		} else {
-			log().warn("Server returned status code " + std::to_string(response.status_code) + (response.text.empty() ? "" : ": " + response.text));
+			log().warn("Server returned status code {}{}", response.status_code, (response.text.empty() ? "" : ": " + response.text));
 		}
 	} catch (...) {
 		info.reset();
-		log().errorCurrentException("Could not login user " + std::string(user));
+		log().errorCurrentException(fmt::format("Could not login user {}", user));
 	}
 	return info;
 }

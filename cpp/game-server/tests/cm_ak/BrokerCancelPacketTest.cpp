@@ -74,11 +74,14 @@ TEST_F(BrokerCancelTest, AnotherSellersOfferIsAuditedAndKept) {
 	BROKER_PACKET_REQUIRE_DATABASE();
 	offer(9503, MINOR_LIFE_POTION, 3, 10, SELLER_ID);
 	targetBroker();
-	network::test::LogCapture capture({"EXCHANGE_LOG"});
+	network::test::LogCapture capture({"AUDIT_LOG"});
 
 	cancel(9503);
 
-	EXPECT_TRUE(capture.contains("[AUDIT] Player: Holder tried to get item from broker that he doesn't own")) << capture.dump();
+	// upstream 7840be30d: the AuditLogger with the item and the seller
+	EXPECT_TRUE(capture.contains("tried to get item " + std::to_string(MINOR_LIFE_POTION) + " from broker that he doesn't own. Seller ID: " +
+		std::to_string(SELLER_ID)))
+		<< capture.dump();
 	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(9503));
 	EXPECT_TRUE(brokerPackets().empty()) << "returns before showRegisteredItems (:467-470)";
 	clearSent();

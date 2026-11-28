@@ -192,7 +192,7 @@ void GeoWorldLoader::loadTerrains(const std::vector<runtime::Ptr<models::GeoMap>
 			}
 		}
 		for (const std::string& mapId : terrainImage.unassociatedMapIds)
-			log.warn(mapId + " of " + path + " could not be associated with a map");
+			log.warn("{} of {} could not be associated with a map", mapId, path);
 	}
 	for (const runtime::Ptr<models::GeoMap>& map : maps) {
 		auto it = std::find_if(terrainByMap.begin(), terrainByMap.end(), [&](const auto& entry) { return entry.first == map; });
@@ -201,14 +201,14 @@ void GeoWorldLoader::loadTerrains(const std::vector<runtime::Ptr<models::GeoMap>
 		if (it->second->hasHeightmap())
 			map->setTerrain(it->second);
 		else
-			log.warn("Missing terrain heightmap for " + std::to_string(map->getMapId()));
+			log.warn("Missing terrain heightmap for {}", map->getMapId());
 	}
 	int64_t terrainMapCount = std::ranges::count_if(maps, [](const runtime::Ptr<models::GeoMap>& map) { return map->hasTerrain(); });
 	statistics.terrainMaps = static_cast<int32_t>(terrainMapCount);
 	if (terrainMapCount == 0)
 		log.warn("No terrains were loaded");
 	else
-		log.info("Loaded terrains for " + std::to_string(terrainMapCount) + " maps");
+		log.info("Loaded terrains for {} maps", terrainMapCount);
 	if (std::ranges::none_of(maps, [](const runtime::Ptr<models::GeoMap>& map) { return map->hasTerrainMaterials(); }))
 		log.warn("No terrain materials were loaded");
 }
@@ -236,24 +236,22 @@ void GeoWorldLoader::load(const std::vector<runtime::Ptr<models::GeoMap>>& maps,
 		statistics.materialGeometries += statisticsByMap[i].materialGeometries;
 	}
 	if (!missingMeshes.empty()) {
-		std::string message = std::to_string(missingMeshes.size()) + " meshes are missing:\n";
-		bool first = true;
+		std::string names;
 		for (const std::string& name : missingMeshes) {
-			if (!first)
-				message += '\n';
-			message += name;
-			first = false;
+			if (!names.empty())
+				names += '\n';
+			names += name;
 		}
-		log.warn(message);
+		log.warn("{} meshes are missing:\n{}", missingMeshes.size(), names);
 	}
 	int64_t loadedMaps = std::ranges::count_if(maps, [](const runtime::Ptr<models::GeoMap>& map) { return !map->getChildren()->isEmpty(); });
 	if (loadedMaps == 0) {
-		log.warn("No geo maps loaded.");
+		log.warn("No geo maps loaded");
 	} else {
 		int64_t entities = 0;
 		for (const runtime::Ptr<models::GeoMap>& map : maps)
 			entities += map->getEntityCount();
-		log.info("Loaded " + std::to_string(entities) + " entities on " + std::to_string(loadedMaps) + " maps");
+		log.info("Loaded {} entities on {} maps", entities, loadedMaps);
 	}
 }
 
@@ -343,7 +341,7 @@ NodeMap GeoWorldLoader::loadMeshes(const std::filesystem::path& geoDir, Statisti
 		throw commons::utils::Exception("Could not load meshes", std::current_exception()); // Java: GameServerError
 	}
 	statistics.meshNames = static_cast<int32_t>(geoms.size());
-	log.info("Loaded " + std::to_string(geoms.size()) + " meshes");
+	log.info("Loaded {} meshes", geoms.size());
 	return geoms;
 }
 
@@ -359,7 +357,7 @@ void GeoWorldLoader::loadWorld(models::GeoMap& map, const NodeMap& modelNodes, s
 								  !commons::utils::StringUtils::equalsIgnoreCase(worldTemplate->getName(), "IDTest_Dungeon") &&
 								  !commons::utils::StringUtils::equalsIgnoreCase(worldTemplate->getName(), "System_Basic");
 		if (shouldHaveEntities)
-			log.warn(geoFile.string() + " is missing");
+			log.warn("{} is missing", geoFile.string());
 		return;
 	}
 	try {

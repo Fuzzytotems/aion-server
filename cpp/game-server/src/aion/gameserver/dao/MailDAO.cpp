@@ -102,7 +102,7 @@ bool MailDAO::haveUnread(int32_t playerId) {
 			}
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not read mail for player: " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not read mail for player: {} from DB: {}", playerId, e.what(), e);
 	}
 	return false;
 }

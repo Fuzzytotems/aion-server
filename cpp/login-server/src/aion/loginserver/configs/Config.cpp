@@ -53,7 +53,7 @@ void Config::load() {
 		for (const std::string& key : Logging::getPropertyKeys("loginserver"))
 			unusedProperties.erase(key);
 		for (const std::string& unusedProperty : unusedProperties)
-			logger().warn("Config property " + unusedProperty + " is unknown and therefore ignored.");
+			logger().warn("Config property {} is unknown and therefore ignored.", unusedProperty);
 	}
 }
 

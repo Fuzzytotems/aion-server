@@ -47,7 +47,7 @@ std::optional<AccountTime> getAccountTime(int32_t accountId) {
 		}
 	} catch (const std::exception& e) {
 		commons::logging::LoggerFactory::getLogger("com.aionemu.loginserver.dao.AccountTimeDAO")
-			.error("Can't get account time for account with id: " + std::to_string(accountId), e);
+			.error("Can't get account time for account with id: {}", accountId, e);
 		return std::nullopt;
 	}
 	return accountTime;

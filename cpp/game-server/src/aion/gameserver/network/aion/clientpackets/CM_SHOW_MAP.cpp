@@ -34,7 +34,7 @@ void CM_SHOW_MAP::runImpl() {
 			// TODO unk
 			break;
 		default:
-			log.warn(player->toString() + " sent unknown show map action type: " + std::to_string(action));
+			log.warn("{} sent unknown show map action type: {}", player->toString(), action);
 	}
 }
 

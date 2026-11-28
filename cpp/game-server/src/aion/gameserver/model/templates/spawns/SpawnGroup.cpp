@@ -156,7 +156,7 @@ runtime::Ptr<SpawnTemplate> SpawnGroup::reserveRandomFreePoolSpot(int32_t instan
 		}
 		runtime::Ptr<SpawnTemplate>* freeSpot = commons::utils::Rnd::get(freeSpots);
 		if (freeSpot == nullptr) {
-			log.warn("All spots are used, could not get random spot for npcId: " + std::to_string(npcId) + ", worldId: " + std::to_string(worldId));
+			log.warn("All spots are used, could not get random spot for npcId: {}, worldId: {}", npcId, worldId);
 			return nullptr;
 		}
 		occupiedSpots->add(freeSpot->get());

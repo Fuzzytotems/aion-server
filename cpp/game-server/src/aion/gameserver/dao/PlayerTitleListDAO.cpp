@@ -63,7 +63,7 @@ bool PlayerTitleListDAO::storeTitles(model::gameobjects::player::Player& player,
 		stmt->setInt(3, entry.getExpireTime());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not store emotionId for player " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not store emotionId for player {} from DB: {}", player.getObjectId(), e.what(), e);
 		return false;
 	}
 	return true;
@@ -77,7 +77,7 @@ bool PlayerTitleListDAO::removeTitle(int32_t playerId, int32_t titleId) {
 		stmt->setInt(2, titleId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not delete title for player " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not delete title for player {} from DB: {}", playerId, e.what(), e);
 		return false;
 	}
 	return true;

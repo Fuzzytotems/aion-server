@@ -42,7 +42,7 @@ runtime::Ref<WorldPosition> WorldPosition::create(int32_t mapIdValue, float xVal
 
 int32_t WorldPosition::getMapId() {
 	if (mapId == 0)
-		log.warn("WorldPosition has (mapId == 0) " + toString());
+		log.warn("WorldPosition has (mapId == 0) {}", toString());
 	return mapId;
 }
 

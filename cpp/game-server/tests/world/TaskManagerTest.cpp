@@ -99,7 +99,7 @@ TEST_F(TaskManagerTest, FifoRunProcessesEachTaskOnceAndLogsFailuresWithTheSubcla
 		broken = runtime::makeRef<CountingTask>("broken", true);
 		plain = runtime::makeRef<CountingTask>("plain", false);
 	}
-	EXPECT_NE(logStream.str().find("info|CountingTaskManager initialized."), std::string::npos) << logStream.str();
+	EXPECT_NE(logStream.str().find("info|CountingTaskManager initialized"), std::string::npos) << logStream.str();
 	manager->add(*broken);
 	manager->add(*plain);
 	manager->add(*plain); // queued twice: the LinkedHashSet of the run keeps it once

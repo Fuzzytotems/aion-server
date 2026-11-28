@@ -39,7 +39,7 @@ void PlayerEmotionListDAO::loadEmotions(model::gameobjects::player::Player& play
 			emotions->add(emotionId, remaining, false);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore emotionId for playerObjId: " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not restore emotionId for playerObjId: {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 	player.setEmotions(std::move(emotions));
 }
@@ -53,7 +53,7 @@ void PlayerEmotionListDAO::insertEmotion(model::gameobjects::player::Player& pla
 		stmt->setInt(3, emotion.getExpireTime());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not store emotionId for player " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not store emotionId for player {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 }
 
@@ -65,7 +65,7 @@ void PlayerEmotionListDAO::deleteEmotion(int32_t playerId, int32_t emotionId) {
 		stmt->setInt(2, emotionId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not delete title for player " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not delete title for player {} from DB: {}", playerId, e.what(), e);
 	}
 }
 

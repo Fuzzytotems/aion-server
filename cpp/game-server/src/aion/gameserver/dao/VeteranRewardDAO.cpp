@@ -32,7 +32,7 @@ int32_t VeteranRewardDAO::loadReceivedMonths(model::gameobjects::player::Player&
 			return rset->getInt("received_months");
 		return 0;
 	} catch (const SQLException& e) {
-		log.error("Error loading received veteran reward months for player " + player.toString(), e);
+		log.error("Error loading received veteran reward months for player {}", player.toString(), e);
 		return -1;
 	}
 }
@@ -46,7 +46,7 @@ bool VeteranRewardDAO::storeReceivedMonths(model::gameobjects::player::Player& p
 		stmt->execute();
 		return true;
 	} catch (const std::exception& e) {
-		log.error("Error saving received veteran reward months (" + std::to_string(months) + ") for player " + player.toString(), e);
+		log.error("Error saving received veteran reward months ({}) for player {}", months, player.toString(), e);
 		return false;
 	}
 }

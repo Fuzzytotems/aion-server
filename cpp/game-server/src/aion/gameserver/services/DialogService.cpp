@@ -458,7 +458,7 @@ bool DialogService::isSubDialogRestricted(Player& player, Npc& npc) {
 				break;
 			}
 			if (fortZone == nullptr) {
-				log.warn("Could not find FORT zone for npc: " + std::to_string(npc.getNpcId()));
+				log.warn("Could not find FORT zone for npc: {}", npc.getNpcId());
 				return true;
 			}
 			const std::optional<std::vector<int32_t>>& siegeIds = fortZone->getSiegeId();
@@ -506,8 +506,7 @@ bool DialogService::isSubDialogRestricted(Player& player, Npc& npc) {
 		case SubDialogType::LEVEL_HIGH:
 			return player.getLevel() < talkInfo->getSubDialogValue();
 		default:
-			log.warn("Unhandled subdialog type " + std::string(xml::enumName(*talkInfo->getSubDialogType())) + " for npc: "
-				+ std::to_string(npc.getNpcId()));
+			log.warn("Unhandled subdialog type {} for npc: {}", std::string(xml::enumName(*talkInfo->getSubDialogType())), npc.getNpcId());
 			return true;
 	}
 }

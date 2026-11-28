@@ -231,7 +231,7 @@ void ExchangeService::returnItems(model::gameobjects::player::Player& player) {
 		for (const runtime::Ptr<model::trade::ExchangeItem>& exItem : exchange->getItems().values()) {
 			runtime::Ptr<model::gameobjects::Item> realItem = player.getInventory().getItemByObjId(exItem->getItemObjId());
 			if (!realItem) {
-				log.warn("Player " + player.getName() + " is trying to return fake item on exchange cancel!");
+				log.warn("Player {} is trying to return fake item on exchange cancel!", player.getName());
 				return;
 			}
 			if (realItem->getItemCount() == exItem->getItemCount()) {
@@ -387,14 +387,14 @@ void ExchangeService::putItemToInventory(model::gameobjects::player::Player& giv
 			itemToPut->setPackCount(itemToPut->getPackCount() * -1);
 		partner.getInventory().add(*itemToPut, services::item::ItemPacketService_ItemAddType::PLAYER_EXCHANGE_GET);
 		if (configs::main::LoggingConfig::LOG_PLAYER_EXCHANGE.load())
-			log.info("Player " + giver.getName() + " exchanged item " + std::to_string(itemToPut->getItemId()) + " [" + itemToPut->getItemName()
-				+ "] (count: " + std::to_string(itemToPut->getItemCount()) + ") with player " + partner.getName());
+			log.info("Player {} exchanged item {} [{}] (count: {}) with player {}", giver.getName(), itemToPut->getItemId(), itemToPut->getItemName(),
+				itemToPut->getItemCount(), partner.getName());
 	}
 	int64_t kinahToExchange = exchange1.getKinahCount();
 	if (kinahToExchange > 0) {
 		partner.getInventory().increaseKinah(kinahToExchange);
 		if (configs::main::LoggingConfig::LOG_PLAYER_EXCHANGE.load())
-			log.info("Player " + giver.getName() + " exchanged " + std::to_string(kinahToExchange) + " Kinah with player " + partner.getName());
+			log.info("Player {} exchanged {} Kinah with player {}", giver.getName(), kinahToExchange, partner.getName());
 	}
 }
 

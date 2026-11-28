@@ -48,7 +48,7 @@ void CM_REPORT_PLAYER::runImpl() {
 			sendPacket(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_COUNT_INFO("∞"));
 			break;
 		default:
-			log.warn("Unhandled report type " + std::to_string(reportType) + " (reported player: " + playerName + ")");
+			log.warn("Unhandled report type {} (reported player: {})", reportType, playerName);
 	}
 }
 

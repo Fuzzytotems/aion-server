@@ -49,7 +49,7 @@ void NpcData::init() {
 		if (npc.getFuncDialogIds() != nullptr) {
 			for (int32_t dialogActionId : *npc.getFuncDialogIds()) {
 				if (!model::DialogAction::nameOf(dialogActionId))
-					log.warn("Unknown dialog action " + std::to_string(dialogActionId) + " for Npc " + std::to_string(npc.getTemplateId()));
+					log.warn("Unknown dialog action {} for Npc {}", dialogActionId, npc.getTemplateId());
 			}
 		}
 		if (npc.getTribe() != model::TribeClass::PET && npc.getTribe() != model::TribeClass::PET_DARK) { // summons and siege weapons have fixed stats

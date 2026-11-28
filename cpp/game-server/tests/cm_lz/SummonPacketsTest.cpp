@@ -417,7 +417,7 @@ TEST_F(SummonPacketsRunTest, ASpellWithAnotherSkillIsLoggedAndTheOrderIsCarriedO
 	run<CM_SUMMON_CASTSPELL>(CASTSPELL_OPCODE, castBody(spirit.getObjectId(), 22108, 2, spirit.getObjectId())); // on itself
 
 	EXPECT_FALSE(spirit.getNextSkillOrder());
-	EXPECT_TRUE(log.contains("used summon order with a different skill: skillId 22108->22107; skillLvl 2->1.")) << log.dump();
+	EXPECT_TRUE(log.contains("used summon order with a different skill: skillId 22108->22107; skillLvl 2->1")) << log.dump();
 }
 
 TEST_F(SummonPacketsRunTest, AnOrderForAnotherTargetIsDropped) {

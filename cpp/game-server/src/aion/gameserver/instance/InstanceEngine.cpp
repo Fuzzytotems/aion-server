@@ -21,7 +21,7 @@ void InstanceEngine::init() {
 	// Java: a ScriptManager with an InstanceHandlerClassListener loads InstanceConfig.HANDLER_DIRECTORY and calls addInstanceHandlerClass per
 	// @InstanceID class; C++: the handlers are compiled in and registered by AION_INSTANCE_HANDLER markers (HandlerRegistry.h), one entry per map
 	// id (duplicates are a build error), so the Java map size is the number of registry entries.
-	log.info("Loaded " + std::to_string(gameserver::handlers::instanceHandlerEntries().size()) + " instance handlers.");
+	log.info("Loaded {} instance handlers", gameserver::handlers::instanceHandlerEntries().size());
 }
 
 runtime::Ref<handlers::InstanceHandler> InstanceEngine::getNewInstanceHandler(world::WorldMapInstance& instance) {
@@ -37,8 +37,7 @@ runtime::Ref<handlers::InstanceHandler> InstanceEngine::getNewInstanceHandler(wo
 		try {
 			instanceHandler = handlerClass->create(instance);
 		} catch (const std::exception& ex) {
-			log.warn("Can't instantiate instance handler for map " + std::to_string(instance.getMapId()) + " (instanceId: " +
-				std::to_string(instance.getInstanceId()) + ')', ex);
+			log.warn("Can't instantiate instance handler for map {} (instanceId: {})", instance.getMapId(), instance.getInstanceId(), ex);
 		}
 	}
 

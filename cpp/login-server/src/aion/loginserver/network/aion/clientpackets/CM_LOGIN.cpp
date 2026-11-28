@@ -98,7 +98,7 @@ void CM_LOGIN::runImpl() {
 					const int32_t banTimeMillis = static_cast<int32_t>(static_cast<uint32_t>(Config::WRONG_LOGIN_BAN_TIME) * 60000u);
 					commons::database::Timestamp newTime{std::chrono::milliseconds(commons::utils::currentTimeMillis() + banTimeMillis)};
 					controller::BannedIpController::banIp(ip, newTime);
-					log().info(loginData->username + " on " + ip + " banned for " + std::to_string(Config::WRONG_LOGIN_BAN_TIME) + " min. bruteforce");
+					log().info("{} on {} banned for {} min. bruteforce", loginData->username, ip, Config::WRONG_LOGIN_BAN_TIME);
 					connection->close(SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_BLOCKED_IP));
 					break;
 				}

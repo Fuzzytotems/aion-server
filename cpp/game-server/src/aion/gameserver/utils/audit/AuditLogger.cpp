@@ -28,7 +28,7 @@ void AuditLogger::log(model::gameobjects::player::Player& player, std::string_vi
 	if (configs::main::PunishmentConfig::PUNISHMENT_ENABLE.load())
 		AutoBan::punishment(player);
 	if (configs::main::LoggingConfig::LOG_AUDIT.load())
-		auditLog().info(player.toString() + " " + std::string(message));
+		auditLog().info("{} {}", player.toString(), message);
 	for (const runtime::Ptr<model::gameobjects::player::Player>& gm : GMService::getInstance().getOnlineStaffMembers()) {
 		if (gm->hasAccess(configs::administration::AdminConfig::AUDIT_INFO.load()))
 			PacketSendUtility::sendMessage(*gm, ChatUtil::charName(player) + " " + std::string(message), model::ChatType::YELLOW);
@@ -44,7 +44,7 @@ void AuditLogger::log(runtime::Ptr<model::gameobjects::player::Player> player, s
 	if (configs::main::PunishmentConfig::PUNISHMENT_ENABLE.load())
 		throw runtime::NullPointerException("AutoBan.punishment: player is null"); // player.getClientConnection()
 	if (configs::main::LoggingConfig::LOG_AUDIT.load())
-		auditLog().info("null " + std::string(message)); // Java: player + " " + message
+		auditLog().info("{} {}", "null", message); // Java: log.info("{} {}", player, message) with player null
 	for (const runtime::Ptr<model::gameobjects::player::Player>& gm : GMService::getInstance().getOnlineStaffMembers()) {
 		if (gm->hasAccess(configs::administration::AdminConfig::AUDIT_INFO.load()))
 			throw runtime::NullPointerException("ChatUtil.charName: player is null"); // player.getName(true)

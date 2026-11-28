@@ -96,7 +96,7 @@ void CosmeticItemAction::act(gameobjects::player::Player& player, runtime::Ptr<g
 	} else {
 		// Java: LoggerFactory.getLogger(getClass())
 		commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.model.templates.item.actions.CosmeticItemAction")
-			.warn("Unhandled cosmetic item type: " + type);
+			.warn("Unhandled cosmetic item type: {}", type);
 		return;
 	}
 	dao::PlayerAppearanceDAO::store(player);

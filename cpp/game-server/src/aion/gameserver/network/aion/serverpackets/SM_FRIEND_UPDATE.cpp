@@ -28,8 +28,7 @@ void SM_FRIEND_UPDATE::writeImpl(AionConnection* con) {
 		throw runtime::NullPointerException("SM_FRIEND_UPDATE::writeImpl without a connection");
 	runtime::Ptr<model::gameobjects::player::Friend> f = con->getActivePlayer()->getFriendList().getFriend(friendObjId);
 	if (!f)
-		log.debug("Attempted to update friend list status of " + std::to_string(friendObjId) + " for " + con->getActivePlayer()->getName() +
-			" - object ID not found on friend list");
+		log.debug("Attempted to update friend list status of {} for {} - object ID not found on friend list", friendObjId, con->getActivePlayer()->getName());
 	else {
 		writeS(f->getName());
 		writeD(f->getLevel());

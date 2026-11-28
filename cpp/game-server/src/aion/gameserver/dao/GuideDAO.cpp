@@ -33,7 +33,7 @@ bool GuideDAO::deleteGuide(int32_t guide_id) {
 		stmt->setInt(1, guide_id);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error delete guide_id: " + std::to_string(guide_id), e);
+		log.error("Error delete guide_id: {}", guide_id, e);
 		return false;
 	}
 	return true;
@@ -53,7 +53,7 @@ std::vector<model::guide::Guide> GuideDAO::loadGuides(int32_t playerId) {
 			guides.emplace_back(guide_id, player_id, title);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore Guide data for player: " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not restore Guide data for player: {} from DB: {}", playerId, e.what(), e);
 	}
 	return guides;
 }
@@ -71,7 +71,7 @@ std::optional<model::guide::Guide> GuideDAO::loadGuide(int32_t player_id, int32_
 			guide.emplace(guide_id, player_id, title);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore Survey data for player: " + std::to_string(player_id) + " from DB: " + e.what(), e);
+		log.error("Could not restore Survey data for player: {} from DB: {}", player_id, e.what(), e);
 	}
 	return guide;
 }
@@ -85,7 +85,7 @@ void GuideDAO::saveGuide(int32_t guide_id, model::gameobjects::player::Player& p
 		stmt->setInt(3, player.getObjectId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error saving playerName: " + player.toString(), e);
+		log.error("Error saving playerName: {}", player.toString(), e);
 	}
 }
 

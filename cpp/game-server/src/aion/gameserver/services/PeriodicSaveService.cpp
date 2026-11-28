@@ -59,7 +59,6 @@ runtime::Ref<PeriodicSaveService::LegionWarehouseSaveTask> PeriodicSaveService::
 }
 
 void PeriodicSaveService::LegionWarehouseSaveTask::run() {
-	log.info("Legion WH update task started.");
 	int64_t startTime = commons::utils::currentTimeMillis();
 	int32_t legionWhUpdated = 0;
 	for (const runtime::Ptr<model::team::legion::Legion>& legion : LegionService::getInstance().getCachedLegions()) {
@@ -72,13 +71,13 @@ void PeriodicSaveService::LegionWarehouseSaveTask::run() {
 			// 2. save item stones
 			dao::ItemStoneListDAO::save(allItems);
 		} catch (const std::exception&) {
-			log.errorCurrentException("Exception during periodic saving of legion WH");
+			log.errorCurrentException("Could not save warehouse of legion " + std::to_string(legion->getLegionId()));
 		}
 
 		legionWhUpdated++;
 	}
 	int64_t workTime = commons::utils::currentTimeMillis() - startTime;
-	log.info("Legion WH update: " + std::to_string(workTime) + " ms, legions: " + std::to_string(legionWhUpdated) + ".");
+	log.info("Saved warehouses of {} legions in {} ms", legionWhUpdated, workTime);
 }
 
 PeriodicSaveService::LegionWarehouseSaveTask::~LegionWarehouseSaveTask() = default;
@@ -111,10 +110,8 @@ PeriodicSaveService::PeriodicSaveService() {
 }
 
 void PeriodicSaveService::onShutdown() {
-	log.info("Starting data save on shutdown.");
 	for (const runtime::Ptr<PeriodicSaveTask>& task : tasks.snapshot())
 		task->storeDataAndCancel();
-	log.info("Data successfully saved.");
 }
 
 } // namespace aion::gameserver::services

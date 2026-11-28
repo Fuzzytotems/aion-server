@@ -54,7 +54,7 @@ void CM_UPGRADE_ARCADE::runImpl() {
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_UPGRADE_ARCADE")
-				.warn("Unhandled arcade action " + std::to_string(action));
+				.warn("Unhandled arcade action {}", action);
 	}
 }
 

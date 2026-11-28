@@ -62,7 +62,7 @@ void CM_INVITE_TO_GROUP::runImpl() {
 			model::team::league::LeagueService::inviteToLeague(*inviter, *invited);
 			break;
 		default:
-			log.warn("Received unknown invite type from player " + inviter->getName() + ": " + std::to_string(inviteType));
+			log.warn("Received unknown invite type from player {}: {}", inviter->getName(), inviteType);
 			break;
 	}
 }

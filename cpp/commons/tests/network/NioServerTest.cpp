@@ -220,10 +220,8 @@ TEST(NioServerTest, ShutdownClosesAllConnectionsGracefully) {
 	EXPECT_EQ(server.probe->serverCloseCount, 3);
 	EXPECT_EQ(server.probe->disconnectCount, 3); // shutdown waits for all onDisconnect callbacks
 	EXPECT_EQ(server.server->getActiveConnectionCount(), 0u);
-	EXPECT_TRUE(logs.contains("info|com.aionemu.commons.network.NioServer|Closing ServerChannels..."));
-	EXPECT_TRUE(logs.contains("info|com.aionemu.commons.network.NioServer|ServerChannels closed."));
-	EXPECT_TRUE(logs.contains("info|com.aionemu.commons.network.NioServer|\tClosing 3 connections..."));
-	EXPECT_TRUE(logs.contains("info|com.aionemu.commons.network.NioServer|\tActive connections left: 0"));
+	EXPECT_TRUE(logs.contains("info|com.aionemu.commons.network.NioServer|Stopped accepting new connections, now closing 3 connection(s)"));
+	EXPECT_FALSE(logs.contains("Active connections left")); // upstream 7840be30d: only logged if some are left
 	EXPECT_FALSE(logs.contains("Forcing"));
 
 	// no longer accepting (checked with a short timeout, since a refused connect takes 2 seconds on Windows)
@@ -301,8 +299,8 @@ TEST(NioServerTest, ShutdownForcesStragglersAfterTimeout) {
 	server.server->shutdown(300ms);
 	auto elapsed = std::chrono::steady_clock::now() - start;
 	EXPECT_LT(elapsed, 1900ms); // below the 2 second close deadline
-	EXPECT_TRUE(logs.contains("\tClosing 2 connections..."));
-	EXPECT_TRUE(logs.contains("\tForcing 1 connections to disconnect..."));
+	EXPECT_TRUE(logs.contains("Stopped accepting new connections, now closing 2 connection(s)"));
+	EXPECT_TRUE(logs.contains("\tForcing 1 connection(s) to disconnect..."));
 	EXPECT_TRUE(logs.contains("\tActive connections left: 1"));
 	EXPECT_EQ(server.probe->disconnectCount, 2);
 	EXPECT_TRUE(stuck->isClosed());
@@ -361,10 +359,11 @@ TEST(NioServerTest, ConnectionAcceptedWhileShutdownBeginsIsInitializedAndDisconn
 	logs.clear();
 	auto probe = std::make_shared<Probe>();
 	std::atomic<bool> factoryEntered = false;
+	std::atomic<bool> shutdownCalled = false;
 	ServerCfg cfg{{"127.0.0.1", 0}, "test clients", [&](asio::ip::tcp::socket socket, NioServer& nioServer) -> std::shared_ptr<network::AConnectionBase> {
 		factoryEntered = true;
-		// let shutdown begin while the factory is running
-		waitUntil([&] { return logs.contains("Closing ServerChannels..."); });
+		// let shutdown begin while the factory is running (shutdown logs nothing before it closes the listeners since upstream 7840be30d)
+		waitUntil([&] { return shutdownCalled.load(); });
 		std::this_thread::sleep_for(100ms);
 		return std::make_shared<TestConnection>(std::move(socket), nioServer, probe);
 	}};
@@ -372,6 +371,7 @@ TEST(NioServerTest, ConnectionAcceptedWhileShutdownBeginsIsInitializedAndDisconn
 	server.connect();
 	TestClient client(server.getBoundAddresses().at(0).port);
 	ASSERT_TRUE(waitUntil([&] { return factoryEntered.load(); }));
+	shutdownCalled = true;
 	server.shutdown();
 
 	// like Java's Acceptor, a connection created by the factory is always registered and initialized, so it takes part in the shutdown

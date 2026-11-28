@@ -79,7 +79,7 @@ void CubeExpandService::expandCube(model::gameobjects::player::Player& player, m
 	const model::templates::StorageExpansionTemplate* expansionTemplate =
 		dataholders::DataManager::CUBEEXPANDER_DATA->getCubeExpansionTemplate(npc.getNpcId());
 	if (expansionTemplate == nullptr) {
-		log.warn("Cube expansion template could not be found for " + npc.toString());
+		log.warn("Cube expansion template could not be found for {}", npc.toString());
 		return;
 	}
 

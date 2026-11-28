@@ -285,7 +285,7 @@ runtime::Ptr<Item> Equipment::equipItem(int32_t itemUniqueId, int64_t slot) {
 
 	std::vector<items::ItemSlot> targetSlots = detail::getSlotsFor(slot);
 	if (targetSlots.empty()) {
-		log.warn("Unknown target slot " + std::to_string(slot) + " for " + item->toString());
+		log.warn("Unknown target slot {} for {}", slot, item->toString());
 		return nullptr;
 	}
 
@@ -338,7 +338,7 @@ bool Equipment::checkDualWieldRestriction(Item& item, int64_t slot) {
 
 runtime::Ptr<Item> Equipment::equip(int64_t itemSlotToEquip, Item& item) {
 	if (!item.isIdentified()) {
-		log.warn(item.toString() + " can't be equipped because it's not identified yet");
+		log.warn("{} can't be equipped because it's not identified yet", item.toString());
 		return nullptr;
 	}
 
@@ -613,8 +613,7 @@ void Equipment::onLoadHandler(Item& item) {
 	}
 	for (items::ItemSlot slot : detail::getSlotsFor(item.getEquipmentSlot())) { // two slots (main+sub) for two-handed weapons
 		if (equipment.putIfAbsent(detail::getSlotIdMask(slot), runtime::Ref<Item>(item))) {
-			log.warn("Duplicate equipped item in slot " + std::string(xml::EnumTraits<items::ItemSlot>::names[static_cast<size_t>(slot)]) + " for "
-				+ owner.toString());
+			log.warn("Duplicate equipped item in slot {} for {}", xml::EnumTraits<items::ItemSlot>::names[static_cast<size_t>(slot)], owner.toString());
 			putItemBackToInventory(item);
 		}
 	}

@@ -15,9 +15,6 @@ namespace aion::gameserver::services {
  * @author KID
  */
 class SurveyService : public runtime::Immortal {
-public:
-	/** Java: public inner class TaskUpdate implements Runnable (used only by the constructor, defined in SurveyService.cpp) */
-	class TaskUpdate;
 private:
 	runtime::LinkedHashMap<int32_t, runtime::Ref<model::templates::survey::SurveyItem>> activeItems{AION_LOCK_CLASS(SurveyService::activeItems)};
 	SurveyService();

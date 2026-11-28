@@ -105,7 +105,7 @@ const model::templates::spawns::mercenaries::MercenaryZone* MercenaryLocation::g
 	const model::templates::spawns::mercenaries::MercenaryZone* tempZone = nullptr;
 	const model::templates::spawns::mercenaries::MercenarySpawn* spawn = dataholders::DataManager::SPAWNS_DATA->getMercenarySpawnBySiegeId(siegeId);
 	if (spawn == nullptr) {
-		log.error("[MERC] There is no mercenaries spawns for siege " + std::to_string(siegeId) + " and zone" + std::to_string(smz->getId()));
+		log.error("[MERC] There is no mercenaries spawns for siege {} and zone{}", siegeId, smz->getId());
 		return tempZone;
 	}
 	const model::templates::spawns::mercenaries::MercenaryRace* targetRace = nullptr;
@@ -117,7 +117,7 @@ const model::templates::spawns::mercenaries::MercenaryZone* MercenaryLocation::g
 	}
 	const std::string raceName(race ? xml::enumName(*race) : std::string_view("null")); // Java: race.toString()
 	if (targetRace == nullptr) {
-		log.error("[MERC] There is no mercenary race for siege " + std::to_string(siegeId) + ", zone" + std::to_string(smz->getId()) + ", race:" + raceName);
+		log.error("[MERC] There is no mercenary race for siege {}, zone{}, race:{}", siegeId, smz->getId(), raceName);
 		return tempZone;
 	}
 	for (const model::templates::spawns::mercenaries::MercenaryZone& mzone : targetRace->getMercenaryZones()) {
@@ -127,7 +127,7 @@ const model::templates::spawns::mercenaries::MercenaryZone* MercenaryLocation::g
 		}
 	}
 	if (tempZone == nullptr) {
-		log.error("[MERC] There is no mercenary zone for siege " + std::to_string(siegeId) + ", zone" + std::to_string(smz->getId()) + ", race:" + raceName);
+		log.error("[MERC] There is no mercenary zone for siege {}, zone{}, race:{}", siegeId, smz->getId(), raceName);
 		return tempZone;
 	}
 	return tempZone;

@@ -154,13 +154,10 @@ void HTMLCache::reload(bool deleteCacheFile) {
 		const std::filesystem::path cacheFile = getCacheFile();
 		std::error_code error;
 		if (deleteCacheFile && std::filesystem::exists(cacheFile, error)) {
-			log().info("Cache[HTML]: Deleting cache file... OK.");
 			std::filesystem::remove(cacheFile, error);
 		}
 
-		log().info("Cache[HTML]: Caching started... OK.");
 		if (std::filesystem::exists(cacheFile, error)) {
-			log().info("Cache[HTML]: Using cache file... OK.");
 			try {
 				cache = readCacheFile(cacheFile);
 				for (const auto& entry : cache.get()->snapshot()) {
@@ -168,7 +165,7 @@ void HTMLCache::reload(bool deleteCacheFile) {
 					size += StringUtils::utf16Length(entry.value);
 				}
 			} catch (const std::exception& e) {
-				log().warn("", e);
+				log().warn("Could not load HTML cache file", e);
 				reload(true);
 				return;
 			}
@@ -178,10 +175,8 @@ void HTMLCache::reload(bool deleteCacheFile) {
 
 		log().info(toString());
 
-		if (std::filesystem::exists(cacheFile, error)) {
-			log().info("Cache[HTML]: Compaction skipped!");
-		} else {
-			log().info("Cache[HTML]: Compacting htmls... OK.");
+		if (!std::filesystem::exists(cacheFile, error)) {
+			log().info("Cache[HTML]: Compacting HTMLs...");
 			runtime::Ptr<runtime::RcHashMap<std::string, std::string>> map = cache.get();
 			for (const auto& entry : map->snapshot()) {
 				try {
@@ -191,18 +186,16 @@ void HTMLCache::reload(bool deleteCacheFile) {
 					size += StringUtils::utf16Length(newHtml);
 					map->put(entry.key, std::move(newHtml));
 				} catch (const std::exception& e) {
-					log().warn("Cache[HTML]: Error during compaction of " + entry.key, e);
+					log().warn("Cache[HTML]: Error during compaction of {}", entry.key, e);
 				}
 			}
 			log().info(toString());
-		}
 
-		if (!std::filesystem::exists(cacheFile, error)) {
-			log().info("Cache[HTML]: Creating cache file... OK.");
 			try {
 				writeCacheFile(cacheFile, *cache.get());
+				log().info("Created HTML cache file...");
 			} catch (const std::exception& e) {
-				log().warn("", e);
+				log().warn("Could not create HTML cache file", e);
 			}
 		}
 	}
@@ -241,11 +234,6 @@ std::string HTMLCache::compactHtml(std::string_view html) {
 void HTMLCache::replaceAll(std::u16string& sb, std::u16string_view pattern, std::u16string_view value) {
 	for (size_t index = 0; (index = sb.find(pattern, index)) != std::u16string::npos;)
 		sb.replace(index, pattern.size(), value);
-}
-
-void HTMLCache::reloadPath(const std::filesystem::path& f) {
-	parseDir(f);
-	log().info("Cache[HTML]: Reloaded specified path.");
 }
 
 void HTMLCache::parseDir(const std::filesystem::path& dir) {

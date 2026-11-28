@@ -45,7 +45,7 @@ bool update(const BannedMacEntry& entry) {
 		ps->setString(3, entry.getDetails());
 		return ps->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		logger().error("Error storing BannedMacEntry " + entry.getMac(), e);
+		logger().error("Error storing BannedMacEntry {}", entry.getMac(), e);
 	}
 	return false;
 }
@@ -57,7 +57,7 @@ bool remove(std::string_view address) {
 		ps->setString(1, address);
 		return ps->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		logger().error("Error removing BannedMacEntry " + std::string(address), e);
+		logger().error("Error removing BannedMacEntry {}", address, e);
 	}
 	return false;
 }

@@ -169,7 +169,7 @@ void NioServer::start(DisconnectExecutor dcExecutor) {
 #endif
 			listener->acceptor.bind(endpoint);
 			listener->acceptor.listen(); // backlog SOMAXCONN (Java: 50)
-			log().info("Listening on " + cfg.getAddressInfo() + " for " + cfg.clientDescription);
+			log().info("Listening on {} for {}", cfg.getAddressInfo(), cfg.clientDescription);
 			newListeners.push_back(std::move(listener));
 		}
 	} catch (const std::exception& e) {
@@ -421,24 +421,22 @@ void NioServer::shutdown(std::chrono::milliseconds closeTimeout) {
 		state = State::SHUTTING_DOWN;
 	}
 
-	log().info("Closing ServerChannels...");
 	closeListeners();
 	{
 		// after closeListeners, so a connection created by an accept that was already in progress is still registered (see onAccept)
 		std::lock_guard lock(context->mutex);
 		context->acceptingConnections = false;
 	}
-	log().info("ServerChannels closed.");
-
-	// find active connections once, at this point new ones cannot be added anymore
 	std::vector<std::shared_ptr<AConnectionBase>> activeConnections;
 	{
 		std::lock_guard lock(context->mutex);
 		activeConnections.assign(context->activeConnections.begin(), context->activeConnections.end());
 	}
 	auto isClosed = [](const std::shared_ptr<AConnectionBase>& connection) { return connection->isClosed(); };
-	if (!activeConnections.empty()) {
-		log().info("\tClosing " + std::to_string(activeConnections.size()) + " connections...");
+	if (activeConnections.empty()) {
+		log().info("Stopped accepting new connections");
+	} else {
+		log().info("Stopped accepting new connections, now closing {} connection(s)", activeConnections.size());
 
 		// notify connections about server close (they should close themselves)
 		for (const auto& connection : activeConnections) {
@@ -461,14 +459,15 @@ void NioServer::shutdown(std::chrono::milliseconds closeTimeout) {
 			}
 			if (std::chrono::steady_clock::now() > timeout) {
 				std::erase_if(activeConnections, isClosed);
-				log().info("\tForcing " + std::to_string(activeConnections.size()) + " connections to disconnect...");
+				log().info("\tForcing {} connection(s) to disconnect...", activeConnections.size());
 				for (const auto& connection : activeConnections)
 					connection->close();
 				break;
 			}
 		}
 		std::erase_if(activeConnections, isClosed);
-		log().info("\tActive connections left: " + std::to_string(activeConnections.size()));
+		if (!activeConnections.empty())
+			log().info("\tActive connections left: {}", activeConnections.size());
 	}
 	activeConnections.clear();
 

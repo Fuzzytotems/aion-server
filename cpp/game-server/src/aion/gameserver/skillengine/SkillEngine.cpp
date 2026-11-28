@@ -169,7 +169,7 @@ const model::SkillTemplate* SkillEngine::checkAndGetSkillTemplate(int32_t skillI
 	const SkillTemplate* skillTemplate = DataManager::SKILL_DATA->getSkillTemplate(skillId);
 	if (skillTemplate == nullptr) {
 		// Java: warn(message, new IllegalArgumentException()) - the exception only carries the stack trace into the log
-		log.warn("Could not apply effect, invalid skill id " + std::to_string(skillId), commons::utils::IllegalArgumentException(""));
+		log.warn("Could not apply effect, invalid skill id {}", skillId, commons::utils::IllegalArgumentException(""));
 		return nullptr;
 	}
 	return skillTemplate;

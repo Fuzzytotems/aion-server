@@ -95,7 +95,7 @@ void CM_WINDSTREAM::runImpl() {
 				SM_EMOTION(*player, state == 7 ? EmotionType::WINDSTREAM_START_BOOST : EmotionType::WINDSTREAM_END_BOOST), true);
 			break;
 		default:
-			log.warn("Unknown Windstream state #" + std::to_string(state) + " was sent from " + player->getPosition()->toString());
+			log.warn("Unknown Windstream state #{} was sent from {}", state, player->getPosition()->toString());
 			return;
 	}
 	PacketSendUtility::sendPacket(*player, serverpackets::SM_WINDSTREAM(state, 1));
