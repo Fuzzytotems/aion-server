@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <mutex>
+#include <regex>
 #include <set>
 #include <stacktrace>
 #include <thread>
@@ -31,6 +32,8 @@ struct State {
 	std::mutex mutex;
 	fs::path logFolder = "log";
 	const std::chrono::time_zone* timeZone = nullptr;
+	uint64_t maxFileSize = Config{}.maxFileSize;
+	int32_t maxRolledFiles = Config{}.maxRolledFiles;
 	std::vector<std::shared_ptr<DiscordChannelAppender>> discordAppenders;
 	/** file appenders created by createFileAppender, flushed by shutdown */
 	std::vector<std::weak_ptr<FileAppender>> fileAppenders;
@@ -125,7 +128,24 @@ void archiveLogs(const fs::path& logFolder) {
 
 std::vector<std::string> getPropertyKeys(std::string_view serverName) {
 	std::string prefix(serverName);
-	return {prefix + ".log.status.discord.webhook_url", prefix + ".log.status.discord.avatar_url"};
+	return {prefix + ".log.status.discord.webhook_url", prefix + ".log.status.discord.avatar_url", prefix + ".log.max_file_size",
+		prefix + ".log.max_rolled_files"};
+}
+
+uint64_t parseFileSize(std::string_view value) {
+	// logback FileSize: Pattern.compile("([0-9]+)\\s*(|kb|mb|gb)s?", Pattern.CASE_INSENSITIVE).matcher(value).matches()
+	static const std::regex FILE_SIZE_PATTERN("([0-9]+)\\s*(|kb|mb|gb)s?", std::regex::icase);
+	std::string text(value);
+	std::smatch match;
+	if (std::regex_match(text, match, FILE_SIZE_PATTERN)) {
+		std::string unit = utils::StringUtils::toLowerCase(match[2].str());
+		uint64_t coefficient = unit == "kb" ? 1024 : unit == "mb" ? 1024 * 1024 : unit == "gb" ? 1024 * 1024 * 1024 : 1;
+		try {
+			return std::stoull(match[1].str()) * coefficient;
+		} catch (const std::exception&) {
+		}
+	}
+	throw utils::IllegalArgumentException("String value [" + text + "] is not in the expected format.");
 }
 
 std::string resolvePattern(std::string_view pattern) {
@@ -143,7 +163,15 @@ std::shared_ptr<FileAppender> createFileAppender(const fs::path& file, std::stri
 	State& s = state();
 	std::lock_guard lock(s.mutex);
 	fs::path path = file.is_relative() ? s.logFolder / file : file;
-	auto appender = std::make_shared<FileAppender>(path, std::make_unique<PatternLayout>(resolvePattern(pattern), s.timeZone), filter, immediateFlush);
+	// logback.xml: <fileNamePattern>${logFolder}/<name>.%i.log</fileNamePattern> next to <file>${logFolder}/<name>.log</file>
+	FileAppender::RollingPolicy rollingPolicy{
+		.fileNamePattern = path.parent_path() / fs::path(path.stem().u8string() + u8".%i" + path.extension().u8string()),
+		.minIndex = 1,
+		.maxIndex = s.maxRolledFiles,
+		.maxFileSize = s.maxFileSize,
+	};
+	auto appender = std::make_shared<FileAppender>(path, std::make_unique<PatternLayout>(resolvePattern(pattern), s.timeZone), filter, immediateFlush,
+		rollingPolicy);
 	std::erase_if(s.fileAppenders, [](const auto& weak) { return weak.expired(); });
 	s.fileAppenders.push_back(appender);
 	return appender;
@@ -201,6 +229,8 @@ void init(const Config& config) {
 		std::lock_guard lock(s.mutex);
 		s.logFolder = config.logFolder;
 		s.timeZone = config.timeZone;
+		s.maxFileSize = config.maxFileSize;
+		s.maxRolledFiles = config.maxRolledFiles;
 		s.initialized = true;
 	}
 

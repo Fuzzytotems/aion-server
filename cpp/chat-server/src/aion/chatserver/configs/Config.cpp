@@ -12,6 +12,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/NetworkUtils.h"
+#include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 
 namespace aion::chatserver::configs {
@@ -112,6 +113,23 @@ Logging::Config Config::loadLoggingConfig() {
 	const std::string avatarUrl = properties.getProperty("chatserver.log.status.discord.avatar_url", "");
 	config.statusDiscordWebhookUrl = std::string(commons::utils::StringUtils::trim(webhookUrl));
 	config.statusDiscordAvatarUrl = std::string(commons::utils::StringUtils::trim(avatarUrl));
+	auto trimmed = [&properties](std::string_view key) { return std::string(commons::utils::StringUtils::trim(properties.getProperty(key, ""))); };
+	// logback.xml: <maxFileSize>${chatserver.log.max_file_size}</maxFileSize> and <maxIndex>${chatserver.log.max_rolled_files}</maxIndex>
+	// (C++: an empty or invalid value keeps the default with a warning, where logback reports a configuration error)
+	if (const std::string maxFileSize = trimmed("chatserver.log.max_file_size"); !maxFileSize.empty()) {
+		try {
+			config.maxFileSize = Logging::parseFileSize(maxFileSize);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid chatserver.log.max_file_size, keeping the default", e);
+		}
+	}
+	if (const std::string maxRolledFiles = trimmed("chatserver.log.max_rolled_files"); !maxRolledFiles.empty()) {
+		try {
+			config.maxRolledFiles = commons::utils::parseInt(maxRolledFiles);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid chatserver.log.max_rolled_files, keeping the default", e);
+		}
+	}
 	return config;
 }
 

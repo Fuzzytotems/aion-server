@@ -146,7 +146,34 @@ TEST(LoggingTest, ReinitializingArchivesFilesOfOpenConfigAppenders) {
 
 TEST(LoggingTest, PropertyKeys) {
 	EXPECT_EQ(Logging::getPropertyKeys("gameserver"),
-		(std::vector<std::string>{"gameserver.log.status.discord.webhook_url", "gameserver.log.status.discord.avatar_url"}));
+		(std::vector<std::string>{"gameserver.log.status.discord.webhook_url", "gameserver.log.status.discord.avatar_url",
+			"gameserver.log.max_file_size", "gameserver.log.max_rolled_files"}));
+}
+
+// logback FileSize.valueOf (the maxFileSize of the rolling appenders, upstream 36bdccb4d)
+TEST(LoggingTest, ParseFileSizeLikeLogback) {
+	EXPECT_EQ(Logging::parseFileSize("100MB"), 100ULL * 1024 * 1024);
+	EXPECT_EQ(Logging::parseFileSize("100 mb"), 100ULL * 1024 * 1024);
+	EXPECT_EQ(Logging::parseFileSize("5kbs"), 5ULL * 1024);
+	EXPECT_EQ(Logging::parseFileSize("2GB"), 2ULL * 1024 * 1024 * 1024);
+	EXPECT_EQ(Logging::parseFileSize("1234"), 1234ULL);
+	EXPECT_THROW(Logging::parseFileSize("1.5MB"), aion::commons::utils::IllegalArgumentException);
+	EXPECT_THROW(Logging::parseFileSize(" 100MB"), aion::commons::utils::IllegalArgumentException);
+	EXPECT_THROW(Logging::parseFileSize("100TB"), aion::commons::utils::IllegalArgumentException);
+}
+
+TEST(LoggingTest, FileAppendersRollWithTheLimitsOfInit) {
+	TempFolder folder("aion_LoggingTest_rolling");
+	Logging::init({.logFolder = folder.path, .console = false, .maxFileSize = 1234, .maxRolledFiles = 3});
+	std::shared_ptr<FileAppender> appender = Logging::createFileAppender("item.log", "%msg%n");
+	ASSERT_TRUE(appender->getRollingPolicy());
+	EXPECT_EQ(appender->getRollingPolicy()->fileNamePattern, folder.path / "item.%i.log");
+	EXPECT_EQ(appender->getRollingPolicy()->maxIndex, 3);
+	EXPECT_EQ(appender->getRollingPolicy()->maxFileSize, 1234U);
+	appender.reset();
+	Logging::init({.logFolder = folder.path, .console = false}); // the default limits again for the tests that follow
+	EXPECT_EQ(Logging::createFileAppender("item.log", "%msg%n")->getRollingPolicy()->maxFileSize, 100ULL * 1024 * 1024);
+	Logging::shutdown();
 }
 
 TEST(LoggingTest, ExceptionsInLogFilesLikeLogback) {
