@@ -15,6 +15,7 @@
 #include "aion/loginserver/LoginServer.h"
 #include "aion/loginserver/configs/Config.h"
 #include "aion/loginserver/controller/AccountTimeController.h"
+#include "aion/loginserver/controller/AccountController.h"
 #include "aion/loginserver/model/Account.h"
 #include "aion/loginserver/network/aion/AionAuthResponse.h"
 #include "aion/loginserver/network/aion/SessionKey.h"
@@ -249,6 +250,16 @@ TEST(BruteForceProtectorTest, ConcurrentFailures) {
 }
 
 // ---- AccountTimeController ----
+
+// upstream 4ca531afc: the character counts of an account are forgotten when it leaves the login server
+TEST(AccountControllerTest, RemovingAnAccountFromTheLoginServerForgetsItsCharacterCounts) {
+	model::Account account;
+	account.setId(912345);
+	controller::AccountController::addGSCharacterCountFor(912345, 1, 3);
+	ASSERT_TRUE(controller::AccountController::getGSCharacterCountsFor(912345).has_value());
+	controller::AccountController::removeAccountOnLS(account);
+	EXPECT_FALSE(controller::AccountController::getGSCharacterCountsFor(912345).has_value());
+}
 
 TEST(AccountTimeControllerTest, ExpirationAndPenalty) {
 	using controller::AccountTimeController::isAccountExpired;

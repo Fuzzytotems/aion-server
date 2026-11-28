@@ -100,16 +100,22 @@ void setAccountTime(Account& account) {
 
 void removeAccountOnLS(const Account& account) {
 	removeAccountOnLS(account.getId().value());
+	removeGSCharacterCounts(account.getId().value());
 }
 
 void removeAccountOnLS(const Account& account, const LoginConnection& connection) {
 	std::shared_ptr<LoginConnection> removed;
-	std::lock_guard lock(state().accountsOnLSLock);
-	auto it = state().accountsOnLS.find(account.getId().value());
-	if (it != state().accountsOnLS.end() && it->second.get() == &connection) {
-		removed = std::move(it->second);
-		state().accountsOnLS.erase(it);
+	{
+		std::lock_guard lock(state().accountsOnLSLock);
+		auto it = state().accountsOnLS.find(account.getId().value());
+		if (it != state().accountsOnLS.end() && it->second.get() == &connection) {
+			removed = std::move(it->second);
+			state().accountsOnLS.erase(it);
+		}
 	}
+	// the counts belong to the login that is removed; a newer login of the account (deviation, see the header) keeps them
+	if (removed)
+		removeGSCharacterCounts(account.getId().value());
 }
 
 std::shared_ptr<Account> getAccountOnLS(int32_t accountId) {
@@ -124,6 +130,7 @@ void checkAuth(const SessionKey& key, const std::shared_ptr<GsConnection>& gsCon
 	if (con && sessionKey && sessionKey->checkSessionKey(key)) {
 		// account is successful logged in on gs remove it from here
 		removeAccountOnLS(key.accountId);
+		removeGSCharacterCounts(key.accountId);
 
 		std::shared_ptr<GameServerInfo> gsi = gsConnection->getGameServerInfo();
 		if (!gsi)
@@ -312,6 +319,12 @@ std::shared_ptr<Account> createAccount(std::string_view name, std::string_view p
 		return account;
 	}
 	return nullptr;
+}
+
+void removeGSCharacterCounts(int32_t accountId) {
+	std::lock_guard lock(state().controllerLock);
+	std::lock_guard countsLock(state().characterCountsLock);
+	state().accountsGSCharacterCounts.erase(accountId);
 }
 
 void loadGSCharactersCount(int32_t accountId) {
