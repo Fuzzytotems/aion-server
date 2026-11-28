@@ -1,5 +1,7 @@
 #include "ScenarioDatabase.h"
 
+#include <thread>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -295,6 +297,19 @@ std::optional<std::string> ScenarioDatabase::queryString(std::string_view databa
 	if (!rs->next())
 		return std::nullopt;
 	return rs->getObject<std::string>(1);
+}
+
+void ScenarioDatabase::awaitAccountOffline(std::string_view database, std::string_view accountName, std::chrono::milliseconds timeout) const {
+	const std::string sql = "SELECT COUNT(*) FROM players WHERE online = 1 AND account_name = '" + std::string(accountName) + "'";
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	while (queryLong(database, sql).value_or(1) != 0) {
+		if (std::chrono::steady_clock::now() > deadline)
+			throw std::runtime_error("a character of account " + std::string(accountName) + " is still online after " + std::to_string(timeout.count()) +
+				" ms (the leave world task of CM_QUIT did not run)");
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	}
+	// the task leaves PlayerLeaveWorldService's map right after the online flag is stored (isLeavingWorld)
+	std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 std::optional<int64_t> ScenarioDatabase::queryLong(std::string_view database, std::string_view sql) const {

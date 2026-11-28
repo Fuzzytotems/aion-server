@@ -1800,16 +1800,10 @@ TEST(M5aScenario, Run) {
 		// Q1: CM_QUIT(1) keeps the connection and returns to the character list
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		expectNext(*a.game, "SM_QUIT_RESPONSE", async, 30s);
-		a.game->send(GameSession::CM_CHARACTER_LIST, GameSession::buildCM_CHARACTER_LIST(a.key.playOk2));
-		expectNext(*a.game, "SM_ACCOUNT_PROPERTIES", async);
-		const decoders::CharacterList list = decoders::decodeCharacterList(expectNext(*a.game, "SM_CHARACTER_LIST", async).data);
-		EXPECT_EQ(list.characterCount, 1);
-		ASSERT_EQ(list.characters.size(), 1u);
-
-		// Q2: the stored position is the region move target and the character is offline again
 		const std::string player = std::to_string(a.playerId);
 		// Since upstream d22a9af5b CM_QUIT registers the leave world task (PlayerLeaveWorldService.registerLeaveWorld): the character leaves the
-		// world 10 s after its last move or fight, so the logout's saves may come after SM_QUIT_RESPONSE. Wait for players.online = 0.
+		// world 10 s after its last move or fight, so the logout's saves and the AUTHED state may come after SM_QUIT_RESPONSE. Wait for
+		// players.online = 0.
 		auto awaitOffline = [&](std::string_view what) {
 			const auto deadline = std::chrono::steady_clock::now() + 20s;
 			while (database.queryLong(schema, "SELECT online FROM players WHERE id = " + player).value_or(1) != 0) {
@@ -1821,7 +1815,14 @@ TEST(M5aScenario, Run) {
 			}
 			std::this_thread::sleep_for(200ms); // the task leaves PlayerLeaveWorldService's map right after the online flag is stored
 		};
-		awaitOffline("Q2");
+		awaitOffline("Q1"); // also for CM_CHARACTER_LIST: leaveWorld's con.setActivePlayer(null) makes the connection AUTHED again
+		a.game->send(GameSession::CM_CHARACTER_LIST, GameSession::buildCM_CHARACTER_LIST(a.key.playOk2));
+		expectNext(*a.game, "SM_ACCOUNT_PROPERTIES", async);
+		const decoders::CharacterList list = decoders::decodeCharacterList(expectNext(*a.game, "SM_CHARACTER_LIST", async).data);
+		EXPECT_EQ(list.characterCount, 1);
+		ASSERT_EQ(list.characters.size(), 1u);
+
+		// Q2: the stored position is the region move target and the character is offline again
 		const auto rows = database.queryRows(schema, "SELECT online, world_id, x, y, z, old_level, last_online FROM players WHERE id = " + player, 7);
 		ASSERT_EQ(rows.size(), 1u);
 		EXPECT_EQ(rows[0][0].value_or(""), "0") << "Q2: the character is still online";
@@ -1866,6 +1867,11 @@ TEST(M5aScenario, Run) {
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
 		expectNext(*a.game, "SM_QUIT_RESPONSE", async, 30s);
 		EXPECT_TRUE(a.game->waitClosed(30s)) << "Q4: the socket stayed open after CM_QUIT(0)";
+		// The CM_QUIT(0) came less than 10 s after the enter world of Q3, so the character leaves the world later (registerLeaveWorld). A login
+		// before that loads the account with the character still online and takes PlayerEnterWorldService's "a char was online during acc
+		// login" branch, whose account warehouse reload terminates checked builds (C11, bindOwner on the published Account: reported to the
+		// owner). Q5 logs in after the leave, as before upstream d22a9af5b.
+		awaitOffline("Q4");
 		a.game.reset();
 		a.login.reset();
 		// the connection the npc half of the async set reads is gone; nothing is an announced npc until the relogin below has one again
@@ -1900,7 +1906,6 @@ TEST(M5aScenario, Run) {
 		// The character logged out seconds ago in Q4, and PlayerEnterWorldService.java:152-156 answers SM_ENTER_WORLD_CHECK(REENTRY_TIME) and
 		// returns while `now - lastOnline < CHARACTER_REENTRY_TIME * 1000`. The scenario profile sets that key to 1 second, and the login above
 		// takes less than that, so Q5 waits it out exactly as Q3 does - otherwise the relogin is refused and no SM_PLAYER_SPAWN follows.
-		awaitOffline("Q5"); // the CM_QUIT(0) of Q4 came less than 10 s after the enter world of Q3 (registerLeaveWorld)
 		std::this_thread::sleep_for(1500ms);
 		again.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
 		const std::vector<Packet> burst = collectBurst(*again.game, async);

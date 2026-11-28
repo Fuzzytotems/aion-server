@@ -1840,6 +1840,7 @@ void runM5b3Gate(const GateVariant& variant) {
 	const auto quit = [&] {
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
+		database.awaitAccountOffline(schema, a.account); // registerLeaveWorld (upstream d22a9af5b)
 	};
 
 	// ---- L6: socket a godstone ----

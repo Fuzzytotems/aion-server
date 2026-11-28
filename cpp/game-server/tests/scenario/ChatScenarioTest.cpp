@@ -713,7 +713,7 @@ void runChatGate() {
 		const std::chrono::milliseconds second = dropAndMeasure(12000ms);
 		EXPECT_GE(second, 15000ms - 500ms) << "ChatServer.java:56-58: the connect at 5 s fails, the next attempt 10 s later";
 		EXPECT_LE(second, 15000ms + RECONNECT_SLACK);
-		EXPECT_FALSE(servers.gameServer()->findLogLines("trying again in 10s").empty()) << "the failed attempt names its 10 s retry";
+		EXPECT_FALSE(servers.gameServer()->findLogLines("trying again in 10 seconds").empty()) << "the failed attempt names its 10 s retry";
 		// a new client is told about the chat server again
 		disconnect(b);
 		enterGame(servers, b);
@@ -728,8 +728,9 @@ void runChatGate() {
 		b.chatClient = std::make_unique<chat::FakeChatClient>(cs.clientPort);
 		b.chatClient->login(b.playerId, b.name + "@AION", b.account, token);
 		disconnect(b);
-		EXPECT_TRUE(b.chatClient->socket.waitClosed()) << "CM_PLAYER_LOGOUT closes the player's chat connection";
-		EXPECT_TRUE(cs.process->waitForLog("Player[id=" + std::to_string(b.playerId) + "] logged out", 15s)) << cs.process->readLogTail(4000);
+		// since upstream d22a9af5b the logout (and its CM_PLAYER_LOGOUT) comes up to 10 s after the last move or fight (registerLeaveWorld)
+		EXPECT_TRUE(b.chatClient->socket.waitClosed(20s)) << "CM_PLAYER_LOGOUT closes the player's chat connection";
+		EXPECT_TRUE(cs.process->waitForLog("Player[id=" + std::to_string(b.playerId) + "] logged out", 25s)) << cs.process->readLogTail(4000);
 	});
 	cases.run("Y7b", "the others log out", [&] {
 		disconnect(a);
