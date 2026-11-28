@@ -429,6 +429,38 @@ TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectsACharacterThatIsStillSaving)
 	}
 }
 
+/**
+ * A relog while the character is still leaving the world (upstream d22a9af5b: CM_QUIT and a disconnect register a leave world task that saves
+ * the character up to 10 s later): the account is loaded with the character online, and once the task has saved it, enterWorld takes Java's
+ * "a char was online during acc login" branch, which reloads the character's account data and the account warehouse of the shared account.
+ * Checked builds terminated there (C11, bindOwner on the published Account) until PlayerStorage(Account&) took its owner at construction.
+ */
+TEST_F(LoginSliceDatabaseFlowTest, ARelogWhileTheCharacterIsLeavingReloadsTheAccountWarehouse) {
+	storeCharacter(4111, "Relog", 61);
+	loginslice::test::execute("UPDATE players SET online = 1 WHERE id = 4111"); // the pending leave world task has not saved it yet
+	SliceSession session;
+	session.authenticate(loadAccount(61));
+	const void* loadedWarehouse = nullptr;
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		ASSERT_TRUE(session.accountRef->getPlayerAccountData(4111)->getPlayerCommonData()->isOnline());
+		loadedWarehouse = &session.accountRef->getAccountWarehouse();
+	}
+	loginslice::test::execute("UPDATE players SET online = 0 WHERE id = 4111"); // the task saved the character (PlayerDAO.onlinePlayer(false))
+	// a CHARBAN ends enterWorld with a packet right after the reload (PlayerEnterWorldService: the ban check follows the reload)
+	const int64_t nowSeconds = commons::utils::currentTimeMillis() / 1000;
+	loginslice::test::execute("INSERT INTO player_punishments (player_id, punishment_type, start_time, duration, reason) VALUES (4111, 'CHARBAN', " +
+		std::to_string(nowSeconds) + ", 3600, 'test')");
+	session.client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(4111).data);
+	FakeGameClient::ServerPacket response = session.client.expectPacket(aion::opcodeOf<sp::SM_ENTER_WORLD_CHECK>);
+	EXPECT_EQ(response.data, (std::vector<uint8_t>{2, 0, 0})) << "CONNECTION_ERROR of the ban check, after the reload";
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		EXPECT_NE(static_cast<const void*>(&session.accountRef->getAccountWarehouse()), loadedWarehouse) << "the account warehouse was reloaded";
+		EXPECT_FALSE(session.accountRef->getPlayerAccountData(4111)->getPlayerCommonData()->isOnline()) << "and the character's account data";
+	}
+}
+
 TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectsAnEarlyReentry) {
 	storeCharacter(4011, "Early", 42);
 	loginslice::test::execute("UPDATE players SET last_online = NOW() WHERE id = 4011");

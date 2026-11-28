@@ -1867,11 +1867,6 @@ TEST(M5aScenario, Run) {
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
 		expectNext(*a.game, "SM_QUIT_RESPONSE", async, 30s);
 		EXPECT_TRUE(a.game->waitClosed(30s)) << "Q4: the socket stayed open after CM_QUIT(0)";
-		// The CM_QUIT(0) came less than 10 s after the enter world of Q3, so the character leaves the world later (registerLeaveWorld). A login
-		// before that loads the account with the character still online and takes PlayerEnterWorldService's "a char was online during acc
-		// login" branch, whose account warehouse reload terminates checked builds (C11, bindOwner on the published Account: reported to the
-		// owner). Q5 logs in after the leave, as before upstream d22a9af5b.
-		awaitOffline("Q4");
 		a.game.reset();
 		a.login.reset();
 		// the connection the npc half of the async set reads is gone; nothing is an announced npc until the relogin below has one again
@@ -1906,6 +1901,10 @@ TEST(M5aScenario, Run) {
 		// The character logged out seconds ago in Q4, and PlayerEnterWorldService.java:152-156 answers SM_ENTER_WORLD_CHECK(REENTRY_TIME) and
 		// returns while `now - lastOnline < CHARACTER_REENTRY_TIME * 1000`. The scenario profile sets that key to 1 second, and the login above
 		// takes less than that, so Q5 waits it out exactly as Q3 does - otherwise the relogin is refused and no SM_PLAYER_SPAWN follows.
+		// The CM_QUIT(0) of Q4 came less than 10 s after the enter world of Q3, so the character leaves the world later (registerLeaveWorld,
+		// upstream d22a9af5b): the login above loaded the account with the character online, and an enter before the leave is REENTRY_TIME.
+		// After it, PlayerEnterWorldService's "a char was online during acc login" branch reloads the account data and the account warehouse.
+		awaitOffline("Q5");
 		std::this_thread::sleep_for(1500ms);
 		again.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
 		const std::vector<Packet> burst = collectBurst(*again.game, async);

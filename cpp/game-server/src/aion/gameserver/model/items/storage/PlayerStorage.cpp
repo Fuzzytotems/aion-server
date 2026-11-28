@@ -16,8 +16,9 @@ PlayerStorage::PlayerStorage(gameobjects::player::Player& owner, StorageType sto
 	actor.set(owner);
 }
 
-PlayerStorage::PlayerStorage(account::Account& account, StorageType storageTypeValue) : Storage(storageTypeValue) {
-	bindOwner(account);
+// The owner is given at construction (OwnedPart's pattern 1), not bound afterwards: an account warehouse is also made for an account that is
+// already shared - PlayerEnterWorldService's reload after a double login, removeDeletedCharacters - where bindOwner would be C11
+PlayerStorage::PlayerStorage(account::Account& account, StorageType storageTypeValue) : Storage(storageTypeValue, true, account) {
 }
 
 PlayerStorage::~PlayerStorage() = default;
