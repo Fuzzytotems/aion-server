@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-#include "aion/gameserver/runtime/collections/ArrayList.h"
+#include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/controllers/fwd.h"
@@ -46,7 +46,8 @@ class Npc : public Creature {
 	AION_MAKE_REF_FRIEND
 private:
 	const std::unique_ptr<skill::NpcSkillList> skillList;
-	runtime::LinkedList<runtime::Ref<skill::NpcSkillEntry>> queuedSkills{AION_LOCK_CLASS(Npc::queuedSkills)};
+	// created by the first queueSkill (Java: new ArrayDeque<>(3)); read and written under the Npc's monitor
+	runtime::Field<runtime::Ref<runtime::RcArrayDeque<runtime::Ref<skill::NpcSkillEntry>>>> queuedSkills{};
 	runtime::Field<runtime::Ref<spawnengine::WalkerGroup>> walkerGroup{};
 	runtime::Field<std::string> masterName{};
 	runtime::Field<int32_t> creatorId{0};

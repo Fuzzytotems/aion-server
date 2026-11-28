@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/Rnd.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/TimeUtils.h"
@@ -208,13 +209,19 @@ TEST(UtilTest, ConvertName) {
 
 TEST(ChatUtilTest, ColorsUseDecimalFormat) {
 	EXPECT_EQ(ChatUtil::color("msg", std::optional<JavaColor>()), "[color:msg;1 1 1]");
-	EXPECT_EQ(ChatUtil::color("msg", JavaColor::ORANGE), "[color:msg;1 .78 0]"); // 200 / 255f = 0.78431374
-	EXPECT_EQ(ChatUtil::color("msg", 0x80FF00), "[color:msg;.5 1 0]");         // 128 / 255f = 0.5019608
-	EXPECT_EQ(ChatUtil::color("msg", 3, 128, 255), "[color:msg;.01 .5 1]");    // 3 / 255f = 0.011764706
+	EXPECT_EQ(ChatUtil::color("msg", JavaColor::ORANGE), "[color:msg;1 0.78 0]"); // 200 / 255f = 0.78431374
+	EXPECT_EQ(ChatUtil::color("msg", 0x80FF00), "[color:msg;0.5 1 0]");          // 128 / 255f = 0.5019608
+	EXPECT_EQ(ChatUtil::color("msg", 3, 128, 255), "[color:msg;0.01 0.5 1]");     // 3 / 255f = 0.011764706
 	EXPECT_EQ(ChatUtil::position("Teleporter", 400010000, 2128.8f, 1924.3f, 0.0f), "[pos:Teleporter;400010000 2128.8 1924.3 0 1]");
-	EXPECT_EQ(ChatUtil::position("Core", 400010000, 2000.125f, 2000.375f, 2000.0f), "[pos:Core;400010000 2000.12 2000.38 2000 2]"); // HALF_EVEN
-	EXPECT_EQ(ChatUtil::position("Upper", 400010000, -0.001f, 1.999f, 2500.0f), "[pos:Upper;400010000 -0 2 2500 3]");
+	// upstream b7bc32976: HALF_UP (DecimalFormat's HALF_EVEN gave 2000.12)
+	EXPECT_EQ(ChatUtil::position("Core", 400010000, 2000.125f, 2000.375f, 2000.0f), "[pos:Core;400010000 2000.13 2000.38 2000 2]");
+	// BigDecimal has no negative zero: -0.001 rounds to "0" (DecimalFormat gave "-0")
+	EXPECT_EQ(ChatUtil::position("Upper", 400010000, -0.001f, 1.999f, 2500.0f), "[pos:Upper;400010000 0 2 2500 3]");
 	EXPECT_EQ(ChatUtil::position("Poeta", 210010000, 1.0f, 2.0f, 3.0f), "[pos:Poeta;210010000 1 2 3 0]");
+	// the shortest decimal of the widened float decides: 0.005f is 0.004999999888241291, -0.125f is a tie rounded away from zero
+	EXPECT_EQ(ChatUtil::position("Poeta", 210010000, 0.005f, -0.125f, -0.0f), "[pos:Poeta;210010000 0 -0.13 0 0]");
+	EXPECT_EQ(ChatUtil::position("Poeta", 210010000, 99.995f, 1e8f, -12.5f), "[pos:Poeta;210010000 100 100000000 -12.5 0]");
+	EXPECT_THROW(ChatUtil::position("Poeta", 210010000, std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f), commons::utils::NumberFormatException);
 }
 
 TEST(ChatUtilTest, LinksAndIds) {
@@ -222,8 +229,9 @@ TEST(ChatUtilTest, LinksAndIds) {
 	EXPECT_EQ(ChatUtil::path("Mune"), "[where:Mune]");
 	EXPECT_EQ(ChatUtil::path("Mune", 203060), "[where:Mune;203060]");
 	EXPECT_EQ(ChatUtil::item(182400001), "[item:182400001]");
-	EXPECT_EQ(ChatUtil::itemName(182400001), "[item_ex:182400001]");
+	EXPECT_EQ(ChatUtil::itemName(100200836, "Ownername"), "[item_ex:100200836;Ownername]");
 	EXPECT_EQ(ChatUtil::recipe(155000001), "[recipe:155000001]");
+	EXPECT_EQ(ChatUtil::recipeName(155006741, "Ownername"), "[recipe_ex:155006741;Ownername]");
 	EXPECT_EQ(ChatUtil::quest(1006), "[quest:1006]");
 	EXPECT_EQ(ChatUtil::getItemId("[item: 100000094]"), 100000094);
 	EXPECT_EQ(ChatUtil::getItemId("100000094"), 100000094);
@@ -669,6 +677,12 @@ TEST(XmlUtilTest, ListFiles) {
 	EXPECT_EQ(flat.size(), 2u);
 	std::vector<std::filesystem::path> recursive = xml::XmlUtil::listFiles(dir.path, true);
 	EXPECT_EQ(recursive.size(), 3u);
+	// upstream 2cd926056: sorted in File.compareTo order
+#ifdef _WIN32
+	EXPECT_EQ(recursive, (std::vector<std::filesystem::path>{dir.path / "a.xml", dir.path / "B.XML", dir.path / "sub" / "d.xml"}));
+#else
+	EXPECT_EQ(recursive, (std::vector<std::filesystem::path>{dir.path / "B.XML", dir.path / "a.xml", dir.path / "sub" / "d.xml"}));
+#endif
 	std::vector<std::filesystem::path> single = xml::XmlUtil::listFiles(dir.path / "a.xml", true);
 	EXPECT_EQ(single, std::vector<std::filesystem::path>{dir.path / "a.xml"}) << "Files.find visits the start file";
 	// Java: RuntimeException wrapping NoSuchFileException

@@ -56,19 +56,19 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 	int32_t raceId = activePlayer->isEnemy(*player) ? model::getRaceId(activePlayer->getOppositeRace()) : model::getRaceId(player->getRace());
 	if (player->isInCustomState(CustomPlayerState::NEUTRAL_TO_ALL_PLAYERS) || activePlayer->isInCustomState(CustomPlayerState::NEUTRAL_TO_ALL_PLAYERS))
 		raceId = model::getRaceId(activePlayer->getRace());
-	writeF(player->getX()); // x
-	writeF(player->getY()); // y
-	writeF(player->getZ()); // z
+	writeF(player->getX());
+	writeF(player->getY());
+	writeF(player->getZ());
 	writeD(player->getObjectId());
-	writeD(pcd->getTemplateId()); // 0xA3 female asmodian, 0xA2 male asmodian, 0xA1 female elyos, 0xA0 male elyos
-	writeD(player->getRobotId()); // RobotId
-	writeD(player->getTransformModel().getModelId()); // Transformed state: transformed model id, Regular state: player model id
+	writeD(pcd->getTemplateId());
+	writeD(player->getRobotId());
+	writeD(player->getTransformModel().getModelId());
 	writeC(0x00); // new 2.0 Packet --- probably pet info?
 	writeD(detail::transformTypeId(player->getTransformModel().getType()));
 	writeC(enemy ? 0x00 : 0x26);
-	writeC(raceId); // race
+	writeC(raceId);
 	writeC(model::getClassId(pcd->getPlayerClass()));
-	writeC(model::getGenderId(pcd->getGender())); // sex
+	writeC(model::getGenderId(pcd->getGender()));
 	writeH(player->getState());
 	writeD(0);
 	bool someState = false;
@@ -94,7 +94,7 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 		writeB(std::vector<uint8_t>(12));
 	}
 	writeC(detail::getHpPercentage(*player));
-	writeH(pcd->getDp()); // current dp
+	writeH(pcd->getDp());
 	writeC(0x00); // unk (0x00)
 	writeEquippedItems(player->getEquipment().getEquippedForAppearance());
 	writeD(playerAppearance->getSkinRGB());
@@ -133,7 +133,6 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 	writeC(playerAppearance->getCheekBones());
 	writeC(playerAppearance->getEarShape());
 	writeC(playerAppearance->getHeadSize());
-	// 1.5.x 0x00, shoulderSize, armLength, legLength (BYTE) after HeadSize
 	writeC(playerAppearance->getNeck());
 	writeC(playerAppearance->getNeckLength());
 	writeC(playerAppearance->getShoulderSize());
@@ -162,7 +161,7 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 	writeH(attackSpeed.base);
 	writeH(attackSpeed.current);
 	writeC(player->getPortAnimationId()); // not visible to other players (they always see a simple fade in animation)
-	writeS(player->hasStore() ? player->getStore()->getStoreMessage() : std::string()); // private store message
+	writeS(player->hasStore() ? player->getStore()->getStoreMessage() : std::string());
 	runtime::Ptr<controllers::movement::PlayerMoveController> pmc = player->getMoveController();
 	int8_t movementMask = pmc->getMovementMask();
 	if ((pmc->getMovementMask() & MovementMask::ABSOLUTE) == MovementMask::ABSOLUTE) {
@@ -188,12 +187,12 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 		writeD(player->getFlightPath()->getId());
 		writeD(player->getFlightPath()->getDistance());
 	}
-	writeC(player->getVisualState()); // visualState
+	writeC(player->getVisualState());
 	writeS(player->getCommonData()->getNote()); // note show in right down windows if your target on player
-	writeH(player->getLevel()); // [level]
-	writeH(player->getPlayerSettings()->getDisplay()); // unk - 0x04
-	writeH(player->getPlayerSettings()->getDeny()); // unk - 0x00
-	writeH(detail::abyssRankId(player->getAbyssRank()->getRank())); // abyss rank
+	writeH(player->getLevel());
+	writeH(player->getPlayerSettings()->getDisplay());
+	writeH(player->getPlayerSettings()->getDeny());
+	writeH(detail::abyssRankId(player->getAbyssRank()->getRank()));
 	writeH(0x00); // unk - 0x01
 	runtime::Ptr<model::gameobjects::VisibleObject> target = player->getTarget();
 	writeD(target == nullptr ? 0 : target->getObjectId());
@@ -210,8 +209,8 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 	writeC(3); // can be 3 or 5 on elyos side (3 is more common), not sure what it's for (TODO: check asmo side)
 	runtime::Ptr<services::conquerorAndProtectorSystem::CPInfo> cpInfo = detail::getCPInfoForCurrentMap(*player);
 	using model::templates::cp::CPType;
-	writeC(cpInfo != nullptr && cpInfo->getType() == CPType::CONQUEROR ? cpInfo->getRank() : 0); // Conqueror rank
-	writeC(cpInfo != nullptr && cpInfo->getType() == CPType::PROTECTOR ? cpInfo->getRank() : 0); // Protector rank
+	writeC(cpInfo != nullptr && cpInfo->getType() == CPType::CONQUEROR ? cpInfo->getRank() : 0);
+	writeC(cpInfo != nullptr && cpInfo->getType() == CPType::PROTECTOR ? cpInfo->getRank() : 0);
 	writeC(0); // Officer rank icon
 }
 

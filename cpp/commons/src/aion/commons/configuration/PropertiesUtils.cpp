@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/JavaFile.h"
 
 namespace aion::commons::configuration::PropertiesUtils {
 
@@ -63,8 +64,8 @@ std::vector<std::filesystem::path> collectPropertiesFiles(const std::filesystem:
 	} catch (const fs::filesystem_error& e) {
 		throw utils::IOException(e.what(), std::current_exception());
 	}
-	// Deviation: Java loads the files in file system listing order, which is platform dependent. Sorting makes the result deterministic.
-	std::ranges::sort(files);
+	// Java (upstream 2cd926056): paths.map(Path::toFile).sorted()
+	utils::JavaFile::sort(files);
 	return files;
 }
 

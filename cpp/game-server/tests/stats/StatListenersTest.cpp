@@ -75,12 +75,9 @@ TEST_F(StatListenersTest, EquippedWeaponAddsItsModifiersExceptTheWeaponSpeedOnes
 	listeners::ItemEquipmentListener::onItemEquipment(*sword, *f.player);
 
 	// extractApplicableWeaponModifiers drops ATTACK_SPEED, PVP_ATTACK_RATIO and BOOST_CASTING_TIME of main and sub hand weapons
-	Ptr<runtime::RcArrayList<Ref<calc::functions::StatFunction>>> current = sword->getCurrentModifiers();
-	ASSERT_TRUE(current);
-	ASSERT_EQ(current->size(), 1);
-	EXPECT_EQ(current->get(0)->getName(), StatEnum::PHYSICAL_ATTACK);
 	EXPECT_EQ(stats->getStatsSorted(StatEnum::PHYSICAL_ATTACK).size(), 1u);
 	EXPECT_TRUE(stats->getStatsSorted(StatEnum::ATTACK_SPEED).empty());
+	EXPECT_TRUE(stats->getStatsSorted(StatEnum::BOOST_CASTING_TIME).empty());
 	EXPECT_EQ(stats->getStatsSorted(StatEnum::PHYSICAL_ATTACK)[0]->getOwner().get(), static_cast<calc::StatOwner*>(sword.get()))
 		<< "the template modifier has no owner: added as a proxy of the item";
 	// the sword is not in the equipment, so the base is the template attack 18; the bonus modifier adds 7
@@ -103,7 +100,8 @@ TEST_F(StatListenersTest, EquippedArmorKeepsAllModifiersAndLoadSynchronizesTheLi
 	listeners::ItemEquipmentListener::onItemEquipment(*torso, *f.player);
 
 	Ptr<container::PlayerGameStats> stats = f.player->getGameStats();
-	EXPECT_EQ(torso->getCurrentModifiers()->size(), 3) << "not a weapon slot: every modifier";
+	for (StatEnum stat : {StatEnum::MAXHP, StatEnum::PHYSICAL_DEFENSE, StatEnum::ATTACK_SPEED})
+		EXPECT_EQ(stats->getStatsSorted(stat).size(), 1u) << "not a weapon slot: every modifier";
 	EXPECT_EQ(stats->getMaxHp()->getCurrent(), 250);
 	EXPECT_EQ(stats->getPDef()->getCurrent(), 12);
 	// attack speed 1500 + 1500 * 10 / 100 = 1650
