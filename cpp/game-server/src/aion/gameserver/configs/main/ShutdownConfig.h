@@ -19,6 +19,9 @@ struct ShutdownConfig {
 	/** Shutdown Hook delay in seconds. */
 	static inline std::atomic<int32_t> DELAY{0};
 
+	/** Shut down instantly if there are no other players online except staff. */
+	static inline std::atomic<bool> INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE{false};
+
 	/** Shutdown restart schedule. */
 	static inline std::atomic<const services::cron::CronExpression*> RESTART_SCHEDULE{nullptr};
 

@@ -426,6 +426,7 @@ SecurityConfig	bind	MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES	gameserver.secu
 SecurityConfig	bind	HDD_SERIAL_LOCK_ENABLE	gameserver.security.hdd_serial_lock.enable	false
 SecurityConfig	bind	HDD_SERIAL_LOCK_UNLOCKED_ACCOUNTS	gameserver.security.hdd_serial_lock.auto_lock	false
 ShutdownConfig	bind	DELAY	gameserver.shutdown.delay	120
+ShutdownConfig	bind	INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE	gameserver.shutdown.instant_shutdown_with_only_staff_online	true
 ShutdownConfig	bind	RESTART_SCHEDULE	gameserver.shutdown.restart_schedule	-
 SiegeConfig	bind	SIEGE_ENABLED	gameserver.siege.enable	true
 SiegeConfig	bind	BALAUR_AUTO_ASSAULT	gameserver.siege.assault.enable	false

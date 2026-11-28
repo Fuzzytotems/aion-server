@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "aion/commons/database/DatabaseFactory.h"
@@ -38,11 +39,16 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/instance/InstanceEngine.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/account/Account.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/siege/Influence.h"
+#include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/GameConnectionFactoryImpl.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_QUIT_RESPONSE.h"
 #include "aion/gameserver/network/chatserver/ChatServer.h"
 #include "aion/gameserver/network/loginserver/LoginServer.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/services/RuntimeLifecycle.h"
@@ -83,6 +89,7 @@
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.h"
 #include "aion/gameserver/taskmanager/tasks/housing/MaintenanceTask.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/chathandlers/ChatProcessor.h"
 #include "aion/gameserver/world/World.h"
@@ -313,9 +320,38 @@ void GameServer::runStep(StartupObserver& observer, int32_t& step, std::string_v
 }
 
 void GameServer::shutdownNioServer() {
-	if (commons::network::NioServer* server = nioServer.exchange(nullptr, std::memory_order_acq_rel)) {
-		server->shutdown();
+	if (commons::network::NioServer* server = getNioServer()) {
+		if (forceStaffClientsToServerSelectionScreen())
+			std::this_thread::sleep_for(std::chrono::milliseconds(200)); // wait for login server to accept reconnections
+		if (nioServer.exchange(nullptr, std::memory_order_acq_rel) == server) // C++: a concurrent second call does not shut it down twice
+			server->shutdown();
 	}
+}
+
+std::vector<std::shared_ptr<network::aion::AionConnection>> GameServer::findClientConnections() {
+	commons::network::NioServer* server = getNioServer();
+	if (server == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("Cannot invoke \"com.aionemu.commons.network.NioServer.findAllConnections()\" because \"nioServer\" is null");
+	std::vector<std::shared_ptr<network::aion::AionConnection>> connections;
+	for (const std::shared_ptr<commons::network::AConnectionBase>& c : server->findAllConnections())
+		if (std::shared_ptr<network::aion::AionConnection> connection = std::dynamic_pointer_cast<network::aion::AionConnection>(c))
+			connections.push_back(std::move(connection));
+	return connections;
+}
+
+bool GameServer::forceStaffClientsToServerSelectionScreen() {
+	std::vector<std::shared_ptr<network::aion::AionConnection>> staffClients;
+	for (const std::shared_ptr<network::aion::AionConnection>& c : findClientConnections())
+		if (c->getAccount() && c->getAccount()->getAccessLevel() > 0)
+			staffClients.push_back(c);
+	if (staffClients.empty())
+		return false;
+	for (const std::shared_ptr<network::aion::AionConnection>& c : staffClients) {
+		if (c->getState() == network::aion::AionConnection::State::IN_GAME)
+			utils::PacketSendUtility::sendPacket(*c->getActivePlayer(), network::aion::serverpackets::SM_QUIT_RESPONSE(true));
+		network::loginserver::LoginServer::getInstance().requestAuthReconnection(c->getAccount()->getId(), c.get());
+	}
+	return true;
 }
 
 bool GameServer::isShutdownScheduled() {

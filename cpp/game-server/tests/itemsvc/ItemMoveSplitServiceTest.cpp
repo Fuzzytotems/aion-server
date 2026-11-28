@@ -55,7 +55,7 @@ void noExit(int32_t) {
 
 /**
  * GameServer.isShuttingDownSoon() for the scope: a shutdown scheduled with 30 s left (GameServer.initShutdown -> ShutdownHook.initShutdown), its
- * hook thread held in the first worldHasPlayers until the scope ends, every other operation and the exit a no-op (the pattern of
+ * hook thread held in the first countdownNeeded until the scope ends, every other operation and the exit a no-op (the pattern of
  * tests/app/GameServerTest.cpp ShutdownQueriesReadTheShutdownHook). The destructor releases the thread, waits for it and resets the hook.
  */
 class ShutdownSoonScope {
@@ -63,7 +63,7 @@ public:
 	ShutdownSoonScope() {
 		ShutdownHook::setExitFunctionForTests(&noExit);
 		ShutdownHook::Operations ops;
-		ops.worldHasPlayers = [this] {
+		ops.countdownNeeded = [this] {
 			while (!release.load())
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			return false;

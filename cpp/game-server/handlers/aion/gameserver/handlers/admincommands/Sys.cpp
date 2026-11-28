@@ -20,16 +20,18 @@ namespace aion::gameserver::handlers::admincommands {
 
 AION_ADMIN_COMMAND(Sys);
 
-// Java Sys.java:22-29
+// Java Sys.java:22-30
 Sys::Sys()
 	: AdminCommand("sys", "Shows and controls the system environment.",
-		  "<info> - Shows general system information.\n"
-		  "<memory> [gc] - Shows memory usage statistics and optionally runs the garbage collector.\n"
-		  "<threadpool> - Shows thread pool manager info.\n"
-		  "<restart|shutdown> [delay] - Restarts or shuts down the server after the specified delay in seconds (default: uses delay from config).\n") {
+		  std::format("<info> - Shows general system information.\n"
+					  "<memory> [gc] - Shows memory usage statistics and optionally runs the garbage collector.\n"
+					  "<threadpool> - Shows thread pool manager info.\n"
+					  "<restart|shutdown> [delay] - Restarts or shuts down the server after the specified delay in seconds (default: uses delay from config). The "
+					  "delay is skipped when no players{} are online.\n",
+			  configs::main::ShutdownConfig::INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE.load() ? " or only staff" : "")) {
 }
 
-// Java Sys.java:31-62
+// Java Sys.java:32-63
 void Sys::execute(Player& admin, std::span<const std::string> params) {
 	if (params.empty()) { // parity= if (params == null || params.length < 1) {
 		sendInfo(admin);
@@ -67,7 +69,7 @@ void Sys::execute(Player& admin, std::span<const std::string> params) {
 	}
 }
 
-// Java Sys.java:64-67
+// Java Sys.java:65-68
 void Sys::initShutdown(int32_t exitCode, std::optional<std::string> delay) {
 	int32_t delaySeconds = !delay.has_value() ? configs::main::ShutdownConfig::DELAY.load() : commons::utils::parseInt(*delay); // parity= int delaySeconds = delay == null ? ShutdownConfig.DELAY : Integer.parseInt(delay);
 	GameServer::initShutdown(exitCode, delaySeconds);

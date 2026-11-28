@@ -46,9 +46,9 @@ void recordExit(int32_t exitCode) {
 	exitFunctionCode.store(exitCode);
 }
 
-ShutdownHook::Operations recordingOperations(std::function<bool()> worldHasPlayers) {
+ShutdownHook::Operations recordingOperations(std::function<bool()> countdownNeeded) {
 	ShutdownHook::Operations ops;
-	ops.worldHasPlayers = std::move(worldHasPlayers);
+	ops.countdownNeeded = std::move(countdownNeeded);
 	ops.announceShutdown = [](int32_t seconds) {
 		std::scoped_lock lock(recorder().mutex);
 		recorder().announcements.push_back(seconds);

@@ -9,6 +9,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "aion/commons/database/DatabaseFactory.h"
 #include "aion/commons/logging/LoggerFactory.h"
@@ -19,6 +20,7 @@
 #include "aion/commons/utils/concurrent/UncaughtExceptionHandler.h"
 #include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/ShutdownConfig.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
@@ -27,6 +29,7 @@
 #include "aion/gameserver/services/PeriodicSaveService.h"
 #include "aion/gameserver/services/cron/CronExpression.h"
 #include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/services/player/PlayerLeaveWorldService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/World.h"
 
@@ -123,7 +126,7 @@ void ShutdownHook::run() {
 	remainingSeconds.compareAndSet(UNSET_DELAY, configs::main::ShutdownConfig::DELAY.load());
 	for (int32_t announceInterval = 1, expectedSeconds = remainingSeconds.get(); remainingSeconds.get() > 0;) {
 		try {
-			if (!ops.worldHasPlayers())
+			if (!ops.countdownNeeded()) // Java: allPlayers.isEmpty() || INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE && allPlayers.stream().allMatch(Player::isStaff)
 				break; // fast exit
 
 			if (remainingSeconds.get() % announceInterval == 0) {
@@ -145,7 +148,7 @@ void ShutdownHook::run() {
 		}
 	}
 
-	ops.shutdownNetwork(); // shuts down network, disconnects cs/ls/all players and saves them
+	ops.shutdownNetwork(); // shuts down network, disconnects cs/ls/all players and schedules leaveWorld, then PlayerLeaveWorldService.processPendingLeaveWorldTasks()
 
 	ops.dumpStats(); // RunnableStatsManager.dumpClassStats(SortBy.AVG)
 	ops.saveData();
@@ -273,17 +276,24 @@ void ShutdownHook::setAfterRuntimeShutdown(Step step) {
 
 ShutdownHook::Operations ShutdownHook::defaultOperations() {
 	Operations ops;
-	ops.worldHasPlayers = [] {
+	ops.countdownNeeded = [] {
 		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::SHUTDOWN));
-		return !world::World::getInstance().getAllPlayers().empty();
+		std::vector<runtime::Ptr<model::gameobjects::player::Player>> allPlayers = world::World::getInstance().getAllPlayers();
+		return !(allPlayers.empty() ||
+			configs::main::ShutdownConfig::INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE.load() &&
+				std::ranges::all_of(allPlayers, [](const runtime::Ptr<model::gameobjects::player::Player>& player) { return player->isStaff(); }));
 	};
 	ops.announceShutdown = [](int32_t seconds) {
 		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::SHUTDOWN));
 		utils::PacketSendUtility::broadcastToWorld(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_SERVER_SHUTDOWN(seconds));
 	};
 	ops.shutdownNetwork = [] {
+		{
+			runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::SHUTDOWN));
+			GameServer::shutdownNioServer(); // C++: NioServer::shutdown returns after the onDisconnect callbacks ran, so every leaveWorld is registered
+		}
 		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::SHUTDOWN));
-		GameServer::shutdownNioServer();
+		services::player::PlayerLeaveWorldService::processPendingLeaveWorldTasks();
 	};
 	ops.dumpStats = [] { commons::utils::concurrent::RunnableStatsManager::dumpClassStats(commons::utils::concurrent::RunnableStatsManager::SortBy::AVG); };
 	ops.saveData = [] {

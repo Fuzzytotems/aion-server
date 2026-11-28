@@ -148,6 +148,7 @@
 #include "aion/gameserver/services/mail/MailService.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
 #include "aion/gameserver/services/player/MultiClientService.h"
+#include "aion/gameserver/services/player/PlayerLeaveWorldService.h"
 #include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/services/reward/AdventService.h"
 #include "aion/gameserver/services/reward/VeteranRewardService.h"
@@ -252,7 +253,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 		return;
 	}
 
-	if (dao::PlayerDAO::isOnline(objectId)) { // char is still leaving the world and not saved yet (fast reentry from plastic surgery screen or packet hack)
+	if (PlayerLeaveWorldService::isLeavingWorld(objectId)) { // char is not saved yet (fast reentry from plastic surgery screen or packet hack)
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::REENTRY_TIME));
 		return;
 	}
@@ -264,7 +265,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 		}
 	}
 	if (onlinePlayerId) { // a char was online during acc login (double login or client crash), so reload pcd, appearance and acc warehouse
-		if (dao::PlayerDAO::isOnline(*onlinePlayerId)) { // the found char is still leaving the world, so the acc wh might still be outdated
+		if (PlayerLeaveWorldService::isLeavingWorld(*onlinePlayerId)) { // the acc wh might still be outdated, as the char hasn't been saved yet
 			client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::REENTRY_TIME));
 			return;
 		}

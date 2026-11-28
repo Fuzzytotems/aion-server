@@ -7,6 +7,7 @@ namespace aion::gameserver::configs::main {
 
 void ShutdownConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	AION_BIND(p, "gameserver.shutdown.delay", DELAY, "120");
+	AION_BIND(p, "gameserver.shutdown.instant_shutdown_with_only_staff_online", INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE, "true");
 	AION_BIND(p, "gameserver.shutdown.restart_schedule", RESTART_SCHEDULE);
 }
 

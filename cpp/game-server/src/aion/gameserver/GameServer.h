@@ -3,11 +3,14 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 #include "aion/gameserver/fwd.h"
 #include "aion/gameserver/model/fwd.h"
+#include "aion/gameserver/network/aion/fwd.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 
@@ -35,7 +38,8 @@ namespace aion::gameserver {
  *   thread pools, CronService and IDFactory start through runtime::RuntimeLifecycle (runtime-architecture.md §23).
  * - Every Java statement of main() is wired; F-01b (stage 2) makes the whole startup pass with 0 AION_UNPORTED hits.
  * - The NioServer of the game clients is created once and never freed (LoginServer and ChatServer keep a plain pointer to it for the whole
- *   run); shutdownNioServer() shuts it down and clears the pointer like Java.
+ *   run); shutdownNioServer() shuts it down and clears the pointer like Java. The staff clients it sends to the server selection screen
+ *   first get 200 ms (Java: LockSupport.parkNanos) for the login server's reconnection keys.
  * - `System.gc()` has no counterpart.
  *
  * @author -Nemesiss-, SoulKeeper, cura, Neon
@@ -112,6 +116,14 @@ private:
 
 public:
 	static void shutdownNioServer();
+
+	/** Java: Stream<AionConnection> (the game client connections of NioServer.findAllConnections) */
+	static std::vector<std::shared_ptr<network::aion::AionConnection>> findClientConnections();
+
+private:
+	static bool forceStaffClientsToServerSelectionScreen();
+
+public:
 
 	static bool isShutdownScheduled();
 

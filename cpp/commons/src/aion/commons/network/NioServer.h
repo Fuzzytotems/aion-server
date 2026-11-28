@@ -154,10 +154,10 @@ public:
 	size_t getActiveConnectionCount() const;
 
 	/**
-	 * C++ addition (handlers-and-porting-plan.md:305, for //debug): a snapshot of the registered connections that are not disconnected yet, in
-	 * no particular order (Java: the attachments of the read-write dispatcher's selector keys, read through reflection). Thread-safe.
+	 * Java: public Set<AConnection<?>> findAllConnections() (public since upstream d22a9af5b; before, //debug read the selector keys through
+	 * reflection): a snapshot of the registered connections that are not disconnected yet, in no particular order. Thread-safe.
 	 */
-	std::vector<std::shared_ptr<AConnectionBase>> snapshotConnections() const;
+	std::vector<std::shared_ptr<AConnectionBase>> findAllConnections() const;
 
 private:
 	friend class AConnectionBase;
