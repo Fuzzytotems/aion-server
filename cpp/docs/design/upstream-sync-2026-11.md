@@ -211,6 +211,9 @@ chunk docs named.
 | `15eaf77b6` | `RequireSkill` and `HotspotData.getHotspotTemplates` removed; `OnKillEvent.operate` returns before `<complite>` without `<monster>` (the `monster == null` test is live again); stale "lazy list" comments fixed. **Overlap:** `PanesterraTeam.removeTeamMember` (removed upstream) is kept with our P5-12b correction, unused, until the owner decides | P4-09, P5-12b, DEVIATIONS.md |
 | `2cd926056` | `commons::utils::JavaFile` (File.compareTo: Windows `compareToIgnoreCase` of the paths) sorts PropertiesUtils', XmlUtil's and StaticDataImports' listings; the NTFS-order emulation is gone. The real data changes order in quest_script_data, zones and global_drops/rules (the m5b3 drop oracle's rule indexes follow). The static data oracle's V2 imports follow | P4-05, DEVIATIONS.md, static-data.md |
 
+`d2dadc175` (wave 3), part: //npcskill goes now. The foundation's commands.properties has no `npcskill` level, and ChatCommand's
+constructor threw "Missing access level for //npcskill", which stopped every scenario gate's game server at startup.
+
 Unit suite (`-LE 'scenario|geo|m4|nightly|stress|smoke'`): the 18 failures of origin/C++ and no other (config 11,
 QuestTemplatesRealDataTest 2, gs.lint.concurrency with 121 instead of 124 errors, RealJavaTreeTest.JavaHandlerKeysAndCounts,
 aion_gs_regscan.cli.java_tree, tools.gen, tools.oracle).
@@ -298,7 +301,7 @@ aion_gs_regscan.cli.java_tree, tools.gen, tools.oracle).
 | `840a6a8d4` | 2026-09-15 | Fixed HP bugs | 104 | 0 | P5-01, P4-12, P4-10 |  |
 | `924d4ed82` | 2026-09-16 | SM_INVINCIBLE_TIME: implement retail packet (#182) | 31 | 0 | P4-16, P4-11b, P4-15 |  |
 | `b25a2664c` | 2026-09-17 | Fix animation not ending after multireturn action (#201) | 44 | 0 | P5-07 |  |
-| `d2dadc175` | 2026-09-18 | NpcSkillList optimization | 306 | 0 | P5-02b, C1, P5-05, P4-09 |  |
+| `d2dadc175` | 2026-09-18 | NpcSkillList optimization | 306 | 0 | P5-02b, C1, P5-05, P4-09 | //npcskill removed in wave 0 (the foundation's commands.properties has no level for it, so the server stopped at startup); the NpcSkillList rework, Reload, the AIs, SkillAttackManager and NpcSkillData stay here |
 | `18a87505e` | 2026-09-20 | Fixed siege weapon follow task surviving release (#202) | 25 | 0 | P4-11b, P5-05, P5-08 |  |
 | `223b56a0d` | 2026-09-22 | Fix skill cast conditions (#180) | 134 | 0 | P5-02a, P4-11a, P5-01, P4-12 |  |
 | `b87c6c656` | 2026-09-22 | Fixed delayed skills ignoring dodge and resist (#167) | 10 | 0 | P5-02a, P5-03 |  |
