@@ -53,7 +53,7 @@ header request integrator, 3 grouped fixers; 14 agents, 7.7M tokens, 2,573 tool 
 
 | Lane | `AION_UNPORTED` (lane report) | Ported |
 |---|---|---|
-| base (P4-05) | 56 → 11 after port, 7 after fixes and header requests | GameTime, Point3D, Announcement, Expirable, PacketSendUtility (all overloads, pinned `scheduleOrRun`); 21 enum companions; Chance, PositionUtil (bit-exact float oracle), TimeUtil, Util, ChatUtil; geometry (AbstractArea, Cylinder/Rectangle/Poly/Sphere/SemisphereArea, Plane3D, Polygon2D with Java 25 Path2D rules); collections (SplitList family, Predicates, CollectionUtil); ServerTime; AuditLogger, AutoBan, GMService; PlayerActions; HTMLCache (own cache format); CompressUtil (zlib level-6 deflate port and inflater, byte-exact against zlib 1.3.1); DDSConverter; XmlUtil::listFiles; JavaColor, simpleClassName, enumValueOf |
+| base (P4-05) | 56 → 11 after port, 7 after fixes and header requests | GameTime, Point3D, Announcement, Expirable, PacketSendUtility (all overloads, pinned `scheduleOrRun`); 21 enum companions; Chance, PositionUtil (bit-exact float oracle), TimeUtil, Util, ChatUtil; geometry (AbstractArea, Cylinder/Rectangle/Poly/Sphere/SemisphereArea, Plane3D, Polygon2D with Java 25 Path2D rules); collections (SplitList family, Predicates, CollectionUtil); ServerTime; AuditLogger, AutoBan, GMService; PlayerActions; HTMLCache (own cache format); CompressUtil (zlib, linked since 2026-11; byte-exact against zlib 1.3.1); DDSConverter; XmlUtil::listFiles; JavaColor, simpleClassName, enumValueOf |
 | templates (P4-07a) | 39 → 6 → 2 (pre-stage) | all 8 afterUnmarshal hooks and the `setXmlUid`/`setXmlName` setters of item, npc, spawns, world, zone, stats, pet; 38 behaviour classes, SpawnGroup (pool under the map monitor), PetDopingBag; 11 new headers (spawn template family, WorldZoneTemplate, MaterialZoneTemplate, SpawnSearchResult, ...); 12 enum companions. Real data binds strictly: 102,009 items and 2,483 decomposables (actions stripped), 63,287 npcs (equipment stripped), 140 spawn maps, 161 world maps, 24 weather, 218 pets, 33 pet feed; totals match the oracle |
 | objects (P4-11a) | 366 → 25 → 24 | VisibleObject, Creature, Npc, Summon, SummonedObject, SiegeNpc, Trap, Kisk, Pet, TransformModel, DropNpc, Letter, BrokerItem, Item, HouseObject family, GroupApplication/Recruitment, ServerWideGroup, AssembledNpc(Part); 20 classes without a header got header and body (house objects, Homing, Servant, SummonedHouseNpc, StaticObject, StaticDoor, Gatherable, FlyRing, Road); 8 enum companions |
 | player (P4-12) | 378 → 35 → 20 (header requests) → 9 (fixes) | `model.gameobjects.player` and `model.account` (46 Java files); `create<Player>` works in tests (pet loader seam, stat doubles); 8 enum companions incl. `RatesInfo`; `LogoutBreakers` run/onDelete and the zombie breaker |
@@ -110,7 +110,7 @@ header request integrator, 3 grouped fixers; 14 agents, 7.7M tokens, 2,573 tool 
 | l10n ids with `id % 32768` in 27648..28671 sent as U+FFFD | resolved (pre-4, WTF-8); client `readS` still replaces lone surrogates (open) |
 | Broadcasts serialize a SHARED packet per recipient, not once (runtime-architecture.md §8.3; performance only) | P4-05 `PacketSendUtility` helper + P4-15 enqueue of a serialized body |
 | JAXBUtil callers outside static data (SpawnsData write-back with XSD, Rift/Siege/WorldRaid schedules, InGameShopProperty, DatabaseCleaningService) | their owners (P4-09, P5-12a/b, P5-14): binder entry points or a decision to drop XSD validation |
-| CompressUtil ports zlib instead of linking it | lead decision (zlib is only an indirect vcpkg dependency) |
+| CompressUtil ports zlib instead of linking it | lead decision (zlib is only an indirect vcpkg dependency); reversed by the owner 2026-11: CompressUtil links zlib (deviations/P4-05.md) |
 | S0B-039 send queue (deque with ordered insertion) | P4-15, measure first |
 | `DredgionScoreWriter` and 8 score writers' remaining bodies | P5-13 headers, then P4-15 |
 | Stub bodies added by header requests (P4-09 lookups, `KnownList::clearWithoutNotify`, `ObserveController::hasObservers`, `WeaponDualEffect::hasDualWieldEffect`, `EmotionLearnAction::isLearnable`) | P4-09, P4-10, P4-11b, P5-04, P5-07 |
@@ -454,9 +454,9 @@ Packets and wire order:
 - Client packet `readS` still turns lone surrogates into U+FFFD (server-to-client is lossless since 3a-2).
 
 Model, world and data:
-- `CompressUtil::decompress` rejects the output of `CompressUtil::compress` ("incorrect data check"), so house scripts loaded by
-  `HouseScriptsDAO` are dropped; `LegionHouseItemDaoTest.HousesBidsAndScripts` skips (P4-05, reported in 3b-1). Open decision: keep the zlib port
-  or link zlib.
+- Fixed 2026-11 (owner's decision: link zlib): `CompressUtil::decompress` rejected the output of `CompressUtil::compress` ("incorrect data
+  check"), so house scripts loaded by `HouseScriptsDAO` were dropped and `LegionHouseItemDaoTest.HousesBidsAndScripts` skipped (P4-05,
+  reported in 3b-1). CompressUtil calls zlib now (deviations/P4-05.md).
 - Test gaps: `MapRegion` zone priority, `FlagKnownList.update`, the awareness filters, `TemporarySpawnEngine`, `WeatherService` (no Creature
   builders in the world tests); shield attachment and zone handler order in `WorldRealDataTest`; `teleportNearHouseDoor`,
   `trySetValidGeoPoint`, `AbstractCollisionObserver::moved` (geo/house fixtures); `XMLStartCondition::check`, MotionTime with equipped weapons,

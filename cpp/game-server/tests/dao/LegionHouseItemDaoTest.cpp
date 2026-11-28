@@ -298,13 +298,7 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 
 	// getPlayerScripts hands the stored block and size to PlayerScripts.set, which validates the block (by decompressing it, until wave 2 ports
 	// Java's zlibStreamLength) and keeps it
-	try {
-		static_cast<void>(utils::xml::CompressUtil::decompress(compressedOracle));
-	} catch (const commons::utils::IllegalArgumentException& e) {
-		GTEST_SKIP() << "CompressUtil::decompress rejects zlib's output (" << e.what() << "), so PlayerScripts.set drops the script (P4-05)";
-	}
-	Ref<model::gameobjects::player::PlayerScripts> scripts;
-	SKIP_IF_UNPORTED(scripts = HouseScriptsDAO::getPlayerScripts(900));
+	Ref<model::gameobjects::player::PlayerScripts> scripts = HouseScriptsDAO::getPlayerScripts(900);
 	Ptr<model::house::PlayerScript> script = scripts->get(1);
 	ASSERT_TRUE(script);
 	EXPECT_EQ(script->uncompressedSize(), uncompressedSize) << "UTF-16LE byte count";
@@ -319,6 +313,15 @@ TEST_F(LegionHouseItemDaoTest, HousesBidsAndScripts) {
 	scripts = HouseScriptsDAO::getPlayerScripts(900);
 	ASSERT_TRUE(scripts->get(1));
 	EXPECT_FALSE(scripts->get(1)->compressedBytes()) << "the script slot stays empty";
+
+	// a block stored with the client's 8 trailing bytes (SM_HOUSE_SCRIPTS' padding, sent back by CM_HOUSE_SCRIPT) loads with them (P4-12)
+	std::vector<uint8_t> clientBlock = compressedOracle;
+	clientBlock.insert(clientBlock.end(), 8, 0xCD);
+	HouseScriptsDAO::storeScript(900, 2, detail::toArray(clientBlock), uncompressedSize);
+	scripts = HouseScriptsDAO::getPlayerScripts(900);
+	ASSERT_TRUE(scripts->get(2));
+	ASSERT_TRUE(scripts->get(2)->compressedBytes()) << "Inflater stops at the end of the stream";
+	EXPECT_EQ(scripts->get(2)->compressedBytes()->length(), static_cast<int32_t>(clientBlock.size()));
 
 	HouseScriptsDAO::deleteScriptsForHouse(900);
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM house_scripts"), 0);

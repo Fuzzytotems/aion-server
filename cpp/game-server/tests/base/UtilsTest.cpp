@@ -438,6 +438,71 @@ TEST(CompressUtilTest, RoundTripAndErrors) {
 	EXPECT_EQ(xml::CompressUtil::decompress(trailing).size(), script.size());
 }
 
+std::vector<uint8_t> fromHex(std::string_view hex) {
+	std::vector<uint8_t> bytes;
+	for (size_t i = 0; i + 1 < hex.size(); i += 2)
+		bytes.push_back(static_cast<uint8_t>(std::stoi(std::string(hex.substr(i, 2)), nullptr, 16)));
+	return bytes;
+}
+
+std::vector<uint8_t> asciiUtf16le(std::string_view ascii) {
+	std::vector<uint8_t> bytes;
+	for (char c : ascii) {
+		bytes.push_back(static_cast<uint8_t>(c));
+		bytes.push_back(0);
+	}
+	return bytes;
+}
+
+TEST(CompressUtilTest, HouseScriptBlocks) {
+	// A fixed Huffman block with back-references: Python zlib.compress(xml.encode('utf-16-le'), 6) (zlib 1.3.1) of the house_scripts row of
+	// LegionHouseItemDaoTest. The hand-ported inflater this class had before it linked zlib decoded every distance of a fixed block as 1 (its
+	// table builder refused the 30 five-bit fixed distance codes as an incomplete set) and threw "incorrect data check" here (P4-05)
+	const std::vector<uint8_t> fixedBlock =
+		fromHex("789cb361286648662862c86428602801b2ed186c50441480740a832d8312832110db31bc04caeba3a8b0c31001990200d2d01009");
+	ASSERT_EQ((fixedBlock[2] >> 1) & 3, 1) << "BTYPE 01: fixed Huffman codes";
+	std::vector<uint8_t> fixedXml = asciiUtf16le("<scripts><script id=\"1\">");
+	fixedXml.insert(fixedXml.end(), {0xE9, 0x00}); // U+00E9
+	const std::vector<uint8_t> fixedTail = asciiUtf16le("</script></scripts>");
+	fixedXml.insert(fixedXml.end(), fixedTail.begin(), fixedTail.end());
+	EXPECT_EQ(xml::CompressUtil::decompress(fixedBlock), fixedXml);
+	EXPECT_EQ(xml::CompressUtil::compress(fixedXml), fixedBlock);
+
+	// a house script as the client writes it: the lbox XML in UTF-16LE; the block is Python zlib.compress(script, 6) (zlib 1.3.1), a dynamic block
+	std::string script;
+	for (std::string_view line : {R"(<?xml version="1.0" encoding="UTF-16" ?>)", "<lboxes>", "\t<lbox>", "\t\t<id>102</id>",
+			 "\t\t<name><![CDATA[Greeter]]></name>", "\t\t<desc><![CDATA[Greets visitors of the house]]></desc>", "\t\t<script><![CDATA[",
+			 "function OnVisit(name)", "\tSay(\"Welcome, \" .. name .. \"!\")", "end", "]]></script>", "\t\t<icon>3</icon>", "\t</lbox>", "</lboxes>"}) {
+		script += line;
+		script += '\n';
+	}
+	const std::vector<uint8_t> scriptBytes = asciiUtf16le(script);
+	ASSERT_EQ(scriptBytes.size(), 586u);
+	const std::vector<uint8_t> block = fromHex(
+		"789c85914f4bc34010c57f57fb29624e16b4ad0a3dc594a2e8d1837f7a100f9a440dd4449254eab7f7ed349ba420c8c2eebe37336fdeee442cd8f2c99a806f322a6a724a"
+		"0a2e083965c24c67a04841223e55b4e0dda20fdc73cd89b2e696b320664424ad57656e55531b7330e076d831b9b462d5ce38139ab6d8470b5ee42a131371c813975cb154"
+		"bfa5ee3772996935e6f7592b3685bec6aba4e621f947a5b6b7e7f6f2462e2b634adeb4377c2827d05eb2119f0dfaf5eabe9f439554be54f757cf913437f6934dfbcb01b7"
+		"da1fbbee47dd2bc6a67a27f4233664256e6d3370d16355ba3f9f68055d8dc7a13a87a6e0e696eaec5def7beca791989f98f3761a1eefe637dd9be010fb29ff0281055821");
+	ASSERT_EQ(block.size(), 272u);
+	EXPECT_EQ(xml::CompressUtil::compress(scriptBytes), block) << "Java's Deflater() bytes";
+	EXPECT_EQ(xml::CompressUtil::decompress(block), scriptBytes);
+
+	// The client sends a script back with the 8 trailing bytes of the block it received (SM_HOUSE_SCRIPTS.SCRIPT_PADDING, eight times -51;
+	// Java 68eccc7b1 PlayerScripts.java, MAX_CLIENT_CONTENT_SIZE): Inflater stops at the end of the stream, so they are ignored
+	std::vector<uint8_t> withTrailingBytes = block;
+	withTrailingBytes.insert(withTrailingBytes.end(), 8, 0xCD);
+	EXPECT_EQ(xml::CompressUtil::decompress(withTrailingBytes), scriptBytes);
+	// a stream cut short before those bytes reads the first of them as its last Adler-32 byte
+	std::vector<uint8_t> cut(block.begin(), block.end() - 1);
+	cut.insert(cut.end(), 8, 0xCD);
+	try {
+		xml::CompressUtil::decompress(cut);
+		FAIL() << "expected IllegalArgumentException";
+	} catch (const runtime::IllegalArgumentException& e) {
+		EXPECT_EQ(std::string(e.what()), "incorrect data check");
+	}
+}
+
 /** the generators of the Python oracle (zlib.compress(data, 6) of zlib 1.3.1): Numerical Recipes LCG, 24 high bits */
 class Lcg {
 public:
