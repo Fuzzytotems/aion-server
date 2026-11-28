@@ -38,8 +38,10 @@ protected:
 	void writePacket(const GsServerPacket& packet, commons::utils::ByteBuffer& buffer) override;
 	int32_t getMaxPendingPackets() const override { return 10'000; }
 	void onConnect() override;
-	/** Java: GameServerService.setOffline() (for every game server connection, also one that never authenticated) */
+	/** Java: GameServerService.setOffline() if this connection was authenticated */
 	void onDisconnect() override;
+	bool isAuthenticated() const override { return state.load() == GameServerConnectionState::AUTHED; }
+	int64_t getAuthTimeoutMillis() const override { return 30'000; }
 
 private:
 	std::atomic<GameServerConnectionState> state = GameServerConnectionState::CONNECTED;

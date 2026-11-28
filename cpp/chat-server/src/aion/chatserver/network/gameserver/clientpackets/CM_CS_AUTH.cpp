@@ -21,7 +21,7 @@ void CM_CS_AUTH::readImpl() {
 }
 
 void CM_CS_AUTH::runImpl() {
-	GsAuthResponse resp = service::GameServerService::getInstance().registerGameServer(gameServerId, password);
+	GsAuthResponse resp = service::GameServerService::getInstance().registerGameServer(gameServerId, password, getConnection()->isFromLoopback());
 	switch (resp) {
 		case GsAuthResponse::AUTHED:
 			getConnection()->setState(GsConnection::GameServerConnectionState::AUTHED);
@@ -34,7 +34,10 @@ void CM_CS_AUTH::runImpl() {
 			log().info("Game server #{} is already registered", gameServerId);
 			break;
 	}
-	sendPacket(serverpackets::SM_GS_AUTH_RESPONSE(resp));
+	if (resp == GsAuthResponse::AUTHED)
+		sendPacket(serverpackets::SM_GS_AUTH_RESPONSE(resp));
+	else
+		getConnection()->close(serverpackets::SM_GS_AUTH_RESPONSE(resp));
 }
 
 } // namespace aion::chatserver::network::gameserver::clientpackets
