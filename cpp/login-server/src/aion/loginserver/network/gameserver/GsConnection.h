@@ -76,6 +76,8 @@ public:
 	std::string toString() const override;
 
 protected:
+	bool isAuthenticated() const override { return getState() == State::AUTHED; }
+	int64_t getAuthTimeoutMillis() const override { return 30'000; }
 	bool processData(commons::utils::ByteBuffer& data) override;
 	bool writeData(commons::utils::ByteBuffer& data) override;
 	void onDisconnect() override;

@@ -35,7 +35,8 @@ void GsConnection::onConnect() {
 }
 
 void GsConnection::onDisconnect() {
-	service::GameServerService::getInstance().setOffline();
+	if (state.load() == GameServerConnectionState::AUTHED)
+		service::GameServerService::getInstance().setOffline();
 }
 
 std::string GsConnection::toString() const {

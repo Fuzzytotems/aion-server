@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/MessageDigest.h"
 #include "aion/commons/utils/NetworkUtils.h"
 #include "aion/loginserver/dao/GameServersDAO.h"
 #include "aion/loginserver/network/gameserver/GsConnection.h"
@@ -89,7 +90,8 @@ GsAuthResponse registerGameServer(const std::shared_ptr<GsConnection>& gsConnect
 		return GsAuthResponse::ALREADY_REGISTERED;
 
 	// Check if password and ip are ok.
-	if (gsi->getPassword() != password || !commons::utils::NetworkUtils::checkIPMatching(gsi->getIpMask(), gsConnection->getIP())) {
+	if (!commons::utils::MessageDigest::isEqual(gsi->getPassword(), password) ||
+			!commons::utils::NetworkUtils::checkIPMatching(gsi->getIpMask(), gsConnection->getIP())) {
 		log().warn(gsConnection->toString() + " requested ID: " + std::to_string(requestedId) + " has wrong IP or password!");
 		return GsAuthResponse::NOT_AUTHED;
 	}

@@ -6,11 +6,15 @@
 #include <gtest/gtest.h>
 
 #include "ChatServerTestFixture.h"
+#include "aion/chatserver/network/gameserver/GsAuthResponse.h"
+#include "aion/chatserver/service/GameServerService.h"
 #include "support/FakePeers.h"
 #include "support/TestUtils.h"
 
 namespace aion::chatserver::test {
 namespace {
+
+using configs::network::NetworkConfig;
 
 class GameServerLinkTest : public ChatServerTestFixture {};
 
@@ -21,20 +25,33 @@ TEST_F(GameServerLinkTest, RightPasswordAuthenticatesAndAnnouncesTheConnectAddre
 	EXPECT_TRUE(log.contains("Game server connected: 127.0.0.1"));
 }
 
-TEST_F(GameServerLinkTest, WrongPasswordIsRejectedAndTheConnectionStaysUnauthenticated) {
+// upstream 01aadf926: a failed attempt gets its answer and is disconnected
+TEST_F(GameServerLinkTest, WrongPasswordIsRejectedAndDisconnected) {
 	LogCapture log({"com.aionemu.chatserver"});
 	FakeGameServer gs(gsPort);
 	Bytes response = gs.authenticate(7, "wrong");
 	EXPECT_EQ(response, (Bytes{0x04, 0x00, 0x00, 0x01})) << hex(response); // NOT_AUTHED, no address
 	EXPECT_TRUE(log.waitFor("Game server #7 (IP: 127.0.0.1) tried to register with an invalid password")) << log.dump();
-	// like Java the chat server does not close the connection (the game server does); it stays in state CONNECTED, so a player registration is
-	// an unknown packet
-	gs.send(FakeGameServer::buildPlayerAuth(nextPlayerId(), "acc", "Nick", 0, 0));
-	EXPECT_TRUE(log.waitFor("Unknown packet received from Game Server: 0x01 state CONNECTED")) << log.dump();
-	EXPECT_TRUE(gs.socket.expectSilence());
-	// and it can still authenticate with the right password
-	Bytes second = gs.authenticate(1, GS_PASSWORD);
-	EXPECT_EQ(second, (Bytes{0x0B, 0x00, 0x00, 0x00, 0x04, 0x7F, 0x00, 0x00, 0x01, 0x01, 0x28})) << hex(second);
+	EXPECT_TRUE(gs.socket.waitClosed());
+	// the closed connection was never authenticated, so it does not set the service offline, and a game server can still authenticate
+	EXPECT_FALSE(log.contains("disconnected")) << log.dump();
+	connectGameServer();
+}
+
+TEST_F(GameServerLinkTest, AnEmptyPasswordIsOnlyAcceptedFromLoopback) {
+	LogCapture log({"com.aionemu.chatserver"});
+	NetworkConfig::GAMESERVER_PASSWORD = "";
+	struct Restore {
+		~Restore() { NetworkConfig::GAMESERVER_PASSWORD = GS_PASSWORD; }
+	} restore;
+	// no game server is online in this test, so the password rule decides
+	auto& service = service::GameServerService::getInstance();
+	EXPECT_EQ(service.registerGameServer(5, "", false), network::gameserver::GsAuthResponse::NOT_AUTHED);
+	EXPECT_TRUE(log.contains("Rejected game server #5 from a remote address: chatserver.network.gameserver.password is not set")) << log.dump();
+	// the fake game server connects from 127.0.0.1
+	FakeGameServer gs(gsPort);
+	Bytes response = gs.authenticate(1, "");
+	EXPECT_EQ(response, (Bytes{0x0B, 0x00, 0x00, 0x00, 0x04, 0x7F, 0x00, 0x00, 0x01, 0x01, 0x28})) << hex(response);
 }
 
 TEST_F(GameServerLinkTest, SecondGameServerIsAlreadyRegistered) {
@@ -50,20 +67,20 @@ TEST_F(GameServerLinkTest, SecondGameServerIsAlreadyRegistered) {
 	EXPECT_EQ(wrongPassword, (Bytes{0x04, 0x00, 0x00, 0x02})) << hex(wrongPassword);
 }
 
-TEST_F(GameServerLinkTest, DisconnectOfAnyGameServerSetsTheServiceOffline) {
-	// Java: GsConnection.onDisconnect calls setOffline for every game server connection, also one rejected as ALREADY_REGISTERED; the registered
-	// game server stays connected but the next one can register
+// upstream 01aadf926: only the disconnect of the authenticated game server sets the service offline
+TEST_F(GameServerLinkTest, OnlyTheAuthenticatedGameServerSetsTheServiceOfflineWhenItDisconnects) {
 	LogCapture log({"com.aionemu.chatserver"});
 	auto first = connectGameServer();
-	{
-		FakeGameServer rejected(gsPort);
-		EXPECT_EQ(rejected.authenticate(2, GS_PASSWORD), (Bytes{0x04, 0x00, 0x00, 0x02}));
-		rejected.socket.close();
-	}
+	FakeGameServer rejected(gsPort);
+	EXPECT_EQ(rejected.authenticate(2, GS_PASSWORD), (Bytes{0x04, 0x00, 0x00, 0x02})); // ALREADY_REGISTERED
+	EXPECT_TRUE(rejected.socket.waitClosed()); // the chat server closes the rejected connection
+	FakeGameServer stillRegistered(gsPort);
+	EXPECT_EQ(stillRegistered.authenticate(3, GS_PASSWORD), (Bytes{0x04, 0x00, 0x00, 0x02}));
+	EXPECT_FALSE(log.contains("Game server #1 disconnected")) << log.dump();
+
+	first->socket.close();
 	EXPECT_TRUE(log.waitFor("Game server #1 disconnected")) << log.dump();
-	FakeGameServer third(gsPort);
-	Bytes response = third.authenticate(3, GS_PASSWORD);
-	EXPECT_EQ(response, (Bytes{0x0B, 0x00, 0x00, 0x00, 0x04, 0x7F, 0x00, 0x00, 0x01, 0x01, 0x28})) << hex(response);
+	connectGameServer();
 }
 
 TEST_F(GameServerLinkTest, UnknownOpcodesAreLoggedPerState) {

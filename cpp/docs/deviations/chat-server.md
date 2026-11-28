@@ -66,8 +66,6 @@ These look like bugs but are the specification; tests pin them down.
   player can still chat. `ChatService.gagPlayer` also logs the value as minutes. Ported as is on both sides (test
   `BroadcastTest.GagWithADurationDoesNotGag`; a point in time does gag: `BroadcastTest.GaggedPlayerGetsANoticeAndNobodyElseAnything`). Fixing it
   means changing the protocol on one side; see docs/design/chat-server-port.md.
-- **Any game server disconnect sets the service offline**, also a second game server that was rejected as `ALREADY_REGISTERED`: the registered one
-  stays connected, and the next one can register (`GameServerLinkTest.DisconnectOfAnyGameServerSetsTheServiceOffline`).
 - **A client may post to any channel by id** without being in it; the members get the message (`BroadcastTest.AnyClientCanSendToAChannelById`).
 - **A player registered again replaces the first registration** in ChatService and BroadcastService: only the new token logs in, and the
   broadcasts go to the new connection; the old connection is not closed (`ClientAuthTest.ARegistrationAgainReplacesTheFirstOne`).
