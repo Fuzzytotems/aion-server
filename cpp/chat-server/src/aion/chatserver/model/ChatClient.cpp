@@ -37,15 +37,27 @@ void ChatClient::setConnection(std::shared_ptr<network::aion::AionConnection> va
 	connection = std::move(value);
 }
 
-void ChatClient::addChannel(std::shared_ptr<channel::Channel> channel) {
+std::vector<std::shared_ptr<channel::Channel>> ChatClient::addChannel(std::shared_ptr<channel::Channel> channel) {
+	std::vector<std::shared_ptr<channel::Channel>> left;
 	std::lock_guard lock(mutex);
 	auto channelsOfType = channels.find(channel->getChannelType());
 	if (channelsOfType == channels.end()) {
 		channelsOfType = channels.emplace(channel->getChannelType(), std::vector<std::shared_ptr<channel::Channel>>()).first;
 	} else if (channel->getChannelType() != ChannelType::JOB || channelsOfType->second.size() == 2) {
+		left = std::move(channelsOfType->second);
 		channelsOfType->second.clear();
 	}
 	channelsOfType->second.push_back(std::move(channel));
+	return left;
+}
+
+std::vector<std::shared_ptr<channel::Channel>> ChatClient::removeAllChannels() {
+	std::vector<std::shared_ptr<channel::Channel>> left;
+	std::lock_guard lock(mutex);
+	for (auto& [type, channelsOfType] : channels)
+		left.insert(left.end(), channelsOfType.begin(), channelsOfType.end());
+	channels.clear();
+	return left;
 }
 
 bool ChatClient::removeChannel(const std::shared_ptr<channel::Channel>& channel) {

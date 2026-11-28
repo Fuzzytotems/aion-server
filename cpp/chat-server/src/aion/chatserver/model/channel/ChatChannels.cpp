@@ -31,8 +31,14 @@ namespace {
 
 /** A channel name is a map, class or language name, so 64 characters is generous. */
 constexpr size_t MAX_META_LENGTH = 64;
-/** Every distinct name the client sends stays forever, and a real server needs a few dozen. */
+/** Channels without members are removed, and a real server needs a few dozen at once. */
 constexpr size_t MAX_CHANNELS = 256;
+
+/** Guards channel creation and removal together with membership, so a channel can't be removed while someone is joining it. */
+std::recursive_mutex& membershipLock() {
+	static auto* lock = new std::recursive_mutex(); // leaked like the channels
+	return *lock;
+}
 
 const commons::logging::Logger& log() {
 	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.chatserver.model.channel.ChatChannels"));
@@ -89,7 +95,48 @@ std::shared_ptr<Channel> addChannel(State& s, std::optional<ChannelType> ct, int
 	return channel;
 }
 
+/** Java: release - removes the left channels that have no members anymore. membershipLock must be held. */
+void release(const std::vector<std::shared_ptr<Channel>>& leftChannels) {
+	State& s = state();
+	for (const std::shared_ptr<Channel>& channel : leftChannels) {
+		if (--channel->memberCount > 0)
+			continue;
+		bool removed;
+		{
+			std::lock_guard lock(s.mutex);
+			removed = s.channels.erase(channel->getChannelId()) > 0;
+		}
+		if (removed && LoggingConfig::LOG_CHANNEL_REQUEST)
+			log().info("Removed empty channel {} (id: {})", channel->name(), channel->getChannelId());
+	}
+}
+
 } // namespace
+
+std::shared_ptr<Channel> join(const std::shared_ptr<ChatClient>& client, std::string_view identifier) {
+	std::lock_guard lock(membershipLock());
+	std::shared_ptr<Channel> channel = getOrCreate(client, identifier);
+	if (channel && !client->isInChannel(*channel)) {
+		channel->memberCount++;
+		release(client->addChannel(channel));
+	}
+	return channel;
+}
+
+bool leave(ChatClient& client, const std::shared_ptr<Channel>& channel) {
+	if (!channel)
+		return false;
+	std::lock_guard lock(membershipLock());
+	if (!client.removeChannel(channel))
+		return false;
+	release({channel});
+	return true;
+}
+
+void leaveAll(ChatClient& client) {
+	std::lock_guard lock(membershipLock());
+	release(client.removeAllChannels());
+}
 
 std::shared_ptr<Channel> getChannelById(int32_t channelId) {
 	State& s = state();

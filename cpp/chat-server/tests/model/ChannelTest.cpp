@@ -59,12 +59,13 @@ TEST(ChannelTest, JobChannelMatchesEveryLocalizedNameOfItsClass) {
 	EXPECT_FALSE(channel.matches(ChannelType::JOB, 1, Race::ELYOS, "Chanter"));
 	EXPECT_FALSE(channel.matches(ChannelType::JOB, 1, Race::ASMODIANS, "Cleric"));
 	EXPECT_EQ(channel.name(), "Cleric (E)"); // the first alias
-	// the "[f:" suffix is cut off for the lookup, but a request with it does not match (Java compares the requested name as it is)
-	JobChannel female(1, Race::ASMODIANS, "Gladiator[f:1]");
+	// upstream 17093650f: the female form ("[f:...]") is cut off for the lookup and for the comparison, so a request with it matches
+	JobChannel female(1, Race::ASMODIANS, "Kleriker[f:\"Klerikerin\"]");
 	EXPECT_TRUE(female.hasAliases());
-	EXPECT_EQ(female.name(), "Gladiator (A)");
-	EXPECT_TRUE(female.matches(ChannelType::JOB, 1, Race::ASMODIANS, "Gladiateur"));
-	EXPECT_FALSE(female.matches(ChannelType::JOB, 1, Race::ASMODIANS, "Gladiator[f:1]"));
+	EXPECT_EQ(female.name(), "Cleric (A)");
+	EXPECT_FALSE(female.matches(ChannelType::JOB, 1, Race::ASMODIANS, "Gladiateur"));
+	EXPECT_TRUE(female.matches(ChannelType::JOB, 1, Race::ASMODIANS, "Kleriker[f:\"Klerikerin\"]"));
+	EXPECT_TRUE(female.matches(ChannelType::JOB, 1, Race::ASMODIANS, "Cleric"));
 }
 
 TEST(ChannelTest, JobChannelOfAnUnknownClassHasOnlyItsName) {
@@ -72,8 +73,8 @@ TEST(ChannelTest, JobChannelOfAnUnknownClassHasOnlyItsName) {
 	EXPECT_FALSE(channel.hasAliases());
 	EXPECT_TRUE(channel.matches(ChannelType::JOB, 1, Race::ELYOS, "Painter"));
 	EXPECT_EQ(channel.name(), "Painter (E)");
-	// Java: "[f:".split("\\[f:") is empty, so [0] throws (after the channel id was taken)
-	EXPECT_THROW(JobChannel(1, Race::ELYOS, "[f:"), commons::utils::IndexOutOfBoundsException);
+	// upstream 17093650f: "[f:" alone is the empty class name (formerly split("\\[f:") was empty and [0] threw)
+	EXPECT_EQ(JobChannel(1, Race::ELYOS, "[f:").name(), " (E)");
 	JobChannel empty(1, Race::ELYOS, "");
 	EXPECT_EQ(empty.name(), " (E)");
 }

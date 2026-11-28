@@ -25,7 +25,7 @@ void CM_CHANNEL_LEAVE::readImpl() {
 
 void CM_CHANNEL_LEAVE::runImpl() {
 	std::shared_ptr<model::channel::Channel> channel = model::channel::ChatChannels::getChannelById(channelId);
-	if (!getChatClient()->removeChannel(channel))
+	if (!model::channel::ChatChannels::leave(*getChatClient(), channel))
 		log().warn("{}, couldn't leave channel: {} (id: {})", getChatClient()->toString(), channel ? channel->toString() : "null", channelId);
 }
 
