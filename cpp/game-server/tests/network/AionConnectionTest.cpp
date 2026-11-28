@@ -185,6 +185,32 @@ TEST_F(AionConnectionTest, PacketsAreGatedByTheConnectionState) {
 	EXPECT_EQ(PacketRecorder::instance().size(), 2u);
 }
 
+// upstream 55d0af937: mode 1 logs and drops the flooding packet, the connection stays
+TEST_F(AionConnectionTest, FloodingPacketsAreDroppedInPffMode1) {
+	using configs::network::PffConfig;
+	LogCapture logs({CONNECTION_LOGGER});
+	PffConfig::PFF_MODE = 1;
+	PffConfig::THRESHOLD_MILLIS_BY_PACKET_OPCODE.set(std::unordered_map<int32_t, int32_t>{{CM_TIME_CHECK, 60000}});
+	struct Restore {
+		~Restore() {
+			PffConfig::PFF_MODE = 0;
+			PffConfig::THRESHOLD_MILLIS_BY_PACKET_OPCODE.set({});
+		}
+	} restore;
+
+	GameServerTestServer server;
+	FakeGameClient client(server.port);
+	client.readKey();
+	client.sendPacket(CM_TIME_CHECK, PacketWriter().D(1).data);
+	ASSERT_TRUE(waitForRecords(1));
+	client.sendPacket(CM_TIME_CHECK, PacketWriter().D(2).data); // dropped
+	EXPECT_TRUE(logs.waitFor(" is flooding RecordingClientPacket (last diff: ")) << logs.dump();
+	client.sendPacket(CM_VERSION_CHECK, {}); // no threshold for this opcode
+	ASSERT_TRUE(waitForRecords(2));
+	EXPECT_EQ(PacketRecorder::instance().size(), 2u);
+	EXPECT_FALSE(client.socket.isClosed());
+}
+
 TEST_F(AionConnectionTest, QueueIsOrderedBySerializationSequence) {
 	GameServerTestServer server;
 	FakeGameClient client(server.port);
