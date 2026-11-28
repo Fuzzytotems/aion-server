@@ -25,10 +25,10 @@ void CM_GS_AUTH::runImpl() {
 			commons::logging::LoggerFactory::getLogger("com.aionemu.loginserver.network.gameserver.clientpackets.CM_GS_AUTH")
 				.info("Gameserver #" + std::to_string(gameServerId) + " is now online");
 			connection->setState(GsConnection::State::AUTHED);
-			connection->sendPacket(std::make_shared<serverpackets::SM_GS_AUTH_RESPONSE>(resp));
+			connection->sendPacket(serverpackets::SM_GS_AUTH_RESPONSE(resp));
 			break;
 		default:
-			connection->close(std::make_shared<serverpackets::SM_GS_AUTH_RESPONSE>(resp));
+			connection->close(serverpackets::SM_GS_AUTH_RESPONSE(resp));
 	}
 }
 

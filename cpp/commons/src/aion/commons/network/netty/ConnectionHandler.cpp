@@ -1,4 +1,4 @@
-#include "aion/chatserver/network/netty/ConnectionHandler.h"
+#include "aion/commons/network/netty/ConnectionHandler.h"
 
 #include <chrono>
 #include <utility>
@@ -7,15 +7,15 @@
 #include <asio/post.hpp>
 #include <fmt/format.h>
 
-#include "aion/chatserver/network/netty/NettyConnection.h"
+#include "aion/commons/network/netty/NettyConnection.h"
 #include "aion/commons/logging/LoggerFactory.h"
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 namespace {
 
-const commons::logging::Logger& log() {
-	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.chatserver.network.netty.ConnectionHandler"));
+const logging::Logger& log() {
+	static const auto* logger = new logging::Logger(logging::LoggerFactory::getLogger("com.aionemu.commons.network.netty.ConnectionHandler"));
 	return *logger;
 }
 
@@ -28,7 +28,7 @@ asio::ip::tcp::socket keepAlive(asio::ip::tcp::socket socket) {
 
 } // namespace
 
-ConnectionHandler::ConnectionHandler(asio::ip::tcp::socket socket, commons::network::NioServer& server, int32_t maxPacketSize)
+ConnectionHandler::ConnectionHandler(asio::ip::tcp::socket socket, NioServer& server, int32_t maxPacketSize)
 	: AConnectionBase(keepAlive(std::move(socket)), server, maxPacketSize, maxPacketSize), maxPacketSize(maxPacketSize), authTimer(getStrand()),
 		stallTimer(getStrand()) {
 }
@@ -57,12 +57,12 @@ int64_t ConnectionHandler::bytesBeforeWritable() const {
 	return bytes <= 0 || writable ? 0 : bytes;
 }
 
-void ConnectionHandler::writeAndFlush(const std::function<void(commons::utils::ByteBuffer&)>& writer, bool closeAfterWrite) {
+void ConnectionHandler::writeAndFlush(const std::function<void(utils::ByteBuffer&)>& writer, bool closeAfterWrite) {
 	std::lock_guard lock(guard);
 	if (!canSend())
 		return; // Netty: the write fails (ClosedChannelException, not logged)
 	// PacketEncoder: the packet is written into a buffer of the maximum packet size
-	commons::utils::ByteBuffer buffer = commons::utils::ByteBuffer::allocate(maxPacketSize);
+	utils::ByteBuffer buffer = utils::ByteBuffer::allocate(maxPacketSize);
 	try {
 		writer(buffer);
 	} catch (...) {
@@ -146,11 +146,11 @@ void ConnectionHandler::initialized() {
 	}
 }
 
-bool ConnectionHandler::processData(commons::utils::ByteBuffer& data) {
+bool ConnectionHandler::processData(utils::ByteBuffer& data) {
 	if (isPendingClose())
 		return true; // Netty closes the channel at once, so nothing received after the close is processed
 	try {
-		std::unique_ptr<commons::network::packet::ClientPacketBase> packet = connection->createPacket(data);
+		std::unique_ptr<packet::ClientPacketBase> packet = connection->createPacket(data);
 		if (!packet)
 			return true;
 		if (!packet->read())
@@ -170,7 +170,7 @@ bool ConnectionHandler::processData(commons::utils::ByteBuffer& data) {
 	}
 }
 
-bool ConnectionHandler::writeData(commons::utils::ByteBuffer& data) {
+bool ConnectionHandler::writeData(utils::ByteBuffer& data) {
 	// guard is held by the caller
 	if (sendQueue.empty())
 		return false;
@@ -215,7 +215,7 @@ void ConnectionHandler::onPacketTooLarge(int32_t size, int32_t capacity) const {
 	invalidPacket(fmt::format("Adjusted frame length exceeds {}: {} - discarded", capacity, size));
 }
 
-void ConnectionHandler::onEmptyPacket(int32_t size, const commons::utils::ByteBuffer& buf) const {
+void ConnectionHandler::onEmptyPacket(int32_t size, const utils::ByteBuffer& buf) const {
 	(void)buf;
 	if (size < 2) // LengthFieldBasedFrameDecoder: CorruptedFrameException
 		invalidPacket(fmt::format("Adjusted frame length ({}) is less than lengthFieldEndOffset: 2", size));
@@ -223,4 +223,4 @@ void ConnectionHandler::onEmptyPacket(int32_t size, const commons::utils::ByteBu
 		log().warn("{} sent an empty packet, disconnecting", toString());
 }
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty

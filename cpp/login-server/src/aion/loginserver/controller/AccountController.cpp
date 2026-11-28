@@ -136,7 +136,7 @@ void checkAuth(const SessionKey& key, const std::shared_ptr<GsConnection>& gsCon
 		if (!gsi->addAccountToGameServer(acc, *gsConnection)) {
 			// Deviation: the game server disconnected meanwhile (see GameServerInfo::addAccountToGameServer), so the account is neither on the login
 			// server nor on a game server and may log in again; the answer is not delivered anymore
-			gsConnection->sendPacket(std::make_shared<SM_ACCOUNT_AUTH_RESPONSE>(key.accountId, false, "", 0, int8_t{0}, int8_t{0}, std::nullopt, std::nullopt));
+			gsConnection->sendPacket(SM_ACCOUNT_AUTH_RESPONSE(key.accountId, false, "", 0, int8_t{0}, int8_t{0}, std::nullopt, std::nullopt));
 			return;
 		}
 
@@ -144,11 +144,11 @@ void checkAuth(const SessionKey& key, const std::shared_ptr<GsConnection>& gsCon
 		dao::AccountDAO::updateLastServer(acc->getId().value(), acc->getLastServer());
 
 		// Send response to GameServer
-		gsConnection->sendPacket(std::make_shared<SM_ACCOUNT_AUTH_RESPONSE>(key.accountId, true, acc->getName(),
+		gsConnection->sendPacket(SM_ACCOUNT_AUTH_RESPONSE(key.accountId, true, acc->getName(),
 			acc->getCreationDate().value().time_since_epoch().count(), acc->getAccessLevel(), acc->getMembership(), acc->getAllowedHddSerial(),
 			acc->getAccountTime()));
 	} else {
-		gsConnection->sendPacket(std::make_shared<SM_ACCOUNT_AUTH_RESPONSE>(key.accountId, false, "", 0, int8_t{0}, int8_t{0}, std::nullopt, std::nullopt));
+		gsConnection->sendPacket(SM_ACCOUNT_AUTH_RESPONSE(key.accountId, false, "", 0, int8_t{0}, int8_t{0}, std::nullopt, std::nullopt));
 	}
 }
 
@@ -179,7 +179,7 @@ void authReconnectingAccount(int32_t accountId, int32_t loginOk, int32_t reconne
 		putAccountOnLS(acc->getId().value(), client);
 		client->setState(LoginConnection::State::AUTHED_LOGIN);
 		client->setSessionKey(SessionKey(*acc));
-		client->sendPacket(std::make_shared<SM_UPDATE_SESSION>(client->getSessionKey().value()));
+		client->sendPacket(SM_UPDATE_SESSION(client->getSessionKey().value()));
 	} else {
 		client->close();
 	}
@@ -236,7 +236,7 @@ std::optional<AionAuthResponse> login(std::string_view name, std::string_view pa
 
 	// if account is banned
 	if (AccountTimeController::isAccountPenaltyActive(*account)) {
-		connection->close(std::make_shared<SM_ACCOUNT_BANNED_2>());
+		connection->close(SM_ACCOUNT_BANNED_2());
 		return std::nullopt;
 	}
 
@@ -257,7 +257,7 @@ std::optional<AionAuthResponse> login(std::string_view name, std::string_view pa
 		// If someone is at loginserver, he should be disconnected
 		std::shared_ptr<LoginConnection> con = removeAccountOnLS(accountId);
 		if (con) {
-			con->close(std::make_shared<SM_ACCOUNT_KICK>(AionAuthResponse::STR_L2AUTH_S_KICKED_DOUBLE_LOGIN));
+			con->close(SM_ACCOUNT_KICK(AionAuthResponse::STR_L2AUTH_S_KICKED_DOUBLE_LOGIN));
 			return AionAuthResponse::STR_L2AUTH_S_ALREADY_LOGIN;
 		}
 		connection->setAccount(account);
@@ -281,7 +281,7 @@ void kickAccount(int32_t accountId) {
 
 	std::shared_ptr<LoginConnection> conn = removeAccountOnLS(accountId);
 	if (conn)
-		conn->close(std::make_shared<SM_ACCOUNT_KICK>(AionAuthResponse::STR_L2AUTH_S_BLOCKED_IP));
+		conn->close(SM_ACCOUNT_KICK(AionAuthResponse::STR_L2AUTH_S_BLOCKED_IP));
 }
 
 std::shared_ptr<Account> loadAccount(std::string_view name) {
@@ -321,7 +321,7 @@ void loadGSCharactersCount(int32_t accountId) {
 		std::shared_ptr<GsConnection> gsc = gsi->getConnection();
 
 		if (gsc)
-			gsc->sendPacket(std::make_shared<SM_GS_CHARACTER_RESPONSE>(accountId));
+			gsc->sendPacket(SM_GS_CHARACTER_RESPONSE(accountId));
 		else
 			accountCharacterCount.insert_or_assign(gsi->getId(), 0);
 	}
@@ -345,7 +345,7 @@ bool hasAllGSCharacterCounts(int32_t accountId) {
 void sendServerListFor(int32_t accountId) {
 	std::shared_ptr<LoginConnection> con = getConnectionOnLS(accountId);
 	if (con)
-		con->sendPacket(std::make_shared<SM_SERVER_LIST>());
+		con->sendPacket(SM_SERVER_LIST());
 }
 
 std::optional<std::map<int8_t, int32_t>> getGSCharacterCountsFor(int32_t accountId) {
@@ -375,7 +375,7 @@ void updateServerListForAllLoggedInPlayers() {
 			continue;
 		std::shared_ptr<Account> account = con->getAccount();
 		if (account && hasAllGSCharacterCounts(account->getId().value()))
-			con->sendPacket(std::make_shared<SM_SERVER_LIST>());
+			con->sendPacket(SM_SERVER_LIST());
 	}
 }
 

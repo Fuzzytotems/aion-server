@@ -29,8 +29,8 @@ void GsClientPacket::run() {
 	}
 }
 
-void GsClientPacket::sendPacket(std::shared_ptr<GsServerPacket> msg) const {
-	getConnection()->sendPacket(std::move(msg));
+void GsClientPacket::sendPacket(const GsServerPacket& msg) const {
+	getConnection()->sendPacket(msg);
 }
 
 std::shared_ptr<GameServerInfo> GsClientPacket::getGameServerInfo() const {

@@ -11,7 +11,7 @@
 #include "ChatServerTestFixture.h"
 #include "aion/chatserver/configs/network/NetworkConfig.h"
 #include "aion/chatserver/network/NetConnector.h"
-#include "aion/chatserver/network/netty/PacketExecutorGroup.h"
+#include "aion/commons/network/netty/PacketExecutorGroup.h"
 #include "support/FakePeers.h"
 #include "support/TestUtils.h"
 
@@ -31,14 +31,14 @@ protected:
 TEST_F(ConnectionHandlerTest, ClientsThatDoNotAuthenticateInTimeAreDisconnected) {
 	NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS = 1;
 	startServer();
-	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	LogCapture log({"com.aionemu.commons.network.netty.ConnectionHandler"});
 	FakeChatClient client(clientPort);
 	client.send(FakeChatClient::buildChatIni()); // answered, but no authentication
 	EXPECT_EQ(client.expectFrame("SM_CHAT_INI"), SM_CHAT_INI_BYTES);
 	auto started = std::chrono::steady_clock::now();
 	EXPECT_TRUE(client.socket.waitClosed(5s));
 	EXPECT_GE(std::chrono::steady_clock::now() - started, 500ms);
-	EXPECT_TRUE(log.waitFor("info|com.aionemu.chatserver.network.netty.ConnectionHandler|Client 127.0.0.1 didn't authenticate within 1000 ms, "
+	EXPECT_TRUE(log.waitFor("info|com.aionemu.commons.network.netty.ConnectionHandler|Client 127.0.0.1 didn't authenticate within 1000 ms, "
 													"disconnecting"))
 		<< log.dump();
 }
@@ -52,9 +52,9 @@ TEST_F(ConnectionHandlerTest, AuthenticatedClientsStayConnected) {
 }
 
 TEST_F(ConnectionHandlerTest, ClientsWithTooManyWaitingPacketsAreDisconnected) {
-	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	LogCapture log({"com.aionemu.commons.network.netty.ConnectionHandler"});
 	// occupy every packet executor thread, so the client's packets stay queued
-	std::shared_ptr<network::netty::PacketExecutorGroup> executor = network::NetConnector::getPacketExecutors();
+	std::shared_ptr<commons::network::netty::PacketExecutorGroup> executor = network::NetConnector::getPacketExecutors();
 	auto release = std::make_shared<std::atomic<bool>>(false);
 	auto busy = std::make_shared<std::atomic<int32_t>>(0);
 	int blockers[8] = {};

@@ -63,7 +63,7 @@ protected:
 		joined.playOk1 = play.D();
 		joined.playOk2 = play.D();
 		EXPECT_EQ(play.C(), serverId);
-		EXPECT_EQ(play.B(14), std::vector<uint8_t>(14));
+		// upstream bce89b2fc: SM_PLAY_OK ends with the server id
 		gs.send(PacketWriter().C(1).D(joined.accountId).D(joined.loginOk).D(joined.playOk1).D(joined.playOk2).data);
 		joined.authResponse = gs.expectPacket(1);
 		return joined;
@@ -374,8 +374,12 @@ TEST_F(GameServerFlowTest, AccountListOfADisconnectedGameServerRegistersNoAccoun
 		gs.send(PacketWriter().C(4).D(1).D(accountId).data);
 		ASSERT_TRUE(TableLock::waitForBlockedQuery());
 		gs.socket.close();
-		ASSERT_TRUE(waitUntil([&] { return !gsi->getConnection(); })); // onDisconnect ran while the packet still runs
+		// upstream bce89b2fc: the disconnect callback is queued on the packet executor of the game server (in C++ one that runs the packets of
+		// a game server in order, see GsConnection), so it runs after the blocked packet
+		std::this_thread::sleep_for(200ms);
+		EXPECT_TRUE(gsi->getConnection());
 	}
+	ASSERT_TRUE(waitUntil([&] { return !gsi->getConnection(); }));
 	EXPECT_FALSE(waitUntil([&] { return gsi->isAccountOnGameServer(accountId); }, 1s));
 	EXPECT_EQ(gsi->getCurrentPlayers(), 0);
 

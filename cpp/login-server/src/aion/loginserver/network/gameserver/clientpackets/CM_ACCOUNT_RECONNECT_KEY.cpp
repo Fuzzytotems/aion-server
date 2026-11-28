@@ -21,7 +21,7 @@ void CM_ACCOUNT_RECONNECT_KEY::runImpl() {
 			.warn(getConnection()->toString() + " requested reconnection for account " + std::to_string(accountId) + ", but account is not registered on game server");
 	else
 		controller::AccountController::addReconnectingAccount(model::ReconnectingAccount(std::move(acc), reconectKey));
-	sendPacket(std::make_shared<serverpackets::SM_ACCOUNT_RECONNECT_KEY>(accountId, reconectKey));
+	sendPacket(serverpackets::SM_ACCOUNT_RECONNECT_KEY(accountId, reconectKey));
 }
 
 } // namespace aion::loginserver::network::gameserver::clientpackets

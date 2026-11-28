@@ -19,7 +19,7 @@ const commons::logging::Logger& log() {
 
 } // namespace
 
-AionConnection::AionConnection(std::shared_ptr<netty::ConnectionHandler> channel, Executor packetExecutor)
+AionConnection::AionConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor)
 	: NettyConnection(std::move(channel), std::move(packetExecutor)) {
 }
 

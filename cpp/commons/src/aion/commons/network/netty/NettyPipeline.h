@@ -2,12 +2,12 @@
 
 #include <memory>
 
-#include "aion/chatserver/network/netty/ConnectionHandler.h"
+#include "aion/commons/network/netty/ConnectionHandler.h"
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 /**
- * Java: com.aionemu.chatserver.network.netty.NettyPipeline
+ * Java: com.aionemu.commons.network.netty.NettyPipeline
  */
 namespace NettyPipeline {
 
@@ -21,4 +21,4 @@ inline void init(ConnectionHandler& channel, std::shared_ptr<NettyConnectionBase
 
 } // namespace NettyPipeline
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty

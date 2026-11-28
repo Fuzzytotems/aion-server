@@ -1,5 +1,6 @@
 #include "aion/loginserver/network/ncrypt/CryptEngine.h"
 
+#include <algorithm>
 #include <array>
 #include <string>
 
@@ -43,6 +44,10 @@ bool CryptEngine::decrypt(std::span<uint8_t> data) {
 }
 
 int32_t CryptEngine::encrypt(std::span<uint8_t> data, int32_t length) {
+	return encrypt(data, length, static_cast<uint32_t>(commons::utils::Rnd::nextInt()));
+}
+
+int32_t CryptEngine::encrypt(std::span<uint8_t> data, int32_t length, uint32_t xorKey) {
 	using namespace commons::utils;
 	std::scoped_lock lock(mutex);
 	// Java's int arithmetic in 64 bits (% truncates toward zero in both languages; a payload of only an opcode gives length -1)
@@ -57,12 +62,16 @@ int32_t CryptEngine::encrypt(std::span<uint8_t> data, int32_t length) {
 		throw IndexOutOfBoundsException("Encrypted packet size " + std::to_string(newLength) + " exceeds the buffer size " + std::to_string(data.size()));
 
 	auto packet = data.first(static_cast<size_t>(newLength));
+	if (!updatedKey && key.empty())
+		throw IllegalStateException("Blowfish session key is empty"); // see below
+	// fills the space for the checksum and the padding with zeros, instead of leaving whatever the buffer held there before
+	std::fill(packet.begin() + std::max<int64_t>(0, length), packet.end(), uint8_t{0});
 	if (!updatedKey) {
 		// Deviation: Java throws ArrayIndexOutOfBoundsException from BlowfishCipher.updateKey after the packet was encrypted, leaving a broken
 		// cipher behind. Here nothing is modified.
 		if (key.empty())
 			throw IllegalStateException("Blowfish session key is empty");
-		encXORPass(packet, static_cast<uint32_t>(Rnd::nextInt()));
+		encXORPass(packet, xorKey);
 		cipher.cipher(packet);
 		cipher.updateKey(key);
 		updatedKey = true;

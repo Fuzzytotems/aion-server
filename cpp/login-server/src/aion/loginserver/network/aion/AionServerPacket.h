@@ -21,12 +21,11 @@ class LoginConnection;
 class AionServerPacket : public commons::network::packet::BaseServerPacket {
 public:
 	/**
-	 * Write and encrypt this packet data for given connection, to given buffer. Afterwards [position, limit) of buf is the encrypted frame:
+	 * Write and encrypt this packet data for given connection, to given buffer. The buffer needs room for the checksum and the padding that the
+	 * encryption appends to the packet. Leaves the buffer's position at 0 and its limit at the end of the packet:
 	 * <pre>
-	 * [uint16 size][Blowfish encrypted: opcode, writeImpl data, checksum and padding]
+	 * [uint16 size][Blowfish encrypted: opcode, writeImpl data, padding and checksum]
 	 * </pre>
-	 * Like Java, payload size - 2 bytes are passed to the encryption (see CryptEngine::encrypt), so the wire bytes are identical to the Java
-	 * server's.
 	 */
 	void write(LoginConnection& con, commons::utils::ByteBuffer& buf) const;
 

@@ -5,15 +5,10 @@
 
 namespace aion::loginserver::network::aion::clientpackets {
 
-void CM_UPDATE_SESSION::readImpl() {
+void CM_UPDATE_SESSION::readFields() {
 	accountId = readD();
 	loginOk = readD();
 	reconnectKey = readD();
-	readC(); // 68
-	readB(6); // random
-	readC(); // 4
-	readC(); // 68
-	readH(); // random
 }
 
 void CM_UPDATE_SESSION::runImpl() {

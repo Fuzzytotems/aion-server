@@ -73,7 +73,7 @@ public:
 	static std::string decodeCp1252(std::span<const uint8_t> bytes);
 
 protected:
-	void readImpl() override;
+	void readFields() override;
 	void runImpl() override;
 
 private:
@@ -82,6 +82,15 @@ private:
 
 	std::vector<uint8_t> encryptedLoginData;
 	int32_t sessionId = 0;
+	/** The number in the client's package.dat. */
+	[[maybe_unused]] int32_t packageId = 0;
+	/** The number of game client windows open on the player's computer, this one included. */
+	[[maybe_unused]] int32_t openClientWindows = 0;
+	/** MD5 hash of the player's computer information, as the client logs it ("[PCInfo] MD5"). */
+	[[maybe_unused]] std::vector<uint8_t> pcInfoMd5;
+
+	/** Size of the fields after the RSA encrypted credentials. */
+	static constexpr int32_t FIELDS_AFTER_CREDENTIALS = 43;
 };
 
 } // namespace aion::loginserver::network::aion::clientpackets

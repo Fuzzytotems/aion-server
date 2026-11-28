@@ -20,7 +20,7 @@ public:
 
 protected:
 	void writeImpl(LoginConnection& con, commons::utils::ByteBuffer& buf) const override {
-		writeD(buf, msgId); // reason
+		writeC(buf, msgId); // response code
 	}
 
 private:

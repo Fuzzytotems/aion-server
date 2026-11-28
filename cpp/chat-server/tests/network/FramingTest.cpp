@@ -50,7 +50,7 @@ TEST_F(ClientFramingTest, AFrameOfTheMaximumLengthIsAccepted) {
 }
 
 TEST_F(ClientFramingTest, AFrameLongerThanTheMaximumIsAnInvalidPacket) {
-	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	LogCapture log({"com.aionemu.commons.network.netty.ConnectionHandler"});
 	FakeChatClient client(clientPort);
 	client.send(Bytes{0x01, 0x40, 0x30}); // declares 16385 bytes
 	EXPECT_TRUE(client.socket.waitClosed());
@@ -59,7 +59,7 @@ TEST_F(ClientFramingTest, AFrameLongerThanTheMaximumIsAnInvalidPacket) {
 }
 
 TEST_F(ClientFramingTest, AFrameShorterThanItsSizeHeaderIsAnInvalidPacket) {
-	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	LogCapture log({"com.aionemu.commons.network.netty.ConnectionHandler"});
 	FakeChatClient client(clientPort);
 	client.send(Bytes{0x01, 0x00, 0x30});
 	EXPECT_TRUE(client.socket.waitClosed());
@@ -68,7 +68,7 @@ TEST_F(ClientFramingTest, AFrameShorterThanItsSizeHeaderIsAnInvalidPacket) {
 }
 
 TEST_F(ClientFramingTest, AFrameWithoutBodyIsAnEmptyPacket) {
-	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	LogCapture log({"com.aionemu.commons.network.netty.ConnectionHandler"});
 	FakeChatClient client(clientPort);
 	client.send(Bytes{0x02, 0x00, 0x02}); // the third byte starts the next frame
 	EXPECT_TRUE(client.socket.waitClosed());

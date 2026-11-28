@@ -13,8 +13,7 @@ void CM_L2AUTH_LOGIN_CHECK::readImpl() {
 	playOk1 = readD();
 	accountId = readD();
 	loginOk = readD();
-	unk1 = readD();
-	unk2 = readD();
+	passportKey = readQ();
 }
 
 void CM_L2AUTH_LOGIN_CHECK::runImpl() {

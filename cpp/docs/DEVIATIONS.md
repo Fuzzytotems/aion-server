@@ -88,7 +88,6 @@ Any other difference is a bug: code not listed here should behave like Java.
 |---|---|---|---|
 | Threads | 0 → one accept+IO dispatcher; N → N IO dispatchers + 1 accept dispatcher | `max(1, N)` Asio IO threads doing both | No separate accept thread needed; 0/1 stay single-threaded as the game server expects |
 | `NioServer.shutdown` | Logs counts and returns; stragglers stay connected; threads keep running | Same log lines, then remaining connections are disconnected, IO threads joined, all `onDisconnect` callbacks awaited | C++ must stop its threads; guarantees `onDisconnect` for every connection |
-| Oversized packets | Declared size > read buffer hangs the connection (selector spins) | Warning and disconnect | Java bug |
 | `writeData` exceptions | Logged; half-written buffer corrupts the stream | Logged and disconnected | Java corrupts the stream |
 | Pending close | Disconnect when the queue is empty; SO_LINGER(true, 10); read interest removed | Disconnect when the close packet was handed to the socket, a write failed, or after 2 s; shutdown + close without linger; received data is read and discarded meanwhile | Deterministic close packet delivery; draining avoids an RST that could discard the close packet |
 | Disconnect executor | `connect(Executor)` required; `shutdown` does not wait; a rejecting executor loses `onDisconnect` | `connect(DisconnectExecutor)` or `connect()` with own threads (default 2); `shutdown` waits for callbacks; if the executor throws, `onDisconnect` runs on the IO thread | No `Executor`; C++ must join threads; every connection gets its `onDisconnect` |
@@ -96,7 +95,7 @@ Any other difference is a bug: code not listed here should behave like Java.
 | `sendPacket`/`close` before registration | Act on the selection key immediately | Deferred until IO starts after `initialized()`; a connection is never disconnected before it is registered | Lets a `ConnectionFactory` reject a client with `close(packet)` without racing registration |
 | Write batching | One socket write per packet | Consecutive packets batched into one write (same bytes and order) | Fewer system calls |
 | `initialized()` | May race with the first read; exceptions leave the connection registered | Always before the first read; exceptions close the connection | Deterministic |
-| `PacketProcessor` | Linear scan of one global list; no shutdown; exceptions kill workers | Per-connection queues + ready list (same guarantees and checker rules); `shutdown()`; exceptions logged, workers continue | O(1) scheduling; C++ must join threads |
+| `PacketProcessor` | No shutdown; exceptions kill workers | `shutdown()`; exceptions logged, workers continue | C++ must join threads |
 | `PacketProcessor` executor | `Executor` receiving a `Runnable` | `std::function<void(ClientPacketBase&)>` that calls `packet.run()` | No `Runnable` |
 | `BaseServerPacket.buf` | Mutable field set during `write()` | No buffer member; static write helpers take the target buffer | One instance can be broadcast concurrently |
 | `BasePacket.getPacketName` | final, `getSimpleName()` | virtual, simple name from `typeid` | Compiler names can be overridden |
@@ -135,8 +134,9 @@ word, so client packets carry the checksum in the last-but-one word; the "unknow
 
 | Area | Java | C++ | Reason |
 |---|---|---|---|
-| Game server packet execution | Cached thread pool: packets of one game server run concurrently and unordered | `PacketProcessor<GsConnection>(4, 8, 50, 3)`: per game server in receive order; `CM_GS_PONG` runs directly on the IO thread | Memory safety and ordering; a pong behind a slow packet must not trigger the ping timeout |
-| Executors and shutdown | Static executors, shut down in `onServerClose` | `NetConnector` owns packet processors, ping scheduler and 8 disconnect threads; joined on shutdown; restartable | C++ must join threads; in-process tests |
+| Network (Netty since upstream bce89b2fc) | Netty 4.2 pipeline of commons `network/netty` (`NettyConnection`, `ConnectionHandler`, `NettyPipeline`, `PacketEncoder`), epoll on Linux | The same classes in commons on a commons `NioServer` (asio): `ConnectionHandler` is the channel; see docs/deviations/chat-server.md, "Connections", which applies to the login server as well | No Netty |
+| Game server packet execution | Cached thread pool: packets of one game server run concurrently and unordered | A `PacketExecutorGroup::next()` executor per game server: in receive order; `CM_GS_PONG` runs directly on the IO thread (`GsConnection::createPacket`) | Memory safety and ordering; a pong behind a slow packet must not trigger the ping timeout |
+| Executors and shutdown | Static executors (`GsConnection.shutdownExecutors`) | `NetConnector` owns the client and game server packet executors, the ping scheduler and 8 disconnect threads; joined on shutdown; restartable | C++ must join threads; in-process tests |
 | `LoginConnection` session id | `Object.hashCode()` | Random int in [1, INT_MAX] | No identity hash |
 | `LoginConnection.onDisconnect` | Removes the account id from `accountsOnLS` whichever connection is mapped | Only if it maps to this connection; logins that finish after a disconnect clean up after themselves (`AccountAttachScope`) | Java bugs: a kicked client could remove the new login; stale connections kept accounts "logged in" |
 | `GameServerInfo` accounts | Added unconditionally; connection and accounts cleared separately on disconnect | Added only while that connection is active; connection + accounts cleared atomically | A packet finishing after a disconnect left the account "already logged in" until restart |

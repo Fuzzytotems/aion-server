@@ -26,7 +26,6 @@ protected:
 		writeD(buf, playOk1);
 		writeD(buf, playOk2);
 		writeC(buf, serverId);
-		writeB(buf, std::array<uint8_t, 0x0E>{});
 	}
 
 private:

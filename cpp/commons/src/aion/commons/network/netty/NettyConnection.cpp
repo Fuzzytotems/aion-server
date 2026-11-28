@@ -1,18 +1,18 @@
-#include "aion/chatserver/network/netty/NettyConnection.h"
+#include "aion/commons/network/netty/NettyConnection.h"
 
 #include <utility>
 
 #include <asio/ip/address.hpp>
 
-#include "aion/chatserver/network/netty/ConnectionHandler.h"
+#include "aion/commons/network/netty/ConnectionHandler.h"
 #include "aion/commons/logging/LoggerFactory.h"
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 namespace {
 
-const commons::logging::Logger& log() {
-	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.chatserver.network.netty.NettyConnection"));
+const logging::Logger& log() {
+	static const auto* logger = new logging::Logger(logging::LoggerFactory::getLogger("com.aionemu.commons.network.netty.NettyConnection"));
 	return *logger;
 }
 
@@ -30,7 +30,7 @@ NettyConnectionBase::NettyConnectionBase(std::shared_ptr<ConnectionHandler> chan
 
 NettyConnectionBase::~NettyConnectionBase() = default;
 
-void NettyConnectionBase::send(const std::function<void(commons::utils::ByteBuffer&)>& writer) {
+void NettyConnectionBase::send(const std::function<void(utils::ByteBuffer&)>& writer) {
 	if (!channel->isWritable() && channel->bytesBeforeWritable() > getMaxPendingWriteBytes()) {
 		log().warn("{} has more than {} bytes waiting to be sent, disconnecting", toString(), getMaxPendingWriteBytes());
 		close();
@@ -39,20 +39,24 @@ void NettyConnectionBase::send(const std::function<void(commons::utils::ByteBuff
 	channel->writeAndFlush(writer, false);
 }
 
+bool NettyConnectionBase::isClosed() const noexcept {
+	return !channel->isActive();
+}
+
 void NettyConnectionBase::close() {
 	channel->closeChannel();
 }
 
-void NettyConnectionBase::closeAfter(const std::function<void(commons::utils::ByteBuffer&)>& writer) {
+void NettyConnectionBase::closeAfter(const std::function<void(utils::ByteBuffer&)>& writer) {
 	channel->writeAndFlush(writer, true);
 }
 
-bool NettyConnectionBase::execute(std::unique_ptr<commons::network::packet::ClientPacketBase> packet) {
+bool NettyConnectionBase::execute(std::unique_ptr<packet::ClientPacketBase> packet) {
 	if (pendingPackets.fetch_add(1) + 1 > getMaxPendingPackets()) {
 		pendingPackets--;
 		return false;
 	}
-	std::shared_ptr<commons::network::packet::ClientPacketBase> task(std::move(packet));
+	std::shared_ptr<packet::ClientPacketBase> task(std::move(packet));
 	packetExecutor([self = shared_from_this(), task] {
 		struct Finally {
 			NettyConnectionBase& connection;
@@ -67,4 +71,4 @@ void NettyConnectionBase::executeAfterPendingPackets(std::function<void()> task)
 	packetExecutor(std::move(task));
 }
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty

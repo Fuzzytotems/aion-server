@@ -14,7 +14,7 @@
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 class NettyConnectionBase;
 
@@ -38,9 +38,9 @@ class NettyConnectionBase;
  * Ownership: the commons server keeps the handler alive while it is connected; the handler keeps its connection until it was disconnected and
  * then hands it to the disconnect task (so the connection, which keeps its channel, does not form a cycle with it).
  * <p>
- * Java: com.aionemu.chatserver.network.netty.ConnectionHandler (plus Netty's channel, frame decoder and PacketEncoder)
+ * Java: com.aionemu.commons.network.netty.ConnectionHandler (plus Netty's channel, frame decoder and PacketEncoder)
  */
-class ConnectionHandler final : public commons::network::AConnectionBase {
+class ConnectionHandler final : public AConnectionBase {
 public:
 	/** Netty's default WriteBufferWaterMark */
 	static constexpr int64_t WRITE_BUFFER_LOW_WATER_MARK = 32 * 1024;
@@ -50,7 +50,7 @@ public:
 	 * @param socket the accepted socket (SO_KEEPALIVE is enabled, TCP_NODELAY is set by the server)
 	 * @param maxPacketSize the maximum size of a received and of a sent packet, including its size header
 	 */
-	ConnectionHandler(asio::ip::tcp::socket socket, commons::network::NioServer& server, int32_t maxPacketSize);
+	ConnectionHandler(asio::ip::tcp::socket socket, NioServer& server, int32_t maxPacketSize);
 	~ConnectionHandler() override;
 
 	/** Attaches the connection (NettyPipeline::init), before the handler is returned to the server. */
@@ -72,7 +72,7 @@ public:
 	 *
 	 * @param closeAfterWrite true to close the channel once the packet was written (Java: addListener(ChannelFutureListener.CLOSE))
 	 */
-	void writeAndFlush(const std::function<void(commons::utils::ByteBuffer&)>& writer, bool closeAfterWrite);
+	void writeAndFlush(const std::function<void(utils::ByteBuffer&)>& writer, bool closeAfterWrite);
 
 	/** Java: channel.close() / ctx.close() */
 	void closeChannel();
@@ -84,14 +84,14 @@ protected:
 	/** Java: channelActive */
 	void initialized() override;
 	/** Java: channelRead0 */
-	bool processData(commons::utils::ByteBuffer& data) override;
-	bool writeData(commons::utils::ByteBuffer& data) override;
+	bool processData(utils::ByteBuffer& data) override;
+	bool writeData(utils::ByteBuffer& data) override;
 	/** Java: channelInactive */
 	void onDisconnect() override;
 	/** Java: the channel group of NetConnector is closed on shutdown */
 	void onServerClose() override;
 	void onPacketTooLarge(int32_t size, int32_t capacity) const override;
-	void onEmptyPacket(int32_t size, const commons::utils::ByteBuffer& buf) const override;
+	void onEmptyPacket(int32_t size, const utils::ByteBuffer& buf) const override;
 	void onBytesWritten(size_t bytes) noexcept override;
 	void onSocketClosed() noexcept override;
 
@@ -122,4 +122,4 @@ private:
 	asio::steady_timer stallTimer; // strand only
 };
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty

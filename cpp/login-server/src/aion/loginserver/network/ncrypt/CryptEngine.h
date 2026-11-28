@@ -68,16 +68,14 @@ public:
 	 * Encrypts a packet in place. Java: encrypt(data, offset, length).
 	 * <p>
 	 * The written size is length + 4 rounded up to the next multiple of 8 (always adding at least one byte), plus 4 more before rounding for
-	 * the first packet. The bytes from length up to that size are included in the checksum/XOR pass as they are (Java leaves stale write
-	 * buffer contents there), except for the checksum/XOR key word, which is overwritten. Note that this word may overlap the last bytes of
-	 * the given length (AionServerPacket passes the payload size minus 2 as length).
+	 * the first packet: the packet grows by its checksum and the padding to whole Blowfish blocks. The bytes from length up to that size are
+	 * zeroed first (upstream bce89b2fc; formerly they kept the old buffer contents), then the checksum (or the XOR key) is written.
 	 *
 	 * @param data
 	 *          buffer starting at the first byte to encrypt (Java: data[offset]), at least as large as the encrypted size
 	 *          (max(length + MAX_ENCRYPTION_OVERHEAD, 16) bytes are always enough)
 	 * @param length
-	 *          number of bytes to encrypt before padding (Java: length). Small negative values are valid like in Java: AionServerPacket passes
-	 *          -1 for a packet consisting of only its opcode.
+	 *          number of bytes to encrypt before padding (Java: length). Small negative values are valid like in Java.
 	 * @return size of the encrypted data (a multiple of 8, at least 8)
 	 * @throws utils::IllegalArgumentException if the encrypted size would be less than 8 (length &lt; -11, or &lt; -15 for the first packet),
 	 * where Java writes outside the encrypted range. Nothing is modified.
@@ -86,6 +84,11 @@ public:
 	 * @throws utils::IllegalStateException if this is the first packet and the session key set with updateKey() is empty. Nothing is modified.
 	 */
 	int32_t encrypt(std::span<uint8_t> data, int32_t length);
+
+	/**
+	 * Like encrypt(data, length), with the given key of the extra XOR pass over the first packet (Java: package-private, for tests).
+	 */
+	int32_t encrypt(std::span<uint8_t> data, int32_t length, uint32_t xorKey);
 
 private:
 	/** @return true if the XOR of all 32-bit words except the last one is 0 */

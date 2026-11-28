@@ -25,36 +25,22 @@ const commons::logging::Logger& log() {
 
 } // namespace
 
-LoginConnection::LoginConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server, std::shared_ptr<Processor> processor)
-	: AConnection(std::move(socket), server, 8192 * 2, 8192 * 2),
-		processor(std::move(processor)),
+LoginConnection::LoginConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor)
+	: NettyConnection(std::move(channel), std::move(packetExecutor)),
 		sessionId(commons::utils::Rnd::get(1, std::numeric_limits<int32_t>::max())) {}
 
-bool LoginConnection::processData(commons::utils::ByteBuffer& data) {
-	if (!decrypt(data)) {
+std::unique_ptr<commons::network::packet::ClientPacketBase> LoginConnection::createPacket(commons::utils::ByteBuffer& data) {
+	if (!cryptEngine.decrypt(data.remainingSpan())) {
 		log().warn("Wrong checksum from " + toString());
-		return false;
+		close();
+		return nullptr;
 	}
-
-	std::unique_ptr<AionClientPacket> pck = factories::AionPacketHandlerFactory::handle(data, sharedFromThis());
-
-	// Execute packet only if packet exists and read was ok.
-	if (pck && pck->read() && !processor->executePacket(std::move(pck))) {
-		log().warn(toString() + " has more than " + std::to_string(MAX_PENDING_PACKETS) + " packets waiting for execution, disconnecting");
-		return false;
-	}
-
-	return true;
+	data.limit(data.limit() - 8); // the checksum word and the unused word after it
+	return factories::AionPacketHandlerFactory::handle(data, std::static_pointer_cast<LoginConnection>(shared_from_this()));
 }
 
-bool LoginConnection::writeData(commons::utils::ByteBuffer& data) {
-	// guard is held by the caller (Java: synchronized)
-	if (sendMsgQueue.empty())
-		return false;
-	std::shared_ptr<AionServerPacket> packet = std::move(sendMsgQueue.front());
-	sendMsgQueue.pop_front();
-	packet->write(*this, data);
-	return true;
+void LoginConnection::writePacket(const AionServerPacket& packet, commons::utils::ByteBuffer& buffer) {
+	packet.write(*this, buffer);
 }
 
 void LoginConnection::onDisconnect() {
@@ -117,15 +103,6 @@ int64_t LoginConnection::getAuthTimeoutMillis() const {
 	return configs::Config::CLIENT_AUTH_TIMEOUT_SECONDS * 1000LL;
 }
 
-void LoginConnection::onServerClose() {
-	// TODO mb some packet should be send to client before closing?
-	close(/* packet */);
-}
-
-bool LoginConnection::decrypt(commons::utils::ByteBuffer& buf) {
-	return cryptEngine.decrypt(buf.remainingSpan());
-}
-
 int32_t LoginConnection::encrypt(std::span<uint8_t> data, int32_t length) {
 	return cryptEngine.encrypt(data, length);
 }
@@ -159,15 +136,14 @@ std::string LoginConnection::toString() const {
 	return (acc ? acc->toString() + " " : std::string("Client ")) + getIP();
 }
 
-void LoginConnection::initialized() {
-	state = State::CONNECTED;
+void LoginConnection::onConnect() {
 	log().info("Connection attempt from: " + getIP());
 	encryptedRSAKeyPair = ncrypt::KeyGen::getEncryptedRSAKeyPair();
 	const ncrypt::KeyGen::BlowfishKey blowfishKey = ncrypt::KeyGen::generateBlowfishKey();
 
 	cryptEngine.updateKey(blowfishKey);
 
-	sendPacket(std::make_shared<serverpackets::SM_INIT>(*this, blowfishKey));
+	sendPacket(serverpackets::SM_INIT(*this, blowfishKey));
 }
 
 const char* toString(LoginConnection::State state) noexcept {

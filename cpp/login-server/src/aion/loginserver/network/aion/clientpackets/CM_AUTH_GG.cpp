@@ -5,23 +5,19 @@
 
 namespace aion::loginserver::network::aion::clientpackets {
 
-void CM_AUTH_GG::readImpl() {
+void CM_AUTH_GG::readFields() {
 	sessionId = readD();
-	readD();
-	readD();
-	readD();
-	readD();
-	readB(0x0B);
+	readB(16); // zeros in the 4.8 client
 }
 
 void CM_AUTH_GG::runImpl() {
 	const std::shared_ptr<LoginConnection>& con = getConnection();
 	if (con->getSessionId() == sessionId) {
 		con->setState(LoginConnection::State::AUTHED_GG);
-		con->sendPacket(std::make_shared<serverpackets::SM_AUTH_GG>(sessionId));
+		con->sendPacket(serverpackets::SM_AUTH_GG());
 	} else {
 		// Session id is not ok, notify and disconnect client
-		con->close(std::make_shared<serverpackets::SM_LOGIN_FAIL>(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
+		con->close(serverpackets::SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
 	}
 }
 

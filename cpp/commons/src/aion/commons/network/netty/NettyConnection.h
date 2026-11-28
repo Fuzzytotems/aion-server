@@ -10,7 +10,7 @@
 #include "aion/commons/network/packet/BaseClientPacket.h"
 #include "aion/commons/utils/ByteBuffer.h"
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 class ConnectionHandler;
 
@@ -21,8 +21,8 @@ class ConnectionHandler;
 class NettyConnectionBase : public std::enable_shared_from_this<NettyConnectionBase> {
 public:
 	/**
-	 * Executes tasks (Java: java.util.concurrent.Executor). The executor of a connection must run its tasks one after another in submission order
-	 * (Java: a Netty EventExecutor), see NetConnector.
+	 * Executes tasks (Java: java.util.concurrent.Executor): one after another in submission order (Java: a Netty EventExecutor, here
+	 * PacketExecutorGroup::next()), or concurrently (a thread pool).
 	 */
 	using Executor = std::function<void(std::function<void()> task)>;
 
@@ -40,6 +40,15 @@ public:
 	/** @return true if the remote side connected from a loopback address */
 	bool isFromLoopback() const noexcept { return fromLoopback; }
 
+	/** @return a shared_ptr to this connection, typed as the object expression it is called on (Java: this) */
+	template <typename Self>
+	[[nodiscard]] std::shared_ptr<Self> sharedFromThis(this Self& self) {
+		return std::static_pointer_cast<Self>(self.shared_from_this());
+	}
+
+	/** C++ addition: @return true once the connection is closing or closed (Java: !channel.isActive()) */
+	bool isClosed() const noexcept;
+
 	/** @return a description of this connection for log messages (Java: toString(), overridden by every connection) */
 	virtual std::string toString() const = 0;
 
@@ -50,16 +59,16 @@ protected:
 	 * Java: sendPacket(S) - unless more than getMaxPendingWriteBytes() bytes wait to be sent (which closes the connection), the writer writes the
 	 * packet, including its size header, into a buffer of the maximum packet size on the calling thread and the bytes are queued.
 	 */
-	void send(const std::function<void(commons::utils::ByteBuffer&)>& writer);
+	void send(const std::function<void(utils::ByteBuffer&)>& writer);
 
 	/** Java: close(S) - like send, but the connection is closed once the packet was written. */
-	void closeAfter(const std::function<void(commons::utils::ByteBuffer&)>& writer);
+	void closeAfter(const std::function<void(utils::ByteBuffer&)>& writer);
 
 	/**
 	 * @return The packet for the given data, or null if it should be ignored. data is the packet body after the size header, valid during the
 	 *         call only (the packet reads it in read()).
 	 */
-	virtual std::unique_ptr<commons::network::packet::ClientPacketBase> createPacket(commons::utils::ByteBuffer& data) = 0;
+	virtual std::unique_ptr<packet::ClientPacketBase> createPacket(utils::ByteBuffer& data) = 0;
 
 	/**
 	 * @return True if the remote side has authenticated itself. Connections that didn't authenticate within getAuthTimeoutMillis() get closed.
@@ -83,7 +92,7 @@ protected:
 
 	virtual void onConnect() = 0;
 
-	/** Called once after the connection was closed and all of its pending packets were executed. */
+	/** Called once after the connection was closed and (with an executor running one task at a time) all of its pending packets were executed. */
 	virtual void onDisconnect() = 0;
 
 private:
@@ -94,9 +103,9 @@ private:
 	 *
 	 * @return False if the maximum number of packets is already waiting for execution.
 	 */
-	bool execute(std::unique_ptr<commons::network::packet::ClientPacketBase> packet);
+	bool execute(std::unique_ptr<packet::ClientPacketBase> packet);
 
-	/** Runs the task after all packets of this connection, which are already queued for execution. */
+	/** Runs the task after all packets of this connection, which are already queued for execution, if the packet executor runs one task at a time. */
 	void executeAfterPendingPackets(std::function<void()> task);
 
 	const std::shared_ptr<ConnectionHandler> channel;
@@ -107,13 +116,13 @@ private:
 };
 
 /**
- * Connection on top of a channel (ConnectionHandler). Received packets are executed one after another on the connection's packet executor,
- * outside the I/O threads.
+ * Connection on top of a channel (ConnectionHandler). Received packets are executed on the connection's packet executor, outside the I/O
+ * threads: one after another if the executor runs one task at a time, concurrently if it is a thread pool.
  * <p>
  * C++: Netty's channel is the ConnectionHandler, a commons connection on the asio IO threads (see there for how the pipeline maps onto it).
  * Packets are written into their buffer on the thread that sends them (Netty: on the channel's event loop), in the order they are sent.
  * <p>
- * Java: com.aionemu.chatserver.network.netty.NettyConnection
+ * Java: com.aionemu.commons.network.netty.NettyConnection
  *
  * @param S the server packet type
  */
@@ -122,14 +131,14 @@ class NettyConnection : public NettyConnectionBase {
 public:
 	/** Sends the packet (see NettyConnectionBase::send). */
 	void sendPacket(const S& packet) {
-		send([this, &packet](commons::utils::ByteBuffer& buffer) { writePacket(packet, buffer); });
+		send([this, &packet](utils::ByteBuffer& buffer) { writePacket(packet, buffer); });
 	}
 
 	using NettyConnectionBase::close;
 
 	/** Sends the packet and closes the connection afterwards. */
 	void close(const S& packet) {
-		closeAfter([this, &packet](commons::utils::ByteBuffer& buffer) { writePacket(packet, buffer); });
+		closeAfter([this, &packet](utils::ByteBuffer& buffer) { writePacket(packet, buffer); });
 	}
 
 protected:
@@ -137,7 +146,7 @@ protected:
 		: NettyConnectionBase(std::move(channel), std::move(packetExecutor)) {}
 
 	/** Writes the packet including its size header into the buffer, so that [position, limit) is the frame afterwards. */
-	virtual void writePacket(const S& packet, commons::utils::ByteBuffer& buffer) = 0;
+	virtual void writePacket(const S& packet, utils::ByteBuffer& buffer) = 0;
 };
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty
