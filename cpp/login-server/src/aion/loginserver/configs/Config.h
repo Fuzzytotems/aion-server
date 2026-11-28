@@ -44,6 +44,9 @@ struct Config {
 	 */
 	static inline int32_t NIO_READ_WRITE_THREADS = 0;
 
+	/** Time in seconds a client has to log in after connecting, before it gets disconnected. */
+	static inline int32_t CLIENT_AUTH_TIMEOUT_SECONDS = 0;
+
 	/** Should server automatically create accounts for users or not? */
 	static inline bool ACCOUNT_AUTO_CREATION = false;
 

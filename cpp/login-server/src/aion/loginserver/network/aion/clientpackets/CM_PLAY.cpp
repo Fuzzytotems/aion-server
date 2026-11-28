@@ -12,12 +12,10 @@ namespace aion::loginserver::network::aion::clientpackets {
 
 using namespace serverpackets;
 
-void CM_PLAY::readImpl() {
+void CM_PLAY::readFields() {
 	accountId = readD();
 	loginOk = readD();
 	servId = readC();
-	readB(6); // CE 15 F9 75 78 30 or all zero
-	readQ(); // random
 }
 
 void CM_PLAY::runImpl() {
@@ -27,19 +25,19 @@ void CM_PLAY::runImpl() {
 		std::shared_ptr<GameServerInfo> gsi = GameServerTable::getGameServerInfo(servId);
 		std::shared_ptr<model::Account> account = con->getAccount();
 		if (!gsi || !gsi->isOnline())
-			con->sendPacket(std::make_shared<SM_PLAY_FAIL>(AionAuthResponse::STR_L2AUTH_S_SERVER_DOWN));
+			con->sendPacket(SM_PLAY_FAIL(AionAuthResponse::STR_L2AUTH_S_SERVER_DOWN));
 		else if (!account)
 			throw commons::utils::IllegalStateException(con->toString() + " has no account");
 		else if (gsi->getMinAccessLevel() > account->getAccessLevel())
-			con->sendPacket(std::make_shared<SM_PLAY_FAIL>(AionAuthResponse::STR_L2AUTH_S_SEVER_CHECK));
+			con->sendPacket(SM_PLAY_FAIL(AionAuthResponse::STR_L2AUTH_S_SEVER_CHECK));
 		else if (gsi->isFull())
-			con->sendPacket(std::make_shared<SM_PLAY_FAIL>(AionAuthResponse::STR_L2AUTH_S_LIMIT_EXCEED));
+			con->sendPacket(SM_PLAY_FAIL(AionAuthResponse::STR_L2AUTH_S_LIMIT_EXCEED));
 		else {
 			con->setJoinedGs();
-			sendPacket(std::make_shared<SM_PLAY_OK>(key, servId));
+			sendPacket(SM_PLAY_OK(key, servId));
 		}
 	} else
-		con->close(std::make_shared<SM_LOGIN_FAIL>(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
+		con->close(SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
 }
 
 } // namespace aion::loginserver::network::aion::clientpackets

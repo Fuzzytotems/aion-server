@@ -81,9 +81,16 @@ TEST(PatternLayoutTest, ServerPatterns) {
 	if (!utc)
 		GTEST_SKIP() << "no time zone database available";
 	auto msg = message("Mail sent", spdlog::level::warn);
+	// upstream b028752d0 (THREAD_LOG unset): thread and logger padded to 50 characters, the servers' yellow WARN and 256-color gray
+	if (std::getenv("THREAD_LOG") != nullptr)
+		GTEST_SKIP() << "THREAD_LOG is set";
 	EXPECT_EQ(layoutFormat(Logging::resolvePattern(Logging::CONSOLE_PATTERN), msg, true, utc),
-		"13:42:30 \x1b[31mWARN \x1b[0;39m \x1b[1;30m[main]\x1b[0;39m - Mail sent" + EOL); // logback GrayCompositeConverter: BOLD + BLACK_FG
-	EXPECT_EQ(layoutFormat(Logging::resolvePattern(Logging::CONSOLE_PATTERN), msg, false, utc), "13:42:30 WARN  [main] - Mail sent" + EOL);
+		"13:42:30 \x1b[33mWARN \x1b[0;39m \x1b[38;5;242m[main] \x1b[36mcom.aionemu.gameserver.services.MailService\x1b[0m \x1b[38;5;242m-\x1b[0;39m Mail sent" +
+			EOL);
+	EXPECT_EQ(layoutFormat(Logging::resolvePattern(Logging::CONSOLE_PATTERN), msg, false, utc),
+		"13:42:30 WARN  [main] com.aionemu.gameserver.services.MailService - Mail sent" + EOL);
+	// the start scripts' THREAD_LOG=%(){} (start.bat) or empty (start.sh): the compact format
+	EXPECT_EQ(layoutFormat(Logging::resolvePattern("${consoleTime} %highlight(%-5level) %(){}%message%n"), msg, false, utc), "13:42:30 WARN  Mail sent" + EOL);
 	EXPECT_EQ(layoutFormat(Logging::resolvePattern(Logging::SERVER_CONSOLE_FILE_PATTERN), msg, false, utc),
 		"2026-09-12T13:42:30,123Z WARN  [main] com.aionemu.gameserver.services.MailService - Mail sent" + EOL);
 	EXPECT_EQ(layoutFormat(Logging::resolvePattern(Logging::WARNINGS_AND_ERRORS_FILE_PATTERN), msg, false, utc),
@@ -118,7 +125,11 @@ TEST(PatternLayoutTest, LevelsAndHighlightColors) {
 	EXPECT_EQ(layoutFormat("%level", message("", spdlog::level::critical)), "ERROR");
 	EXPECT_EQ(layoutFormat("%highlight(x)", message("", spdlog::level::err), true), "\x1b[1;31mx\x1b[0;39m");
 	EXPECT_EQ(layoutFormat("%highlight(x)", message("", spdlog::level::info), true), "\x1b[34mx\x1b[0;39m");
-	EXPECT_EQ(layoutFormat("%highlight(x)", message("", spdlog::level::debug), true), "\x1b[39mx\x1b[0;39m");
+	// the servers' LogLevelHighlightingCompositeConverter (upstream b028752d0): WARN yellow, DEBUG and TRACE dark gray
+	EXPECT_EQ(layoutFormat("%highlight(x)", message("", spdlog::level::debug), true), "\x1b[90mx\x1b[0;39m");
+	EXPECT_EQ(layoutFormat("%highlight(x)", message("", spdlog::level::warn), true), "\x1b[33mx\x1b[0;39m");
+	// the servers' RealGrayCompositeConverter
+	EXPECT_EQ(layoutFormat("%gray(x)", message(""), true), "\x1b[38;5;242mx\x1b[0;39m");
 	EXPECT_EQ(layoutFormat("%boldGreen(x)%cyan(y)", message(""), true), "\x1b[1;32mx\x1b[0;39m\x1b[36my\x1b[0;39m");
 }
 
@@ -185,7 +196,7 @@ TEST(PatternLayoutTest, StatusDiscordPatternSeparatesExceptions) {
 
 	utils::IllegalStateException exception("mailbox full", std::make_exception_ptr(std::runtime_error("disk")));
 	std::string output = logWithLayout(pattern, [&](const Logger& log) { log.error("Could not send mail", exception); });
-	EXPECT_EQ(output, "MailService [main]|https://server/ERROR.png|Could not send mail" + EOL + "```qml" + EOL + throwableText(exception) + "```");
+	EXPECT_EQ(output, "MailService [main]|https://server/ERROR.png|Could not send mail" + EOL + "```yml" + EOL + throwableText(exception) + "```");
 	EXPECT_NE(output.find("Caused by: std::runtime_error: disk" + EOL), std::string::npos);
 }
 
@@ -228,4 +239,29 @@ TEST(PatternLayoutTest, CloneAndSpdlogThreadNameFlag) {
 		formatted = std::string(out.data(), out.size());
 	}).join();
 	EXPECT_EQ(formatted, "[Worker-7] spdlog" + EOL);
+}
+
+// upstream b028752d0: the servers' ThreadAndLoggerNameConverter (%threadAndLogger{width})
+TEST(PatternLayoutTest, ThreadAndLogger) {
+	// "[main]" + padding + the logger abbreviated to 30 - 6 - 1 characters
+	EXPECT_EQ(layoutFormat("%threadAndLogger{30}|", message("", spdlog::level::info, "com.aionemu.gameserver.GameServer")),
+		"[main]        c.a.g.GameServer|");
+	EXPECT_EQ(layoutFormat("%threadAndLogger{30}|", message("", spdlog::level::info, "")), "[main]" + std::string(24, ' ') + "|");
+	EXPECT_EQ(layoutFormat("%threadAndLogger{30}", message("", spdlog::level::info, "x.Y"), true),
+		"\x1b[38;5;242m[main]" + std::string(21, ' ') + "\x1b[36mx.Y\x1b[0m");
+	std::string shortened;
+	std::thread([&] {
+		utils::concurrent::setCurrentThreadName("PacketProcessor-12345678901234567890");
+		shortened = PatternLayout("%threadAndLogger{30}|", nullptr, false).format(message("", spdlog::level::info, "AUDIT_LOG"));
+	}).join();
+	// [PacketProcessor-12345678901234567890] AUDIT_LOG is too long: PP-..., left-truncated to 30 - 9 - 1 - 2 characters
+	EXPECT_EQ(shortened, "[\u2026" "45678901234567890] AUDIT_LOG|");
+}
+
+TEST(PatternLayoutTest, ServerConsolePatternWithoutThreadLog) {
+	// THREAD_LOG unset: the IDE format with thread and logger; the start scripts set it empty for the compact format
+	if (std::getenv("THREAD_LOG") != nullptr)
+		GTEST_SKIP() << "THREAD_LOG is set";
+	EXPECT_EQ(Logging::resolvePattern("a ${THREAD_LOG:-%threadAndLogger %gray(-) }b"), "a %threadAndLogger %gray(-) b");
+	EXPECT_EQ(Logging::resolvePattern("${NO_SUCH_AION_VARIABLE_X:-x}${NO_SUCH_AION_VARIABLE_X}y"), "xy");
 }

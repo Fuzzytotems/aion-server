@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/configs/main/LoggingConfig.h"
+#include "aion/gameserver/configs/main/PunishmentConfig.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerSettings.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureVisualState.h"
 #include "aion/gameserver/model/trade/Exchange.h"
@@ -240,11 +242,14 @@ TEST_F(ExchangePacketsTest, AHiddenPlayerOnEitherSideIsRefused) {
 TEST_F(ExchangePacketsTest, AnotherRaceIsOnlyLogged) {
 	OtherPlayer& partner = partnerAt(102.0f, model::Race::ASMODIANS);
 	partner.player().getPlayerSettings()->setDeny(2); // DeniedStatus.TRADE
-	LogCapture capture({CM_EXCHANGE_REQUEST_LOGGER});
+	LogCapture capture({"AUDIT_LOG"});
+	EconomyConfigScope<bool> audit(configs::main::LoggingConfig::LOG_AUDIT, true);
+	EconomyConfigScope<bool> noPunishment(configs::main::PunishmentConfig::PUNISHMENT_ENABLE, false);
 
 	request(PARTNER);
 
-	EXPECT_TRUE(capture.contains("[AUDIT] Player Holder tried trade with player (Partner) another race.")) << capture.dump();
+	// upstream 7840be30d: the AuditLogger instead of an info line
+	EXPECT_TRUE(capture.contains("tried to trade with player of another race: " + partner.player().toString())) << capture.dump();
 	expectNothingSent(partner);
 }
 

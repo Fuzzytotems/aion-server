@@ -24,17 +24,10 @@ protected:
 	void writeImpl(LoginConnection& con, commons::utils::ByteBuffer& buf) const override {
 		writeD(buf, accountId);
 		writeD(buf, loginOk);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeD(buf, 0x000003ea);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeD(buf, 0x00);
-		writeB(buf, std::array<uint8_t, 0x13>{});
+		writeB(buf, std::array<uint8_t, 20>{}); // not used by the 4.8 client (it stores the last three ints, but never reads them)
+		writeD(buf, 0); // penalty flags: 0x10 shows the internet cafe complaint penalty (STR_BLOCK_PC_ROOM_COMPLAIN2)
+		writeB(buf, std::array<uint8_t, 16>{}); // not read by the 4.8 client
+		writeD(buf, 0); // 1 shows the fatigue warning (STR_AUTH_WARNING_SNDA_FATIGUE) instead of requesting the server list
 	}
 
 private:

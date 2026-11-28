@@ -110,8 +110,8 @@ int64_t ItemService::addItem(model::gameobjects::player::Player& player, int32_t
 		throw runtime::NullPointerException("No item with id " + std::to_string(itemId));
 
 	if (configs::main::LoggingConfig::LOG_ITEM.load())
-		log.info("Item: " + std::to_string(itemTemplate->getTemplateId()) + " [" + itemTemplate->getName() + "] added to player " + player.getName()
-			+ " (count: " + std::to_string(count) + ") (type: " + std::string(xml::enumName(predicate.getAddType())) + ")");
+		log.info("Item: {} [{}] added to player {} (count: {}) (type: {})", itemTemplate->getTemplateId(), itemTemplate->getName(), player.getName(),
+			count, std::string(xml::enumName(predicate.getAddType())));
 
 	Storage& inventory = player.getInventory();
 	if (itemTemplate->isKinah()) {

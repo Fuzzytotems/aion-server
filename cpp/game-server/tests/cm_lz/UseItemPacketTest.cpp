@@ -110,11 +110,9 @@ TEST(UseItemReadTest, TheTypeDecidesWhichFieldTheLastIntFills) {
 	EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 }
 
-TEST(UseItemReadTest, AShortBodyLogsTheMissingField) {
-	LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
+TEST(UseItemReadTest, AShortBodyFailsToRead) {
 	int32_t unread = -1;
-	ASSERT_NE(readPacket(useBody(750001, 2), unread), nullptr);
-	EXPECT_EQ(capture.count("Missing D"), 1) << capture.dump();
+	EXPECT_EQ(readPacket(useBody(750001, 2), unread), nullptr); // upstream e1a399e62: a too short body fails to read
 }
 
 TEST(UseItemReadTest, TheMarkerRegistersTheClassUnderItsJavaOpcode) {

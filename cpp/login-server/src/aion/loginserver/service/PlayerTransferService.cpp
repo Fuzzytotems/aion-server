@@ -48,43 +48,42 @@ PlayerTransferService& PlayerTransferService::getInstance() {
 
 PlayerTransferService::PlayerTransferService(std::chrono::milliseconds initialDelay, std::chrono::milliseconds period) {
 	scheduledExecutorService.scheduleAtFixedRate([this] { verifyNewTasks(); }, initialDelay, period);
-	log().info("PlayerTransferService will be initialized in " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(initialDelay).count()) +
-		" sec.");
+	log().info("PlayerTransferService will be initialized in {} seconds", std::chrono::duration_cast<std::chrono::seconds>(initialDelay).count());
 }
 
 void PlayerTransferService::verifyNewTasks() {
 	std::lock_guard lock(mutex);
 	std::vector<PlayerTransferTask> tasksNew = dao::PlayerTransferDAO::getNew<PlayerTransferTask>();
-	log().info("PlayerTransfer perform task init. " + std::to_string(tasks.size()) + " new tasks.");
+	log().info("PlayerTransfer perform task init. {} new tasks.", tasks.size());
 	for (PlayerTransferTask& task : tasksNew) {
 		std::shared_ptr<GameServerInfo> server = GameServerTable::getGameServerInfo(task.sourceServerId);
 		std::shared_ptr<GsConnection> serverConnection = connectionOf(server);
 		if (!serverConnection) {
-			log().error("cannot perform transfer task #" + std::to_string(task.id) + " while source server is down #" + std::to_string(task.sourceServerId));
+			log().error("cannot perform transfer task #{} while source server is down #{}", task.id, task.sourceServerId);
 			continue;
 		}
 
 		std::shared_ptr<GameServerInfo> targetServer = GameServerTable::getGameServerInfo(task.targetServerId);
 		if (!connectionOf(targetServer)) {
-			log().error("cannot perform transfer task #" + std::to_string(task.id) + " while target server is down #" + std::to_string(task.targetServerId));
+			log().error("cannot perform transfer task #{} while target server is down #{}", task.id, task.targetServerId);
 			continue;
 		}
 
 		if (server->isAccountOnGameServer(task.sourceAccountId)) {
-			log().error("cannot perform transfer task #" + std::to_string(task.id) + " while source account is online " + std::to_string(task.sourceAccountId));
+			log().error("cannot perform transfer task #{} while source account is online {}", task.id, task.sourceAccountId);
 			continue;
 		}
 
 		if (targetServer->isAccountOnGameServer(task.targetAccountId)) {
-			log().error("cannot perform transfer task #" + std::to_string(task.id) + " while target account is online " + std::to_string(task.targetAccountId));
+			log().error("cannot perform transfer task #{} while target account is online {}", task.id, task.targetAccountId);
 			continue;
 		}
 
 		task.status = PlayerTransferTask::STATUS_ACTIVE;
 		tasks.insert_or_assign(task.id, task);
 		dao::PlayerTransferDAO::update(task);
-		serverConnection->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::PERFORM_ACTION, task));
-		log().info("performing player transfer #" + std::to_string(task.id));
+		serverConnection->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::PERFORM_ACTION, task));
+		log().info("performing player transfer #{}", task.id);
 	}
 }
 
@@ -104,30 +103,28 @@ void PlayerTransferService::requestTransfer(int32_t taskId, std::string name, st
 	const PlayerTransferTask& task = taskIt->second;
 	std::shared_ptr<GsConnection> targetConnection = connectionOf(GameServerTable::getGameServerInfo(task.targetServerId));
 	if (!targetConnection) {
-		log().error("Player transfer requests offline server! #" + std::to_string(task.targetServerId));
+		log().error("Player transfer requests offline server! #{}", task.targetServerId);
 		return;
 	}
 
 	std::shared_ptr<GameServerInfo> server = GameServerTable::getGameServerInfo(task.sourceServerId);
 	std::shared_ptr<GsConnection> serverConnection = connectionOf(server);
 	if (!serverConnection) {
-		log().error("Player transfer requests offline server! #" + std::to_string(task.sourceServerId));
+		log().error("Player transfer requests offline server! #{}", task.sourceServerId);
 		return;
 	}
 
 	if (GameServerTable::getGameServerInfo(task.targetServerId)->isAccountOnGameServer(task.targetAccountId)) {
-		log().error("Player transfer cant be performed while target account is online at server #" + std::to_string(task.targetServerId) + ". " +
-			std::to_string(task.targetAccountId));
-		serverConnection->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::ERROR_, taskId,
+		log().error("Player transfer cant be performed while target account is online at server #{}. {}", task.targetServerId, task.targetAccountId);
+		serverConnection->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::ERROR_, taskId,
 			"transfer cant be performed while target account is online at server"));
 		return;
 	}
 
 	if (transfers.contains(taskId)) {
-		log().error("Player transfer cant be performed while it is already active #" + std::to_string(task.targetServerId) + ". " +
-			std::to_string(task.targetAccountId));
+		log().error("Player transfer cant be performed while it is already active #{}. {}", task.targetServerId, task.targetAccountId);
 		serverConnection->sendPacket(
-			std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::ERROR_, taskId, "transfer cant be performed while it is already active"));
+			SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::ERROR_, taskId, "transfer cant be performed while it is already active"));
 		return;
 	}
 
@@ -154,8 +151,8 @@ void PlayerTransferService::requestTransfer(int32_t taskId, std::string name, st
 	dao::AccountDAO::updateAccount(*account);
 	dao::AccountDAO::updateAccount(*saccount);
 
-	targetConnection->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::SEND_INFO, std::shared_ptr<const PlayerTransferRequest>(request)));
-	log().info("player transfer account " + std::to_string(task.targetServerId) + " became active.");
+	targetConnection->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::SEND_INFO, std::shared_ptr<const PlayerTransferRequest>(request)));
+	log().info("player transfer account {} became active.", task.targetServerId);
 }
 
 void PlayerTransferService::onTaskStop(int32_t taskId, std::string_view reason) {
@@ -189,7 +186,7 @@ void PlayerTransferService::onError(int32_t taskId, std::string_view reason) {
 		throwUnknownTask(taskId);
 	std::shared_ptr<GsConnection> targetConnection = connectionOf(GameServerTable::getGameServerInfo(request->targetServerId));
 	if (!targetConnection) {
-		log().error("Player transfer requests offline server! #" + std::to_string(request->targetServerId));
+		log().error("Player transfer requests offline server! #{}", request->targetServerId);
 		return;
 	}
 
@@ -198,7 +195,7 @@ void PlayerTransferService::onError(int32_t taskId, std::string_view reason) {
 	dao::AccountDAO::updateAccount(*request->account);
 	dao::AccountDAO::updateAccount(*request->saccount);
 
-	targetConnection->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::ERROR_, taskId, std::string(reason)));
+	targetConnection->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::ERROR_, taskId, std::string(reason)));
 }
 
 void PlayerTransferService::onOk(int32_t taskId) {
@@ -220,15 +217,15 @@ void PlayerTransferService::onOk(int32_t taskId) {
 		throwUnknownTask(taskId);
 	std::shared_ptr<GsConnection> sourceConnection = connectionOf(GameServerTable::getGameServerInfo(request->serverId));
 	if (!sourceConnection) {
-		log().error("Player transfer requests offline server! #" + std::to_string(request->serverId));
+		log().error("Player transfer requests offline server! #{}", request->serverId);
 		return;
 	}
 	request->account->setActivated(1);
 	request->saccount->setActivated(1);
 	dao::AccountDAO::updateAccount(*request->account);
 	dao::AccountDAO::updateAccount(*request->saccount);
-	log().info("transfer #" + std::to_string(taskId) + " went onOK!");
-	sourceConnection->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::OK, std::shared_ptr<const PlayerTransferRequest>(request)));
+	log().info("transfer #{} went onOK!", taskId);
+	sourceConnection->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::OK, std::shared_ptr<const PlayerTransferRequest>(request)));
 }
 
 } // namespace aion::loginserver::service

@@ -24,6 +24,9 @@ protected:
 	void writeImpl(LoginConnection& con, commons::utils::ByteBuffer& buf) const override;
 
 private:
+	/** Protocol revision 50721: the 4.8 client picks its packet encryption by it (it also knows 30206, 30810 and 40916, with other ciphers). */
+	static constexpr int32_t PROTOCOL_REVISION = 0xC621;
+
 	/** Session Id of this connection */
 	const int32_t sessionId;
 	/** public Rsa key that client will use to encrypt login and password that will be send in RequestAuthLogin client packet. */

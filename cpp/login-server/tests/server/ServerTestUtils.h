@@ -313,24 +313,23 @@ public:
 	}
 
 	/** CM_AUTH_GG payload with the given session id */
-	// The trailing fields that CM_*.readImpl skips as unknown/random are the client's padding, checksum (last-but-one word) and the ignored last
-	// word, which encryptClientPacket adds. The builders therefore only write the leading fields, so the packets have exactly the size of real
-	// client packets (and the server does not warn that they were not fully read).
-	static std::vector<uint8_t> buildCM_AUTH_GG(int32_t sessionId) { return PacketWriter().C(0x07).D(sessionId).D(0).D(0).D(0).D(0).data; }
+	// The client's padding, checksum (last-but-one word) and the ignored last word are added by encryptClientPacket; since upstream bce89b2fc
+	// the server cuts them off and skips the padding (AionClientPacket::readImpl). The builders write the fields of the 4.8 client.
+	static std::vector<uint8_t> buildCM_AUTH_GG(int32_t sessionId) { return PacketWriter().C(0x07).D(sessionId).zeros(16).data; }
 
 	/** CM_SERVER_LIST payload */
 	static std::vector<uint8_t> buildCM_SERVER_LIST(int32_t accountId, int32_t loginOk) {
-		return PacketWriter().C(0x05).D(accountId).D(loginOk).C(7).zeros(6).data;
+		return PacketWriter().C(0x05).D(accountId).D(loginOk).C(7).data;
 	}
 
 	/** CM_PLAY payload */
 	static std::vector<uint8_t> buildCM_PLAY(int32_t accountId, int32_t loginOk, int8_t serverId) {
-		return PacketWriter().C(0x02).D(accountId).D(loginOk).C(serverId).zeros(6).data;
+		return PacketWriter().C(0x02).D(accountId).D(loginOk).C(serverId).data;
 	}
 
 	/** CM_UPDATE_SESSION payload */
 	static std::vector<uint8_t> buildCM_UPDATE_SESSION(int32_t accountId, int32_t loginOk, int32_t reconnectKey) {
-		return PacketWriter().C(0x08).D(accountId).D(loginOk).D(reconnectKey).C(68).data;
+		return PacketWriter().C(0x08).D(accountId).D(loginOk).D(reconnectKey).data;
 	}
 
 	/** SM_INIT + CM_AUTH_GG -> SM_AUTH_GG */

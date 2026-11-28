@@ -142,7 +142,7 @@ schema section is needed at the cut-over of the foundation; its data section (th
 1. **Foundation** (the 25 XSD/SQL commits' loader, template and DAO parts, plus the data-only commits): the C++ servers load the new
    static data and run on the migrated schema. Gate: the real-data tests (`ConfigRootsRealDataTest` and the loaders' tests) on the new
    data, and `chunks.py check` with the new Java files claimed.
-2. **Wave 0** needs no port, only a check per commit. `20096e5d2` (5,300 lines) is verified: only `javax` → `jakarta` imports change.
+2. **Wave 0** was planned as a check per commit; seven of them needed code (see "Wave 0 progress"). `20096e5d2` (5,300 lines) is verified: only `javax` → `jakarta` imports change.
    `15eaf77b6` (Cleanup) removes the PanesterraTeam method our P5-12b correction fixed; compare before closing it.
 3. **Wave 1** (network and servers) and **wave 2** (exploit fixes): independent of the game systems, and wave 2 is the most valuable for
    a server other people connect to.
@@ -192,34 +192,102 @@ Compare each before porting: upstream may fix the same bug another way, or chang
 | `b7bc32976` | 2026-11-07 | Replaced DecimalFormat with a thread-safe formatting method | 17 | 0 | P4-05 |  |
 | `2deb96507` | 2026-11-12 | Removed stale or redundant comments in SM_PLAYER_INFO (#244) | 35 | 0 | P4-17 |  |
 
+### Wave 0 progress (lane A, 2026-11-27, branch `sync/wave0`)
+
+Wave 0 turned out to need code in seven commits. One C++ commit per upstream commit; the deviations are in the
+chunk docs named.
+
+| Commit | C++ | Docs |
+|---|---|---|
+| `874a64f28` | nothing: IDE import layout (.editorconfig, Eclipse prefs) | |
+| `f856882b3` | `Logging::STATUS_DISCORD_PATTERN` (the hard-coded app_status_discord pattern of all three servers) wraps exceptions in ```` ```yml ```` | |
+| `7181a3864` | `ChatUtil::itemName(itemId, playerName)` prints `[item_ex:id;name]`; new `recipeName(recipeId, playerName)`. Its only Java caller, `RecipeList.decreaseProductionLimit`, is wave 5 | P4-05, P4-12 |
+| `2deb96507` | the 18 removed SM_PLAYER_INFO comments go from the C++ copy (no code change) | |
+| `20096e5d2` | nothing more: besides the poms only `javax.xml.bind` → `jakarta.xml.bind` imports and one JAXB-internal import move (XmlMerger's `ByteArrayOutputStreamEx`); the tools part was in the foundation | |
+| `222076cb5` | nothing more: the ingameshop config and templates went with the foundation | |
+| `80548e389` | `Item::currentModifiers` and its accessors removed; `ItemEquipmentListener.addWeaponStats` no longer copies the applied modifiers into the item | DEVIATIONS.md |
+| `ca2155e6d` | `Npc.queuedSkills` created by the first `queueSkill`, every queue method synchronized on the Npc; `NpcMoveController.lastSteps` and `MultiClientingService.AccountSession.identifiers` are ArrayDeques. gs.lint.concurrency: 124 → 121 errors (with `currentModifiers`) | |
+| `b7bc32976` | `ChatUtil::format(float)`: BigDecimal HALF_UP of the widened float's shortest decimal; `[color:...]`/`[pos:...]` print "0.5" (was ".5"), "0" (was "-0"), ties round up | P4-05 |
+| `15eaf77b6` | `RequireSkill` and `HotspotData.getHotspotTemplates` removed; `OnKillEvent.operate` returns before `<complite>` without `<monster>` (the `monster == null` test is live again); stale "lazy list" comments fixed. **Overlap:** `PanesterraTeam.removeTeamMember` (removed upstream) is kept with our P5-12b correction, unused, until the owner decides | P4-09, P5-12b, DEVIATIONS.md |
+| `2cd926056` | `commons::utils::JavaFile` (File.compareTo: Windows `compareToIgnoreCase` of the paths) sorts PropertiesUtils', XmlUtil's and StaticDataImports' listings; the NTFS-order emulation is gone. The real data changes order in quest_script_data, zones and global_drops/rules (the m5b3 drop oracle's rule indexes follow). The static data oracle's V2 imports follow | P4-05, DEVIATIONS.md, static-data.md |
+
+`d2dadc175` (wave 3), part: //npcskill goes now. The foundation's commands.properties has no `npcskill` level, and ChatCommand's
+constructor threw "Missing access level for //npcskill", which stopped every scenario gate's game server at startup.
+
+Unit suite (`-LE 'scenario|geo|m4|nightly|stress|smoke'`): the 18 failures of origin/C++ and no other (config 11,
+QuestTemplatesRealDataTest 2, gs.lint.concurrency with 121 instead of 124 errors, RealJavaTreeTest.JavaHandlerKeysAndCounts,
+aion_gs_regscan.cli.java_tree, tools.gen, tools.oracle).
+
 ## Wave 1: Network and server infrastructure (commons, login server, chat server, logging, startup, shutdown)
 
 22 commits, 6,558 Java lines, 0 data lines.
 
 | Commit | Date | Subject | Java | Data | Chunks | Notes |
 |---|---|---|---|---|---|---|
-| `d22a9af5b` | 2026-09-21 | Shutdown improvements | 187 | 0 | P5-00, P5-14, P4-15, C2 |  |
+| `d22a9af5b` | 2026-09-21 | Shutdown improvements | 187 | 0 | P5-00, P5-14, P4-15, C2 | ported (lane D) |
 | `e1a399e62` | 2026-10-03 | Client packets that are larger than the read buffer now disconnect the client | 85 | 0 |  |  |
 | `76b2f2bca` | 2026-10-03 | Packet processor keeps a queue per connection and limits its size | 216 | 0 | P4-15, P4-01 |  |
 | `d9800d686` | 2026-10-03 | Clients that stop receiving data get disconnected instead of growing their send queue forever | 92 | 0 | P4-01, P4-15 |  |
 | `31ad0571f` | 2026-10-03 | Limited the time a client has to authenticate and restored flood protector default config to true (active) | 121 | 0 | P4-15, P4-01 |  |
 | `459b35094` | 2026-10-04 | Migrated chat server from Netty 3 to 4.2 | 1,536 | 0 |  |  |
 | `01aadf926` | 2026-10-04 | Game server authentication on chat and login server rejects strangers reliably | 49 | 0 |  |  |
-| `36bdccb4d` | 2026-10-04 | Log files roll over at 100 MB and keep five old files | 0 | 0 |  |  |
-| `7840be30d` | 2026-10-04 | Logging improvements | 1,823 | 0 | P4-09, P4-14, P4-15, P4-02b |  |
+| `36bdccb4d` | 2026-10-04 | Log files roll over at 100 MB and keep five old files | 0 | 0 |  | ported (lane D) |
+| `7840be30d` | 2026-10-04 | Logging improvements | 1,823 | 0 | P4-09, P4-14, P4-15, P4-02b | ported (lane D) |
 | `81e409c5e` | 2026-10-06 | Log too short client packets once per opcode and fixed swapped packet flood filter modes 1 and 2 (#213) | 6 | 0 | P4-15 |  |
 | `bce89b2fc` | 2026-10-18 | Moved the login server to Netty and matched the login packets to the 4.8 client (#218) | 815 | 0 | P5-00 |  |
 | `a485569df` | 2026-10-18 | Multi-client limit  (#216) | 117 | 0 | P5-08, P4-01, P4-17, P5-00 |  |
 | `92da2dd62` | 2026-10-22 | Add invisible continuation mark to split message parts | 9 | 0 | P4-05 |  |
 | `55d0af937` | 2026-10-31 | Rate limit network packets that allow spamming DB queries | 1 | 0 | P4-15 |  |
-| `9d8eeb2f2` | 2026-10-31 | Stopped client text from forging log lines | 43 | 0 | P4-05, P5-15 |  |
+| `9d8eeb2f2` | 2026-10-31 | Stopped client text from forging log lines | 43 | 0 | P4-05, P5-15 | ported (lane D) |
 | `4ca531afc` | 2026-10-31 | Stopped leaking failed login and character count state | 20 | 0 |  |  |
 | `b0317f967` | 2026-10-31 | Added retail chat channel validations | 55 | 0 |  |  |
-| `b028752d0` | 2026-11-10 | Logging fixes & improvements | 247 | 0 | P5-14 |  |
-| `8912ec714` | 2026-11-10 | Startup fixes & improvements | 199 | 0 | P5-11, P4-10, P5-14 |  |
+| `b028752d0` | 2026-11-10 | Logging fixes & improvements | 247 | 0 | P5-14 | ported (lane D) |
+| `8912ec714` | 2026-11-10 | Startup fixes & improvements | 199 | 0 | P5-11, P4-10, P5-14 | ported (lane D) |
 | `17093650f` | 2026-11-14 | Fixed chat channel leak (#245) | 109 | 0 |  |  |
-| `546f96bd2` | 2026-11-18 | Speed up game server startup (#252) | 824 | 0 | T2, P4-05, P5-14, P4-09 |  |
-| `620fc69b0` | 2026-11-18 | Fixed NPE from merged startup changes (546f96b) | 4 | 0 | P4-09 |  |
+| `546f96bd2` | 2026-11-18 | Speed up game server startup (#252) | 824 | 0 | T2, P4-05, P5-14, P4-09 | ported (lane D), order only |
+| `620fc69b0` | 2026-11-18 | Fixed NPE from merged startup changes (546f96b) | 4 | 0 | P4-09 | verified, no C++ change |
+
+### Wave 1 progress: logging, startup, shutdown (lane D, branch `sync/wave1-logging`, 2026-11-27)
+
+One C++ commit per upstream commit (plus one for the gates' wait for the delayed logout); the network, login and chat commits are lane C's.
+Combined with lane C's network part on `sync/wave1` (2026-11-28). Gates on the combined branch, with wave 0's //npcskill removal
+(`48aea6a57`) in the working tree only: gs.smoke.startup, gs.scenario.m5a and gs.scenario.chat pass; gs.scenario.m5h fails only at C18,
+which reads the house script as plain text from `house_scripts` (the compressed block of the foundation's database step, 46e8d00b9).
+The other gates stop at their oracles, which refuse the Java of 68eccc7b1 (foundation note).
+
+| Commit | Ported | Kept back or different |
+|---|---|---|
+| `d22a9af5b` | `PlayerLeaveWorldService.registerLeaveWorld` with its synchronized `LeaveWorldTask` (10 s after the last move or fight), `isLeavingWorld`, `processPendingLeaveWorldTasks` after the network shutdown; `CM_QUIT`/`onDisconnect` register it, `safeLogout` gone; staff to the server selection screen at shutdown; the staff-only fast exit (`gameserver.shutdown.instant_shutdown_with_only_staff_online`); `NioServer::findAllConnections`, `GameServer::findClientConnections`, //debug, //sys | C++ `NioServer::shutdown` waits for the `onDisconnect` callbacks, so every task is registered before `processPendingLeaveWorldTasks` (Java may register late). The m5a, m5b, m5b2, m5b3 and m5c gates wait for the delayed logout after `CM_QUIT(1)` (`ScenarioDatabase::awaitAccountOffline`); the stress run's "CM_QUIT is synchronous" assumption is not adjusted. A login while the character is still leaving takes `PlayerEnterWorldService`'s "a char was online during acc login" branch, which replaces the account warehouse of the shared `Account`; checked builds terminated there (C11) until `PlayerStorage(Account&)` took its owner at construction (separate commit, `LoginSliceDatabaseFlowTest.ARelogWhileTheCharacterIsLeavingReloadsTheAccountWarehouse`) |
+| `36bdccb4d` | Every file appender rolls over (`FileAppender::RollingPolicy`: fixed window `x.%i.log`, size trigger) with `<server>.log.max_file_size` / `max_rolled_files` | An empty or invalid value keeps the default with a warning |
+| `7840be30d` | The placeholder form and the reworded texts in ~265 C++ files, with the code upstream reshaped (HTMLCache, GameTimeService, SurveyService, ThreadPoolManager shutdown lines, audit instead of info for cross-race trades and foreign broker items, ...) | The few statements the C++ lacks (ConfigurableProcessor's message, PlayerPetsDAO's mood update, NpcSkillList/DecomposeAction warnings held back by the foundation) |
+| `9d8eeb2f2` | `ChatUtil::isInvalidCharacter`, `AuditLogger` escapes control characters, public and whisper chat refuse them | |
+| `b028752d0` | Banner, `%threadAndLogger` and `THREAD_LOG`, the servers' highlight and gray colors, Discord `allowed_mentions`, `formatStartupMessage` | No start scripts ship with the C++ servers (code page, window width, `THREAD_LOG` for the launcher; DEVIATIONS.md) |
+| `8912ec714` | Background log archiving with a staging folder, the start marker after the move, `AbstractPeriodicTaskManager::startAll`, `LegionDominionIntruderUpdateTask` removed | The first periodic run is at least 50 ms after the constructor (P4-10.md) |
+| `546f96bd2` | Database after the thread pools (`initDatabase`, IDFactory's used ids there), `logStartupStats` at the end of all three servers, `isStarting`, the cleaning check | `initDatabase` runs before `DataManager`, not beside it; the JAXB loader speed-ups have no C++ counterpart (P5-14.md) |
+| `620fc69b0` | | Java-only (the reload detection of `DecomposableItemsData`'s JAXB listener); the C++ binder has no such branch |
+
+### Wave 1, network part (lane C, 2026-11-27)
+
+Branch `sync/wave1`, one C++ commit per upstream commit. The logging, startup and shutdown commits (`d22a9af5b` `36bdccb4d` `7840be30d`
+`9d8eeb2f2` `b028752d0` `8912ec714` `546f96bd2` `620fc69b0`) are lane D's; the log texts they change (e.g. "Gameserver ..." of the login
+server's GsConnection, `7840be30d`) are left to them.
+
+| Commit | Ported |
+|---|---|
+| `e1a399e62` | Read helpers of `BaseClientPacket` throw on an underflow, `read()` logs "shorter than expected" and fails; `readB` validates the length; the framing checks every announced size against the read buffer (the former C++ deviation is gone). The game server's packet read tests expect the failed read now |
+| `76b2f2bca` | `PacketProcessor(..., maxPendingPacketsPerConnection)`, `executePacket` returns false at the limit; `gameserver.network.packet.processor.max_pending_per_connection` (500); the per connection queues were already C++'s design |
+| `d9800d686` | `AConnectionBase::admitToSendQueue` (queue size and send stall limits, write progress after each partial write); `gameserver.network.client.max_pending_server_packets` (20000) and `max_send_stall_seconds` (60) |
+| `31ad0571f` | `NioServer` checks `AConnectionBase::closeIfTimedOut` once per second (auth timeout, stuck send queue); `gameserver.network.client.auth_timeout_seconds`, `loginserver.network.client.auth_timeout_seconds` (60); `gameserver.network.flood.connections` defaults to true |
+| `459b35094` | Chat server on one commons `NioServer` with the classes of the migration (`NetConnector`, `NettyConnection`, `ConnectionHandler`, `NettyPipeline`, `AionConnection`, `GsConnection`, `PacketExecutorGroup`); Netty's framing, write water marks, limits and messages reproduced on asio (docs/deviations/chat-server.md); `chatserver.network.client.auth_timeout_seconds` (60) |
+| `01aadf926` | Empty chat server game server password only from loopback, failed attempts closed, only the authenticated game server goes offline, 30 s auth timeout on the game server ports of chat and login server, constant time password comparison (`utils::MessageDigest::isEqual`) |
+| `81e409c5e` | "shorter than expected" once per opcode; packet flood filter mode 2 disconnects |
+| `bce89b2fc` | Netty classes moved to commons; login server on them (`NetConnector`, `LoginConnection`, `GsConnection`); the login packets of the 4.8 client (`readFields`, CM_LOGIN fields, SM_* layouts), whole-payload encryption with zeroed padding (upstream's CryptEngine vectors pass), `STR_RESTRICTED_TIME_BY_TEENAGER_POLICY`, the game server's `CM_L2AUTH_LOGIN_CHECK` passport key |
+| `a485569df` | `MultiClientService` with `multi_client.max_clients_per_computer` (2) and `multi_client.allow_both_factions` (true); the keys moved to `multi_client.*` |
+| `55d0af937` | Packet flood filter mode 1 drops the flooding packet (the new pff.properties entries are shared config) |
+| `4ca531afc` | Character counts removed with the account; `BruteForceProtector` purge above 1024 IPs and 64-bit window |
+| `b0317f967` | Chat channel request validations and the 256 channel cap; broadcasts only from members |
+| `17093650f` | Chat channel membership (`ChatChannels::join/leave/leaveAll`), empty channels removed, female class names match |
+| `92da2dd62` | Continuation mark (U+200B) in front of the split chat message parts |
 
 ## Wave 2: Exploit and validation fixes (the October hardening batch)
 
@@ -275,7 +343,7 @@ Compare each before porting: upstream may fix the same bug another way, or chang
 | `840a6a8d4` | 2026-09-15 | Fixed HP bugs | 104 | 0 | P5-01, P4-12, P4-10 |  |
 | `924d4ed82` | 2026-09-16 | SM_INVINCIBLE_TIME: implement retail packet (#182) | 31 | 0 | P4-16, P4-11b, P4-15 |  |
 | `b25a2664c` | 2026-09-17 | Fix animation not ending after multireturn action (#201) | 44 | 0 | P5-07 |  |
-| `d2dadc175` | 2026-09-18 | NpcSkillList optimization | 306 | 0 | P5-02b, C1, P5-05, P4-09 |  |
+| `d2dadc175` | 2026-09-18 | NpcSkillList optimization | 306 | 0 | P5-02b, C1, P5-05, P4-09 | //npcskill removed in wave 0 (the foundation's commands.properties has no level for it, so the server stopped at startup); the NpcSkillList rework, Reload, the AIs, SkillAttackManager and NpcSkillData stay here |
 | `18a87505e` | 2026-09-20 | Fixed siege weapon follow task surviving release (#202) | 25 | 0 | P4-11b, P5-05, P5-08 |  |
 | `223b56a0d` | 2026-09-22 | Fix skill cast conditions (#180) | 134 | 0 | P5-02a, P4-11a, P5-01, P4-12 |  |
 | `b87c6c656` | 2026-09-22 | Fixed delayed skills ignoring dodge and resist (#167) | 10 | 0 | P5-02a, P5-03 |  |

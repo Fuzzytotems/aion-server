@@ -30,7 +30,10 @@ public:
 	/** Java: new PlayerStorage(owner, storageType), bound to the owning player */
 	PlayerStorage(gameobjects::player::Player& owner, StorageType storageType);
 
-	/** C++ only: Java new PlayerStorage(null, StorageType.ACCOUNT_WAREHOUSE) (AccountService.java:96), bound to the account, actor null */
+	/**
+	 * C++ only: Java new PlayerStorage(null, StorageType.ACCOUNT_WAREHOUSE) (AccountService.java:96), owned by the account, actor null. The
+	 * account may already be shared (the owner is set at construction, not with bindOwner).
+	 */
 	PlayerStorage(account::Account& account, StorageType storageType);
 
 	~PlayerStorage() override;

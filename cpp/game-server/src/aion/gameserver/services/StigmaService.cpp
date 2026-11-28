@@ -190,7 +190,7 @@ void StigmaService::onPlayerLogin(model::gameobjects::player::Player& player) {
 	for (const runtime::Ptr<model::gameobjects::Item>& item : equippedStigmas) { // Java: mainLoop
 		if (!item->getItemTemplate()->isStigma()) {
 			player.getEquipment().unEquipItem(item->getObjectId(), false);
-			log.warn("Unequipped stigma: " + std::to_string(item->getItemId()) + ", stigma info missing for item (possibly pre-4.8 stigma)");
+			log.warn("Unequipped stigma: {}, stigma info missing for item (possibly pre-4.8 stigma)", item->getItemId());
 			continue;
 		}
 

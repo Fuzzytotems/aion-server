@@ -26,9 +26,10 @@ void SecurityConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	AION_BIND(p, "gameserver.security.flood.msg", FLOOD_MSG, "6");
 	AION_BIND(p, "gameserver.security.validation.flypath", ENABLE_FLYPATH_VALIDATOR, "false");
 	AION_BIND(p, "gameserver.security.survey.delay.minute", SURVEY_DELAY, "20");
-	AION_BIND(p, "gameserver.security.multi_clienting.restriction_mode", MULTI_CLIENTING_RESTRICTION_MODE, "NONE");
-	AION_BIND(p, "gameserver.security.multi_clienting.ignored_mac_addresses", MULTI_CLIENTING_IGNORED_MAC_ADDRESSES, "");
-	AION_BIND(p, "gameserver.security.multi_clienting.faction_switch_cooldown_minutes", MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES, "20");
+	AION_BIND(p, "gameserver.security.multi_client.max_clients_per_computer", MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER, "2");
+	AION_BIND(p, "gameserver.security.multi_client.allow_both_factions", MULTI_CLIENT_ALLOW_BOTH_FACTIONS, "true");
+	AION_BIND(p, "gameserver.security.multi_client.ignored_mac_addresses", MULTI_CLIENT_IGNORED_MAC_ADDRESSES, "");
+	AION_BIND(p, "gameserver.security.multi_client.faction_switch_cooldown_minutes", MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES, "20");
 	AION_BIND(p, "gameserver.security.hdd_serial_lock.enable", HDD_SERIAL_LOCK_ENABLE, "false");
 	AION_BIND(p, "gameserver.security.hdd_serial_lock.auto_lock", HDD_SERIAL_LOCK_UNLOCKED_ACCOUNTS, "false");
 }

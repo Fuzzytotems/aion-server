@@ -22,7 +22,6 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 WorldRaidService::WorldRaidService() = default;
 
 void WorldRaidService::initWorldRaidLocations() {
-	log.debug("Initializing world raid locations...");
 	// C++: Java assigns the data holder's map or Collections.emptyMap(); the port publishes a copy
 	runtime::Ref<runtime::RcHashMap<int32_t, const model::templates::worldraid::WorldRaidLocation*>> locations =
 		runtime::RcHashMap<int32_t, const model::templates::worldraid::WorldRaidLocation*>::create(AION_LOCK_CLASS(WorldRaidService::raidLocationsById));
@@ -31,12 +30,10 @@ void WorldRaidService::initWorldRaidLocations() {
 			locations->put(id, location);
 	}
 	raidLocationsById.set(locations);
-	log.debug("Finished initialization of world raid locations with size " + std::to_string(locations->size()));
 }
 
-// Java WorldRaidService.java:45-56
+// Java WorldRaidService.java:42-51
 void WorldRaidService::initWorldRaids() {
-	log.debug("Initializing world raid schedules...");
 	if (!configs::main::EventsConfig::ENABLE_WORLDRAID.load())
 		return;
 	// Initialize Raid Schedules (C++: the loaded schedules are kept for the life of the server, as the runnables that hold them in Java)
@@ -46,7 +43,6 @@ void WorldRaidService::initWorldRaids() {
 			cron::CronService::getInstance().schedule(cron::CronJob(worldraid::WorldRaidRunnable{.worldRaidSchedule = &worldRaidSchedule}), cronExpr);
 		}
 	}
-	log.debug("Finished initialization of world raid schedules.");
 }
 
 std::vector<const model::templates::worldraid::WorldRaidLocation*> WorldRaidService::getActiveWorldRaidLocations() {
@@ -57,27 +53,23 @@ std::vector<const model::templates::worldraid::WorldRaidLocation*> WorldRaidServ
 }
 
 bool WorldRaidService::isValidWorldRaidLocation(int32_t locationId) {
-	if (raidLocationsById.get()->containsKey(locationId))
-		return true;
-	log.debug("No world raid location found for id: " + std::to_string(locationId));
-	return false;
+	return raidLocationsById.get()->containsKey(locationId);
 }
 
 bool WorldRaidService::isWorldRaidInProgress(int32_t locationId) {
 	return activeRaids.containsKey(locationId);
 }
 
-// Java WorldRaidService.java:73-103
+// Java WorldRaidService.java:65-93
 void WorldRaidService::startRaid(int32_t locationId, bool useSpecialSpawnMsg) {
-	log.debug("Starting world raid for location: " + std::to_string(locationId));
 	runtime::Ref<worldraid::WorldRaid> worldRaid;
 	SYNCHRONIZED(*this) {
 		if (!isValidWorldRaidLocation(locationId)) {
-			log.error("Attempt to start world raid for an invalid location: " + std::to_string(locationId));
+			log.error("Attempt to start world raid for an invalid location: {}", locationId);
 			return;
 		}
 		if (isWorldRaidInProgress(locationId)) {
-			log.error("Attempt to start world raid twice for location: " + std::to_string(locationId));
+			log.error("Attempt to start world raid twice for location: {}", locationId);
 			return;
 		}
 		bool sendMessages = true;
@@ -97,22 +89,18 @@ void WorldRaidService::startRaid(int32_t locationId, bool useSpecialSpawnMsg) {
 		activeRaids.put(locationId, worldRaid);
 	}
 	worldRaid->startWorldRaid();
-	log.debug("Finished world raid start for location: " + std::to_string(locationId));
 }
 
-// Java WorldRaidService.java:105-117
+// Java WorldRaidService.java:95-104
 void WorldRaidService::stopRaid(int32_t locationId) {
-	log.debug("Stopping world for location: " + std::to_string(locationId));
 	runtime::Ref<worldraid::WorldRaid> raid;
 	SYNCHRONIZED(*this) {
 		raid = runtime::Ref<worldraid::WorldRaid>(activeRaids.remove(locationId));
 	}
 	if (!raid || raid->isFinished()) {
-		log.debug("Attempt to stop world raid twice for location: " + std::to_string(locationId));
 		return;
 	}
 	raid->stopWorldRaid();
-	log.debug("Succeeded to finish world raid for location: " + std::to_string(locationId));
 }
 
 WorldRaidService& WorldRaidService::getInstance() {

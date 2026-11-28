@@ -247,7 +247,7 @@ protected:
 /**
  * java.util.LinkedList shim: ArrayList semantics plus the Deque operations used by the game server. Same synchronization and iteration rules.
  * getFirst, getLast, removeFirst, removeLast, element and pop on an empty list throw NoSuchElementException; peek and poll variants return an
- * empty Nullable. (Stored contiguously: first-element operations are O(n), which is irrelevant for the three Java LinkedList fields.)
+ * empty Nullable. (Stored contiguously: first-element operations are O(n), which was irrelevant for the three Java LinkedList fields; upstream ca2155e6d replaced them with ArrayDeques, so no member uses the shim now.)
  */
 template <class T>
 class LinkedList : public ArrayList<T> {

@@ -34,7 +34,7 @@ void PlayerPasskeyDAO::insertPlayerPasskey(int32_t accountId, std::string_view p
 		stmt->setString(2, passkey);
 		stmt->execute();
 	} catch (const SQLException& e) {
-		log.error("Error saving PlayerPasskey. accountId: " + std::to_string(accountId), e);
+		log.error("Error saving PlayerPasskey. accountId: {}", accountId, e);
 	}
 }
 
@@ -49,7 +49,7 @@ bool PlayerPasskeyDAO::updatePlayerPasskey(int32_t accountId, std::string_view o
 		if (stmt->executeUpdate() > 0)
 			result = true;
 	} catch (const SQLException& e) {
-		log.error("Error updating PlayerPasskey. accountId: " + std::to_string(accountId), e);
+		log.error("Error updating PlayerPasskey. accountId: {}", accountId, e);
 	}
 	return result;
 }
@@ -64,7 +64,7 @@ bool PlayerPasskeyDAO::updateForcePlayerPasskey(int32_t accountId, std::string_v
 		if (stmt->executeUpdate() > 0)
 			result = true;
 	} catch (const SQLException& e) {
-		log.error("Error updaing PlayerPasskey. accountId: " + std::to_string(accountId), e);
+		log.error("Error updaing PlayerPasskey. accountId: {}", accountId, e);
 	}
 	return result;
 }
@@ -82,7 +82,7 @@ bool PlayerPasskeyDAO::checkPlayerPasskey(int32_t accountId, std::string_view pa
 				passkeyChecked = true;
 		}
 	} catch (const SQLException& e) {
-		log.error("Error loading PlayerPasskey. accountId: " + std::to_string(accountId), e);
+		log.error("Error loading PlayerPasskey. accountId: {}", accountId, e);
 		return false;
 	}
 	return passkeyChecked;
@@ -100,7 +100,7 @@ bool PlayerPasskeyDAO::existCheckPlayerPasskey(int32_t accountId) {
 				existPasskeyChecked = true;
 		}
 	} catch (const SQLException& e) {
-		log.error("Error loading PlayerPasskey. accountId: " + std::to_string(accountId), e);
+		log.error("Error loading PlayerPasskey. accountId: {}", accountId, e);
 		return false;
 	}
 	return existPasskeyChecked;

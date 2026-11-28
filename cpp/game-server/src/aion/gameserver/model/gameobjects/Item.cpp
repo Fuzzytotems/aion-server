@@ -401,7 +401,7 @@ void Item::addGodStone(int32_t itemId) {
 void Item::addGodStone(int32_t itemId, int32_t activatedCount) {
 	const templates::item::GodstoneInfo* godstoneInfo = findItemTemplate(itemId)->getGodstoneInfo();
 	if (godstoneInfo == nullptr) {
-		log.warn("Item " + std::to_string(itemId) + " has no godstone info");
+		log.warn("Item {} has no godstone info", itemId);
 		return;
 	}
 	if (godStone.get())
@@ -645,19 +645,6 @@ const templates::item::Improvement* Item::getImprovement() {
 	return nullptr;
 }
 
-runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> Item::getCurrentModifiers() {
-	runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> modifiers = currentModifiers.get();
-	if (!modifiers) // Deviation (D6): see publishLazily
-		modifiers = publishLazily(currentModifiers,
-			runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>::create(AION_LOCK_CLASS(Item::currentModifiers)));
-	return modifiers;
-}
-
-void Item::setCurrentModifiers(const std::vector<runtime::Ptr<stats::calc::functions::StatFunction>>& currentModifiersValue) {
-	getCurrentModifiers()->clear();
-	getCurrentModifiers()->addAll(currentModifiersValue);
-}
-
 int32_t Item::getBonusStatsId() {
 	runtime::Ptr<items::RandomBonusEffect> effect = bonusStatsEffect.get();
 	return !effect ? 0 : effect->getStatBonusId();
@@ -665,9 +652,7 @@ int32_t Item::getBonusStatsId() {
 
 void Item::setBonusStats(int32_t statBonusId, bool validate) {
 	if (validate && isEquipped_.get())
-		log.warn(std::to_string(getItemId()) + " was equipped while switching bonus stats from " + std::to_string(getBonusStatsId()) + " to " +
-				std::to_string(statBonusId),
-			runtime::IllegalStateException(""));
+		log.warn("{} was equipped while switching bonus stats from {} to {}", getItemId(), getBonusStatsId(), statBonusId, runtime::IllegalStateException(""));
 	if (statBonusId == 0)
 		bonusStatsEffect.set(nullptr);
 	else
@@ -696,8 +681,7 @@ int32_t Item::getFusionedItemBonusStatsId() {
 
 void Item::setFusionedItemBonusStats(int32_t statBonusId, bool validate) {
 	if (validate && isEquipped_.get())
-		log.warn(std::to_string(getItemId()) + " was equipped while switching fusioned bonus stats from " + std::to_string(getFusionedItemBonusStatsId()) +
-				" to " + std::to_string(statBonusId),
+		log.warn("{} was equipped while switching fusioned bonus stats from {} to {}", getItemId(), getFusionedItemBonusStatsId(), statBonusId,
 			runtime::IllegalStateException(""));
 	if (statBonusId == 0)
 		fusionedItemBonusStatsEffect.set(nullptr);

@@ -164,7 +164,7 @@ TEST_F(LoginServerLinkTest, AuthenticationPingAndServerPackets) {
 	ls.send(PacketWriter().C(0x07).D(1).data);
 	EXPECT_TRUE(logs.waitFor("Login server 127.0.0.1 sent data with unknown opcode: 0x07, state=AUTHED")) << logs.dump();
 	ls.send(PacketWriter().C(0x00).C(0).C(2).data);
-	EXPECT_TRUE(logs.waitFor("Login server 127.0.0.1 sent CM_GS_AUTH_RESPONSE but the connections current state (AUTHED) is invalid for this packet."))
+	EXPECT_TRUE(logs.waitFor("Login server 127.0.0.1 sent CM_GS_AUTH_RESPONSE but the connection's current state (AUTHED) is invalid for this packet - packet won't be instantiated"))
 		<< logs.dump();
 
 	// kicking an account that is not logged in does nothing
@@ -290,10 +290,10 @@ TEST_F(LoginServerLinkTest, NotAuthenticatedClosesTheLink) {
 	ls.expectPacket(0x00);
 	ls.send(PacketWriter().C(0x00).C(1).data); // CM_GS_AUTH_RESPONSE: not authed
 	EXPECT_TRUE(ls.socket->waitClosed()) << logs.dump();
-	EXPECT_TRUE(logs.waitFor("GameServer is not authenticated at LoginServer side!")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("Authentication failed at the login server")) << logs.dump();
 	EXPECT_FALSE(LoginServer::getInstance().isUp());
 	EXPECT_TRUE(logs.waitFor("Lost connection with login server")) << logs.dump();
-	EXPECT_TRUE(logs.waitFor("Reconnecting to login server in 15s...")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("Reconnecting to login server in 15 seconds")) << logs.dump();
 	// the scheduled reconnect runs in 15 s against the closed fake login server (refused, retried): harmless for the other tests
 }
 

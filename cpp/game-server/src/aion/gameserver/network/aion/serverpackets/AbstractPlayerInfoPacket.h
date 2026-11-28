@@ -17,7 +17,7 @@ namespace aion::gameserver::network::aion::serverpackets {
  * <p>
  * S0c declaration header (hub-headers.md §12). C++ differences:
  * - Java's implicit constructor takes the opcode from the dynamic class; the C++ subclasses pass `opcodeOf<SM_X>` (AionServerPacket.h).
- * - writePlayerInfo reads the connection (getCharBanInfo: MultiClientingService.checkForFactionSwitchCooldownTime), so every subclass that
+ * - writePlayerInfo reads the connection (getCharBanInfo: MultiClientService.checkForFactionSwitchCooldownTime), so every subclass that
  *   calls it must be serialized per recipient (runtime-architecture.md §8.3).
  *
  * @author AEJTester, Nemesiss, Niato, Neon

@@ -17,7 +17,7 @@ void LsClientPacket::run() {
 	try {
 		runImpl();
 	} catch (...) {
-		log.errorCurrentException("Error handling LS packet from " + (getConnection() ? getConnection()->getIP() : std::string("null")) + ": " + toString());
+		log.errorCurrentException(fmt::format("Error handling LS packet from {}: {}", getConnection() ? getConnection()->getIP() : std::string("null"), toString()));
 	}
 }
 

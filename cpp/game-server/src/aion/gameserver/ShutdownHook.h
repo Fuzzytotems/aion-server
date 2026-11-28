@@ -90,8 +90,10 @@ public:
 
 	/** What run() does to the game; the defaults call the Java services (tests replace them) */
 	struct Operations {
-		std::function<bool()> worldHasPlayers;
+		/** false ends the countdown (Java: no players online, or only staff with gameserver.shutdown.instant_shutdown_with_only_staff_online) */
+		std::function<bool()> countdownNeeded;
 		std::function<void(int32_t remainingSeconds)> announceShutdown;
+		/** GameServer.shutdownNioServer(), then PlayerLeaveWorldService.processPendingLeaveWorldTasks() */
 		std::function<void()> shutdownNetwork;
 		std::function<void()> dumpStats;
 		std::function<void()> saveData;

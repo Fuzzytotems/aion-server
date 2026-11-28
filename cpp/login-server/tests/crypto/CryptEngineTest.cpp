@@ -4,6 +4,9 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <span>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -37,8 +40,8 @@ void writeWord(std::span<uint8_t> data, size_t pos, uint32_t value) {
 }
 
 /**
- * Literal transliteration of the Java CryptEngine with Java's array + offset handling and int/long arithmetic (including the sign extension
- * of the checksum words and the loop bounds that ignore the offset). The XOR key of the first packet is a parameter instead of Rnd.nextInt().
+ * Literal transliteration of the Java CryptEngine of upstream bce89b2fc (ByteBuffer by absolute index: the offset is honoured everywhere and the
+ * padding is zeroed). The XOR key of the first packet is a parameter like Java's package-private encrypt(data, offset, length, xorKey).
  */
 class JavaCryptEngine {
 public:
@@ -52,56 +55,49 @@ public:
 	}
 
 	int encrypt(std::vector<uint8_t>& data, int offset, int length, int32_t xorKey) {
+		int dataLength = length;
 		length += 4;
 		if (!updatedKey) {
 			length += 4;
 			length += 8 - length % 8;
+			clear(data, offset + dataLength, length - dataLength);
 			encXORPass(data, offset, length, xorKey);
 			cipher.cipher(std::span(data).subspan(static_cast<size_t>(offset), static_cast<size_t>(length)));
 			cipher.updateKey(key);
 			updatedKey = true;
 		} else {
 			length += 8 - length % 8;
+			clear(data, offset + dataLength, length - dataLength);
 			appendChecksum(data, offset, length);
 			cipher.cipher(std::span(data).subspan(static_cast<size_t>(offset), static_cast<size_t>(length)));
 		}
 		return length;
 	}
 
-	/** Java: check = data[i] & 0xff; check |= data[i + 1] << 8 & 0xff00; ... (int expressions widened to long) */
-	static int64_t javaWord(const std::vector<uint8_t>& data, int i) {
-		auto b = [&](int index) { return static_cast<int32_t>(static_cast<int8_t>(data[static_cast<size_t>(index)])); };
-		int64_t check = b(i) & 0xff;
-		check |= static_cast<int32_t>(static_cast<uint32_t>(b(i + 1)) << 8) & 0xff00;
-		check |= static_cast<int32_t>(static_cast<uint32_t>(b(i + 2)) << 0x10) & 0xff0000;
-		check |= static_cast<int32_t>(static_cast<uint32_t>(b(i + 3)) << 0x18) & static_cast<int32_t>(0xff000000);
-		return check;
+	static void clear(std::vector<uint8_t>& data, int from, int count) {
+		for (int i = 0; i < count; i++)
+			data[static_cast<size_t>(from + i)] = 0;
 	}
 
 	static bool verifyChecksum(const std::vector<uint8_t>& data, int offset, int length) {
 		if ((length & 3) != 0 || (length <= 4))
 			return false;
-		int64_t chksum = 0;
-		int count = length - 4;
-		for (int i = offset; i < count; i += 4)
-			chksum ^= javaWord(data, i);
+		uint32_t chksum = 0;
+		for (int i = 0; i < length - 4; i += 4)
+			chksum ^= readWord(data, static_cast<size_t>(offset + i));
 		return 0 == chksum;
 	}
 
 	static void appendChecksum(std::vector<uint8_t>& raw, int offset, int length) {
-		int64_t chksum = 0;
+		uint32_t chksum = 0;
 		int count = length - 4;
-		int i;
-		for (i = offset; i < count; i += 4)
-			chksum ^= javaWord(raw, i);
-		raw[static_cast<size_t>(i)] = static_cast<uint8_t>(chksum & 0xff);
-		raw[static_cast<size_t>(i) + 1] = static_cast<uint8_t>(chksum >> 0x08 & 0xff);
-		raw[static_cast<size_t>(i) + 2] = static_cast<uint8_t>(chksum >> 0x10 & 0xff);
-		raw[static_cast<size_t>(i) + 3] = static_cast<uint8_t>(chksum >> 0x18 & 0xff);
+		for (int i = 0; i < count; i += 4)
+			chksum ^= readWord(raw, static_cast<size_t>(offset + i));
+		writeWord(raw, static_cast<size_t>(offset + count), chksum);
 	}
 
 	static void encXORPass(std::vector<uint8_t>& data, int offset, int length, int32_t key) {
-		int stop = length - 8;
+		int stop = offset + length - 8;
 		size_t pos = static_cast<size_t>(4 + offset);
 		uint32_t ecx = static_cast<uint32_t>(key); // int arithmetic wraps in Java
 		while (static_cast<int>(pos) < stop) {
@@ -164,7 +160,7 @@ TEST(CryptEngineTest, PaddingArithmetic) {
 }
 
 TEST(CryptEngineTest, EncryptMatchesJavaReferenceAtBufferOffset2) {
-	// AionServerPacket.write encrypts a slice starting at offset 2 of the write buffer, whose bytes beyond the packet are stale
+	// AionServerPacket.write encrypts the packet at offset 2 of the write buffer, whose bytes beyond the packet are stale
 	for (int iteration = 0; iteration < 50; iteration++) {
 		std::vector<uint8_t> sessionKey = randomBytes(16);
 		CryptEngine engine;
@@ -173,7 +169,7 @@ TEST(CryptEngineTest, EncryptMatchesJavaReferenceAtBufferOffset2) {
 		java.updateKey(sessionKey);
 
 		for (int packet = 0; packet < 5; packet++) {
-			int32_t length = Rnd::get(-11, 300);
+			int32_t length = Rnd::get(0, 300); // Java zeroes from offset + length on, which needs a length of at least -offset
 			std::vector<uint8_t> buffer = randomBytes(400);
 			std::vector<uint8_t> javaBuffer = buffer;
 
@@ -238,15 +234,15 @@ TEST(CryptEngineTest, HandDerivedChecksum) {
 	ASSERT_EQ(engine.encrypt(data, 4), 16);
 	EXPECT_EQ(data[16], 0x77); // beyond the encrypted size
 	BlowfishCipher(sessionKey).decipher(std::span(data).first(16));
-	// 0x04030201 ^ 0x40302010 ^ 0xDDCCBBAA = 0x99FF99BB, stored little endian over the stale bytes 55 55 55 55
+	// upstream bce89b2fc: the padding is zeroed, so the checksum is the first word: 0x04030201, stored over the stale bytes 55 55 55 55
 	EXPECT_EQ(std::vector<uint8_t>(data.begin(), data.begin() + 16),
-		(std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x10, 0x20, 0x30, 0x40, 0xAA, 0xBB, 0xCC, 0xDD, 0xBB, 0x99, 0xFF, 0x99}));
+		(std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0x02, 0x03, 0x04}));
 
-	// length 3 (e.g. a 5-byte payload from AionServerPacket): the checksum word at 4 overwrites byte 4
-	std::vector<uint8_t> overlap = {0x01, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x00};
-	ASSERT_EQ(engine.encrypt(overlap, 3), 8);
-	BlowfishCipher(sessionKey).decipher(overlap);
-	EXPECT_EQ(overlap, (std::vector<uint8_t>{0x01, 0x11, 0x22, 0x33, 0x01, 0x11, 0x22, 0x33}));
+	// length 3: the padding (byte 3) is zeroed before the checksum word at 4 is written
+	std::vector<uint8_t> small = {0x01, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x00};
+	ASSERT_EQ(engine.encrypt(small, 3), 8);
+	BlowfishCipher(sessionKey).decipher(small);
+	EXPECT_EQ(small, (std::vector<uint8_t>{0x01, 0x11, 0x22, 0x00, 0x01, 0x11, 0x22, 0x00}));
 }
 
 TEST(CryptEngineTest, VerifyChecksumRules) {
@@ -326,12 +322,13 @@ TEST(CryptEngineTest, DecryptMatchesJavaReferenceAtBufferOffset2) {
 	EXPECT_GT(valid, 100);
 }
 
-TEST(CryptEngineTest, JavaChecksumBugAtOtherOffsetsIsNotReproduced) {
-	// Deviation: Java's loop bound ignores the offset. A second packet in the read buffer (offset 2 + 2 + 16 = 20, length 16) is not verified at all.
+TEST(CryptEngineTest, TheChecksumDoesNotDependOnThePositionInTheBuffer) {
+	// upstream bce89b2fc fixed Java's loop bound that ignored the offset (a second packet in the read buffer was not verified at all), which the C++
+	// port never had
 	std::vector<uint8_t> plain = {0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	std::vector<uint8_t> buffer(20);
 	buffer.insert(buffer.end(), plain.begin(), plain.end());
-	EXPECT_TRUE(JavaCryptEngine::verifyChecksum(buffer, 20, 16));
+	EXPECT_FALSE(JavaCryptEngine::verifyChecksum(buffer, 20, 16));
 	EXPECT_FALSE(JavaCryptEngine::verifyChecksum(plain, 0, 16));
 
 	CryptEngine engine;
@@ -394,7 +391,7 @@ TEST(CryptEngineTest, InvalidEncryptArguments) {
 	EXPECT_EQ(engine.encrypt(exact, 0), 16); // still the first packet
 
 	EXPECT_THROW(engine.encrypt(exact, -12), IllegalArgumentException);
-	EXPECT_EQ(engine.encrypt(exact, -11), 8);
+	EXPECT_EQ(engine.encrypt(exact, -11), 8); // C++ only: Java zeroes from length on, so a negative length writes before the packet
 
 	std::vector<uint8_t> seven(7);
 	EXPECT_THROW(engine.encrypt(seven, 0), IndexOutOfBoundsException);
@@ -498,4 +495,92 @@ TEST(CryptEngineTest, DecryptRacingTheFirstEncryptSeesEitherKey) {
 	}
 	EXPECT_EQ(garbage, 0);
 	EXPECT_GT(overlapping, 0) << "the reader never raced the key switch";
+}
+
+// upstream bce89b2fc (Java CryptEngineTest): the expected bytes were produced by the byte array implementation the Java login server used
+// before it moved to Netty, so they pin down that the packets on the wire did not change; here at several offsets of a buffer holding garbage
+namespace {
+
+constexpr int32_t UPSTREAM_XOR_KEY = 0x1234ABCD;
+constexpr std::string_view UPSTREAM_FIRST_PACKET =
+	"80a5da452f7de4fc2fe5a9c81a35a221d40a2348a821e922d8ddc194ae825caf0f63bf2d7f48f750676cbec071018c120ab1a7b8962a510f";
+constexpr std::string_view UPSTREAM_SECOND_PACKET = "84a289050547e7dca5e2c9e315c6ff2499c571619dfdca10";
+constexpr std::string_view UPSTREAM_CLIENT_PLAIN = "0b000000112233441a2233441a223344";
+constexpr std::string_view UPSTREAM_CLIENT_CIPHER = "f145b9b4084c3cfd7e5c1a0cb8cddfd7";
+
+std::vector<uint8_t> parseHex(std::string_view hex) {
+	std::vector<uint8_t> bytes;
+	for (size_t i = 0; i + 1 < hex.size(); i += 2)
+		bytes.push_back(static_cast<uint8_t>(std::stoi(std::string(hex.substr(i, 2)), nullptr, 16)));
+	return bytes;
+}
+
+std::string formatHex(std::span<const uint8_t> bytes) {
+	static constexpr char DIGITS[] = "0123456789abcdef";
+	std::string hex;
+	for (uint8_t b : bytes) {
+		hex += DIGITS[b >> 4];
+		hex += DIGITS[b & 0xF];
+	}
+	return hex;
+}
+
+void useUpstreamSessionKey(CryptEngine& engine) {
+	std::vector<uint8_t> key(16);
+	for (size_t i = 0; i < 16; i++)
+		key[i] = static_cast<uint8_t>(0x31 + i * 5);
+	engine.updateKey(key);
+}
+
+/** the bytes at the offset of a buffer filled with garbage, like a reused buffer */
+std::vector<uint8_t> garbageBuffer(size_t offset, std::span<const uint8_t> bytes, size_t capacity) {
+	std::vector<uint8_t> buf(capacity, 0x5A);
+	std::ranges::copy(bytes, buf.begin() + static_cast<ptrdiff_t>(offset));
+	return buf;
+}
+
+} // namespace
+
+TEST(CryptEngineTest, EncryptsLikeTheFormerJavaImplementation) {
+	std::vector<uint8_t> firstPlain(40);
+	for (size_t i = 0; i < firstPlain.size(); i++)
+		firstPlain[i] = static_cast<uint8_t>(i * 7 + 3);
+	std::vector<uint8_t> secondPlain(13);
+	for (size_t i = 0; i < secondPlain.size(); i++)
+		secondPlain[i] = static_cast<uint8_t>(0xF0 - i * 11);
+	for (size_t offset : {0, 2, 7}) {
+		CryptEngine engine;
+		useUpstreamSessionKey(engine);
+		std::vector<uint8_t> first = garbageBuffer(offset, firstPlain, offset + 64);
+		int32_t firstLength = engine.encrypt(std::span(first).subspan(offset), 40, UPSTREAM_XOR_KEY);
+		ASSERT_EQ(firstLength, 56);
+		EXPECT_EQ(formatHex(std::span(first).subspan(offset, 56)), UPSTREAM_FIRST_PACKET) << offset;
+
+		std::vector<uint8_t> second = garbageBuffer(offset, secondPlain, offset + 32);
+		int32_t secondLength = engine.encrypt(std::span(second).subspan(offset), 13, UPSTREAM_XOR_KEY);
+		ASSERT_EQ(secondLength, 24);
+		EXPECT_EQ(formatHex(std::span(second).subspan(offset, 24)), UPSTREAM_SECOND_PACKET) << offset;
+	}
+}
+
+TEST(CryptEngineTest, DecryptsAndAcceptsAValidClientPacketOfTheFormerJavaImplementation) {
+	for (size_t offset : {0, 2, 7}) {
+		CryptEngine engine;
+		useUpstreamSessionKey(engine);
+		std::vector<uint8_t> init(64);
+		engine.encrypt(init, 40, UPSTREAM_XOR_KEY); // SM_INIT switches the engine to the session key
+		std::vector<uint8_t> packet = garbageBuffer(offset, parseHex(UPSTREAM_CLIENT_CIPHER), offset + 16);
+		EXPECT_TRUE(engine.decrypt(std::span(packet).subspan(offset, 16)));
+		EXPECT_EQ(formatHex(std::span(packet).subspan(offset, 16)), UPSTREAM_CLIENT_PLAIN);
+	}
+}
+
+TEST(CryptEngineTest, RejectsACorruptedClientPacketOfTheFormerJavaImplementation) {
+	CryptEngine engine;
+		useUpstreamSessionKey(engine);
+	std::vector<uint8_t> init(64);
+	engine.encrypt(init, 40, UPSTREAM_XOR_KEY);
+	std::vector<uint8_t> corrupted = parseHex(UPSTREAM_CLIENT_CIPHER);
+	corrupted[3] ^= 0x40;
+	EXPECT_FALSE(engine.decrypt(corrupted));
 }

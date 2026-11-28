@@ -40,11 +40,11 @@ void AbyssRankUpdateService::scheduleUpdate() {
 		return *expression;
 	};
 	const cron::CronExpression* updateRule = configs::main::RankingConfig::TOP_RANKING_UPDATE_RULE.load();
-	log.info("Scheduling ranking update task based on cron expression: " + expressionText(updateRule));
+	log.info("Scheduling ranking update task based on cron expression: {}", expressionText(updateRule));
 	cron::CronService::getInstance().schedule([] { performUpdate(); }, require(updateRule), true);
 
 	const cron::CronExpression* gpLossTime = configs::main::RankingConfig::TOP_RANKING_DAILY_GP_LOSS_TIME.load();
-	log.info("Scheduling daily GP loss task based on cron expression: " + expressionText(gpLossTime));
+	log.info("Scheduling daily GP loss task based on cron expression: {}", expressionText(gpLossTime));
 	cron::CronService::getInstance().schedule([] { updateDailyGpLoss(); }, require(gpLossTime), true);
 }
 
@@ -86,7 +86,7 @@ void AbyssRankUpdateService::performUpdate() {
 		// update ranking cache
 		AbyssRankingCache::getInstance().reloadRankings();
 
-		log.info("AbyssRankUpdateService: Finished in " + std::to_string((commons::utils::currentTimeMillis() - startTime) / 1000) + "s");
+		log.info("AbyssRankUpdateService: Finished in {} seconds", (commons::utils::currentTimeMillis() - startTime) / 1000);
 	}, 1000);
 }
 

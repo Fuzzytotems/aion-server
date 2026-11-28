@@ -237,13 +237,11 @@ TEST_F(TargetSelectTest, ReadImplConsumesTheBodyExactly) {
 		EXPECT_EQ(packet.getRemainingBytes(), 0);
 		EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 	}
-	{ // one byte short: the flag is missing and logged
+	{ // one byte short: the flag is missing, so the read fails (upstream e1a399e62)
 		Driver<CM_TARGET_SELECT> packet(OPCODE);
 		std::vector<uint8_t> data = PacketWriter().D(7).data;
 		packet.setBuffer(commons::utils::ByteBuffer::wrap(data));
-		LogCapture capture({"com.aionemu.commons.network.packet.BaseClientPacket"});
-		ASSERT_TRUE(packet.read());
-		EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
+		EXPECT_FALSE(packet.read());
 	}
 }
 

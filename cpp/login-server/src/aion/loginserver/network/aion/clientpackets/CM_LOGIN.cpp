@@ -57,25 +57,25 @@ std::string readString(std::span<const uint8_t> bytes, size_t offset, size_t max
 
 } // namespace
 
-void CM_LOGIN::readImpl() {
-	encryptedLoginData = readB(getRemainingBytes() - 55);
+void CM_LOGIN::readFields() {
+	// one RSA block, two with -loginex; the rest is the fields below and up to 7 bytes of padding
+	encryptedLoginData = readB((getRemainingBytes() - FIELDS_AFTER_CREDENTIALS) / 128 * 128);
 	sessionId = readD();
-	readB(16); // 0
-	readB(7); // static bytes: 20 00 00 00 00 00 01
-	readB(16); // static bytes: 9D DA 47 A7 21 C0 A6 A5 4B B7 5E E3 CE C9 26 AA
-	readD(); // 0
-	readD(); // unk
-	readD(); // 0
+	readB(16); // zeros when logging in with a password, a token on the client's other login paths
+	readD(); // always 32 in the 4.8 client
+	packageId = readUH();
+	openClientWindows = readUC();
+	pcInfoMd5 = readB(16);
 }
 
 void CM_LOGIN::runImpl() {
 	if (getConnection()->getSessionId() != sessionId) {
-		sendPacket(std::make_shared<SM_LOGIN_FAIL>(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
+		sendPacket(SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
 		return;
 	}
 	std::optional<LoginData> loginData = decryptLoginData();
 	if (!loginData) {
-		sendPacket(std::make_shared<SM_LOGIN_FAIL>(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
+		sendPacket(SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_SYSTEM_ERROR));
 		return;
 	}
 	const std::shared_ptr<LoginConnection>& connection = getConnection();
@@ -87,7 +87,7 @@ void CM_LOGIN::runImpl() {
 		case AionAuthResponse::STR_L2AUTH_S_ALL_OK:
 			connection->setState(LoginConnection::State::AUTHED_LOGIN);
 			connection->setSessionKey(SessionKey(*connection->getAccount()));
-			connection->sendPacket(std::make_shared<SM_LOGIN_OK>(connection->getSessionKey().value()));
+			connection->sendPacket(SM_LOGIN_OK(connection->getSessionKey().value()));
 			break;
 		case AionAuthResponse::STR_L2AUTH_S_INVALID_ACCOUT:
 		case AionAuthResponse::STR_L2AUTH_S_INCORRECT_PWD:
@@ -98,14 +98,14 @@ void CM_LOGIN::runImpl() {
 					const int32_t banTimeMillis = static_cast<int32_t>(static_cast<uint32_t>(Config::WRONG_LOGIN_BAN_TIME) * 60000u);
 					commons::database::Timestamp newTime{std::chrono::milliseconds(commons::utils::currentTimeMillis() + banTimeMillis)};
 					controller::BannedIpController::banIp(ip, newTime);
-					log().info(loginData->username + " on " + ip + " banned for " + std::to_string(Config::WRONG_LOGIN_BAN_TIME) + " min. bruteforce");
-					connection->close(std::make_shared<SM_LOGIN_FAIL>(AionAuthResponse::STR_L2AUTH_S_BLOCKED_IP));
+					log().info("{} on {} banned for {} min. bruteforce", loginData->username, ip, Config::WRONG_LOGIN_BAN_TIME);
+					connection->close(SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_BLOCKED_IP));
 					break;
 				}
 			}
 			[[fallthrough]];
 		default:
-			connection->sendPacket(std::make_shared<SM_LOGIN_FAIL>(*response));
+			connection->sendPacket(SM_LOGIN_FAIL(*response));
 			break;
 	}
 }

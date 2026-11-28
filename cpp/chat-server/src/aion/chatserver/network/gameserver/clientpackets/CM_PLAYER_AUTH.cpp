@@ -29,9 +29,9 @@ void CM_PLAYER_AUTH::runImpl() {
 	try {
 		std::shared_ptr<model::ChatClient> chatClient =
 			service::ChatService::getInstance().registerPlayer(playerId, accName, nick, model::getById(raceId), accessLevel);
-		sendPacket(std::make_shared<serverpackets::SM_PLAYER_AUTH_RESPONSE>(*chatClient));
+		sendPacket(serverpackets::SM_PLAYER_AUTH_RESPONSE(*chatClient));
 	} catch (const service::NoSuchAlgorithmException& e) {
-		log().error("Error registering player {} on ChatServer", playerId, e);
+		log().error("Error registering player {} on chat server", playerId, e);
 	}
 }
 

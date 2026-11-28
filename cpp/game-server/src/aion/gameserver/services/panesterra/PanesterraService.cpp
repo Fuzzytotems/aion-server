@@ -165,7 +165,7 @@ void PanesterraService::spawnCorridor(model::templates::spawns::SpawnTemplate& t
 void PanesterraService::startAhserionRaid() {
 	for (int32_t id : {10111, 10211, 10311, 10411}) {
 		if (SiegeService::getInstance().getSiege(id) != nullptr) {
-			log.error("Ahserion raid cannot be started while any Panesterra fortress is under siege.");
+			log.error("Ahserion raid cannot be started while any Panesterra fortress is under siege");
 			return;
 		}
 	}

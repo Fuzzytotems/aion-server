@@ -398,5 +398,18 @@ TEST_F(XmlQuestTemplateTest, TheKillEventCountsItsMonstersAndRunsCompliteWhenAll
 	EXPECT_TRUE(me->sent().empty());
 }
 
+// upstream 15eaf77b6: getMonsters() no longer stores an empty list into the null field, so OnKillEvent.java:38 `monster == null` returns
+// before <complite> for an event without <monster> children (before, XmlQuest.register had made the list non-null and <complite> ran)
+TEST_F(XmlQuestTemplateTest, AKillEventWithoutMonstersDoesNothing) {
+	Npc& kerub = npcOf(STRIPED_KERUB);
+	std::unique_ptr<OnKillEvent> event = bind<OnKillEvent>(R"(<on_kill_event><complite><set_quest_status status="REWARD"/></complite></on_kill_event>)");
+	EXPECT_TRUE(event->getMonsters().empty());
+	Ref<QuestState> qs = hold(*me, 1102, QuestStatus::START);
+	me->clearSent();
+	EXPECT_FALSE(event->operate(*QuestEnv::create(at(kerub), me->player(), 1102)));
+	EXPECT_EQ(qs->getStatus(), QuestStatus::START) << "no <complite>";
+	EXPECT_TRUE(me->sent().empty());
+}
+
 } // namespace
 } // namespace aion::gameserver::questEngine::handlers::test::templates

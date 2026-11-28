@@ -12,12 +12,13 @@ BruteForceProtector& BruteForceProtector::getInstance() {
 
 bool BruteForceProtector::addFailedConnect(std::string_view ip) {
 	using configs::Config;
-	// Java: Config.WRONG_LOGIN_BAN_TIME * 1000 * 60 is an int multiplication, which wraps
-	const int32_t banTimeMillis = static_cast<int32_t>(static_cast<uint32_t>(Config::WRONG_LOGIN_BAN_TIME) * 1000u * 60u);
 	const int64_t now = commons::utils::currentTimeMillis();
+	const int64_t windowMillis = Config::WRONG_LOGIN_BAN_TIME * 60'000LL;
 	std::lock_guard lock(mutex);
 	auto failed = failedConnections.find(std::string(ip));
-	if (failed == failedConnections.end() || now - failed->second.time > banTimeMillis) {
+	if (failed == failedConnections.end() || now - failed->second.time > windowMillis) {
+		if (failedConnections.size() > PURGE_THRESHOLD) // the map only grows: drop the entries that can no longer be banned
+			std::erase_if(failedConnections, [&](const auto& entry) { return now - entry.second.time > windowMillis; });
 		failedConnections.insert_or_assign(std::string(ip), FailedLoginInfo{1, now});
 	} else {
 		if (failed->second.count >= Config::LOGIN_TRY_BEFORE_BAN) {

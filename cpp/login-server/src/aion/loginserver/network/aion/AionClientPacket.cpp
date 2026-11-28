@@ -34,15 +34,21 @@ void AionClientPacket::run() {
 			else
 				name = getConnection()->getIP();
 
-			log().errorCurrentException("error handling client (" + name + ") message " + toString());
+			log().errorCurrentException(fmt::format("error handling client ({}) message {}", name, toString()));
 		} catch (...) {
 			// logging must not throw out of the packet processor
 		}
 	}
 }
 
-void AionClientPacket::sendPacket(std::shared_ptr<AionServerPacket> msg) const {
-	getConnection()->sendPacket(std::move(msg));
+void AionClientPacket::readImpl() {
+	readFields();
+	if (getRemainingBytes() < 8)
+		readB(getRemainingBytes());
+}
+
+void AionClientPacket::sendPacket(const AionServerPacket& msg) const {
+	getConnection()->sendPacket(msg);
 }
 
 } // namespace aion::loginserver::network::aion

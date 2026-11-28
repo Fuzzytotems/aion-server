@@ -18,6 +18,7 @@
 #include <string>
 
 #include "aion/commons/utils/concurrent/ThreadName.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/CleaningConfig.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
@@ -81,13 +82,17 @@ protected:
 	runtime::TaskScope scope{AION_TASK_INFO(runtime::TaskKind::TEST)};
 };
 
-/** DatabaseCleaningService.java:31-35: only the main thread, only above 30 days */
-TEST_F(DatabaseCleaningServiceTest, TheGuardsRefuseAnotherThreadAndTooFewDays) {
+/**
+ * DatabaseCleaningService.java:37-41: only during the startup (upstream 546f96bd2: GameServer.isStarting(), no client NioServer yet, on any
+ * thread, since initDatabase runs beside DataManager), only above 30 days. The test process never opens the client port, so it is starting.
+ */
+TEST_F(DatabaseCleaningServiceTest, TheGuardsRefuseTooFewDaysAndRunOnAnyThreadDuringTheStartup) {
 	ConfigScope<int32_t> days(configs::main::CleaningConfig::MIN_ACCOUNT_INACTIVITY_DAYS, 30);
+	EXPECT_TRUE(GameServer::isStarting());
 	EXPECT_THROW(DatabaseCleaningService::deletePlayersOnInactiveAccounts(), runtime::IllegalArgumentException) << "30 days";
 	commons::utils::concurrent::setCurrentThreadName("worker");
-	ConfigScope<int32_t> enough(configs::main::CleaningConfig::MIN_ACCOUNT_INACTIVITY_DAYS, 31);
-	EXPECT_THROW(DatabaseCleaningService::deletePlayersOnInactiveAccounts(), runtime::IllegalStateException) << "not the main thread";
+	EXPECT_THROW(DatabaseCleaningService::deletePlayersOnInactiveAccounts(), runtime::IllegalArgumentException)
+		<< "another thread passes the startup check, the 30 days still refuse";
 }
 
 /**

@@ -47,7 +47,7 @@ void ItemGroupsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlPar
 		petFood.insert_or_assign(foodType, std::move(itemIds));
 		if (foodType != FoodType::EXCLUDES && foodType != FoodType::STINKY)
 			petFoodCount += count;
-		// Java: food.clear() (the C++ lists stay, see the class comment)
+		// Java: if (!food.isEmpty()) food.clear() (the C++ lists stay, see the class comment)
 	}
 }
 
@@ -163,7 +163,7 @@ const std::vector<ItemRaceEntry>* ItemGroupsData::getPetFood(FoodType foodType) 
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.ItemGroupsData")
-			  .warn("Unhandled food type " + std::string(xml::enumName(foodType)));
+			  .warn("Unhandled food type {}", xml::enumName(foodType));
 	}
 	return nullptr;
 }

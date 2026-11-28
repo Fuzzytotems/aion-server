@@ -57,8 +57,7 @@ FloodManager::Result FloodManager::LogEntry::isFlooding(bool increment) {
 		for (int32_t i = 0; i < length; i++)
 			(*_ticks)[i] = int16_t{0};
 	} else if (_lastTick.get() > currentTick) {
-		log.warn("The current tick (" + std::to_string(currentTick) + ") is smaller than the last (" + std::to_string(_lastTick.get()) + ")!",
-			commons::utils::IllegalStateException(""));
+		log.warn("The current tick ({}) is smaller than the last ({})!", currentTick, _lastTick.get(), commons::utils::IllegalStateException(""));
 		_lastTick.set(currentTick);
 	} else
 		while (currentTick != _lastTick.get()) {

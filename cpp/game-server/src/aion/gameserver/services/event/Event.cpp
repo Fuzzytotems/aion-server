@@ -120,7 +120,7 @@ void Event::start() {
 		onPlayerLogin(player);
 		onEnterMap(player);
 	});
-	log.info("Started event: " + eventTemplate->getName());
+	log.info("Started event: {}", eventTemplate->getName());
 }
 
 // Java Event.java:131-185
@@ -143,7 +143,7 @@ void Event::stop() {
 		}
 		removedCount += RespawnService::cancelEventRespawns(eventTemplate);
 		dataholders::DataManager::SPAWNS_DATA->removeEventSpawnObjects(*eventTemplate);
-		log.info("Removed " + std::to_string(removedCount) + " event spawns (" + eventTemplate->getName() + ")");
+		log.info("Removed {} event spawns ({})", removedCount, eventTemplate->getName());
 	}
 
 	SYNCHRONIZED(*this) {
@@ -153,7 +153,7 @@ void Event::stop() {
 				try {
 					task();
 				} catch (const std::exception& e) {
-					log.error("Could not execute task on end of event " + getEventTemplate()->getName(), e);
+					log.error("Could not execute task on end of event {}", getEventTemplate()->getName(), e);
 				}
 			}
 			onEventEndTasks.set(nullptr);
@@ -177,7 +177,7 @@ void Event::stop() {
 		handler->onEventStop();
 		eventBuffHandler.set(nullptr);
 	}
-	log.info("Stopped event: " + eventTemplate->getName());
+	log.info("Stopped event: {}", eventTemplate->getName());
 }
 
 // Java Event.java:187-189

@@ -10,8 +10,7 @@ namespace aion::gameserver::dataholders {
 /**
  * Java com.aionemu.gameserver.dataholders.FlyRingData.
  * <p>
- * C++: an absent list is the empty bound vector (Java creates an empty list lazily). addAll has no caller in Java and would append to the
- * immutable published holder, so it is not declared.
+ * C++: an absent list is the empty bound vector (Java returns List.of(); upstream 15eaf77b6 removed addAll).
  *
  * @author M@xx
  */

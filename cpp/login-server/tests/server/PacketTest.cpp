@@ -12,6 +12,9 @@
 #include "ServerTestUtils.h"
 #include "aion/commons/network/NioServer.h"
 #include "aion/commons/network/ServerCfg.h"
+#include "aion/commons/network/netty/ConnectionHandler.h"
+#include "aion/commons/network/netty/NettyPipeline.h"
+#include "aion/commons/network/netty/PacketExecutorGroup.h"
 #include "aion/loginserver/GameServerTable.h"
 #include "aion/loginserver/model/Account.h"
 #include "aion/loginserver/network/aion/LoginConnection.h"
@@ -52,28 +55,32 @@ using network::gameserver::GsConnection;
 using namespace network::aion::serverpackets;
 using namespace network::gameserver::serverpackets;
 
-/** A NioServer on an ephemeral port creating connections of type C and remembering the last one. */
+/** A NioServer on an ephemeral port creating connections of type C (like NetConnector) and remembering the last one. */
 template <typename C>
 class CapturingServer {
 public:
 	CapturingServer() {
-		auto packetProcessor = std::make_shared<typename C::Processor>(1, 2, 50, 3);
+		auto packetExecutors = std::make_shared<commons::network::netty::PacketExecutorGroup>(2);
 		auto pingScheduler = std::make_shared<utils::ScheduledExecutor>("TestPingPong");
-		processor = packetProcessor;
+		executors = packetExecutors;
 		scheduler = pingScheduler;
-		ServerCfg cfg{{"127.0.0.1", 0}, "test clients", [this, packetProcessor, pingScheduler](asio::ip::tcp::socket socket, NioServer& nioServer) {
-			std::shared_ptr<C> connection = create(std::move(socket), nioServer, packetProcessor, pingScheduler);
-			std::lock_guard lock(mutex);
-			last = connection;
-			return connection;
-		}};
+		ServerCfg cfg{{"127.0.0.1", 0}, "test clients",
+			[this, packetExecutors, pingScheduler](asio::ip::tcp::socket socket, NioServer& nioServer) -> std::shared_ptr<commons::network::AConnectionBase> {
+				auto channel = std::make_shared<commons::network::netty::ConnectionHandler>(std::move(socket), nioServer,
+					std::is_same_v<C, GsConnection> ? 8192 * 8 : 8192 * 2);
+				std::shared_ptr<C> connection = create(channel, packetExecutors->next(), pingScheduler);
+				commons::network::netty::NettyPipeline::init(*channel, connection);
+				std::lock_guard lock(mutex);
+				last = connection;
+				return channel;
+			}};
 		server = std::make_unique<NioServer>(1, std::vector<ServerCfg>{std::move(cfg)}, 1);
 		server->connect();
 	}
 
 	~CapturingServer() {
 		server->shutdown();
-		processor->shutdown();
+		executors->shutdown(std::chrono::seconds(3));
 		scheduler->shutdown();
 	}
 
@@ -91,15 +98,15 @@ public:
 	}
 
 private:
-	static std::shared_ptr<C> create(asio::ip::tcp::socket socket, NioServer& nioServer, const std::shared_ptr<typename C::Processor>& processor,
-		const std::shared_ptr<utils::ScheduledExecutor>& scheduler) {
+	static std::shared_ptr<C> create(std::shared_ptr<commons::network::netty::ConnectionHandler> channel,
+		commons::network::netty::NettyConnectionBase::Executor executor, const std::shared_ptr<utils::ScheduledExecutor>& scheduler) {
 		if constexpr (std::is_same_v<C, GsConnection>)
-			return std::make_shared<GsConnection>(std::move(socket), nioServer, processor, scheduler);
+			return std::make_shared<GsConnection>(std::move(channel), std::move(executor), scheduler);
 		else
-			return std::make_shared<LoginConnection>(std::move(socket), nioServer, processor);
+			return std::make_shared<LoginConnection>(std::move(channel), std::move(executor));
 	}
 
-	std::shared_ptr<typename C::Processor> processor;
+	std::shared_ptr<commons::network::netty::PacketExecutorGroup> executors;
 	std::shared_ptr<utils::ScheduledExecutor> scheduler;
 	std::unique_ptr<NioServer> server;
 	std::mutex mutex;
@@ -110,14 +117,17 @@ class AionPacketTest : public ::testing::Test {
 protected:
 	static void SetUpTestSuite() { network::ncrypt::KeyGen::init(); }
 
-	/** Compares a decrypted server packet body with the expected payload (opcode + data), except a last byte lost to the checksum. */
+	/**
+	 * Compares a decrypted server packet body with the expected payload (opcode + data): upstream bce89b2fc encrypts the whole payload, followed
+	 * by zeroed padding and the checksum in the last word.
+	 */
 	static void expectPayload(const std::vector<uint8_t>& body, const std::vector<uint8_t>& payload) {
-		ASSERT_GE(body.size(), payload.size());
-		// see AionServerPacket::write: for payload sizes % 8 == 5 the checksum overwrites the last payload byte (like Java)
-		size_t comparable = payload.size() % 8 == 5 ? payload.size() - 1 : payload.size();
-		EXPECT_EQ(std::vector<uint8_t>(body.begin(), body.begin() + static_cast<ptrdiff_t>(comparable)),
-			std::vector<uint8_t>(payload.begin(), payload.begin() + static_cast<ptrdiff_t>(comparable)));
-		EXPECT_EQ(body.size() % 8, 0u);
+		ASSERT_GE(body.size(), payload.size() + 4);
+		EXPECT_EQ(std::vector<uint8_t>(body.begin(), body.begin() + static_cast<ptrdiff_t>(payload.size())), payload);
+		EXPECT_EQ(std::vector<uint8_t>(body.begin() + static_cast<ptrdiff_t>(payload.size()), body.end() - 4),
+			std::vector<uint8_t>(body.size() - 4 - payload.size()))
+			<< "padding";
+		EXPECT_EQ(body.size(), (payload.size() + 4 + 8) / 8 * 8); // Java: length += 4; length += 8 - length % 8
 	}
 
 	CapturingServer<LoginConnection> server;
@@ -131,7 +141,7 @@ TEST_F(AionPacketTest, SmInitAndConnectionState) {
 	EXPECT_GT(init.sessionId, 0);
 	EXPECT_EQ(init.protocolRevision, 0xc621);
 	EXPECT_TRUE(std::equal(init.encryptedModulus.begin(), init.encryptedModulus.end(), con->getEncryptedModulus().begin()));
-	// SM_INIT body: opcode, session id, revision, 128 modulus bytes, 16 zeros, blowfish key, 7 zeros, C 0, D 0, H 0, C 0, D 0x3FCE09ED, D 0
+	// upstream bce89b2fc, SM_INIT body: opcode, session id, revision, 128 modulus bytes, 16 zeros, blowfish key, C 0 (login mode: password)
 	PacketReader reader(init.body);
 	reader.C();
 	reader.D();
@@ -139,12 +149,9 @@ TEST_F(AionPacketTest, SmInitAndConnectionState) {
 	reader.B(128);
 	EXPECT_EQ(reader.B(16), std::vector<uint8_t>(16));
 	reader.B(16);
-	EXPECT_EQ(reader.B(7), std::vector<uint8_t>(7));
 	EXPECT_EQ(reader.C(), 0);
-	EXPECT_EQ(reader.D(), 0);
-	EXPECT_EQ(reader.H(), 0);
-	EXPECT_EQ(reader.C(), 0);
-	EXPECT_EQ(reader.D(), 0x3FCE09ED);
+	// 170 payload bytes, then the padding, the XOR key and the last word (Java: length += 4 + 4, padded to whole blocks)
+	EXPECT_EQ(init.body.size(), 184u);
 	EXPECT_EQ(con->getState(), LoginConnection::State::CONNECTED);
 	EXPECT_EQ(con->toString(), "Client 127.0.0.1");
 }
@@ -155,33 +162,34 @@ TEST_F(AionPacketTest, LayoutOfAllAionServerPackets) {
 	auto con = server.connection();
 	SessionKey key(0x11223344, 0x55667788, static_cast<int32_t>(0x99AABBCC), 0x0DDEEFF0);
 
-	con->sendPacket(std::make_shared<SM_ACCOUNT_BANNED>());
-	expectPayload(client.expectPacket(0x02), {0x02});
+	// upstream bce89b2fc: the layouts the 4.8 client reads
+	con->sendPacket(SM_ACCOUNT_BANNED());
+	expectPayload(client.expectPacket(0x02), PacketWriter().C(0x02).D(0).D(0).data);
+	con->sendPacket(SM_ACCOUNT_BANNED(27, 0));
+	expectPayload(client.expectPacket(0x02), PacketWriter().C(0x02).D(27).D(0).data);
 
-	con->sendPacket(std::make_shared<SM_ACCOUNT_BANNED_2>());
-	expectPayload(client.expectPacket(0x09), {0x09});
+	con->sendPacket(SM_ACCOUNT_BANNED_2());
+	expectPayload(client.expectPacket(0x09), PacketWriter().C(0x09).C(0).data);
 
-	con->sendPacket(std::make_shared<SM_ACCOUNT_KICK>(AionAuthResponse::STR_L2AUTH_S_KICKED_DOUBLE_LOGIN));
-	expectPayload(client.expectPacket(0x08), PacketWriter().C(0x08).D(13).data);
+	con->sendPacket(SM_ACCOUNT_KICK(AionAuthResponse::STR_L2AUTH_S_KICKED_DOUBLE_LOGIN));
+	expectPayload(client.expectPacket(0x08), PacketWriter().C(0x08).C(13).data);
 
-	con->sendPacket(std::make_shared<SM_AUTH_GG>(0x12345678));
-	expectPayload(client.expectPacket(0x0b),
-		PacketWriter().C(0x0b).D(0x12345678).D(0).D(0).D(0).D(0).D(0xCD5000).D(0).D(0x0b000000).D(0x12345678 ^ 0xCD5000).zeros(3).data);
+	con->sendPacket(SM_AUTH_GG());
+	expectPayload(client.expectPacket(0x0b), {0x0b});
 
-	con->sendPacket(std::make_shared<SM_LOGIN_FAIL>(AionAuthResponse::STR_L2AUTH_S_INCORRECT_PWD));
-	expectPayload(client.expectPacket(0x01), PacketWriter().C(0x01).D(3).data);
+	con->sendPacket(SM_LOGIN_FAIL(AionAuthResponse::STR_L2AUTH_S_INCORRECT_PWD));
+	expectPayload(client.expectPacket(0x01), PacketWriter().C(0x01).C(3).data);
 
-	con->sendPacket(std::make_shared<SM_LOGIN_OK>(key));
-	expectPayload(client.expectPacket(0x03),
-		PacketWriter().C(0x03).D(key.accountId).D(key.loginOk).D(0).D(0).D(0x3ea).D(0).D(0).D(0).D(0).D(0).D(0).D(0).zeros(0x13).data);
+	con->sendPacket(SM_LOGIN_OK(key));
+	expectPayload(client.expectPacket(0x03), PacketWriter().C(0x03).D(key.accountId).D(key.loginOk).zeros(20).D(0).zeros(16).D(0).data);
 
-	con->sendPacket(std::make_shared<SM_PLAY_FAIL>(AionAuthResponse::STR_L2AUTH_S_SERVER_DOWN));
-	expectPayload(client.expectPacket(0x06), PacketWriter().C(0x06).D(8).data);
+	con->sendPacket(SM_PLAY_FAIL(AionAuthResponse::STR_L2AUTH_S_SERVER_DOWN));
+	expectPayload(client.expectPacket(0x06), PacketWriter().C(0x06).C(8).data);
 
-	con->sendPacket(std::make_shared<SM_PLAY_OK>(key, int8_t{3}));
-	expectPayload(client.expectPacket(0x07), PacketWriter().C(0x07).D(key.playOk1).D(key.playOk2).C(3).zeros(0x0E).data);
+	con->sendPacket(SM_PLAY_OK(key, int8_t{3}));
+	expectPayload(client.expectPacket(0x07), PacketWriter().C(0x07).D(key.playOk1).D(key.playOk2).C(3).data);
 
-	con->sendPacket(std::make_shared<SM_UPDATE_SESSION>(key));
+	con->sendPacket(SM_UPDATE_SESSION(key));
 	expectPayload(client.expectPacket(0x0c), PacketWriter().C(0x0c).D(key.accountId).D(key.loginOk).C(0).data);
 }
 
@@ -195,14 +203,14 @@ TEST_F(AionPacketTest, SmServerListLayoutWithoutGameServers) {
 	account->setId(987654);
 	account->setLastServer(5);
 	con->setAccount(account);
-	con->sendPacket(std::make_shared<SM_SERVER_LIST>());
-	expectPayload(client.expectPacket(0x04), PacketWriter().C(0x04).C(0).C(5).H(1).C(1).zeros(13).data);
+	con->sendPacket(SM_SERVER_LIST());
+	expectPayload(client.expectPacket(0x04), PacketWriter().C(0x04).C(0).C(5).H(1).C(1).data);
 }
 
 TEST_F(AionPacketTest, ServerListWithoutAccountDisconnects) {
 	AionTestClient client(server.port());
 	client.readInit();
-	server.connection()->sendPacket(std::make_shared<SM_SERVER_LIST>());
+	server.connection()->sendPacket(SM_SERVER_LIST());
 	EXPECT_TRUE(client.socket.waitClosed());
 }
 
@@ -211,9 +219,7 @@ TEST_F(AionPacketTest, CmAuthGgWithRightAndWrongSessionId) {
 		AionTestClient client(server.port());
 		auto init = client.readInit();
 		client.sendPacket(AionTestClient::buildCM_AUTH_GG(init.sessionId));
-		PacketReader reader(client.expectPacket(0x0b));
-		reader.C();
-		EXPECT_EQ(reader.D(), init.sessionId);
+		client.expectPacket(0x0b); // empty (upstream bce89b2fc)
 		EXPECT_EQ(server.connection()->getState(), LoginConnection::State::AUTHED_GG);
 	}
 	{
@@ -226,7 +232,8 @@ TEST_F(AionPacketTest, CmAuthGgWithRightAndWrongSessionId) {
 		EXPECT_EQ(reader.D() & 0xFFFFFF, 20); // STR_L2AUTH_S_SYSTEM_ERROR
 		EXPECT_TRUE(client.socket.waitClosed());
 		EXPECT_EQ(server.connection()->getState(), LoginConnection::State::CONNECTED);
-		EXPECT_FALSE(logs.contains("Missing")) << logs.dump();
+		EXPECT_FALSE(logs.contains("shorter than expected")) << logs.dump();
+		EXPECT_FALSE(logs.contains("not fully read")) << logs.dump();
 	}
 }
 
@@ -248,12 +255,11 @@ TEST_F(AionPacketTest, CmLoginWithWrongSessionIdOrInvalidRsaDataFails) {
 	invalidRsa.C();
 	EXPECT_EQ(invalidRsa.D() & 0xFFFFFF, 20);
 
-	// login data size not a multiple of 128: the exception is logged, no response
-	payload = PacketWriter().C(0x00).zeros(104).D(client.crypto.getSessionId()).zeros(39).data;
+	// upstream bce89b2fc: the login data is as many whole RSA blocks as fit before the 43 bytes of fields, so a packet shorter than the fields is
+	// too short, which closes the connection (upstream e1a399e62, 459b35094)
+	payload = PacketWriter().C(0x00).D(client.crypto.getSessionId()).zeros(20).data;
 	client.sendPacket(payload);
-	EXPECT_TRUE(logs.waitFor("error handling client (127.0.0.1) message [000] CM_LOGIN")) << logs.dump();
-	EXPECT_FALSE(client.readPacket(300ms).has_value());
-	EXPECT_FALSE(client.socket.isClosed());
+	EXPECT_TRUE(client.socket.waitClosed());
 }
 
 TEST_F(AionPacketTest, CmPlayCmServerListAndCmUpdateSessionChecks) {
@@ -308,7 +314,7 @@ TEST_F(AionPacketTest, UnknownPacketsAreLoggedAndWrongChecksumsDisconnect) {
 	client.readInit();
 	client.sendPacket(std::vector<uint8_t>{0x01, 0xAA, 0xBB});
 	EXPECT_TRUE(logs.waitFor(
-		"Unknown packet received from client: opCode=0x01 state=CONNECTED length=15 data=[AA BB 00 00 00 00 00 01 AA BB 00 00 00 00 00]"))
+		"Unknown packet received from client: opCode=0x01 state=CONNECTED length=7 data=[AA BB 00 00 00 00 00]"))
 		<< logs.dump();
 
 	// CM_LOGIN is unknown before CM_AUTH_GG
@@ -334,41 +340,41 @@ TEST_F(GsPacketTest, LayoutOfGameServerPackets) {
 	using service::ptransfer::PlayerTransferResultStatus;
 	using service::ptransfer::PlayerTransferTask;
 
-	con->sendPacket(std::make_shared<SM_PING>());
+	con->sendPacket(SM_PING());
 	EXPECT_EQ(gs.readPacket(5s, true), (std::vector<uint8_t>{11}));
 
-	con->sendPacket(std::make_shared<SM_REQUEST_KICK_ACCOUNT>(0x01020304, true));
+	con->sendPacket(SM_REQUEST_KICK_ACCOUNT(0x01020304, true));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(2).D(0x01020304).C(1).data);
-	con->sendPacket(std::make_shared<SM_REQUEST_KICK_ACCOUNT>(7, false));
+	con->sendPacket(SM_REQUEST_KICK_ACCOUNT(7, false));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(2).D(7).C(0).data);
 
-	con->sendPacket(std::make_shared<SM_ACCOUNT_RECONNECT_KEY>(42, -5));
+	con->sendPacket(SM_ACCOUNT_RECONNECT_KEY(42, -5));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(3).D(42).D(-5).data);
 
-	con->sendPacket(std::make_shared<SM_BAN_RESPONSE>(int8_t{3}, 42, "10.0.0.1", -1, 99, true));
+	con->sendPacket(SM_BAN_RESPONSE(int8_t{3}, 42, "10.0.0.1", -1, 99, true));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(5).C(3).D(42).S("10.0.0.1").D(-1).D(99).C(1).data);
 
-	con->sendPacket(std::make_shared<SM_GS_CHARACTER_RESPONSE>(1234));
+	con->sendPacket(SM_GS_CHARACTER_RESPONSE(1234));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(8).D(1234).data);
 
-	con->sendPacket(std::make_shared<SM_LS_CONTROL_RESPONSE>(int8_t{2}, int8_t{-1}, 42, 77, false));
+	con->sendPacket(SM_LS_CONTROL_RESPONSE(int8_t{2}, int8_t{-1}, 42, 77, false));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(4).C(2).C(-1).D(42).D(77).C(0).data);
 
-	con->sendPacket(std::make_shared<SM_GS_AUTH_RESPONSE>(GsAuthResponse::NOT_AUTHED));
+	con->sendPacket(SM_GS_AUTH_RESPONSE(GsAuthResponse::NOT_AUTHED));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(1).data);
-	con->sendPacket(std::make_shared<SM_GS_AUTH_RESPONSE>(GsAuthResponse::ALREADY_REGISTERED));
+	con->sendPacket(SM_GS_AUTH_RESPONSE(GsAuthResponse::ALREADY_REGISTERED));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(2).data);
-	con->sendPacket(std::make_shared<SM_GS_AUTH_RESPONSE>(GsAuthResponse::AUTHED));
+	con->sendPacket(SM_GS_AUTH_RESPONSE(GsAuthResponse::AUTHED));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(0).C(GameServerTable::size()).data);
 
 	model::AccountTime accountTime;
 	accountTime.setAccumulatedOnlineTime(1234567890123);
 	accountTime.setAccumulatedRestTime(-2);
-	con->sendPacket(std::make_shared<SM_ACCOUNT_AUTH_RESPONSE>(42, true, "Nameä", 1700000000123, int8_t{3}, int8_t{1}, std::string("HDD"), accountTime));
+	con->sendPacket(SM_ACCOUNT_AUTH_RESPONSE(42, true, "Nameä", 1700000000123, int8_t{3}, int8_t{1}, std::string("HDD"), accountTime));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(1).D(42).C(1).S("Nameä").Q(1700000000123).Q(1234567890123).Q(-2).C(3).C(1).S("HDD").data);
-	con->sendPacket(std::make_shared<SM_ACCOUNT_AUTH_RESPONSE>(42, true, "n", 0, int8_t{0}, int8_t{0}, std::nullopt, accountTime));
+	con->sendPacket(SM_ACCOUNT_AUTH_RESPONSE(42, true, "n", 0, int8_t{0}, int8_t{0}, std::nullopt, accountTime));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(1).D(42).C(1).S("n").Q(0).Q(1234567890123).Q(-2).C(0).C(0).S("").data);
-	con->sendPacket(std::make_shared<SM_ACCOUNT_AUTH_RESPONSE>(43, false, "", 0, int8_t{0}, int8_t{0}, std::nullopt, std::nullopt));
+	con->sendPacket(SM_ACCOUNT_AUTH_RESPONSE(43, false, "", 0, int8_t{0}, int8_t{0}, std::nullopt, std::nullopt));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(1).D(43).C(0).data);
 
 	PlayerTransferTask task;
@@ -378,13 +384,13 @@ TEST_F(GsPacketTest, LayoutOfGameServerPackets) {
 	task.sourceAccountId = 100;
 	task.targetAccountId = 200;
 	task.playerId = 300;
-	con->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::PERFORM_ACTION, task));
+	con->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::PERFORM_ACTION, task));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(12).D(23).C(1).C(-2).D(100).D(200).D(300).D(9).data);
 
-	con->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::ERROR_, 9, "reason"));
+	con->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::ERROR_, 9, "reason"));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(12).D(22).D(9).S("reason").data);
 
-	con->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::OK, 9));
+	con->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::OK, 9));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(12).D(21).D(9).data);
 
 	auto request = std::make_shared<PlayerTransferRequest>(service::ptransfer::PlayerTransferStatus::STEP1);
@@ -394,12 +400,12 @@ TEST_F(GsPacketTest, LayoutOfGameServerPackets) {
 	request->db = {1, 2, 3, 4, 5};
 	request->targetAccount = std::make_shared<model::Account>();
 	request->targetAccount->setName("target");
-	con->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::SEND_INFO, std::shared_ptr<const PlayerTransferRequest>(request)));
+	con->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::SEND_INFO, std::shared_ptr<const PlayerTransferRequest>(request)));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(12).D(20).D(200).D(9).S("Char").S("target").D(5).B(request->db).data);
-	con->sendPacket(std::make_shared<SM_PTRANSFER_RESPONSE>(PlayerTransferResultStatus::OK, std::shared_ptr<const PlayerTransferRequest>(request)));
+	con->sendPacket(SM_PTRANSFER_RESPONSE(PlayerTransferResultStatus::OK, std::shared_ptr<const PlayerTransferRequest>(request)));
 	EXPECT_EQ(gs.readPacket(), PacketWriter().C(12).D(21).D(9).data);
 
-	EXPECT_EQ(con->toString(), "Gameserver 127.0.0.1");
+	EXPECT_EQ(con->toString(), "Game server 127.0.0.1");
 	EXPECT_EQ(con->getState(), GsConnection::State::CONNECTED);
 }
 
@@ -414,17 +420,18 @@ TEST_F(GsPacketTest, CmGsAuthWithUnknownIdAndUnknownOrMalformedPackets) {
 		gs.send(PacketWriter().C(0xFE).data);
 		EXPECT_TRUE(logs.waitFor("Unknown packet received from Game Server: 0xFE state=CONNECTED")) << logs.dump();
 
-		// malformed: negative ip length
+		// malformed: negative ip length, which makes the packet too short (readB) and closes the connection (upstream e1a399e62, bce89b2fc)
 		gs.send(PacketWriter().C(0).C(1).S("pw").C(-1).data);
-		EXPECT_TRUE(logs.waitFor("Reading failed for packet [000] CM_GS_AUTH")) << logs.dump();
-		EXPECT_FALSE(gs.readPacket(200ms).has_value());
-
+		EXPECT_TRUE(gs.socket.waitClosed());
+	}
+	{
+		GsTestClient gs(server.port());
 		gs.send(GsTestClient::buildCM_GS_AUTH(99, "password"));
 		EXPECT_EQ(gs.readPacket(), PacketWriter().C(0).C(1).data);
 		EXPECT_TRUE(gs.socket.waitClosed());
-		EXPECT_TRUE(logs.waitFor("Gameserver 127.0.0.1 requestedID: 99 is not registered in LS database!")) << logs.dump();
-		EXPECT_TRUE(logs.waitFor("Gameserver connection attempt from: 127.0.0.1")) << logs.dump();
-		EXPECT_TRUE(logs.waitFor("Gameserver 127.0.0.1 disconnected")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server 127.0.0.1 requestedID: 99 is not registered in LS database!")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server connected: 127.0.0.1")) << logs.dump();
+		EXPECT_TRUE(logs.waitFor("Game server 127.0.0.1 disconnected")) << logs.dump();
 	}
 	{
 		// an empty packet (only parsed when more data follows, like Java) closes the connection
@@ -445,7 +452,7 @@ TEST_F(GsPacketTest, PingPongTaskStartsWhenAuthedAndClosesDeadConnections) {
 	for (int i = 0; i < 3; i++)
 		EXPECT_EQ(gs.readPacket(2s, true), (std::vector<uint8_t>{11}));
 	EXPECT_TRUE(gs.socket.waitClosed(3s));
-	EXPECT_TRUE(logs.waitFor("Gameserver #null connection died, closing it.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("Game server #null connection died, closing it.")) << logs.dump();
 	PingPongTask::PERIOD = oldPeriod;
 }
 

@@ -1,34 +1,38 @@
 #pragma once
 
-#include "aion/chatserver/common/netty/BaseServerPacket.h"
+#include <cstdint>
 
-namespace aion::chatserver::network::netty::handler {
-class ClientChannelHandler;
-}
+#include "aion/commons/network/packet/BaseServerPacket.h"
+#include "aion/commons/utils/ByteBuffer.h"
 
 namespace aion::chatserver::network::aion {
 
+class AionConnection;
+
 /**
- * Base class of the packets sent to Aion clients. write() reserves the two size bytes that LoginPacketEncoder fills in; writeImpl writes the
- * opcode and the data.
+ * Base class of the packets sent to Aion clients. write() writes the size header and calls writeImpl, which writes the opcode and the data.
  * <p>
- * Packets are immutable (writeImpl is const). The handler parameter may be null (tests), since no packet uses it.
+ * Packets are immutable (writeImpl is const). The connection parameter may be null (tests), since no packet uses it.
  * <p>
  * Java: com.aionemu.chatserver.network.aion.AbstractServerPacket
  *
  * @author ATracer
  */
-class AbstractServerPacket : public common::netty::BaseServerPacket {
+class AbstractServerPacket : public commons::network::packet::BaseServerPacket {
 public:
-	void write(netty::handler::ClientChannelHandler* clientChannelHandler, common::netty::ChannelBuffer& buf) const {
+	/** Writes the packet: [uint16 size][writeImpl data]; afterwards [position, limit) is the frame. */
+	void write(AionConnection* connection, commons::utils::ByteBuffer& buf) const {
 		buf.putShort(0);
-		writeImpl(clientChannelHandler, buf);
+		writeImpl(connection, buf);
+		buf.flip();
+		buf.putShort(static_cast<int16_t>(buf.limit()));
+		buf.position(0);
 	}
 
 protected:
-	explicit AbstractServerPacket(int8_t opCode) noexcept : BaseServerPacket(opCode) {}
+	explicit AbstractServerPacket(int32_t opCode) noexcept : BaseServerPacket(opCode) {}
 
-	virtual void writeImpl(netty::handler::ClientChannelHandler* cHandler, common::netty::ChannelBuffer& buf) const = 0;
+	virtual void writeImpl(AionConnection* connection, commons::utils::ByteBuffer& buf) const = 0;
 };
 
 } // namespace aion::chatserver::network::aion

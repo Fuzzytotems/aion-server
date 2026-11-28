@@ -27,12 +27,15 @@ public:
 	static GameServerService& getInstance();
 
 	/**
-	 * @return ALREADY_REGISTERED if a game server is online, NOT_AUTHED if the password does not match NetworkConfig::GAMESERVER_PASSWORD, else
-	 *         AUTHED (the game server is online from now on)
+	 * @param fromLoopback
+	 *          true if the game server connected from a loopback address: only then is an empty NetworkConfig::GAMESERVER_PASSWORD accepted
+	 * @return ALREADY_REGISTERED if a game server is online, NOT_AUTHED if no password is configured and the game server is remote, or if the
+	 *         password does not match NetworkConfig::GAMESERVER_PASSWORD (compared in constant time), else AUTHED (the game server is online
+	 *         from now on)
 	 */
-	network::gameserver::GsAuthResponse registerGameServer(int8_t gameServerId, std::string_view password);
+	network::gameserver::GsAuthResponse registerGameServer(int8_t gameServerId, std::string_view password, bool fromLoopback);
 
-	/** Logs "Gameserver #&lt;id&gt; is disconnected" and marks the game server offline. */
+	/** Logs "Game server #&lt;id&gt; disconnected" and marks the game server offline. */
 	void setOffline();
 
 private:

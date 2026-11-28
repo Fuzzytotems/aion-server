@@ -55,7 +55,7 @@ void Ai::execute(Player& admin, std::span<const std::string> params) {
 		// Java: LoggerFactory.getLogger(AILogger.class)
 		const auto aiLog = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.ai.AILogger"); // parity: LoggerFactory.getLogger(AILogger.class) of Ai.java:56 and :58 (compared on the two lines below), hoisted
 		if (params.size() > 1)
-			aiLog.info("[AI] marker: " + join(params, 1)); // parity= LoggerFactory.getLogger(AILogger.class).info("[AI] marker: " + join(params, 1));
+			aiLog.info("[AI] marker: {}", join(params, 1)); // parity= LoggerFactory.getLogger(AILogger.class).info("[AI] marker: {}", join(params, 1));
 		else
 			aiLog.info("[AI] marker"); // parity= LoggerFactory.getLogger(AILogger.class).info("[AI] marker");
 	} else {

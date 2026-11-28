@@ -12,7 +12,8 @@ namespace aion::chatserver::model::channel {
 
 /**
  * A chat channel. Channels are created by ChatChannels, shared through std::shared_ptr (by ChatChannels, the clients in them and the messages
- * sent to them) and never removed, like in Java. They are immutable, so any thread may use them.
+ * sent to them) and removed from ChatChannels when their last member left. Apart from memberCount (guarded by ChatChannels) they are immutable,
+ * so any thread may use them.
  * <p>
  * Java: com.aionemu.chatserver.model.channel.Channel
  *
@@ -20,6 +21,9 @@ namespace aion::chatserver::model::channel {
  */
 class Channel {
 public:
+	/** Number of clients in this channel, guarded by ChatChannels (Java: package-private field). */
+	int32_t memberCount = 0;
+
 	virtual ~Channel() = default;
 
 	Channel(const Channel&) = delete;

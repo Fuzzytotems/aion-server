@@ -21,7 +21,7 @@ MoveTaskManager::~MoveTaskManager() = default;
 void MoveTaskManager::addCreature(model::gameobjects::Creature& creature) {
 	if (!creature.isSpawned()) { // log with stack trace to find the cause
 		commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.taskmanager.tasks.MoveTaskManager")
-			.warn("Failed attempt to add " + creature.toString() + " to moving creatures (despawned objects cannot move)",
+			.warn("Failed attempt to add {} to moving creatures (despawned objects cannot move)", creature.toString(),
 				runtime::UnsupportedOperationException(""));
 		return;
 	}
@@ -39,7 +39,7 @@ void MoveTaskManager::run() {
 		if (!creature->isSpawned()) { // can despawn concurrently, while this thread is already running
 			if (removeCreature(*creature)) // should have been removed via onDespawn (MoveController#abortMove())
 				commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.taskmanager.tasks.MoveTaskManager")
-					.warn(creature->toString() + " was still in moving creatures list but already despawned");
+					.warn("{} was still in moving creatures list but already despawned", creature->toString());
 			return;
 		}
 		creature->getMoveController()->moveToDestination();

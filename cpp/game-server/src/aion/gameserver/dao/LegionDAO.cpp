@@ -84,7 +84,7 @@ bool LegionDAO::isNameUsed(std::string_view name) {
 		return used;
 	} catch (const SQLException& e) {
 		DB::close(s);
-		log.error("Can't check if name " + std::string(name) + ", is used, returning possitive result", e);
+		log.error("Can't check if name {}, is used, returning possitive result", name, e);
 		return true;
 	} catch (...) {
 		DB::close(s);
@@ -180,7 +180,7 @@ runtime::Ref<model::team::legion::Legion::Announcement> LegionDAO::loadAnnouncem
 			announcement = Legion::Announcement::create(message, *date);
 		}
 	} catch (const SQLException& e) {
-		log.error("Couldn't load legion announcements for legion " + std::to_string(legionId), e);
+		log.error("Couldn't load legion announcements for legion {}", legionId, e);
 	}
 	return announcement;
 }
@@ -203,7 +203,7 @@ void LegionDAO::saveAnnouncement(int32_t legionId, runtime::Ptr<model::team::leg
 		std::string text = "null";
 		if (announcement)
 			text = "Announcement[message=" + announcement->message() + ", time=" + std::to_string(detail::getTime(announcement->time())) + "]";
-		log.error("Couldn't save announcement for legion " + std::to_string(legionId) + ": " + text, e);
+		log.error("Couldn't save announcement for legion {}: {}", legionId, text, e);
 	}
 }
 
@@ -243,7 +243,7 @@ bool LegionDAO::checkEmblem(int32_t legionid) {
 			return true;
 		}
 	} catch (const SQLException& e) {
-		log.error("Can't check " + std::to_string(legionid) + " legion emblem: ", e);
+		log.error("Can't check {} legion emblem: ", legionid, e);
 	} catch (...) {
 		DB::close(st);
 		throw;
@@ -319,7 +319,7 @@ void LegionDAO::loadHistory(model::team::legion::Legion& legion) {
 			history.at(model::team::legion::getType(action)).push_back(LegionHistoryEntry::create(id, epochSeconds, action, name, description));
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not load history of legion " + legion.toString(), e);
+		log.error("Could not load history of legion {}", legion.toString(), e);
 	}
 	legion.setHistory(history);
 }
@@ -340,7 +340,7 @@ runtime::Ref<model::team::legion::LegionHistoryEntry> LegionDAO::insertHistory(i
 		result->next();
 		return LegionHistoryEntry::create(result->getInt(1), static_cast<int32_t>(nowMillis / 1000), action, name, description);
 	} catch (const std::exception& e) {
-		log.error("Could not add history entry for legion " + std::to_string(legionId), e);
+		log.error("Could not add history entry for legion {}", legionId, e);
 		return nullptr;
 	}
 }
@@ -361,7 +361,7 @@ void LegionDAO::deleteHistory(int32_t legionId, const std::vector<runtime::Ptr<m
 			stmt->setInt(static_cast<int32_t>(i + 1), entries[i]->id());
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
-		log.error("Could not delete " + std::to_string(entries.size()) + " history entries for legion " + std::to_string(legionId), e);
+		log.error("Could not delete {} history entries for legion {}", entries.size(), legionId, e);
 	}
 }
 

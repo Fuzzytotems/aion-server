@@ -21,7 +21,7 @@ public:
 
 protected:
 	/** @throws commons::utils::IllegalStateException if the sender has no identifier yet (Java: NullPointerException) */
-	void writeImpl(netty::handler::ClientChannelHandler* cHandler, common::netty::ChannelBuffer& buf) const override;
+	void writeImpl(AionConnection* connection, commons::utils::ByteBuffer& buf) const override;
 
 private:
 	const model::message::Message message;

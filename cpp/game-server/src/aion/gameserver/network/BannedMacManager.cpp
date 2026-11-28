@@ -64,14 +64,14 @@ void BannedMacManager::banAddress(std::string_view address, int64_t newTime, std
 
 	bannedList.put(key, entry);
 
-	log.info("banned " + key + " to " + timestampToString(entry->getTime()) + " for " + std::string(details));
+	log.info("banned {} to {} for {}", key, timestampToString(entry->getTime()), details);
 	loginserver::LoginServer::getInstance().sendPacket(loginserver::serverpackets::SM_MACBAN_CONTROL(static_cast<int8_t>(1), address, newTime, details));
 }
 
 bool BannedMacManager::unbanAddress(std::string_view address, std::string_view details) {
 	runtime::Ref<BannedMacEntry> bannedMacEntry = bannedList.remove(std::string(address));
 	if (bannedMacEntry) {
-		log.info("unbanned " + std::string(address) + " for " + std::string(details));
+		log.info("unbanned {} for {}", address, details);
 		loginserver::LoginServer::getInstance().sendPacket(loginserver::serverpackets::SM_MACBAN_CONTROL(static_cast<int8_t>(0), address, 0, details));
 		return true;
 	} else
@@ -89,7 +89,7 @@ void BannedMacManager::dbLoad(std::string_view address, int64_t time, std::strin
 }
 
 void BannedMacManager::onEnd() {
-	log.info("Loaded " + std::to_string(bannedList.size()) + " banned mac addresses");
+	log.info("Loaded {} banned mac addresses", bannedList.size());
 }
 
 } // namespace aion::gameserver::network

@@ -15,7 +15,6 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/commons/utils/concurrent/ExecuteWrapper.h"
 #include "aion/commons/utils/concurrent/RunnableStatsManager.h"
-#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/ThreadConfig.h"
 #include "aion/gameserver/configs/network/NetworkConfig.h"
 #include "aion/gameserver/configs/network/PffConfig.h"
@@ -104,8 +103,7 @@ void AionConnection::ConnectionAliveChecker::checkAlive(const std::weak_ptr<Aion
 		return; // C++: the connection was destroyed (Java keeps it reachable through this task)
 	int64_t millisSinceLastClientPacket = commons::utils::currentTimeMillis() - con->lastClientMessageTime.get();
 	if (millisSinceLastClientPacket - 5000 > CM_PING::CLIENT_PING_INTERVAL) {
-		log.info("Closing hanged up connection of " + con->toString() + " (last sign of life was " + std::to_string(millisSinceLastClientPacket) +
-			"ms ago)");
+		log.info("Closing hanged up connection of {} (last sign of life was {} ms ago)", con->toString(), millisSinceLastClientPacket);
 		con->close();
 	}
 }
@@ -117,7 +115,7 @@ commons::network::PacketProcessor<AionConnection>& AionConnection::packetProcess
 	// Java: private static final field, created with the class; here on first use (it reads the configs), never destroyed
 	static auto* const processor = new commons::network::PacketProcessor<AionConnection>(NetworkConfig::PACKET_PROCESSOR_MIN_THREADS.load(),
 		NetworkConfig::PACKET_PROCESSOR_MAX_THREADS.load(), NetworkConfig::PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD.load(),
-		NetworkConfig::PACKET_PROCESSOR_THREAD_KILL_THRESHOLD.load(),
+		NetworkConfig::PACKET_PROCESSOR_THREAD_KILL_THRESHOLD.load(), NetworkConfig::PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION.load(),
 		[wrapper = commons::utils::concurrent::ExecuteWrapper(configs::main::ThreadConfig::MAXIMUM_RUNTIME_IN_MILLISEC_WITHOUT_WARNING.load())](
 			commons::network::packet::ClientPacketBase& packet) {
 			runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::PACKET});
@@ -131,7 +129,7 @@ AionConnection::AionConnection(asio::ip::tcp::socket socket, commons::network::N
 	state.set(State::CONNECTED);
 
 	if (log.isDebugEnabled())
-		log.debug("connection from: " + getIP());
+		log.debug("connection from: {}", getIP());
 
 	lastClientMessageTime.set(commons::utils::currentTimeMillis());
 	// C++: the ConnectionAliveChecker is created in initialized() (it needs weak_from_this()); pffRequests always exists (see processData)
@@ -148,11 +146,11 @@ void AionConnection::sendPacket(AionServerPacket& packet) {
 		commons::utils::concurrent::RunnableStatsManager::handleStats(typeid(packet), "runImpl()", commons::utils::nanoTime() - begin);
 	int32_t frameSize = static_cast<int32_t>(body.bytes->size()) + 2;
 	if (frameSize > AionServerPacket::MAX_CLIENT_SUPPORTED_PACKET_SIZE)
-		log.warn(packet.toString() + " contains " + std::to_string(frameSize - AionServerPacket::MAX_CLIENT_SUPPORTED_PACKET_SIZE) +
-			" more bytes than the game client of " + [this] {
+		log.warn("{} contains {} more bytes than the game client of {} can read", packet.toString(),
+			frameSize - AionServerPacket::MAX_CLIENT_SUPPORTED_PACKET_SIZE, [this] {
 				runtime::Ptr<Player> player = getActivePlayer();
 				return player ? player->toString() : std::string("null");
-			}() + " can read");
+			}());
 	enqueue(std::move(body));
 	traceIfConfigured(*this, packet); // C++ only (see above)
 	// runtime-architecture.md §8.6: the packet name echo of Java's writeData runs at serialization
@@ -163,6 +161,8 @@ void AionConnection::sendPacket(AionServerPacket& packet) {
 void AionConnection::enqueue(SerializedBody body) {
 	std::lock_guard lock(guard);
 	if (!canSend())
+		return;
+	if (!admitToSendQueue(sendMsgQueue.size()))
 		return;
 	// ordered by serialization sequence (runtime-architecture.md §8.4): packets of one thread arrive in order, so the scan usually stops at once
 	auto position = sendMsgQueue.end();
@@ -207,17 +207,16 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 
 	if (!crypt.decrypt(data.remainingSpan())) {
 		if (++corruptPackets >= MAX_CORRUPT_PACKETS_BEFORE_DISCONNECT) {
-			log.warn("Client packet decryption failed " + std::to_string(corruptPackets.get()) + " times, disconnecting " + toString());
+			log.warn("Client packet decryption failed {} times, disconnecting {}", corruptPackets.get(), toString());
 			return false;
 		}
 		if (log.isDebugEnabled())
-			log.debug("[" + std::to_string(corruptPackets.get()) + "/" + std::to_string(MAX_CORRUPT_PACKETS_BEFORE_DISCONNECT) +
-				"] Decrypt fail, client packet passed...");
+			log.debug("[{}/{}] Decrypt fail, client packet passed...", corruptPackets.get(), MAX_CORRUPT_PACKETS_BEFORE_DISCONNECT);
 		return true;
 	}
 
 	if (data.remaining() < 5) { // op + static code + op == 5 bytes
-		log.warn("Received fake packet from " + toString() + ", disconnecting");
+		log.warn("Received fake packet from {}, disconnecting", toString());
 		return false;
 	}
 
@@ -235,9 +234,10 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 				if (last) {
 					int64_t diff = now - *last;
 					if (diff < msBetweenPackets) {
-						log.warn(toString() + " is flooding " + pck->getPacketName() + " (last diff: " + std::to_string(diff) + "ms)");
-						if (PffConfig::PFF_MODE.load() == 1) // disconnect
+						log.warn("{} is flooding {} (last diff: {} ms)", toString(), pck->getPacketName(), diff);
+						if (PffConfig::PFF_MODE.load() == 2) // disconnect
 							return false;
+						return true; // mode 1: the packet is dropped
 					}
 				}
 			}
@@ -245,7 +245,11 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 
 		if (pck->read()) {
 			sendPacketInfo(*pck);
-			packetProcessor().executePacket(std::move(pck));
+			if (!packetProcessor().executePacket(std::move(pck))) {
+				log.warn(toString() + " has more than " + std::to_string(configs::network::NetworkConfig::PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION.load()) +
+					" packets waiting for execution, disconnecting");
+				return false;
+			}
 		}
 	}
 
@@ -289,51 +293,42 @@ void AionConnection::onDisconnect() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::INSTANT});
 	if (runtime::Ptr<ConnectionAliveChecker> checker = connectionAliveChecker.get())
 		checker->stop(); // C++: null if initialized() failed before creating it
-	if (GameServer::isShuttingDownSoon()) { // client crashing during last seconds of countdown
-		safeLogout(); // instant synchronized leaveWorld to ensure completion before onServerClose
-		return;
-	}
-
 	loginserver::LoginServer::getInstance().onDisconnect(this);
 
 	runtime::Ptr<model::account::Account> acc = getAccount();
 	std::string msg = !acc ? "" : " " + acc->toString();
 	runtime::Ptr<Player> player = getActivePlayer();
-	if (player) {
+	if (player && !services::player::PlayerLeaveWorldService::isLeavingWorld(*player)) {
 		msg += " " + player->toString() + " (client crash or connection loss)";
 		player->getMoveController()->resetToLastPositionFromClient(); // avoid mapkick and bugging through walls
-		int64_t millisSinceLastClientPacket = commons::utils::currentTimeMillis() - lastClientMessageTime.get();
-		int64_t delayMs = std::max<int64_t>(0, std::chrono::milliseconds(std::chrono::seconds(10)).count() - millisSinceLastClientPacket);
-		services::player::PlayerLeaveWorldService::leaveWorldDelayed(*player, delayMs); // delayed to prevent ctrl+alt+del / close window exploit
+		services::player::PlayerLeaveWorldService::registerLeaveWorld(*player);
 	}
 
 	if (msg.empty())
 		msg = " " + toString();
 
-	log.info("Client disconnected:" + msg);
+	log.info("Client disconnected:{}", msg);
+}
+
+bool AionConnection::isAuthenticated() const {
+	return state.get() != State::CONNECTED;
+}
+
+int64_t AionConnection::getAuthTimeoutMillis() const {
+	return configs::network::NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS.load() * 1000LL;
+}
+
+int32_t AionConnection::getMaxSendQueueSize() const {
+	return configs::network::NetworkConfig::MAX_PENDING_SERVER_PACKETS.load();
+}
+
+int64_t AionConnection::getMaxSendStallMillis() const {
+	return configs::network::NetworkConfig::MAX_SEND_STALL_SECONDS.load() * 1000LL;
 }
 
 void AionConnection::onServerClose() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::SHUTDOWN});
 	close();
-	safeLogout();
-}
-
-void AionConnection::safeLogout() {
-	SYNCHRONIZED(*this) {
-		runtime::Ptr<Player> player = getActivePlayer();
-		if (!player) // player was already saved
-			return;
-		try {
-			services::player::PlayerLeaveWorldService::leaveWorld(*player);
-		} catch (...) {
-			try {
-				log.errorCurrentException("Error saving " + player->toString());
-			} catch (...) {
-				log.errorCurrentException("Error saving player");
-			}
-		}
-	}
 }
 
 void AionConnection::encrypt(commons::utils::ByteBuffer& buf) {

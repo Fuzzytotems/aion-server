@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "aion/chatserver/model/channel/Channel.h"
-#include "aion/chatserver/network/netty/handler/ClientChannelHandler.h"
+#include "aion/chatserver/network/aion/AionConnection.h"
 #include "aion/commons/utils/TimeUtils.h"
 
 namespace aion::chatserver::model {
@@ -27,25 +27,37 @@ void ChatClient::setIdentifier(std::vector<uint8_t> value) {
 	identifier = std::move(value);
 }
 
-std::shared_ptr<network::netty::handler::ClientChannelHandler> ChatClient::getChannelHandler() const {
+std::shared_ptr<network::aion::AionConnection> ChatClient::getConnection() const {
 	std::lock_guard lock(mutex);
-	return channelHandler;
+	return connection;
 }
 
-void ChatClient::setChannelHandler(std::shared_ptr<network::netty::handler::ClientChannelHandler> value) {
+void ChatClient::setConnection(std::shared_ptr<network::aion::AionConnection> value) {
 	std::lock_guard lock(mutex);
-	channelHandler = std::move(value);
+	connection = std::move(value);
 }
 
-void ChatClient::addChannel(std::shared_ptr<channel::Channel> channel) {
+std::vector<std::shared_ptr<channel::Channel>> ChatClient::addChannel(std::shared_ptr<channel::Channel> channel) {
+	std::vector<std::shared_ptr<channel::Channel>> left;
 	std::lock_guard lock(mutex);
 	auto channelsOfType = channels.find(channel->getChannelType());
 	if (channelsOfType == channels.end()) {
 		channelsOfType = channels.emplace(channel->getChannelType(), std::vector<std::shared_ptr<channel::Channel>>()).first;
 	} else if (channel->getChannelType() != ChannelType::JOB || channelsOfType->second.size() == 2) {
+		left = std::move(channelsOfType->second);
 		channelsOfType->second.clear();
 	}
 	channelsOfType->second.push_back(std::move(channel));
+	return left;
+}
+
+std::vector<std::shared_ptr<channel::Channel>> ChatClient::removeAllChannels() {
+	std::vector<std::shared_ptr<channel::Channel>> left;
+	std::lock_guard lock(mutex);
+	for (auto& [type, channelsOfType] : channels)
+		left.insert(left.end(), channelsOfType.begin(), channelsOfType.end());
+	channels.clear();
+	return left;
 }
 
 bool ChatClient::removeChannel(const std::shared_ptr<channel::Channel>& channel) {

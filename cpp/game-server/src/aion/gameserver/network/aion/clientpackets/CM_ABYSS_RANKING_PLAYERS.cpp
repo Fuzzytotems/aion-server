@@ -46,7 +46,7 @@ void CM_ABYSS_RANKING_PLAYERS::runImpl() {
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_ABYSS_RANKING_PLAYERS")
-				.warn("Received invalid raceId (" + std::to_string(raceId) + ") from player " + player->toString());
+				.warn("Received invalid raceId ({}) from player {}", raceId, player->toString());
 			return;
 	}
 	if (player->isAbyssRankListUpdated(updateType)) {

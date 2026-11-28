@@ -50,7 +50,7 @@ runtime::Ref<model::gameobjects::player::PlayerSettings> PlayerSettingsDAO::load
 			}
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore PlayerSettings data for player " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not restore PlayerSettings data for player {} from DB: {}", playerId, e.what(), e);
 	}
 	playerSettings->setPersistentState(Persistable::PersistentState::UPDATED);
 	return playerSettings;

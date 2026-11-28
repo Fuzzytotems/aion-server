@@ -121,22 +121,16 @@ TEST(AttackPacketReadTest, AttackAndHeadingUpdateBodies) {
 	expectExactRead<CM_ATTACK>(attackBody(0x12345678, 3, 1500, 1), ATTACK_OPCODE);
 	expectExactRead<CM_ATTACK>(attackBody(0, 0, 0, 0), ATTACK_OPCODE);
 	expectExactRead<CM_ATTACK>(attackBody(-1, 0xFF, 0xFFFF, 0xFF), ATTACK_OPCODE);
-	{ // one byte short: readUC of `type` underflows, which ClientPacketBase reports as "Missing C" (BaseClientPacket.cpp:60-61)
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_ATTACK>(PacketWriter().D(7).C(0).H(0).data, ATTACK_OPCODE), 0);
-		EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
-	}
+	// one byte short: readUC of `type` underflows (upstream e1a399e62: the read fails, the connection is closed)
+	EXPECT_EQ(unreadBytesAfterRead<CM_ATTACK>(PacketWriter().D(7).C(0).H(0).data, ATTACK_OPCODE), -1);
 	std::vector<uint8_t> oneSpare = attackBody(7, 0, 0, 0);
 	oneSpare.push_back(0);
 	EXPECT_EQ(unreadBytesAfterRead<CM_ATTACK>(oneSpare, ATTACK_OPCODE), 1) << "readImpl reads four fields and no fifth";
 
 	// CM_HEADING_UPDATE: a single C, and nothing else
 	expectExactRead<CM_HEADING_UPDATE>(PacketWriter().C(0x5A).data, HEADING_UPDATE_OPCODE);
-	{ // an empty body must underflow on the single readC
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_HEADING_UPDATE>({}, HEADING_UPDATE_OPCODE), 0);
-		EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
-	}
+	// an empty body must underflow on the single readC
+	EXPECT_EQ(unreadBytesAfterRead<CM_HEADING_UPDATE>({}, HEADING_UPDATE_OPCODE), -1);
 }
 
 class AttackRunTest : public InWorldPacketTest {

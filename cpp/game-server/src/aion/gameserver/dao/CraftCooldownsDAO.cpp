@@ -38,7 +38,7 @@ void CraftCooldownsDAO::loadCraftCooldowns(model::gameobjects::player::Player& p
 			player.getCraftCooldowns()->put(delayId, reuseTime);
 		}
 	} catch (const SQLException& e) {
-		log.error("Couldn't load craft cooldowns for " + player.toString(), e);
+		log.error("Couldn't load craft cooldowns for {}", player.toString(), e);
 	}
 }
 
@@ -57,7 +57,7 @@ void CraftCooldownsDAO::storeCraftCooldowns(model::gameobjects::player::Player& 
 			stmt->setLong(3, reuseTime);
 			stmt->execute();
 		} catch (const SQLException& e) {
-			log.error("Couldn't store craft cooldowns for " + player.toString(), e);
+			log.error("Couldn't store craft cooldowns for {}", player.toString(), e);
 		}
 	}
 }
@@ -69,7 +69,7 @@ void CraftCooldownsDAO::deleteCraftCoolDowns(model::gameobjects::player::Player&
 		stmt->setInt(1, player.getObjectId());
 		stmt->execute();
 	} catch (const SQLException& e) {
-		log.error("Couldn't delete craft cooldowns for " + player.toString(), e);
+		log.error("Couldn't delete craft cooldowns for {}", player.toString(), e);
 	}
 }
 

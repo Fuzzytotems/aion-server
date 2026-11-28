@@ -73,8 +73,8 @@ void CM_SUMMON_CASTSPELL::runImpl() {
 		const runtime::Ref<model::summons::SkillOrder> order(summon->retrieveNextSkillOrder());
 		if (order && order->getTarget()->equals(*target)) {
 			if (order->getSkillId() != skillId || order->getSkillLevel() != skillLvl)
-				log.warn(player->toString() + " used summon order with a different skill: skillId " + std::to_string(skillId) + "->" +
-					std::to_string(order->getSkillId()) + "; skillLvl " + std::to_string(skillLvl) + "->" + std::to_string(order->getSkillLevel()) + ".");
+				log.warn("{} used summon order with a different skill: skillId {}->{}; skillLvl {}->{}", player->toString(), skillId, order->getSkillId(), skillLvl,
+					order->getSkillLevel());
 			summon->getController().useSkill(*order);
 		}
 	} else {

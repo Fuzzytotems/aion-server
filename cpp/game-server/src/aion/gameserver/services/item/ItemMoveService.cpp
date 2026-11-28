@@ -39,8 +39,8 @@ using PersistentState = model::gameobjects::Persistable::PersistentState;
 void ItemMoveService::moveItem(model::gameobjects::player::Player& player, int32_t itemObjId, int8_t sourceStorageType, int8_t destinationStorageType, int16_t slot) {
 	Ptr<Storage> sourceStorage = player.getStorage(sourceStorageType);
 	if (!sourceStorage) {
-		log.error(player.toString() + " tried to move itemObjId " + std::to_string(itemObjId) + " from unknown sourceStorageType: "
-			+ std::to_string(sourceStorageType));
+		log.error("{} tried to move itemObjId {} from unknown sourceStorageType: {}", player.toString(), itemObjId,
+			static_cast<int32_t>(sourceStorageType));
 		return;
 	}
 	Ptr<Item> item = sourceStorage->getItemByObjId(itemObjId);
@@ -49,8 +49,8 @@ void ItemMoveService::moveItem(model::gameobjects::player::Player& player, int32
 
 	Ptr<Storage> targetStorage = player.getStorage(destinationStorageType);
 	if (!targetStorage) {
-		log.error(player.toString() + " tried to move itemObjId " + std::to_string(itemObjId) + " to unknown destinationStorageType: "
-			+ std::to_string(destinationStorageType));
+		log.error("{} tried to move itemObjId {} to unknown destinationStorageType: {}", player.toString(), itemObjId,
+			static_cast<int32_t>(destinationStorageType));
 		return;
 	}
 

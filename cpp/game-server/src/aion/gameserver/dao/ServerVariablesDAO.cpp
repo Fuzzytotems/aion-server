@@ -73,7 +73,7 @@ bool ServerVariablesDAO::store(std::string_view var, const std::any& value) {
 		return ps->executeUpdate() > 0;
 	} catch (const SQLException& e) {
 		// Java string concatenation prints null for a null value
-		log.error("Error storing " + (value.has_value() ? toJavaString(value) : std::string("null")) + " for variable " + std::string(var), e);
+		log.error("Error storing {} for variable {}", (value.has_value() ? toJavaString(value) : std::string("null")), var, e);
 		return false;
 	}
 }
@@ -85,7 +85,7 @@ bool ServerVariablesDAO::delete_(std::string_view var) {
 		ps->setString(1, var);
 		return ps->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		log.error("Error loading value for " + std::string(var), e);
+		log.error("Error loading value for {}", var, e);
 		return false;
 	}
 }
@@ -99,7 +99,7 @@ std::optional<std::string> ServerVariablesDAO::load(std::string_view var) {
 		if (rs->next())
 			return rs->getObject<std::string>("value");
 	} catch (const SQLException& e) {
-		log.error("Error loading value for " + std::string(var), e);
+		log.error("Error loading value for {}", var, e);
 	}
 	return std::nullopt;
 }

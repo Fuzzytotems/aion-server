@@ -143,12 +143,10 @@ TEST(ClientPacketReadTest, CreateCharacterLayout) {
 	expectExactRead<CM_CREATE_CHARACTER>(createCharacterBody("Tester", 0, 0, 0, 0), 140);
 	// type 1 (entering the creation screen): the client sends random data; an invalid class is ignored (Java PlayerClass null)
 	expectExactRead<CM_CREATE_CHARACTER>(createCharacterBody("x", 1, 1, 77, 1), 141);
-	// one byte short: the type is missing
+	// one byte short: the type is missing, so the read fails (upstream e1a399e62)
 	std::vector<uint8_t> shortBody = createCharacterBody("Tester", 0, 0, 0, 0);
 	shortBody.pop_back();
-	LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-	EXPECT_EQ(unreadBytesAfterRead<CM_CREATE_CHARACTER>(shortBody, 142), 0);
-	EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
+	EXPECT_EQ(unreadBytesAfterRead<CM_CREATE_CHARACTER>(shortBody, 142), -1);
 }
 
 TEST(ClientPacketReadTest, MoveReadsTheOptionalBlocksOfTheMovementMask) {

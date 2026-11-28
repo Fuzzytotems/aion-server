@@ -490,7 +490,7 @@ public:
   interface's `retain`/`release`. `StatFunction` implements `IStatFunction` with no-op `retain`/`release` for immortal static data modifiers;
   run-time functions are `RcStatFunction<T>::create(...)` (or a subclass deriving RefCounted that forwards), and
   `StatFunction::ofTemplate(const StatFunction*)` turns a template into the `Ptr<StatFunction>` the stat containers take. `IsStaticTemplate` is
-  false for the whole family; a list mixing both kinds holds `Ref<StatFunction>` (`Item.currentModifiers`).
+  false for the whole family; a list mixing both kinds holds `Ref<StatFunction>` (`Item.currentModifiers`, removed by upstream 80548e389).
 
 ### 9.3 Nested, inner, anonymous and local classes
 

@@ -107,7 +107,7 @@ int64_t InstanceCooltimeData::calculateInstanceEntranceCooltime(model::gameobjec
 		}
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.InstanceCooltimeData")
-			  .warn("Unhandled InstanceCoolTimeType: " + std::string(xml::enumName(*clt->getCoolTimeType())));
+			  .warn("Unhandled InstanceCoolTimeType: {}", xml::enumName(*clt->getCoolTimeType()));
 	}
 	if (instanceCooldownRate != 1) {
 		if (instanceCooldownRate == 0)

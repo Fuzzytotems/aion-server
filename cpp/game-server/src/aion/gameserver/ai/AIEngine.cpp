@@ -131,7 +131,7 @@ void AIEngine::init() {
 	for (const handlers::AIHandlerEntry& entry : entries)
 		registerAI(entry);
 	validateScripts();
-	log.info("Loaded " + std::to_string(entries.size()) + " AI handlers.");
+	log.info("Loaded {} AI handlers", entries.size());
 }
 
 void AIEngine::reload() {

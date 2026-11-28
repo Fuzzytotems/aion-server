@@ -194,7 +194,7 @@ void ItemEquipmentListener::addWeaponStats(Item& item, container::CreatureGameSt
 	std::vector<const StatFunction*> mainWeaponModifiers = modifiersOf(itemTemplate.getModifiers());
 
 	std::vector<Ptr<StatFunction>> modifiersToApply;
-	std::vector<Ref<StatFunction>> createdModifiers; // keeps the run-time functions alive until the item and the stats hold them
+	std::vector<Ref<StatFunction>> createdModifiers; // keeps the run-time functions alive until the stats hold them
 	if ((item.getEquipmentSlot() & items::getSlotIdMask(items::ItemSlot::MAIN_OR_SUB)) != 0) {
 		for (const StatFunction* modifier : extractApplicableWeaponModifiers(item, mainWeaponModifiers))
 			modifiersToApply.push_back(StatFunction::ofTemplate(modifier));
@@ -232,7 +232,6 @@ void ItemEquipmentListener::addWeaponStats(Item& item, container::CreatureGameSt
 		for (const StatFunction* modifier : mainWeaponModifiers)
 			modifiersToApply.push_back(StatFunction::ofTemplate(modifier));
 	}
-	item.setCurrentModifiers(modifiersToApply);
 	cgs.addEffect(Ptr<StatOwner>(item), functionsOf(modifiersToApply));
 }
 

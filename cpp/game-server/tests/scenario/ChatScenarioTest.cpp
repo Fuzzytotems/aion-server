@@ -3,13 +3,13 @@
 // scratch copy of chat-server/ with its own mycs.properties (ports probed at run time, a test password, the chat log to the database) and its
 // OWN schema per run, aion_cs_test_chat_<hash> on the server of AION_TEST_CS_DATABASE_URL, created from chat-server/sql/aion_cs.sql (§17.9: never
 // aion_cs_test itself and never its named lock). Three Elyos accounts: G (access level 9, the gag of Y5), A and B (players, the chat of Y4).
-//   Y1  "Gameserver #1 is now online" in the chat server log and "Connected to chat server" in the game server's, before the first client;
+//   Y1  "Game server #1 is now online" in the chat server log and "Connected to chat server" in the game server's, before the first client;
 //   Y2  SM_VERSION_CHECK announces ONE chat server at 127.0.0.1 and the chat client port, and the channel-chat level byte is
 //       gameserver.chatserver.min_level (10);
 //   Y3  CM_CHAT_AUTH -> SM_CHAT_INIT with a 48-byte token; a fake chat client (chat-server/tests/support/FakePeers.h) authenticates with it;
 //   Y4  A and B join one channel; A speaks; B (and A) receive exactly Java's SM_CHANNEL_MESSAGE; the chatlog row exists;
 //   Y5  G's `//gag A 1 test` reaches the chat server as CM_PLAYER_GAG (its log line; D9: the duration is sent where a point in time is read);
-//   Y6  the chat server is stopped and restarted within 5 s: the game server logs "Reconnecting to chat server in 5s..." and is online again
+//   Y6  the chat server is stopped and restarted within 5 s: the game server logs "Reconnecting to chat server in 5 seconds" and is online again
 //       5 s after the drop; a second drop with the chat server down for 12 s: the connect at 5 s fails and the next comes 10 s later, online at
 //       15 s; a new client's SM_VERSION_CHECK announces it again; no reconnect is attempted at the game server's shutdown;
 //   Y7  logout -> the chat server closes the player's chat connection ("Player[id=...] logged out"); all three processes exit 0; no unported
@@ -627,8 +627,8 @@ void runChatGate() {
 		servers.startGameServer();
 	});
 
-	runCase("Y1", "the link: \"Gameserver #1 is now online\" in the chat server log, \"Connected to chat server\" in the game server's", [&] {
-		EXPECT_TRUE(cs.process->waitForLog("Gameserver #1 is now online", 60s)) << cs.process->readLogTail(4000);
+	runCase("Y1", "the link: \"Game server #1 is now online\" in the chat server log, \"Connected to chat server\" in the game server's", [&] {
+		EXPECT_TRUE(cs.process->waitForLog("Game server #1 is now online", 60s)) << cs.process->readLogTail(4000);
 		ASSERT_NE(servers.gameServer(), nullptr);
 		EXPECT_TRUE(servers.gameServer()->waitForLog("Connected to chat server", 60s));
 	});
@@ -698,22 +698,22 @@ void runChatGate() {
 		const auto dropped = std::chrono::steady_clock::now();
 		std::this_thread::sleep_for(downFor);
 		cs.start();
-		if (!cs.process->waitForLog("Gameserver #1 is now online", 60s))
+		if (!cs.process->waitForLog("Game server #1 is now online", 60s))
 			throw std::runtime_error("the game server did not come back:\n" + cs.process->readLogTail(4000));
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - dropped);
 	};
 	runCase("Y6", "the chat server restarts within 5 s: reconnected after 5 s; down for 12 s: the 5 s connect fails, online at 15 s", [&] {
 		a.chatClient.reset();
 		b.chatClient.reset();
-		const size_t reconnectsBefore = servers.gameServer()->findLogLines("Reconnecting to chat server in 5s...", 100).size();
+		const size_t reconnectsBefore = servers.gameServer()->findLogLines("Reconnecting to chat server in 5 seconds", 100).size();
 		const std::chrono::milliseconds first = dropAndMeasure(1000ms);
 		EXPECT_GE(first, 5000ms - 500ms) << "ChatServer.java:79-81: an authenticated link reconnects after 5 s";
 		EXPECT_LE(first, 5000ms + RECONNECT_SLACK);
-		EXPECT_EQ(servers.gameServer()->findLogLines("Reconnecting to chat server in 5s...", 100).size(), reconnectsBefore + 1);
+		EXPECT_EQ(servers.gameServer()->findLogLines("Reconnecting to chat server in 5 seconds", 100).size(), reconnectsBefore + 1);
 		const std::chrono::milliseconds second = dropAndMeasure(12000ms);
 		EXPECT_GE(second, 15000ms - 500ms) << "ChatServer.java:56-58: the connect at 5 s fails, the next attempt 10 s later";
 		EXPECT_LE(second, 15000ms + RECONNECT_SLACK);
-		EXPECT_FALSE(servers.gameServer()->findLogLines("trying again in 10s").empty()) << "the failed attempt names its 10 s retry";
+		EXPECT_FALSE(servers.gameServer()->findLogLines("trying again in 10 seconds").empty()) << "the failed attempt names its 10 s retry";
 		// a new client is told about the chat server again
 		disconnect(b);
 		enterGame(servers, b);
@@ -728,8 +728,9 @@ void runChatGate() {
 		b.chatClient = std::make_unique<chat::FakeChatClient>(cs.clientPort);
 		b.chatClient->login(b.playerId, b.name + "@AION", b.account, token);
 		disconnect(b);
-		EXPECT_TRUE(b.chatClient->socket.waitClosed()) << "CM_PLAYER_LOGOUT closes the player's chat connection";
-		EXPECT_TRUE(cs.process->waitForLog("Player[id=" + std::to_string(b.playerId) + "] logged out", 15s)) << cs.process->readLogTail(4000);
+		// since upstream d22a9af5b the logout (and its CM_PLAYER_LOGOUT) comes up to 10 s after the last move or fight (registerLeaveWorld)
+		EXPECT_TRUE(b.chatClient->socket.waitClosed(20s)) << "CM_PLAYER_LOGOUT closes the player's chat connection";
+		EXPECT_TRUE(cs.process->waitForLog("Player[id=" + std::to_string(b.playerId) + "] logged out", 25s)) << cs.process->readLogTail(4000);
 	});
 	cases.run("Y7b", "the others log out", [&] {
 		disconnect(a);

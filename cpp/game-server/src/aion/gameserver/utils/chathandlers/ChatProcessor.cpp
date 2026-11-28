@@ -79,7 +79,7 @@ void ChatProcessor::init() {
 		ChatCommand& registered = *command.release(); // Immortal: never freed (RT-11)
 		registerCommand(registered);
 	}
-	log.info("Loaded " + std::to_string(commandHandlers.size()) + " commands.");
+	log.info("Loaded {} commands", commandHandlers.size());
 }
 
 void ChatProcessor::reload() {

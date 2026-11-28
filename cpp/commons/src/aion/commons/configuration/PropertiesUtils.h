@@ -30,8 +30,8 @@ Properties load(const std::filesystem::path& file, std::shared_ptr<const Propert
  * Loads all regular files whose name ends with ".properties" (case-sensitive) from a directory and fills the loaded values into the given
  * Properties object. Values of later files replace values of earlier ones.
  * <p>
- * Java uses Files.find, whose order is the file system's listing order (NTFS: roughly alphabetical, ext4: hash order). Here the files are sorted
- * by path (element-wise, case-sensitive), which is deterministic and matches a depth-first traversal with sorted directory entries. Like Java,
+ * The files load in File.compareTo order of their paths (Java sorts the Files.find results, upstream 2cd926056; utils::JavaFile::compare: on
+ * Windows the case-insensitive path strings with backslash separators, elsewhere the case-sensitive ones). Like Java,
  * symbolic links to files are skipped, directory symlinks below dir are not followed, and if dir itself is a matching file, it is loaded. Unlike
  * Java, dir itself may be a symbolic link to a directory.
  *

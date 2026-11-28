@@ -787,7 +787,7 @@ TEST_F(QuestLifecycleTest, TheRewardGroupIsValidatedBeforeItsKinahIsPaid) {
 		const char* warning;
 	};
 	const std::vector<Row> rows = {
-		{std::nullopt, 30, 0, "Handler for quest 9554 possibly rewarded the wrong reward group."},
+		{std::nullopt, 30, 0, "Handler for quest 9554 possibly rewarded the wrong reward group"},
 		{0, 30, 0, nullptr},
 		{1, 300, 1, nullptr},
 		{2, 3000, 2, nullptr},

@@ -24,7 +24,7 @@ protected:
 TEST_F(ClientAuthTest, ChatIniIsAnsweredBeforeTheLogin) {
 	LogCapture log({"com.aionemu.chatserver"});
 	FakeChatClient client(clientPort);
-	EXPECT_TRUE(log.waitFor("Channel connected Ip: 127.0.0.1")) << log.dump();
+	EXPECT_TRUE(log.waitFor("Client connected: 127.0.0.1")) << log.dump();
 	client.send(FakeChatClient::buildChatIni());
 	Bytes response = client.expectFrame("SM_CHAT_INI");
 	EXPECT_EQ(response, SM_CHAT_INI_BYTES) << hex(response);
@@ -140,26 +140,15 @@ TEST_F(ClientAuthTest, ARegistrationAgainReplacesTheFirstOne) {
 	EXPECT_TRUE(first.socket.expectSilence());
 }
 
-TEST_F(ClientAuthTest, PacketsAreLoggedAtDebugLevel) {
-	LogCapture log({"com.aionemu.chatserver.network.netty.handler.ClientChannelHandler"}, spdlog::level::debug);
-	FakeChatClient client(clientPort);
-	client.send(FakeChatClient::buildChatIni());
-	EXPECT_EQ(client.expectFrame("SM_CHAT_INI"), SM_CHAT_INI_BYTES);
-	EXPECT_TRUE(log.waitFor("debug|com.aionemu.chatserver.network.netty.handler.ClientChannelHandler|Sent packet: SM_CHAT_INI [opCode=0x31]"))
-		<< log.dump();
-	EXPECT_TRUE(log.waitFor("debug|com.aionemu.chatserver.network.netty.handler.ClientChannelHandler|Received packet: CM_CHAT_INI [opCode=0x30]"))
-		<< log.dump();
-}
-
 TEST_F(ClientAuthTest, IdentifierWithoutSeparatorFailsInRunImpl) {
-	// Java: nameIdentifier.substring(0, -1) throws a StringIndexOutOfBoundsException, logged by BaseClientPacket.run
+	// Java: nameIdentifier.substring(0, -1) throws a StringIndexOutOfBoundsException, logged by AbstractClientPacket.run
 	LogCapture log({"com.aionemu.chatserver"});
 	auto gs = connectGameServer();
 	int32_t playerId = nextPlayerId();
 	Bytes token = registerPlayer(*gs, playerId, "acc", "Erin");
 	FakeChatClient client(clientPort);
 	client.send(FakeChatClient::buildPlayerAuth(playerId, "Erin", "acc", token));
-	EXPECT_TRUE(log.waitFor("Running failed for packet CM_PLAYER_AUTH [opCode=0x05]", EXCEPTION_LOG_TIMEOUT)) << log.dump();
+	EXPECT_TRUE(log.waitFor("Could not execute [005] CM_PLAYER_AUTH from Client 127.0.0.1", EXCEPTION_LOG_TIMEOUT)) << log.dump();
 	EXPECT_TRUE(log.contains("begin 0, end -1, length 4")) << log.dump();
 	EXPECT_TRUE(client.socket.expectSilence());
 }
@@ -168,8 +157,8 @@ TEST_F(ClientAuthTest, OnlyChatIniAndPlayerAuthAreKnownBeforeTheLogin) {
 	LogCapture log({"com.aionemu.chatserver"});
 	FakeChatClient client(clientPort);
 	client.send(FakeChatClient::buildPing());
-	// the 19 bytes after the opcode as hex digits without separators
-	EXPECT_TRUE(log.waitFor("Unknown packet received from client: opCode=0xFF state=CONNECTED length=19 data=[" + std::string(38, '0') + "]"))
+	// the 19 bytes after the opcode; NetworkUtils.toHex dumps the whole packet
+	EXPECT_TRUE(log.waitFor("Unknown packet received from client: opCode=0xFF state=CONNECTED length=19 data=[0000: FF 00 00 00"))
 		<< log.dump();
 	EXPECT_TRUE(client.socket.expectSilence());
 }
@@ -183,18 +172,11 @@ TEST_F(ClientAuthTest, LoginPacketsAreUnknownAfterTheLogin) {
 	EXPECT_TRUE(player.client->socket.expectSilence());
 }
 
-TEST_F(ClientAuthTest, ReadHelpersLogMissingFieldsAndTheWholeFrameOnShortPackets) {
-	// Java BaseClientPacket: "Missing X for: <packet>" per missing field; readB returns zeros; the packet still runs
-	LogCapture log({"com.aionemu.chatserver"});
+TEST_F(ClientAuthTest, LongerPacketsStillRun) {
+	// the bytes after the fields are left unread (logged once per opcode, see BaseClientPacket), the packet still runs; a packet shorter than its
+	// fields closes the connection (FramingTest)
 	FakeChatClient client(clientPort);
-	client.send(PacketWriter().C(0x30).C(0x40).H(0).frame()); // CM_CHAT_INI without its three D
-	EXPECT_EQ(client.expectFrame("SM_CHAT_INI"), SM_CHAT_INI_BYTES); // the packet runs after its read, so the three lines are logged by now
-	EXPECT_EQ(log.count("Missing D for: CM_CHAT_INI [opCode=0x30]"), 3) << log.dump();
-	// a longer packet: warning with the hex dump of the frame after the opcode, and it still runs
 	client.send(PacketWriter().C(0x30).C(0x40).H(0).D(0).D(0).D(0).C(0x7E).frame());
-	EXPECT_TRUE(log.waitFor("CM_CHAT_INI [opCode=0x30] was not fully read! Last 1 bytes were not read from buffer: \n"
-													"0000: 40 00 00 00 00 00 00 00 00 00 00 00 00 00 00 7E "))
-		<< log.dump();
 	EXPECT_EQ(client.expectFrame("SM_CHAT_INI"), SM_CHAT_INI_BYTES);
 }
 

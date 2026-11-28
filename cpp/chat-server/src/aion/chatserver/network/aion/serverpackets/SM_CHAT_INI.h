@@ -16,7 +16,7 @@ public:
 	SM_CHAT_INI() noexcept : AbstractServerPacket(0x31) {}
 
 protected:
-	void writeImpl(netty::handler::ClientChannelHandler* cHandler, common::netty::ChannelBuffer& buf) const override {
+	void writeImpl(AionConnection* connection, commons::utils::ByteBuffer& buf) const override {
 		writeC(buf, getOpCode());
 		writeC(buf, 0x40);
 		writeD(buf, 0x02);

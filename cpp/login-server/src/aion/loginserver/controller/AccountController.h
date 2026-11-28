@@ -120,6 +120,9 @@ std::shared_ptr<model::Account> loadAccount(int32_t id);
 std::shared_ptr<model::Account> createAccount(std::string_view name, std::string_view password);
 
 /** Requests the character counts of the account from all online game servers; sends the server list if no game server is online. */
+/** Forgets the character counts of the account (Java: synchronized), when it leaves the login server. */
+void removeGSCharacterCounts(int32_t accountId);
+
 void loadGSCharactersCount(int32_t accountId);
 
 bool hasAllGSCharacterCounts(int32_t accountId);

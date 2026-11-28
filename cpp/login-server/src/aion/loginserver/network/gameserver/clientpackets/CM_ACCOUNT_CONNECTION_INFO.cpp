@@ -28,9 +28,9 @@ void CM_ACCOUNT_CONNECTION_INFO::readImpl() {
 
 void CM_ACCOUNT_CONNECTION_INFO::runImpl() {
 	if (!dao::AccountDAO::updateLastMac(accountId, mac))
-		log().warn("Couldn't update account_data.last_mac for accountId " + std::to_string(accountId));
+		log().warn("Couldn't update account_data.last_mac for accountId {}", accountId);
 	if (!dao::AccountDAO::updateLastHDDSerial(accountId, hddSerial))
-		log().warn("Couldn't update account_data.last_hdd_serial for accountId " + std::to_string(accountId));
+		log().warn("Couldn't update account_data.last_hdd_serial for accountId {}", accountId);
 	if (configs::Config::LOG_LOGINS)
 		dao::AccountsLogDAO::addRecord(accountId, getGameServerInfo()->getId(), time, ip, mac, hddSerial);
 }

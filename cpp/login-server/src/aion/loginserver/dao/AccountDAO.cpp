@@ -52,7 +52,7 @@ std::shared_ptr<Account> getAccount(std::string_view accountQuery, const Param& 
 			return account;
 		}
 	} catch (const SQLException& e) {
-		log.error(fmt::format("Could not load account for: {}", accountQueryParam), e);
+		log.error("Could not load account for: {}", accountQueryParam, e);
 	}
 	return nullptr;
 }
@@ -94,7 +94,7 @@ bool insertAccount(Account& account) {
 		account.setCreationDate(model::currentTimestamp());
 		return true;
 	} catch (const SQLException& e) {
-		log.error("Could not insert account for: " + account.getName(), e);
+		log.error("Could not insert account for: {}", account.getName(), e);
 	}
 	return false;
 }
@@ -116,7 +116,7 @@ bool updateAccount(const Account& account) {
 		st->setInt(9, account.getId().value());
 		return st->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		log.error("Could not update account for: " + account.getName(), e);
+		log.error("Could not update account for: {}", account.getName(), e);
 	}
 	return false;
 }
@@ -147,7 +147,7 @@ std::string getLastIp(int32_t accountId) {
 		if (rs->next())
 			lastIp = rs->getString("last_ip");
 	} catch (const std::exception& e) {
-		log.error("Can't select last IP of account ID: " + std::to_string(accountId), e);
+		log.error("Can't select last IP of account ID: {}", accountId, e);
 	}
 	return lastIp;
 }

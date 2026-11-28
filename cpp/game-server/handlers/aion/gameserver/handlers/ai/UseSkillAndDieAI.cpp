@@ -26,7 +26,7 @@ void UseSkillAndDieAI::handleSpawned() {
 void UseSkillAndDieAI::scheduleSkill() {
 	runtime::Ptr<NpcSkillList> skillList = getOwner().getSkillList();
 	if (skillList->getNpcSkills()->isEmpty()) {
-		log.warn(getOwner().toString() + " has no skill list");
+		log.warn("{} has no skill list", getOwner().toString());
 		getOwner().getController().delete_();
 		return;
 	}

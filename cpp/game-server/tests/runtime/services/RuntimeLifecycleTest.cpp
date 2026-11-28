@@ -77,7 +77,7 @@ TEST_F(RuntimeLifecycleTest, DeterministicStartWiresEveryService) {
 	EXPECT_EQ(CronService::getInstance().getDriver(), CronService::Driver::EXECUTOR);
 	EXPECT_EQ(IDFactory::getInstance().getConfig().releaseDelay, seconds(0));
 	EXPECT_EQ(IDFactory::getInstance().getUsedCount(), 4); // 0, 5, 7, 100
-	EXPECT_TRUE(idLog.contains("IDFactory: 4 IDs used."));
+	EXPECT_TRUE(idLog.contains("IDFactory: 4 IDs used"));
 	std::vector<int32_t> allocated;
 	for (int i = 0; i < 8; ++i)
 		allocated.push_back(IDFactory::getInstance().nextId());
@@ -194,7 +194,7 @@ TEST_F(RuntimeLifecycleTest, RealPoolsStartAndShutdown) {
 	EXPECT_TRUE(Watchdog::getInstance().isRunning());
 	EXPECT_EQ(CronService::getInstance().getDriver(), CronService::Driver::THREAD);
 	EXPECT_FALSE(ForkJoinPool::commonPool().isSerial());
-	EXPECT_TRUE(poolLog.contains("ThreadPoolManager: Initialized with 4 instant, 4 scheduler and 0 long running threads")) << poolLog.str();
+	EXPECT_TRUE(poolLog.contains("ThreadPoolManager initialized with 4 instant, 4 scheduler and 0 long running threads")) << poolLog.str();
 
 	static std::atomic<int32_t> runs{0};
 	runs.store(0);
@@ -218,7 +218,7 @@ TEST_F(RuntimeLifecycleTest, RealPoolsStartAndShutdown) {
 	EXPECT_EQ(TestObject::live.load(), 0);
 	EXPECT_EQ(report.censusTracked, 0u);
 	EXPECT_EQ(ids.getUsedCount(), usedBefore); // the auto-release id came back through the final CleanerDrain
-	EXPECT_TRUE(poolLog.contains("ThreadPoolManager: Shutting down."));
+	EXPECT_TRUE(poolLog.contains("ThreadPoolManager shutdown completed in "));
 	EXPECT_EQ(Reclaimer::getInstance().isRunning(), reclaimerWasRunning);
 	EXPECT_EQ(Watchdog::getInstance().isRunning(), watchdogWasRunning);
 }
@@ -290,7 +290,7 @@ TEST_F(RuntimeLifecycleTest, FailedStartRollsBack) {
 
 	EXPECT_EQ(RuntimeLifecycle::getState(), State::SHUT_DOWN);
 	EXPECT_TRUE(ThreadPoolManager::getInstance().isShutdown());
-	EXPECT_TRUE(log.contains("ThreadPoolManager: Shutting down."));
+	EXPECT_TRUE(log.contains("ThreadPoolManager shutdown "));
 	EXPECT_THROW((void)CronService::getInstance().schedule(CronJob([] {}), "0 * * * * ?"), CronServiceException);
 	EXPECT_FALSE(CleanerQueue::isInstalled());
 	EXPECT_FALSE(LeakCensus::getInstance().isInstalled());

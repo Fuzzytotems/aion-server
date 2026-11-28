@@ -1,5 +1,7 @@
 #include "aion/gameserver/taskmanager/AbstractPeriodicTaskManager.h"
 
+#include <algorithm>
+
 #include "aion/commons/configs/CommonsConfig.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Rnd.h"
@@ -21,8 +23,11 @@ AbstractPeriodicTaskManager::AbstractPeriodicTaskManager(int32_t period)
 // method reference at AbstractPeriodicTaskManager.java:18 (fieldmap key AbstractPeriodicTaskManager@L18:55): scheduleAtFixedRate(this::run), pin
 // {this}
 AbstractPeriodicTaskManager::AbstractPeriodicTaskManager(int32_t period, std::string_view simpleClassName) {
-	log.info(std::string(simpleClassName) + " initialized.");
-	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] { run(); }, commons::utils::Rnd::get(500, 550), period);
+	log.info("{} initialized", simpleClassName);
+	// Java (upstream 8912ec714): the first run after Rnd.get(0, period), spreading the managers over their period. C++: at least
+	// MIN_FIRST_DELAY_MILLIS, because run() must not start before the subclass constructor has finished (class comment, docs/deviations/P4-10.md)
+	int32_t firstDelay = std::max(MIN_FIRST_DELAY_MILLIS, commons::utils::Rnd::get(0, period));
+	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] { run(); }, firstDelay, period);
 }
 
 AbstractPeriodicTaskManager::~AbstractPeriodicTaskManager() = default;

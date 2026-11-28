@@ -221,7 +221,7 @@ void AntiHackService::checkAionBin(int32_t size, network::aion::AionConnection* 
 	int32_t legitSize = 212; // 212 after login, exactly 30 minutes later: 224, right after that: 1128 o.O
 	if (SecurityConfig::AION_BIN_CHECK.load()) {
 		if (size != legitSize) {
-			log.warn("Detected modified aion.bin for account ID " + std::to_string(con->getAccount()->getId()));
+			log.warn("Detected modified aion.bin for account ID {}", con->getAccount()->getId());
 			con->close(network::aion::serverpackets::SM_QUIT_RESPONSE());
 		}
 	}

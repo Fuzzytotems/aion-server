@@ -165,14 +165,20 @@ templates::item::ItemAttackType Npc::getAttackType() {
 }
 
 runtime::Ptr<skill::NpcSkillEntry> Npc::getNextQueuedSkill() {
-	SYNCHRONIZED(queuedSkills) {
-		return queuedSkills.peek();
+	SYNCHRONIZED(*this) {
+		runtime::Ptr<runtime::RcArrayDeque<runtime::Ref<skill::NpcSkillEntry>>> skills = queuedSkills.get();
+		if (!skills)
+			return nullptr;
+		return skills->peek();
 	}
 }
 
 bool Npc::hasQueuedSkill(const std::function<bool(skill::NpcSkillEntry&)>& filter) {
-	SYNCHRONIZED(queuedSkills) {
-		for (runtime::Ptr<skill::NpcSkillEntry> entry : queuedSkills) {
+	SYNCHRONIZED(*this) {
+		runtime::Ptr<runtime::RcArrayDeque<runtime::Ref<skill::NpcSkillEntry>>> skills = queuedSkills.get();
+		if (!skills)
+			return false;
+		for (runtime::Ptr<skill::NpcSkillEntry> entry : *skills) {
 			if (filter(*entry))
 				return true;
 		}
@@ -181,22 +187,26 @@ bool Npc::hasQueuedSkill(const std::function<bool(skill::NpcSkillEntry&)>& filte
 }
 
 void Npc::removeNextQueuedSkill(skill::NpcSkillEntry& skill) {
-	SYNCHRONIZED(queuedSkills) {
-		if (queuedSkills.peek() == &skill) {
-			queuedSkills.poll();
-		}
+	SYNCHRONIZED(*this) {
+		runtime::Ptr<runtime::RcArrayDeque<runtime::Ref<skill::NpcSkillEntry>>> skills = queuedSkills.get();
+		if (skills && skills->peek() == &skill)
+			skills->poll();
 	}
 }
 
 void Npc::clearQueuedSkills() {
-	SYNCHRONIZED(queuedSkills) {
-		queuedSkills.clear();
+	SYNCHRONIZED(*this) {
+		runtime::Ptr<runtime::RcArrayDeque<runtime::Ref<skill::NpcSkillEntry>>> skills = queuedSkills.get();
+		if (skills)
+			skills->clear();
 	}
 }
 
 void Npc::queueSkill(skill::NpcSkillEntry& skill) {
-	SYNCHRONIZED(queuedSkills) {
-		queuedSkills.offer(runtime::Ref<skill::NpcSkillEntry>(skill));
+	SYNCHRONIZED(*this) {
+		if (!queuedSkills.get())
+			queuedSkills = runtime::RcArrayDeque<runtime::Ref<skill::NpcSkillEntry>>::create(AION_LOCK_CLASS(Npc::queuedSkills));
+		queuedSkills.get()->offer(runtime::Ref<skill::NpcSkillEntry>(skill));
 	}
 }
 

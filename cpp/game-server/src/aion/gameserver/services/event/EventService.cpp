@@ -99,7 +99,7 @@ void EventService::validateConfiguredEventNames() {
 			eventNames.insert(eventTemplate.getName());
 		for (const std::string& eventName : disabled) {
 			if (!eventNames.contains(eventName))
-				log.warn("Unknown event \"" + eventName + "\" configured as disabled");
+				log.warn("Unknown event \"{}\" configured as disabled", eventName);
 		}
 	}
 }
@@ -273,7 +273,7 @@ commons::configuration::Properties EventService::getActiveEventConfigProperties(
 		try {
 			eventConfigProperties.putAll(et->loadConfigProperties());
 		} catch (const std::exception& e) {
-			log.error("Could not load config properties of event " + et->getName(), e);
+			log.error("Could not load config properties of event {}", et->getName(), e);
 		}
 	}
 	return eventConfigProperties;

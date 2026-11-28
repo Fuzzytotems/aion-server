@@ -147,7 +147,8 @@
 #include "aion/gameserver/services/instance/InstanceService.h"
 #include "aion/gameserver/services/mail/MailService.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
+#include "aion/gameserver/services/player/PlayerLeaveWorldService.h"
 #include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/services/reward/AdventService.h"
 #include "aion/gameserver/services/reward/VeteranRewardService.h"
@@ -240,19 +241,19 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 	Ptr<Account> account = client->getAccount();
 	Ptr<PlayerAccountData> playerAccData = account->getPlayerAccountData(objectId);
 	if (!playerAccData) {
-		log.warn("Player enterWorld fail: character obj ID {} was not found on account ID {}.", objectId, account->getId());
+		log.warn("Player enterWorld fail: character ID {} was not found on account ID {}", objectId, account->getId());
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR));
 		return;
 	}
 
 	Ptr<PlayerCommonData> pcd = playerAccData->getPlayerCommonData();
 	if (!pcd) {
-		log.warn("Player enterWorld fail: CommonData for character obj ID {} is null.", objectId);
+		log.warn("Player enterWorld fail: CommonData for character ID {} is null", objectId);
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR));
 		return;
 	}
 
-	if (dao::PlayerDAO::isOnline(objectId)) { // char is still leaving the world and not saved yet (fast reentry from plastic surgery screen or packet hack)
+	if (PlayerLeaveWorldService::isLeavingWorld(objectId)) { // char is not saved yet (fast reentry from plastic surgery screen or packet hack)
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::REENTRY_TIME));
 		return;
 	}
@@ -264,7 +265,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 		}
 	}
 	if (onlinePlayerId) { // a char was online during acc login (double login or client crash), so reload pcd, appearance and acc warehouse
-		if (dao::PlayerDAO::isOnline(*onlinePlayerId)) { // the found char is still leaving the world, so the acc wh might still be outdated
+		if (PlayerLeaveWorldService::isLeavingWorld(*onlinePlayerId)) { // the acc wh might still be outdated, as the char hasn't been saved yet
 			client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::REENTRY_TIME));
 			return;
 		}
@@ -277,7 +278,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 	}
 
 	if (world::World::getInstance().isInWorld(objectId)) {
-		log.warn("Player enterWorld fail: Duplicate character obj ID {} found in world.", objectId);
+		log.warn("Player enterWorld fail: duplicate character ID {} found in world", objectId);
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR));
 		return;
 	}
@@ -333,15 +334,13 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 			}
 		});
 		try {
-			if (player->isStaff() || MultiClientingService::tryEnterWorld(*player, client)) {
+			std::optional<SM_ENTER_WORLD_CHECK::Msg> denialMsg =
+				player->isStaff() ? std::nullopt : MultiClientService::tryEnterWorld(*player, client);
+			if (!denialMsg) {
 				enterWorld(client, *player);
 				enteredWorld = true;
 			} else {
-				SM_ENTER_WORLD_CHECK::Msg msg = configs::main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load() ==
-						configs::main::SecurityConfig::MultiClientingRestrictionMode::SAME_FACTION
-					? SM_ENTER_WORLD_CHECK::Msg::BOTH_FACTIONS
-					: SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR;
-				client->sendPacket(SM_ENTER_WORLD_CHECK(msg));
+				client->sendPacket(SM_ENTER_WORLD_CHECK(*denialMsg));
 			}
 		} catch (...) {
 			player->getController().delete_();
@@ -402,7 +401,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, Player& player)
 	player.getFriendList().setStatus(model::gameobjects::player::FriendList::Status::ONLINE, *pcd);
 	dao::PlayerDAO::onlinePlayer(player, true);
 	dao::PlayerDAO::storeLastOnlineTime(player.getObjectId(), commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis())));
-	log.info("Player " + player.getName() + " (" + account->toString() + ") logged on");
+	log.info("Player {} ({}) logged on", player.getName(), account->toString());
 	pcd->setInEditMode(false);
 
 	world::World::getInstance().storeObject(player);

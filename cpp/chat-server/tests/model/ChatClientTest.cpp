@@ -104,7 +104,7 @@ TEST(ChatClientTest, AccessorsAndToString) {
 	EXPECT_EQ(c.getName(), "Nick");
 	EXPECT_EQ(c.getAccessLevel(), 3);
 	EXPECT_EQ(c.getIdentifier(), std::nullopt);
-	EXPECT_EQ(c.getChannelHandler(), nullptr);
+	EXPECT_EQ(c.getConnection(), nullptr);
 	c.setIdentifier(Bytes{'N', 0});
 	EXPECT_EQ(c.getIdentifier(), (Bytes{'N', 0}));
 	EXPECT_EQ(c.toString(), "Player [name=Nick, id=42, race=ASMODIANS]");

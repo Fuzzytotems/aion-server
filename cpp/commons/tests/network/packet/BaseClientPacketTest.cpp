@@ -59,7 +59,7 @@ public:
 	using BaseClientPacket::readD;
 
 protected:
-	void readImpl() override {}
+	void readImpl() override { readD(); }
 	void runImpl() override {}
 };
 
@@ -95,76 +95,73 @@ TEST(BaseClientPacketTest, ReadsLittleEndianValues) {
 	EXPECT_EQ(packet.getRemainingBytes(), 0);
 }
 
-TEST(BaseClientPacketTest, UnderflowLogsAndReturnsZero) {
-	LogCapture& logs = LogCapture::instance();
-	logs.clear();
-
-	CM_FAKE packet(bufferOf({0x01, 0x02, 0x03}), 7);
-	packet.setConnection(std::make_shared<FakeConnection>());
-	EXPECT_EQ(packet.readD(), 0);
+// upstream e1a399e62: reads past the end of a packet throw instead of logging an error and returning zero
+TEST(BaseClientPacketTest, UnderflowThrowsWithoutConsuming) {
+	CM_FAKE packet(bufferOf({1, 2, 3}), 7);
+	EXPECT_THROW(packet.readD(), utils::BufferUnderflowException);
 	EXPECT_EQ(packet.getRemainingBytes(), 3); // nothing consumed
-	EXPECT_TRUE(logs.contains("error|com.aionemu.commons.network.packet.BaseClientPacket|Missing D for: [007] CM_FAKE (sent from FakeConnection 1.2.3.4)"));
-	EXPECT_EQ(packet.readQ(), 0);
-	EXPECT_TRUE(logs.contains("Missing Q for: [007] CM_FAKE"));
-	EXPECT_EQ(packet.readDF(), 0.0);
-	EXPECT_TRUE(logs.contains("Missing DF for"));
-	EXPECT_EQ(packet.readF(), 0.0f);
-	EXPECT_TRUE(logs.contains("Missing F for"));
-
+	EXPECT_THROW(packet.readQ(), utils::BufferUnderflowException);
+	EXPECT_THROW(packet.readDF(), utils::BufferUnderflowException);
+	EXPECT_THROW(packet.readF(), utils::BufferUnderflowException);
 	EXPECT_EQ(packet.readH(), 0x0201);
-	EXPECT_EQ(packet.readUH(), 0);
-	EXPECT_TRUE(logs.contains("Missing H for"));
+	EXPECT_THROW(packet.readUH(), utils::BufferUnderflowException);
+	EXPECT_THROW(packet.readH(), utils::BufferUnderflowException);
 	EXPECT_EQ(packet.readC(), 3);
-	EXPECT_EQ(packet.readC(), 0);
-	EXPECT_EQ(packet.readUC(), 0);
-	EXPECT_EQ(logs.count("Missing C for"), 2);
+	EXPECT_THROW(packet.readC(), utils::BufferUnderflowException);
+	EXPECT_THROW(packet.readUC(), utils::BufferUnderflowException);
 }
 
-TEST(BaseClientPacketTest, UnderflowWithoutConnectionPrintsNull) {
-	LogCapture& logs = LogCapture::instance();
-	logs.clear();
-	CM_FAKE packet(bufferOf({}), 12);
-	EXPECT_EQ(packet.readD(), 0);
-	EXPECT_TRUE(logs.contains("Missing D for: [012] CM_FAKE (sent from null)"));
+TEST(BaseClientPacketTest, ReadSThrowsWithoutTerminator) {
+	// "Hi" without terminator, plus one odd byte
+	CM_FAKE packet(bufferOf({'H', 0, 'i', 0, 'x'}), 1);
+	EXPECT_THROW(packet.readS(), utils::BufferUnderflowException);
+	EXPECT_EQ(packet.getRemainingBytes(), 1);
 }
 
 TEST(BaseClientPacketTest, PacketBaseCompilesAgainstAForwardDeclaredConnection) {
 	LogCapture& logs = LogCapture::instance();
 	logs.clear();
-	CM_LATE packet(bufferOf({}));
-	EXPECT_EQ(packet.readD(), 0);
-	EXPECT_TRUE(logs.contains("Missing D for: [003] CM_LATE (sent from null)"));
+	CM_LATE packet(bufferOf({1}));
+	EXPECT_FALSE(packet.read()); // readImpl reads a D from one byte
+	EXPECT_TRUE(logs.contains("[003] CM_LATE from null is shorter than expected"));
 	packet.setConnection(std::make_shared<LateConnection>());
-	EXPECT_EQ(packet.readD(), 0);
-	EXPECT_TRUE(logs.contains("Missing D for: [003] CM_LATE (sent from LateConnection 5.6.7.8)"));
-}
-
-TEST(BaseClientPacketTest, ReadSReturnsPartialStringOnUnderflow) {
-	LogCapture& logs = LogCapture::instance();
-	logs.clear();
-	// "Hi" without terminator, plus one odd byte
-	CM_FAKE packet(bufferOf({'H', 0, 'i', 0, 'x'}), 1);
-	EXPECT_EQ(packet.readS(), "Hi");
-	EXPECT_TRUE(logs.contains("Missing S for"));
-	EXPECT_EQ(packet.getRemainingBytes(), 1);
+	EXPECT_EQ(packet.getConnection()->toString(), "LateConnection 5.6.7.8");
 }
 
 TEST(BaseClientPacketTest, ReadSStopsAtTerminator) {
 	CM_FAKE packet(bufferOf({'a', 0, 0xE4, 0, 0, 0, 'b', 0, 0, 0}), 1); // "aä", "b"
 	EXPECT_EQ(packet.readS(), "a\xC3\xA4");
 	EXPECT_EQ(packet.readS(), "b");
-	EXPECT_EQ(packet.readS(), "");
+	EXPECT_THROW(packet.readS(), utils::BufferUnderflowException); // nothing left, not even a terminator
 }
 
-TEST(BaseClientPacketTest, ReadBUnderflowReturnsZeroesWithoutConsuming) {
-	LogCapture& logs = LogCapture::instance();
-	logs.clear();
+// upstream e1a399e62: readB validates the length before allocating, so a forged length cannot allocate a huge array
+TEST(BaseClientPacketTest, ReadBRejectsLengthsBeyondTheRemainingBytes) {
 	CM_FAKE packet(bufferOf({5, 6, 7}), 1);
-	EXPECT_EQ(packet.readB(4), (std::vector<uint8_t>{0, 0, 0, 0}));
-	EXPECT_TRUE(logs.contains("Missing byte[] for"));
+	EXPECT_THROW(packet.readB(4), utils::BufferUnderflowException);
+	EXPECT_THROW(packet.readB(INT32_MAX), utils::BufferUnderflowException);
+	EXPECT_THROW(packet.readB(-1), utils::BufferUnderflowException);
 	EXPECT_EQ(packet.getRemainingBytes(), 3);
 	EXPECT_EQ(packet.readB(0), std::vector<uint8_t>{});
-	EXPECT_THROW(packet.readB(-1), utils::IllegalArgumentException);
+	EXPECT_EQ(packet.readB(3), (std::vector<uint8_t>{5, 6, 7}));
+}
+
+TEST(BaseClientPacketTest, ReadReturnsFalseAndWarnsIfPacketIsTooShort) {
+	LogCapture& logs = LogCapture::instance();
+	logs.clear();
+	static int32_t opcode = 5000; // fresh opcodes when the test is repeated (see 81e409c5e: the warning is logged once per opcode)
+	opcode++;
+	CM_FAKE packet(bufferOf({0xAB, 0xCD, 0xEF}), opcode, [](CM_FAKE& p) { p.readD(); });
+	packet.setConnection(std::make_shared<FakeConnection>());
+	EXPECT_FALSE(packet.read());
+	EXPECT_TRUE(logs.contains("warning|com.aionemu.commons.network.packet.BaseClientPacket|[" + std::to_string(opcode) +
+														"] CM_FAKE from FakeConnection 1.2.3.4 is shorter than expected:\n0000: AB CD EF"));
+	EXPECT_FALSE(logs.contains("Reading failed"));
+
+	// upstream 81e409c5e: logged once per opcode
+	CM_FAKE again(bufferOf({0xAB}), opcode, [](CM_FAKE& p) { p.readD(); });
+	EXPECT_FALSE(again.read());
+	EXPECT_EQ(logs.count("is shorter than expected"), 1);
 }
 
 TEST(BaseClientPacketTest, ReadReturnsTrueAndWarnsOncePerOpcodeIfNotFullyRead) {

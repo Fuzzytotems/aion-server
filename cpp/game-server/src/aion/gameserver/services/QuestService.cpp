@@ -257,14 +257,13 @@ void QuestService::validateAndFixRewardGroup(runtime::Ptr<questEngine::model::Qu
 		if (qs->getRewardGroup()) {
 			int32_t rewardGroup = *qs->getRewardGroup();
 			if (rewardGroup < 0 || rewardGroup >= static_cast<int32_t>(rewardGroups.size())) {
-				log.warn("Handler for quest " + std::to_string(questId) + " tried to reward a nonexistent reward group (index " +
-						 std::to_string(rewardGroup) + ").");
+				log.warn("Handler for quest {} tried to reward a nonexistent reward group (index {}).", questId, rewardGroup);
 				qs->setRewardGroup(static_cast<int32_t>(rewardGroups.size()) - 1);
 			}
 		} else { // you must explicitly specify the reward group when there are more than 1
 			if (rewardGroups.size() > 0) {
 				if (rewardGroups.size() > 1)
-					log.warn("Handler for quest " + std::to_string(questId) + " possibly rewarded the wrong reward group.");
+					log.warn("Handler for quest {} possibly rewarded the wrong reward group", questId);
 				qs->setRewardGroup(0);
 			}
 		}
@@ -294,8 +293,8 @@ std::vector<model::templates::quest::QuestItems> QuestService::getRewardItems(qu
 			} else if (javaSub(index, 1) >= 0 && javaSub(index, 1) < size) {
 				questItems.push_back(selectable[static_cast<size_t>(javaSub(index, 1))]);
 			} else {
-				log.warn("The extended SelectableRewardItem list has no element on index " + std::to_string(javaSub(index, 8)) + ". See quest id " +
-						 std::to_string(env.getQuestId()) + ". The size is: " + std::to_string(size));
+				log.warn("The extended SelectableRewardItem list has no element on index {}. See quest id {}. The size is: {}", javaSub(index, 8),
+					env.getQuestId(), size);
 			}
 		}
 	} else {
@@ -312,15 +311,13 @@ std::vector<model::templates::quest::QuestItems> QuestService::getRewardItems(qu
 					if (rewardIndex < static_cast<int32_t>(byClass.size())) {
 						questItems.push_back(byClass[static_cast<size_t>(rewardIndex)]);
 					} else {
-						log.warn("The SelectableRewardByClass list has no element on index " + std::to_string(rewardIndex) + ". See quest id " +
-								 std::to_string(env.getQuestId()) + ". The size for " + std::string(xml::enumName(playerClass)) + " is: " +
-								 std::to_string(byClass.size()));
+						log.warn("The SelectableRewardByClass list has no element on index {}. See quest id {}. The size for {} is: {}", rewardIndex,
+							env.getQuestId(), std::string(xml::enumName(playerClass)), byClass.size());
 					}
 				} else if (rewardIndex < static_cast<int32_t>(rewards.getSelectableRewardItem().size())) {
 					questItems.push_back(rewards.getSelectableRewardItem()[static_cast<size_t>(rewardIndex)]);
 				} else {
-					log.warn("The SelectableRewardItem list has no element on index " + std::to_string(rewardIndex) + ". See quest id " +
-							 std::to_string(env.getQuestId()));
+					log.warn("The SelectableRewardItem list has no element on index {}. See quest id {}", rewardIndex, env.getQuestId());
 				}
 			} else if (dialogActionId == SELECTED_QUEST_NOREWARD) {
 				rewardIndex = javaSub(env.getExtendedRewardIndex(), 8);
@@ -330,8 +327,7 @@ std::vector<model::templates::quest::QuestItems> QuestService::getRewardItems(qu
 					if (rewardIndex >= 0 && rewardIndex < static_cast<int32_t>(byClass.size())) {
 						questItems.push_back(byClass[static_cast<size_t>(rewardIndex)]);
 					} else { // Java: warn(message, new Throwable()) - the Throwable only carries the stack trace into the log
-						log.warn("The SelectableRewardByClass list has no element on index " + std::to_string(rewardIndex) + ". See quest id " +
-									 std::to_string(env.getQuestId()),
+						log.warn("The SelectableRewardByClass list has no element on index {}. See quest id {}", rewardIndex, env.getQuestId(),
 							runtime::Exception(""));
 					}
 				}
@@ -532,7 +528,7 @@ bool QuestService::checkStartConditions(model::gameobjects::player::Player& play
 
 		return true;
 	} catch (const std::exception& ex) {
-		log.error("QE: exception in checkStartCondition (" + player.toString() + ", questId " + std::to_string(questId) + ")", ex);
+		log.error("QE: exception in checkStartCondition ({}, questId {})", player.toString(), questId, ex);
 	}
 	return false;
 }

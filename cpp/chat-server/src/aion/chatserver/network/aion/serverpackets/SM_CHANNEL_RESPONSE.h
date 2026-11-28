@@ -22,7 +22,7 @@ public:
 	SM_CHANNEL_RESPONSE(const model::channel::Channel& channel, int32_t channelRequestId);
 
 protected:
-	void writeImpl(netty::handler::ClientChannelHandler* cHandler, common::netty::ChannelBuffer& buf) const override;
+	void writeImpl(AionConnection* connection, commons::utils::ByteBuffer& buf) const override;
 
 private:
 	const int32_t channelId;

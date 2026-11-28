@@ -140,7 +140,7 @@ void DataManager::init() {
 	publish(*data);
 
 	int64_t time = commons::utils::currentTimeMillis() - start;
-	log.info("##### [Static Data loaded in " + formatSeconds(static_cast<float>(time) / 1000.0f) + " seconds] #####");
+	log.info("##### [Static Data loaded in {} seconds] #####", formatSeconds(static_cast<float>(time) / 1000.0f));
 }
 
 void DataManager::waitForValidationToFinishAndShutdownOnFail() {

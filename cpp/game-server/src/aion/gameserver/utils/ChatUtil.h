@@ -20,8 +20,9 @@ namespace aion::gameserver::utils {
  * C++: a static-only class (fieldmap K5). Strings are UTF-8; everything Java measures or cuts in UTF-16 code units (split, getRealCharName) is
  * computed on UTF-16 and converted back.
  * <ul>
- * <li>DF (`DecimalFormat(".##")`, Locale.US) is the private helper formatDecimal: at most two fraction digits rounded HALF_EVEN from the exact
- * binary value, no integer zero before a fraction (".5"), "0" for zero, a kept minus sign ("-0" for -0.001).</li>
+ * <li>format(float) (upstream b7bc32976) rounds the shortest decimal of the float widened to double (Java 25 Double.toString) HALF_UP to at
+ * most two fraction digits: "0.5", "1", "0" for zero and for a negative value that rounds to zero; NaN and infinities throw
+ * NumberFormatException like new BigDecimal("NaN").</li>
  * <li>l10n returns "" where Java returns null (id 0), the convention of L10n::getL10n. The client string id is two UTF-16 code units, kept as
  * WTF-8 (commons StringUtils::toWtf8) so that a lone surrogate unit reaches the wire unchanged through writeS; split decodes and encodes
  * WTF-8 as well.</li>
@@ -35,6 +36,7 @@ class ChatUtil {
 private:
 	static constexpr char16_t ASMO_NAME_PREFIX = u'';
 	static constexpr char16_t ELYOS_NAME_PREFIX = u'';
+	static constexpr char16_t CONTINUATION_MARK = u'\u200B'; // zero-width space, which our client mod detects to skip the chat time prefix
 
 public:
 	ChatUtil() = delete;
@@ -108,9 +110,19 @@ public:
 
 	static std::string item(int32_t itemId);
 
-	static std::string itemName(int32_t itemId);
+	/**
+	 * @return A tag that prints the localized item name in chat.<br>
+	 * The playerName parameter is relevant for crafted items that carry the player's name, such as {@code [item_ex:100200836;Ownername]}.
+	 */
+	static std::string itemName(int32_t itemId, std::string_view playerName);
 
 	static std::string recipe(int32_t recipeId);
+
+	/**
+	 * @return A tag that prints the localized recipe name in chat.<br>
+	 * The playerName parameter is relevant for recipes that carry the player's name, such as {@code [recipe_ex:155006741;Ownername]}.
+	 */
+	static std::string recipeName(int32_t recipeId, std::string_view playerName);
 
 	static std::string quest(int32_t questId);
 
@@ -151,12 +163,17 @@ public:
 	 */
 	static std::vector<std::string> split(std::string_view chatMessage);
 
+	/**
+	 * @return True for control characters (e.g. \n or DEL), which the client cannot send via chat or other input fields.
+	 */
+	static bool isInvalidCharacter(int32_t codePoint);
+
 private:
 	/** Java's indexes are UTF-16 code unit indexes into chatMessage */
 	static int32_t findSplitIndex(std::u16string_view chatMessage, int32_t startIndex, int32_t endIndex);
 
-	/** C++ only: Java DF.format(double) with the DecimalFormat pattern ".##" (Locale.US), see the class comment */
-	static std::string formatDecimal(double value);
+	/** Java: BigDecimal.valueOf(number).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString(), see the class comment */
+	static std::string format(float number);
 };
 
 } // namespace aion::gameserver::utils

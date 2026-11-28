@@ -137,23 +137,12 @@ TEST(ItemStoragePacketsReadTest, ReplaceReadsItsFourFieldsInJavaOrder) {
 	EXPECT_FALSE(capture.contains("Missing")) << capture.dump();
 }
 
-TEST(ItemStoragePacketsReadTest, ShortBodiesLogTheMissingField) {
+TEST(ItemStoragePacketsReadTest, ShortBodiesFailToRead) {
+	// upstream e1a399e62: the read helpers throw on the underflow, so a too short body fails to read
 	int32_t unread = -1;
-	{
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		ASSERT_NE(readPacket<CM_MOVE_ITEM>(PacketWriter().D(1).C(0).C(1).data, CM_MOVE_ITEM_OPCODE, unread), nullptr);
-		EXPECT_EQ(capture.count("Missing H"), 1) << capture.dump();
-	}
-	{ // the amount underflows (4 bytes left for a Q); the base class answers 0 and reads on, as Java's BaseClientPacket does
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		ASSERT_NE(readPacket<CM_SPLIT_ITEM>(PacketWriter().D(1).D(5).data, CM_SPLIT_ITEM_OPCODE, unread), nullptr);
-		EXPECT_EQ(capture.count("Missing Q"), 1) << capture.dump();
-	}
-	{
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		ASSERT_NE(readPacket<CM_REPLACE_ITEM>(PacketWriter().C(0).D(1).C(1).data, CM_REPLACE_ITEM_OPCODE, unread), nullptr);
-		EXPECT_EQ(capture.count("Missing D"), 1) << capture.dump();
-	}
+	EXPECT_EQ(readPacket<CM_MOVE_ITEM>(PacketWriter().D(1).C(0).C(1).data, CM_MOVE_ITEM_OPCODE, unread), nullptr);
+	EXPECT_EQ(readPacket<CM_SPLIT_ITEM>(PacketWriter().D(1).D(5).data, CM_SPLIT_ITEM_OPCODE, unread), nullptr); // 4 bytes left for a Q
+	EXPECT_EQ(readPacket<CM_REPLACE_ITEM>(PacketWriter().C(0).D(1).C(1).data, CM_REPLACE_ITEM_OPCODE, unread), nullptr);
 }
 
 TEST(ItemStoragePacketsReadTest, TheMarkersRegisterTheClassesUnderTheirJavaOpcodes) {

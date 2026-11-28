@@ -43,7 +43,7 @@ void MotionDAO::loadMotionList(model::gameobjects::player::Player& player) {
 			motions->add(*Motion::create(motionId, time, isActive), false);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore motions for playerObjId: " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not restore motions for playerObjId: {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 	player.setMotions(std::move(motions));
 }
@@ -58,7 +58,7 @@ bool MotionDAO::storeMotion(int32_t objectId, model::gameobjects::player::motion
 		stmt->setInt(4, motion.getExpireTime());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not store motion for player " + std::to_string(objectId) + " from DB: " + e.what(), e);
+		log.error("Could not store motion for player {} from DB: {}", objectId, e.what(), e);
 		return false;
 	}
 	return true;
@@ -72,7 +72,7 @@ bool MotionDAO::deleteMotion(int32_t objectId, int32_t motionId) {
 		stmt->setInt(2, motionId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not delete motion for player " + std::to_string(objectId) + " from DB: " + e.what(), e);
+		log.error("Could not delete motion for player {} from DB: {}", objectId, e.what(), e);
 		return false;
 	}
 	return true;
@@ -87,7 +87,7 @@ bool MotionDAO::updateMotion(int32_t objectId, model::gameobjects::player::motio
 		stmt->setInt(3, motion.getId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not store motion for player " + std::to_string(objectId) + " from DB: " + e.what(), e);
+		log.error("Could not store motion for player {} from DB: {}", objectId, e.what(), e);
 		return false;
 	}
 	return true;

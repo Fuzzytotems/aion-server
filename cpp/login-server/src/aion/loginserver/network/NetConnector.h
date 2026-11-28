@@ -5,15 +5,18 @@
 #include "aion/commons/utils/InetSocketAddress.h"
 
 /**
- * The network of the login server: a NioServer listening on Config::CLIENT_SOCKET_ADDRESS for Aion game clients (LoginConnection) and on
- * Config::GAMESERVER_SOCKET_ADDRESS for game servers (GsConnection), plus the executors the connections use:
+ * The network of the login server: one server listening on Config::CLIENT_SOCKET_ADDRESS for Aion game clients (LoginConnection, packets up to
+ * 8192 * 2 bytes) and on Config::GAMESERVER_SOCKET_ADDRESS for game servers (GsConnection, packets up to 8192 * 8 bytes), plus the executors the
+ * connections use:
  * <ul>
- * <li>the Aion client packet processor (Java: LoginConnection's static PacketProcessor(1, 8, 50, 3))</li>
- * <li>the game server packet processor (Java: GsConnection.PACKET_EXECUTOR, a cached thread pool; see GsConnection)</li>
+ * <li>the client packet executors (Java: DefaultEventExecutorGroup(8, "PacketProcessor")), which run the packets of a client one after another</li>
+ * <li>the game server packet executors (Java: GsConnection.PACKET_EXECUTOR, a cached thread pool; see GsConnection)</li>
  * <li>the ping scheduler (Java: GsConnection.PINGPONG_EXECUTOR)</li>
- * <li>DISCONNECT_THREADS threads running onDisconnect (Java: a cached thread pool); LoginConnection::onDisconnect writes to the database</li>
+ * <li>DISCONNECT_THREADS threads of the commons server, which hand the disconnects to the packet executors</li>
  * </ul>
- * Thread safe; connect and shutdown must not be called concurrently with each other.
+ * C++: a commons NioServer (asio) with max(1, NIO_READ_WRITE_THREADS) IO threads that accept and do the IO alike (Java since upstream
+ * bce89b2fc: Netty with one acceptor thread and max(1, NIO_READ_WRITE_THREADS) I/O threads, epoll on Linux). Thread safe; connect and shutdown
+ * must not be called concurrently with each other.
  * <p>
  * Java: com.aionemu.loginserver.network.NetConnector
  *
@@ -33,7 +36,10 @@ inline constexpr int32_t DISCONNECT_THREADS = 8;
  */
 void connect();
 
-/** Shuts the server down (see NioServer::shutdown), then the packet processors and the ping scheduler. Does nothing if not connected. */
+/**
+ * Closes all connections and the server sockets (see NioServer::shutdown), lets the client packet executors run what is queued (at most 3 seconds),
+ * then stops the ping scheduler and the game server packet executors (at most 1 second each). Does nothing if not connected.
+ */
 void shutdown();
 
 /**

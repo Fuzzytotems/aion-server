@@ -23,7 +23,7 @@ void afterExecution(const std::type_info& type, int64_t durationNanos, int64_t e
 	int64_t durationMillis = durationNanos / 1'000'000; // TimeUnit.NANOSECONDS.toMillis truncates
 	if (durationMillis > expectedMaxExecutionTimeMillis) {
 		std::string name = isAnonymousClass(type) ? getClassName(type) : getSimpleClassName(type);
-		log().warn("{} - execution time: {}ms", name, durationMillis);
+		log().warn("{} - execution time: {} ms", name, durationMillis);
 	}
 }
 

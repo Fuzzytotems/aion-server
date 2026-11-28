@@ -1740,6 +1740,7 @@ void runM5bGate(const GateVariant& variant) {
 		// whatever the server did, which is why rev 1's R1 could not work.
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
+		database.awaitAccountOffline(schema, a.account); // registerLeaveWorld (upstream d22a9af5b)
 		expAfterQuit = database.queryLong(schema, "SELECT exp FROM players WHERE id = " + player).value_or(-1);
 		EXPECT_EQ(expAfterQuit, decoders::PROLOGUE_EXP + monster.awarded)
 		  << "R1 (c): players.exp after the quit (the prologue's exp and the kill's). A port that updates the packet but not "

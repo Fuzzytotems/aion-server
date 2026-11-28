@@ -160,14 +160,14 @@ TEST_F(AionConnectionTest, PacketsAreGatedByTheConnectionState) {
 	auto connection = server.connection();
 
 	client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(1).data); // AUTHED only
-	EXPECT_TRUE(logs.waitFor("sent CM_ENTER_WORLD but the connections current state (CONNECTED) is invalid for this packet.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("sent CM_ENTER_WORLD but the connection's current state (CONNECTED) is invalid for this packet - packet won't be instantiated")) << logs.dump();
 	client.sendPacket(CM_VERSION_CHECK, PacketWriter().D(2).data); // CONNECTED only
 	ASSERT_TRUE(waitForRecords(1));
 	EXPECT_EQ(PacketRecorder::instance().snapshot()[0].opcode, CM_VERSION_CHECK);
 
 	connection->setState(State::AUTHED);
 	client.sendPacket(CM_VERSION_CHECK, PacketWriter().D(3).data);
-	EXPECT_TRUE(logs.waitFor("sent CM_VERSION_CHECK but the connections current state (AUTHED) is invalid for this packet.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("sent CM_VERSION_CHECK but the connection's current state (AUTHED) is invalid for this packet - packet won't be instantiated")) << logs.dump();
 	client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(4).data);
 	ASSERT_TRUE(waitForRecords(2));
 	EXPECT_EQ(PacketRecorder::instance().snapshot()[1].opcode, CM_ENTER_WORLD);
@@ -183,6 +183,32 @@ TEST_F(AionConnectionTest, PacketsAreGatedByTheConnectionState) {
 	stale.setConnection(connection);
 	stale.run();
 	EXPECT_EQ(PacketRecorder::instance().size(), 2u);
+}
+
+// upstream 55d0af937: mode 1 logs and drops the flooding packet, the connection stays
+TEST_F(AionConnectionTest, FloodingPacketsAreDroppedInPffMode1) {
+	using configs::network::PffConfig;
+	LogCapture logs({CONNECTION_LOGGER});
+	PffConfig::PFF_MODE = 1;
+	PffConfig::THRESHOLD_MILLIS_BY_PACKET_OPCODE.set(std::unordered_map<int32_t, int32_t>{{CM_TIME_CHECK, 60000}});
+	struct Restore {
+		~Restore() {
+			PffConfig::PFF_MODE = 0;
+			PffConfig::THRESHOLD_MILLIS_BY_PACKET_OPCODE.set({});
+		}
+	} restore;
+
+	GameServerTestServer server;
+	FakeGameClient client(server.port);
+	client.readKey();
+	client.sendPacket(CM_TIME_CHECK, PacketWriter().D(1).data);
+	ASSERT_TRUE(waitForRecords(1));
+	client.sendPacket(CM_TIME_CHECK, PacketWriter().D(2).data); // dropped
+	EXPECT_TRUE(logs.waitFor(" is flooding RecordingClientPacket (last diff: ")) << logs.dump();
+	client.sendPacket(CM_VERSION_CHECK, {}); // no threshold for this opcode
+	ASSERT_TRUE(waitForRecords(2));
+	EXPECT_EQ(PacketRecorder::instance().size(), 2u);
+	EXPECT_FALSE(client.socket.isClosed());
 }
 
 TEST_F(AionConnectionTest, QueueIsOrderedBySerializationSequence) {
@@ -224,10 +250,11 @@ TEST_F(AionConnectionTest, ClosePacketIsSentBeforeTheConnectionCloses) {
 		<< logs.dump();
 }
 
-TEST_F(AionConnectionTest, FloodingClientsAreDisconnectedInPffMode1) {
+// upstream 81e409c5e: mode 2 disconnects (the modes 1 and 2 were swapped)
+TEST_F(AionConnectionTest, FloodingClientsAreDisconnectedInPffMode2) {
 	using configs::network::PffConfig;
 	LogCapture logs({CONNECTION_LOGGER});
-	PffConfig::PFF_MODE = 1;
+	PffConfig::PFF_MODE = 2;
 	PffConfig::THRESHOLD_MILLIS_BY_PACKET_OPCODE.set(std::unordered_map<int32_t, int32_t>{{CM_TIME_CHECK, 60000}});
 	struct Restore {
 		~Restore() {

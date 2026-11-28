@@ -77,7 +77,7 @@ enum class AionAuthResponse : int32_t {
 	/** Failed to authenticate the Security Card. */
 	STR_L2AUTH_S_INVALID_SECURITY_CARD = 31,
 	/** Age limit applied after a specified time (currently only for Thailand) */
-	STR_L2AUTH_S_UNDER_AGE_TIME_LIMIT = 32,
+	STR_RESTRICTED_TIME_BY_TEENAGER_POLICY = 32,
 	/** Restricted server. */
 	STR_L2AUTH_S_RESTRICTED_SERVER = 33,
 	/** Usage time has expired */

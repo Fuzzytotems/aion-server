@@ -92,7 +92,7 @@ TEST_F(GameServerTest, ShutdownQueriesReadTheShutdownHook) {
 	ShutdownHook::setExitFunctionForTests(&noExit);
 	std::atomic<bool> release{false};
 	ShutdownHook::Operations ops;
-	ops.worldHasPlayers = [&release] {
+	ops.countdownNeeded = [&release] {
 		while (!release.load())
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		return false;
@@ -158,18 +158,18 @@ public:
  */
 TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) {
 	const std::vector<std::string> expected = {
-		// initUtilityServicesAndConfig (GameServer.java:214-231); IDFactory.getInstance() of main is part of the runtime step
-		"Config.load()", "DatabaseFactory.init()", "ThreadPoolManager, CronService, IDFactory",
-		// main (GameServer.java:92-191)
+		// initUtilityServicesAndConfig (GameServer.java:207-224), then initDatabase (Java: concurrently with DataManager, upstream 546f96bd2)
+		"Config.load()", "ThreadPoolManager, CronService", "initDatabase()",
+		// main (GameServer.java:100-190)
 		"DataManager.getInstance()",
 		// Stream.of(QuestEngine, AIEngine, InstanceEngine, ChatProcessor, ZoneService, GeoService).parallel().forEach(GameEngine::init)
 		"QuestEngine.init()", "AIEngine.init()", "InstanceEngine.init()", "ChatProcessor.init()", "ZoneService.init()", "GeoService.init()",
-		"World.getInstance()", "GameTimeService.getInstance()", "DropRegistrationService.getInstance()",
+		"World.getInstance()", "DropRegistrationService.getInstance()",
 		"BaseService.getInstance()", "SiegeService.getInstance()", "WorldRaidService.initWorldRaidLocations()",
 		"VortexService.initVortexLocations()", "RiftService.initRiftLocations()", "LegionDominionService.initLocations()",
 		"HousingService.getInstance()", "HousingBidService.getInstance()", "AuctionEndTask.getInstance()", "AuctionAutoFillTask.getInstance()",
 		"MaintenanceTask.getInstance()", "ChallengeTaskService.getInstance()",
-		"SpawnEngine.spawnAll()", "TownService.getInstance()", "FlyRingService.getInstance()", "RiftService.initRifts()",
+		"AbstractPeriodicTaskManager.startAll()", "SpawnEngine.spawnAll()", "TownService.getInstance()", "FlyRingService.getInstance()", "RiftService.initRifts()",
 		"ratio limitation", "LimitedItemTradeService.start()", "PlayerLimitService.scheduleUpdate()",
 		"SiegeService.initSieges()", "BaseService.initBases()", "WorldRaidService.initWorldRaids()", "ConquerorAndProtectorService.init()",
 		"AnnouncementService.getInstance()", "DebugService.getInstance()", "WeatherService.getInstance()", "BrokerService.getInstance()",
@@ -181,11 +181,10 @@ TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) 
 		"PlayerTransferService.getInstance()",
 		"GameTimeService.startClock()",
 		"PvpMapService.init()", "CustomInstanceService.getInstance()", "DataManager.waitForValidationToFinishAndShutdownOnFail()",
-		// System.gc() has no counterpart
-		"VersionInfo.logAll()",
 		"initNioServer()", "ShutdownHook",
-		// "Game server started in N seconds." is logged here, after the hook and before the login server
 		"LoginServer.connect(nioServer)", "ChatServer.connect(nioServer)",
+		// VersionInfo.logAll, SystemInfo.logAll (System.gc() has no counterpart) and "Game server started in N seconds (process running for U)"
+		"Logging.logStartupStats()",
 	};
 
 	DryRunObserver observer;
@@ -220,7 +219,7 @@ TEST_F(GameServerTest, AnObserverCanEndTheStartupAfterTheRuntime) {
 		bool continueAfterRuntime() override { return false; }
 	} observer;
 	EXPECT_FALSE(GameServer::main(observer));
-	EXPECT_EQ(observer.steps, (std::vector<std::string>{"Config.load()", "DatabaseFactory.init()", "ThreadPoolManager, CronService, IDFactory"}));
+	EXPECT_EQ(observer.steps, (std::vector<std::string>{"Config.load()", "ThreadPoolManager, CronService"}));
 }
 
 } // namespace

@@ -4,10 +4,10 @@
 # Steps (each failure names the item):
 #  1. aion_gs_m4_database create aion_gs_test_m4_<hash>: a fresh schema from game-server/sql/aion_gs.sql.
 #  2. aion_game_server --check-id-factory on the empty schema: Config.load, DatabaseFactory, setAllPlayersOffline, runtime start; IDFactory
-#     locks only id 0 ("IDFactory: 1 IDs used.").
+#     locks only id 0 ("IDFactory: 1 IDs used").
 #  3. aion_gs_m4_database fixture: 2 online players and 9 more rows with object ids (11 distinct ids).
 #  4. aion_game_server --check-static-data (with the 200 getZ probes of python -m geo m4-probes): the whole M4 path (Config, database,
-#     setAllPlayersOffline, runtime, IDFactory "12 IDs used.", DataManager strict load with hooks and post-processing, ZoneService, GeoService,
+#     setAllPlayersOffline, runtime, IDFactory "12 IDs used", DataManager strict load with hooks and post-processing, ZoneService, GeoService,
 #     World) and an orderly shutdown with exit code 0, no ERROR line, no unknown config property, 0 AION_UNPORTED hits (unported_trace.txt
 #     lists no site), LeakCensus 0 objects still tracked (trivially true for M4, which never removes an object from the world; the check is a
 #     guard for M5a).
@@ -194,8 +194,8 @@ endfunction()
 # 1-2: IDFactory from the empty schema
 m4_database(create "created ${database}")
 m4_server(id_factory log --check-id-factory "--check-output=${OUTPUT_DIR}/empty")
-if(NOT log MATCHES "IDFactory: 1 IDs used\\.")
-	m4_fail("item 2" "IDFactory on the empty schema did not log 'IDFactory: 1 IDs used.'")
+if(NOT log MATCHES "IDFactory: 1 IDs used")
+	m4_fail("item 2" "IDFactory on the empty schema did not log 'IDFactory: 1 IDs used'")
 endif()
 m4_summary("${OUTPUT_DIR}/empty" idsUsed ids)
 if(NOT ids STREQUAL "1")
@@ -207,13 +207,13 @@ m4_database(fixture "fixture ids 11")
 m4_python("item 5" -m geo m4-probes --out "${OUTPUT_DIR}/geo_probes.txt")
 m4_server(check log --check-static-data "--check-output=${OUTPUT_DIR}/full" "--check-geo-probes=${OUTPUT_DIR}/geo_probes.txt")
 set(full "${OUTPUT_DIR}/full")
-if(NOT log MATCHES "IDFactory: 12 IDs used\\.")
-	m4_fail("item 2" "IDFactory on the fixture schema did not log 'IDFactory: 12 IDs used.' (id 0 and the 11 fixture ids)")
+if(NOT log MATCHES "IDFactory: 12 IDs used")
+	m4_fail("item 2" "IDFactory on the fixture schema did not log 'IDFactory: 12 IDs used' (id 0 and the 11 fixture ids)")
 endif()
 if(NOT log MATCHES "##### \\[Static Data loaded in [0-9.]+ seconds\\] #####")
 	m4_fail("item 3" "DataManager did not finish")
 endif()
-if(NOT log MATCHES "World: 161 world maps created\\.")
+if(NOT log MATCHES "Created 161 world maps")
 	m4_fail("item 6" "World did not create 161 world maps")
 endif()
 if(NOT log MATCHES "M4 startup path \\(Config, database, runtime, static data, zones, geo, world\\) completed in ([0-9]+) ms, peak working set ([0-9]+) MB")

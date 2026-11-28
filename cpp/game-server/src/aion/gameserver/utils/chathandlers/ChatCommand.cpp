@@ -26,7 +26,7 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 namespace {
 
 /**
- * Java ChatUtil.color(message, Color.WHITE): `[color:<message>;1 1 1]` (DecimalFormat ".##" formats 255 / 255f as "1"). A local helper
+ * Java ChatUtil.color(message, Color.WHITE): `[color:<message>;1 1 1]` (ChatUtil.format, upstream b7bc32976, formats 255 / 255f as "1"). A local helper
  * because the constructor runs while the command registry is built; ChatCommandTest checks it equals ChatUtil::color(message, WHITE).
  */
 std::string colorWhite(std::string_view message) {
@@ -142,9 +142,8 @@ bool ChatCommand::run(model::gameobjects::player::Player& player, std::span<cons
 		}
 	} catch (const std::exception& t) { // Java: catch (Throwable t)
 		runtime::Ptr<model::gameobjects::VisibleObject> target = player.getTarget();
-		log.error("Exception executing chat command \"" + getAliasWithPrefix() + " " + join(params, 0) + "\" - Player: " + player.getName() +
-					  ", Target: " + (target ? target->toString() : std::string("null")),
-			t);
+		log.error("Exception executing chat command \"{} {}\" - Player: {}, Target: {}", getAliasWithPrefix(), join(params, 0), player.getName(),
+			target ? target->toString() : std::string("null"), t);
 		return false;
 	}
 	return true;
@@ -206,7 +205,7 @@ std::optional<std::string> ChatCommand::toErrorMessage(const runtime::IllegalArg
 				values += (values.empty() ? "" : ", ") + value;
 			msg += "\nPossible values:\n" + values;
 		} else {
-			log.error("Could not get enum values for " + enumName);
+			log.error("Could not get enum values for {}", enumName);
 		}
 	} else if (dynamic_cast<const commons::utils::NumberFormatException*>(&e)) { // parseInt and parseLong don't provide nice error messages
 		if (msg.starts_with("For input string: "))

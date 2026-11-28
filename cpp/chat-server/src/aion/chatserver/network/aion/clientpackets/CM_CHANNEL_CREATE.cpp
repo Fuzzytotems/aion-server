@@ -7,10 +7,10 @@ void CM_CHANNEL_CREATE::readImpl() {
 	readH(); // 0
 	channelRequestId = readD();
 	readB(16); // 0
-	int32_t identifierLength = readH() * 2;
+	int32_t identifierLength = readUH() * 2;
 	channelIdentifier = readB(identifierLength); // encoded in UTF_16LE
 	readB(7); // 0
-	int32_t passwordLength = readH() * 2;
+	int32_t passwordLength = readUH() * 2;
 	password = readB(passwordLength); // encoded in UTF_16LE
 	readH(); // -1
 }

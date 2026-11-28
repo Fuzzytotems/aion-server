@@ -62,10 +62,10 @@ void ChatServer::connect(commons::network::NioServer& value) {
 		const std::string address = NetworkConfig::CHAT_ADDRESS.get()->toString();
 		if (dynamic_cast<const commons::network::SocketException*>(&e) != nullptr) {
 			delay = 10;
-			log.info("Could not connect to chat server at " + address + ", trying again in " + std::to_string(delay) + "s");
+			log.info("Could not connect to chat server at {}, trying again in {} seconds", address, delay);
 		} else {
 			delay = 60;
-			log.error("Could not connect to chat server at " + address + ", trying again in " + std::to_string(delay) + "s", e);
+			log.error("Could not connect to chat server at {}, trying again in {} seconds", address, delay, e);
 		}
 		scheduleConnect(&value, delay * 1000);
 	}
@@ -85,7 +85,7 @@ void ChatServer::reconnect() {
 		return;
 	int32_t delay = con->getState() == ChatServerConnection::State::AUTHED ? 5 : 15;
 	disconnect();
-	log.info("Reconnecting to chat server in " + std::to_string(delay) + "s...");
+	log.info("Reconnecting to chat server in {} seconds", delay);
 	scheduleConnect(nioServer.get(), delay * 1000);
 }
 

@@ -88,7 +88,7 @@ void ResurrectAI::handleDialogStart(Player& player) {
 	const BindPointTemplate* bindPointTemplate = DataManager::BIND_POINT_DATA->getBindPointTemplate(getNpcId());
 	Race race = player.getRace();
 	if (bindPointTemplate == nullptr) {
-		log.info("There is no bind point template for npc: " + std::to_string(getNpcId()));
+		log.info("There is no bind point template for npc: {}", getNpcId());
 		return;
 	}
 

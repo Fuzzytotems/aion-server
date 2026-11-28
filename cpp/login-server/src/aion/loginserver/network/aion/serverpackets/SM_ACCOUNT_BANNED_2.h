@@ -19,8 +19,12 @@ public:
 	SM_ACCOUNT_BANNED_2() noexcept : AionServerPacket(0x09) {}
 
 protected:
+	/**
+	 * The client lists an entry per block after the header (a reason bit, whose position selects a STR_L2AUTH_BLOCK_* message, and a text of its
+	 * own); none are sent.
+	 */
 	void writeImpl(LoginConnection& con, commons::utils::ByteBuffer& buf) const override {
-		// maybe some option to specify a custom message (STR_L2AUTH_BLOCK_*)? need retail sniff
+		writeC(buf, 0); // number of entries
 	}
 };
 

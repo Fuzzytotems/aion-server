@@ -301,12 +301,16 @@ NetworkConfig	bind	PACKET_PROCESSOR_MIN_THREADS	gameserver.network.packet.proces
 NetworkConfig	bind	PACKET_PROCESSOR_MAX_THREADS	gameserver.network.packet.processor.threads.max	4
 NetworkConfig	bind	PACKET_PROCESSOR_THREAD_KILL_THRESHOLD	gameserver.network.packet.processor.threshold.kill	3
 NetworkConfig	bind	PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD	gameserver.network.packet.processor.threshold.spawn	50
+NetworkConfig	bind	PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION	gameserver.network.packet.processor.max_pending_per_connection	500
+NetworkConfig	bind	MAX_PENDING_SERVER_PACKETS	gameserver.network.client.max_pending_server_packets	20000
+NetworkConfig	bind	MAX_SEND_STALL_SECONDS	gameserver.network.client.max_send_stall_seconds	60
+NetworkConfig	bind	CLIENT_AUTH_TIMEOUT_SECONDS	gameserver.network.client.auth_timeout_seconds	60
 NetworkConfig	bind	LOG_UNKNOWN_PACKETS	gameserver.network.logging.unknown_packets	false
 NetworkConfig	bind	LOG_IGNORED_PACKETS	gameserver.network.logging.ignored_packets	false
 NetworkConfig	bind	TRACE_CLIENT_PACKETS	gameserver.network.trace.client_packets	
 NetworkConfig	bind	TRACE_SERVER_PACKETS	gameserver.network.trace.server_packets	
 NetworkConfig	bind	DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS	gameserver.network.diag.instant_item_reply_hold_ms	0
-NetworkConfig	bind	ENABLE_FLOOD_CONNECTIONS	gameserver.network.flood.connections	false
+NetworkConfig	bind	ENABLE_FLOOD_CONNECTIONS	gameserver.network.flood.connections	true
 NetworkConfig	bind	Flood_Tick	gameserver.network.flood.tick	1000
 NetworkConfig	bind	Flood_SWARN	gameserver.network.flood.short.warn	10
 NetworkConfig	bind	Flood_SReject	gameserver.network.flood.short.reject	20
@@ -415,12 +419,14 @@ SecurityConfig	bind	FLOOD_DELAY	gameserver.security.flood.delay	1
 SecurityConfig	bind	FLOOD_MSG	gameserver.security.flood.msg	6
 SecurityConfig	bind	ENABLE_FLYPATH_VALIDATOR	gameserver.security.validation.flypath	false
 SecurityConfig	bind	SURVEY_DELAY	gameserver.security.survey.delay.minute	20
-SecurityConfig	bind	MULTI_CLIENTING_RESTRICTION_MODE	gameserver.security.multi_clienting.restriction_mode	NONE
-SecurityConfig	bind	MULTI_CLIENTING_IGNORED_MAC_ADDRESSES	gameserver.security.multi_clienting.ignored_mac_addresses	
-SecurityConfig	bind	MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES	gameserver.security.multi_clienting.faction_switch_cooldown_minutes	20
+SecurityConfig	bind	MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER	gameserver.security.multi_client.max_clients_per_computer	2
+SecurityConfig	bind	MULTI_CLIENT_ALLOW_BOTH_FACTIONS	gameserver.security.multi_client.allow_both_factions	true
+SecurityConfig	bind	MULTI_CLIENT_IGNORED_MAC_ADDRESSES	gameserver.security.multi_client.ignored_mac_addresses	
+SecurityConfig	bind	MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES	gameserver.security.multi_client.faction_switch_cooldown_minutes	20
 SecurityConfig	bind	HDD_SERIAL_LOCK_ENABLE	gameserver.security.hdd_serial_lock.enable	false
 SecurityConfig	bind	HDD_SERIAL_LOCK_UNLOCKED_ACCOUNTS	gameserver.security.hdd_serial_lock.auto_lock	false
 ShutdownConfig	bind	DELAY	gameserver.shutdown.delay	120
+ShutdownConfig	bind	INSTANT_SHUTDOWN_WITH_ONLY_STAFF_ONLINE	gameserver.shutdown.instant_shutdown_with_only_staff_online	true
 ShutdownConfig	bind	RESTART_SCHEDULE	gameserver.shutdown.restart_schedule	-
 SiegeConfig	bind	SIEGE_ENABLED	gameserver.siege.enable	true
 SiegeConfig	bind	BALAUR_AUTO_ASSAULT	gameserver.siege.assault.enable	false

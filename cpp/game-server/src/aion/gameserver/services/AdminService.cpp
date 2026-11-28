@@ -61,7 +61,7 @@ void AdminService::reload() {
 		}
 	}
 	commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.AdminService")
-		.info("AdminService loaded " + std::to_string(list.size()) + " operational items.");
+		.info("AdminService loaded {} operational items.", list.size());
 }
 
 bool AdminService::canOperate(model::gameobjects::player::Player& player, runtime::Ptr<model::gameobjects::player::Player> target,
@@ -81,8 +81,7 @@ bool AdminService::canOperate(model::gameobjects::player::Player& player, runtim
 		return true;
 
 	if (list.contains(itemId)) { // item goes from staff member to normal player, so log it
-		itemLog.info(player.toString() + " traded item " + std::to_string(itemId) + " via " + std::string(type) +
-			(target ? " to player " + target->toString() : ""));
+		itemLog.info("{} traded item {} via {}{}", player.toString(), itemId, type, target ? " to player " + target->toString() : "");
 		return true;
 	}
 

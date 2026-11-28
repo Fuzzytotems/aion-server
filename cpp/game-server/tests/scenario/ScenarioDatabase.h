@@ -156,6 +156,14 @@ public:
 	/** @return the first column of the first row as a number, std::nullopt for NULL or no row */
 	std::optional<int64_t> queryLong(std::string_view database, std::string_view sql) const;
 
+	/**
+	 * Waits until no character of the account is online in the database (players.online). Since upstream d22a9af5b CM_QUIT registers the leave
+	 * world task: the character leaves the world 10 s after its last move or fight, so its logout saves can come after SM_QUIT_RESPONSE.
+	 *
+	 * @throws std::runtime_error after the timeout
+	 */
+	void awaitAccountOffline(std::string_view database, std::string_view accountName, std::chrono::milliseconds timeout = std::chrono::seconds(20)) const;
+
 	/** @return every row with `columns` columns as strings (NULL: std::nullopt) */
 	std::vector<std::vector<std::optional<std::string>>> queryRows(std::string_view database, std::string_view sql, int32_t columns) const;
 

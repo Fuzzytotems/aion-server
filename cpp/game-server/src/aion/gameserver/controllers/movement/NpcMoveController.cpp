@@ -426,7 +426,7 @@ bool NpcMoveController::isNextRouteStepChosen() {
 		std::optional<std::string> spawnWalkerId = npc.getSpawn()->getWalkerId();
 		setWalkerTemplate(spawnWalkerId ? dataholders::DataManager::WALKER_DATA->getWalkerTemplate(*spawnWalkerId) : nullptr, 0);
 		if (walkerTemplate.get() == nullptr) {
-			// Java: log.warn("Bad Walker Id: " + walkerId + " - point: " + currentStep.getStepIndex()), unreachable in Java too (setWalkerTemplate
+			// Java: log.warn("Bad Walker Id: {} - point: {}", walkerId, currentStep.getStepIndex()), unreachable in Java too (setWalkerTemplate
 			// throws for a null template)
 			std::optional<std::string> walkerId = npc.getSpawn()->getWalkerId();
 			log.warn("Bad Walker Id: {} - point: {}", walkerId.value_or("null"), detail::nonNull(currentStep.get(), "currentStep")->getStepIndex());
@@ -461,8 +461,8 @@ void NpcMoveController::tryStoreStep(float x, float y, float z) {
 	SYNCHRONIZED(*this) {
 		Npc& npc = static_cast<Npc&>(owner);
 		if (!lastSteps.get())
-			lastSteps = runtime::RcLinkedList<Ref<model::geometry::Point3D>>::create(AION_LOCK_CLASS(NpcMoveController::lastSteps));
-		Ptr<runtime::RcLinkedList<Ref<model::geometry::Point3D>>> steps = lastSteps.get();
+			lastSteps = runtime::RcArrayDeque<Ref<model::geometry::Point3D>>::create(AION_LOCK_CLASS(NpcMoveController::lastSteps));
+		Ptr<runtime::RcArrayDeque<Ref<model::geometry::Point3D>>> steps = lastSteps.get();
 		Ptr<model::geometry::Point3D> lastStep = steps->isEmpty() ? nullptr : steps->getLast();
 		if (!lastStep || !PositionUtil::isInRange(lastStep->getX(), lastStep->getY(), lastStep->getZ(), x, y, z, 10)) {
 			if (npc.getAi().isLogging()) {
@@ -480,7 +480,7 @@ void NpcMoveController::returnToLastStepOrSpawn() {
 	SYNCHRONIZED(*this) {
 		Npc& npc = static_cast<Npc&>(owner);
 		model::templates::spawns::SpawnTemplate& spawn = *npc.getSpawn();
-		Ptr<runtime::RcLinkedList<Ref<model::geometry::Point3D>>> steps = lastSteps.get();
+		Ptr<runtime::RcArrayDeque<Ref<model::geometry::Point3D>>> steps = lastSteps.get();
 		Ptr<model::geometry::Point3D> step = !steps || steps->isEmpty() ? nullptr : steps->removeLast();
 		if (step && !steps->isEmpty() && PositionUtil::isInRange(npc, step->getX(), step->getY(), step->getZ(), 2))
 			step = steps->removeLast();

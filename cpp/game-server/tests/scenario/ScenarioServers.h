@@ -153,7 +153,7 @@ public:
 	void startLoginServer();
 
 	/**
-	 * Starts the game server and waits for "Game server started" and the authenticated login server link ("Gameserver #1 is now online").
+	 * Starts the game server and waits for "Game server started" and the authenticated login server link ("Game server #1 is now online").
 	 * @throws std::runtime_error if it does not, or if its log shows that it read config/mygs.properties (gameServerProfileProblem)
 	 */
 	void startGameServer();

@@ -74,7 +74,7 @@ void TownDAO::insertTown(model::town::Town& town) {
 		stmt->executeUpdate();
 		town.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const SQLException& e) {
-		log.error("Could not insert town " + std::to_string(town.getId()), e);
+		log.error("Could not insert town {}", town.getId(), e);
 	}
 }
 
@@ -89,7 +89,7 @@ void TownDAO::updateTown(model::town::Town& town) {
 		stmt->executeUpdate();
 		town.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const SQLException& e) {
-		log.error("Could not update town " + std::to_string(town.getId()), e);
+		log.error("Could not update town {}", town.getId(), e);
 	}
 }
 

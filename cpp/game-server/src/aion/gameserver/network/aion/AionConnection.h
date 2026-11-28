@@ -103,9 +103,6 @@ private:
 	runtime::Field<runtime::Ref<ConnectionAliveChecker>> connectionAliveChecker{};
 	/** packet flood filter (C++: always created; Java creates it only if PffConfig.PFF_MODE > 0 and thresholds exist, and checks for null) */
 	runtime::ConcurrentHashMap<int32_t, int64_t> pffRequests{AION_LOCK_CLASS(AionConnection::pffRequests#stripe)};
-	/** C++ only: the Java object monitor of the connection (`synchronized (this)` in safeLogout, runtime-architecture.md §3.4) */
-	// fieldmap.toml [cpp_members]: C++-only object monitor (AionConnection is not RefCounted)
-	mutable runtime::Monitor monitor_{AION_LOCK_CLASS(AionConnection::monitor)};
 
 public:
 	/**
@@ -113,9 +110,6 @@ public:
 	 */
 	AionConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server);
 	~AionConnection() override;
-
-	/** C++ only: `SYNCHRONIZED(connection)` locks this Monitor (Java: synchronized on the connection object) */
-	runtime::Monitor& monitor() const noexcept { return monitor_; }
 
 	/**
 	 * Java AConnection.sendPacket(AionServerPacket): serializes the packet for this connection on the calling thread and enqueues it. Ignored if
@@ -163,6 +157,22 @@ protected:
 	/** Java: getSendMsgQueue() (final override). The caller must hold guard. */
 	std::deque<SerializedBody>& getSendMsgQueue() noexcept { return sendMsgQueue; }
 
+	size_t getSendQueueSize() const override final { return sendMsgQueue.size(); }
+
+	void clearSendQueue() override final { sendMsgQueue.clear(); }
+
+	/** @return true once the client left the state CONNECTED */
+	bool isAuthenticated() const override;
+
+	/** @return NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS in milliseconds */
+	int64_t getAuthTimeoutMillis() const override;
+
+	/** @return NetworkConfig::MAX_PENDING_SERVER_PACKETS */
+	int32_t getMaxSendQueueSize() const override;
+
+	/** @return NetworkConfig::MAX_SEND_STALL_SECONDS in milliseconds */
+	int64_t getMaxSendStallMillis() const override;
+
 	/**
 	 * Called by the IO strand. ByteBuffer data contains one packet that should be processed.
 	 *
@@ -190,10 +200,6 @@ protected:
 	void onDisconnect() override final;
 
 	void onServerClose() override final;
-
-private:
-	/** Java: synchronized (this) { ... } */
-	void safeLogout();
 
 public:
 	/** Encrypt packet. Java final. (IO strand only) */
