@@ -1,6 +1,6 @@
 // World chunk (P4-10): AbstractPeriodicTaskManager and AbstractFIFOPeriodicTaskManager on a deterministic scheduler. Expectations are
 // hand-derived from AbstractPeriodicTaskManager.java and AbstractFIFOPeriodicTaskManager.java: the "initialized" line with the subclass's
-// simple name, the first run 500-550 ms after construction, duplicate tasks processed once per run (LinkedHashSet), a throwing task logged with
+// simple name, the first run Rnd.get(0, period) ms (at least 50) after construction, duplicate tasks processed once per run (LinkedHashSet), a throwing task logged with
 // the subclass name and String.valueOf(task), and the warning after counterLimit runs with a growing number of tasks.
 
 #include <gtest/gtest.h>
@@ -103,10 +103,10 @@ TEST_F(TaskManagerTest, FifoRunProcessesEachTaskOnceAndLogsFailuresWithTheSubcla
 	manager->add(*broken);
 	manager->add(*plain);
 	manager->add(*plain); // queued twice: the LinkedHashSet of the run keeps it once
-	executor->advance(std::chrono::milliseconds(499));
-	EXPECT_EQ(plain->calls.get(), 0) << "the first run comes 500-550 ms after construction";
-	executor->advance(std::chrono::milliseconds(51));
-	EXPECT_EQ(plain->calls.get(), 1);
+	executor->advance(std::chrono::milliseconds(49));
+	EXPECT_EQ(plain->calls.get(), 0) << "the first run comes Rnd.get(0, period) ms after construction (upstream 8912ec714), in C++ at least 50 ms";
+	executor->advance(std::chrono::milliseconds(451));
+	EXPECT_EQ(plain->calls.get(), 1) << "the first run comes within the period";
 	EXPECT_EQ(broken->calls.get(), 1) << "the exception of one task does not stop the run";
 	EXPECT_NE(logStream.str().find("error|Exception in CountingTaskManager processing task broken"), std::string::npos) << logStream.str();
 	executor->advance(std::chrono::milliseconds(500));

@@ -18,17 +18,17 @@ namespace aion::gameserver::taskmanager {
  * This can be used for periodic calls.
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5). The constructor logs and schedules `this::run` at a fixed rate (the method
- * reference at AbstractPeriodicTaskManager.java:18, pinned `{this}`); the first run comes 500-550 ms later, after the subclass is constructed.
+ * reference at AbstractPeriodicTaskManager.java:20, pinned `{this}`); the first run comes Rnd.get(0, period) ms later (upstream 8912ec714), in
+ * C++ at least MIN_FIRST_DELAY_MILLIS, after the subclass is constructed.
  * <p>
  * C++ additions: Java logs `getClass().getSimpleName()`, which a C++ base constructor cannot see (typeid(*this) is still the base), so every
  * subclass must pass its simple class name to the two-argument constructor; the one-argument constructor logs the name of this class (a porting
- * rule for the remaining subclasses: ExpireTimerTask, LegionDominionIntruderUpdateTask, TemporaryTradeTimeTask, TeamMoveUpdater,
- * TeamStatUpdater; docs/deviations/P4-10.md). The static fifo* helpers are the non-template parts of AbstractFIFOPeriodicTaskManager::run
+ * rule for the remaining subclasses: ExpireTimerTask, TemporaryTradeTimeTask, TeamMoveUpdater, TeamStatUpdater; docs/deviations/P4-10.md). The static fifo* helpers are the non-template parts of AbstractFIFOPeriodicTaskManager::run
  * (logger and statistics), defined in the .cpp.
  * <p>
  * Accepted risk (as in Java, docs/deviations/P4-10.md): the constructor hands `this` to the scheduler before the subclass constructor has run.
- * The first run comes 500-550 ms later; a subclass constructor that takes that long (a stalled startup thread, a debugger) would see run() called
- * on an object that is still being constructed.
+ * The first run comes at least MIN_FIRST_DELAY_MILLIS later; a subclass constructor that takes that long (a stalled startup thread, a debugger)
+ * would see run() called on an object that is still being constructed.
  *
  * @author lord_rex and MrPoke based on l2j-free engines
  */
@@ -45,6 +45,15 @@ protected:
 	AbstractPeriodicTaskManager(int32_t period, std::string_view simpleClassName);
 
 	virtual void run() = 0;
+
+	/** C++ only: the lower bound of Java's random first delay Rnd.get(0, period) (class comment) */
+	static constexpr int32_t MIN_FIRST_DELAY_MILLIS = 50;
+
+public:
+	/** Java: initializes all periodic task managers eagerly during startup (upstream 8912ec714) */
+	static void startAll();
+
+protected:
 
 	~AbstractPeriodicTaskManager() override;
 

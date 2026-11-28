@@ -169,7 +169,7 @@ TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) 
 		"VortexService.initVortexLocations()", "RiftService.initRiftLocations()", "LegionDominionService.initLocations()",
 		"HousingService.getInstance()", "HousingBidService.getInstance()", "AuctionEndTask.getInstance()", "AuctionAutoFillTask.getInstance()",
 		"MaintenanceTask.getInstance()", "ChallengeTaskService.getInstance()",
-		"SpawnEngine.spawnAll()", "TownService.getInstance()", "FlyRingService.getInstance()", "RiftService.initRifts()",
+		"AbstractPeriodicTaskManager.startAll()", "SpawnEngine.spawnAll()", "TownService.getInstance()", "FlyRingService.getInstance()", "RiftService.initRifts()",
 		"ratio limitation", "LimitedItemTradeService.start()", "PlayerLimitService.scheduleUpdate()",
 		"SiegeService.initSieges()", "BaseService.initBases()", "WorldRaidService.initWorldRaids()", "ConquerorAndProtectorService.init()",
 		"AnnouncementService.getInstance()", "DebugService.getInstance()", "WeatherService.getInstance()", "BrokerService.getInstance()",

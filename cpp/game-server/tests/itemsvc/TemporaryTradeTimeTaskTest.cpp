@@ -31,7 +31,7 @@ using taskmanager::tasks::TemporaryTradeTimeTask;
 
 constexpr int32_t OFFLINE_LOOTER = 700999; // a looter World.getPlayer does not find
 
-/** A fresh TemporaryTradeTimeTask: its constructor schedules run() on the installed DeterministicExecutor (500-550 ms, then every 1,000 ms) */
+/** A fresh TemporaryTradeTimeTask: its constructor schedules run() on the installed DeterministicExecutor (Rnd.get(0, 1000) ms, at least 50, then every 1,000 ms) */
 class TestTemporaryTradeTimeTask final : public TemporaryTradeTimeTask {
 	AION_MAKE_REF_FRIEND
 public:

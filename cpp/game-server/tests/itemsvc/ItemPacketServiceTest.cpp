@@ -130,7 +130,7 @@ Ref<Item> loadedItem(int32_t objId, int32_t itemId, int64_t count, int32_t expir
 		0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, 0);
 }
 
-/** A fresh ExpireTimerTask: its constructor schedules run() on the installed DeterministicExecutor (500-550 ms, then every 1,000 ms) */
+/** A fresh ExpireTimerTask: its constructor schedules run() on the installed DeterministicExecutor (Rnd.get(0, 1000) ms, at least 50, then every 1,000 ms) */
 class TestExpireTimerTask final : public taskmanager::tasks::ExpireTimerTask {
 	AION_MAKE_REF_FRIEND
 public:
@@ -473,10 +473,10 @@ TEST_F(ItemPacketServiceTest, AnExpiredItemIsDeletedByTheExpireTimerTaskWithJava
 	task->registerExpirables(player().getWarehouse().getItems(), player());
 	(*client)->clearSent();
 
-	executor->advance(499ms);
-	ASSERT_EQ(player().getInventory().size(), 2) << "the first run comes 500-550 ms after the task was made";
+	executor->advance(49ms);
+	ASSERT_EQ(player().getInventory().size(), 2) << "the first run comes Rnd.get(0, 1000) ms after the task was made, in C++ at least 50 ms (8912ec714)";
 
-	executor->advance(51ms);
+	executor->advance(951ms); // the first run comes within the period
 	// ExpireTimerTask.run -> Item.onExpire -> storage.delete(this) -> Storage.delete(item, DEFAULT, actor) -> sendItemDeletePacket, then the
 	// timeout message of that storage (Item.java onExpire)
 	EXPECT_FALSE(player().getInventory().getItemByObjId(810021)) << "the expired Boon left the cube";
