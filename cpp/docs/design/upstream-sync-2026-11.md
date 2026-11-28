@@ -142,7 +142,7 @@ schema section is needed at the cut-over of the foundation; its data section (th
 1. **Foundation** (the 25 XSD/SQL commits' loader, template and DAO parts, plus the data-only commits): the C++ servers load the new
    static data and run on the migrated schema. Gate: the real-data tests (`ConfigRootsRealDataTest` and the loaders' tests) on the new
    data, and `chunks.py check` with the new Java files claimed.
-2. **Wave 0** needs no port, only a check per commit. `20096e5d2` (5,300 lines) is verified: only `javax` → `jakarta` imports change.
+2. **Wave 0** was planned as a check per commit; seven of them needed code (see "Wave 0 progress"). `20096e5d2` (5,300 lines) is verified: only `javax` → `jakarta` imports change.
    `15eaf77b6` (Cleanup) removes the PanesterraTeam method our P5-12b correction fixed; compare before closing it.
 3. **Wave 1** (network and servers) and **wave 2** (exploit fixes): independent of the game systems, and wave 2 is the most valuable for
    a server other people connect to.
@@ -191,6 +191,29 @@ Compare each before porting: upstream may fix the same bug another way, or chang
 | `f856882b3` | 2026-11-07 | Update syntax highlighting for stack traces in Discord logs | 0 | 0 |  |  |
 | `b7bc32976` | 2026-11-07 | Replaced DecimalFormat with a thread-safe formatting method | 17 | 0 | P4-05 |  |
 | `2deb96507` | 2026-11-12 | Removed stale or redundant comments in SM_PLAYER_INFO (#244) | 35 | 0 | P4-17 |  |
+
+### Wave 0 progress (lane A, 2026-11-27, branch `sync/wave0`)
+
+Wave 0 turned out to need code in seven commits. One C++ commit per upstream commit; the deviations are in the
+chunk docs named.
+
+| Commit | C++ | Docs |
+|---|---|---|
+| `874a64f28` | nothing: IDE import layout (.editorconfig, Eclipse prefs) | |
+| `f856882b3` | `Logging::STATUS_DISCORD_PATTERN` (the hard-coded app_status_discord pattern of all three servers) wraps exceptions in ```` ```yml ```` | |
+| `7181a3864` | `ChatUtil::itemName(itemId, playerName)` prints `[item_ex:id;name]`; new `recipeName(recipeId, playerName)`. Its only Java caller, `RecipeList.decreaseProductionLimit`, is wave 5 | P4-05, P4-12 |
+| `2deb96507` | the 18 removed SM_PLAYER_INFO comments go from the C++ copy (no code change) | |
+| `20096e5d2` | nothing more: besides the poms only `javax.xml.bind` → `jakarta.xml.bind` imports and one JAXB-internal import move (XmlMerger's `ByteArrayOutputStreamEx`); the tools part was in the foundation | |
+| `222076cb5` | nothing more: the ingameshop config and templates went with the foundation | |
+| `80548e389` | `Item::currentModifiers` and its accessors removed; `ItemEquipmentListener.addWeaponStats` no longer copies the applied modifiers into the item | DEVIATIONS.md |
+| `ca2155e6d` | `Npc.queuedSkills` created by the first `queueSkill`, every queue method synchronized on the Npc; `NpcMoveController.lastSteps` and `MultiClientingService.AccountSession.identifiers` are ArrayDeques. gs.lint.concurrency: 124 → 121 errors (with `currentModifiers`) | |
+| `b7bc32976` | `ChatUtil::format(float)`: BigDecimal HALF_UP of the widened float's shortest decimal; `[color:...]`/`[pos:...]` print "0.5" (was ".5"), "0" (was "-0"), ties round up | P4-05 |
+| `15eaf77b6` | `RequireSkill` and `HotspotData.getHotspotTemplates` removed; `OnKillEvent.operate` returns before `<complite>` without `<monster>` (the `monster == null` test is live again); stale "lazy list" comments fixed. **Overlap:** `PanesterraTeam.removeTeamMember` (removed upstream) is kept with our P5-12b correction, unused, until the owner decides | P4-09, P5-12b, DEVIATIONS.md |
+| `2cd926056` | `commons::utils::JavaFile` (File.compareTo: Windows `compareToIgnoreCase` of the paths) sorts PropertiesUtils', XmlUtil's and StaticDataImports' listings; the NTFS-order emulation is gone. The real data changes order in quest_script_data, zones and global_drops/rules (the m5b3 drop oracle's rule indexes follow). The static data oracle's V2 imports follow | P4-05, DEVIATIONS.md, static-data.md |
+
+Unit suite (`-LE 'scenario|geo|m4|nightly|stress|smoke'`): the 18 failures of origin/C++ and no other (config 11,
+QuestTemplatesRealDataTest 2, gs.lint.concurrency with 121 instead of 124 errors, RealJavaTreeTest.JavaHandlerKeysAndCounts,
+aion_gs_regscan.cli.java_tree, tools.gen, tools.oracle).
 
 ## Wave 1: Network and server infrastructure (commons, login server, chat server, logging, startup, shutdown)
 
