@@ -49,6 +49,7 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <zlib.h>
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -1181,20 +1182,11 @@ HousingAnswer parseHousing(const std::string& text) {
 	return housing;
 }
 
-/** RFC 1950's Adler-32 of `data` */
-uint32_t adler32(const std::vector<uint8_t>& data) {
-	uint32_t a = 1, b = 0;
-	for (uint8_t byte : data) {
-		a = (a + byte) % 65521;
-		b = (b + a) % 65521;
-	}
-	return (b << 16) | a;
-}
-
 /**
  * A house script as the client sends it (PlayerScripts.decompressAndValidate: CompressUtil.decompress, java.util.zip.Inflater, then a UTF-16LE
- * string of exactly the announced size): the XML's UTF-16LE bytes in a zlib stream of one stored deflate block (RFC 1950/1951 - the gate
- * needs no compressor for Inflater to accept it). @return {compressed, uncompressed size}
+ * string of exactly the announced size): the XML's UTF-16LE bytes deflated by zlib (level 6, the zlib wrapper), followed by the 8 trailing
+ * bytes the client sends back from the block it received (SM_HOUSE_SCRIPTS.SCRIPT_PADDING, eight times 0xCD; Java 68eccc7b1
+ * PlayerScripts.java). @return {compressed block with the trailing bytes, uncompressed size}
  */
 std::pair<std::vector<uint8_t>, int32_t> houseScript(std::string_view xml) {
 	std::vector<uint8_t> raw;
@@ -1202,17 +1194,13 @@ std::pair<std::vector<uint8_t>, int32_t> houseScript(std::string_view xml) {
 		raw.push_back(static_cast<uint8_t>(c));
 		raw.push_back(0);
 	}
-	std::vector<uint8_t> zlib{0x78, 0x01, 0x01}; // CMF/FLG (deflate, 32K window, check bits), then BFINAL=1 BTYPE=00 (stored)
-	const uint16_t length = static_cast<uint16_t>(raw.size());
-	zlib.push_back(static_cast<uint8_t>(length));
-	zlib.push_back(static_cast<uint8_t>(length >> 8));
-	zlib.push_back(static_cast<uint8_t>(~length));
-	zlib.push_back(static_cast<uint8_t>(static_cast<uint16_t>(~length) >> 8));
-	zlib.insert(zlib.end(), raw.begin(), raw.end());
-	const uint32_t check = adler32(raw);
-	for (int shift = 24; shift >= 0; shift -= 8)
-		zlib.push_back(static_cast<uint8_t>(check >> shift));
-	return {zlib, static_cast<int32_t>(raw.size())};
+	uLongf length = compressBound(static_cast<uLong>(raw.size()));
+	std::vector<uint8_t> block(length);
+	if (compress2(block.data(), &length, raw.data(), static_cast<uLong>(raw.size()), Z_DEFAULT_COMPRESSION) != Z_OK)
+		throw std::runtime_error("compress2 failed");
+	block.resize(length);
+	block.insert(block.end(), 8, 0xCD);
+	return {block, static_cast<int32_t>(raw.size())};
 }
 
 /** PositionUtil.getHeadingTowards(x, y, x2, y2) (PositionUtil.java:104-107, 129-131, 137-139): the angle in degrees normalized to [0, 360), / 3 */
@@ -2401,10 +2389,16 @@ void runM5hGate() {
 		settle();
 		EXPECT_TRUE(studioScripts(a.since(from)).empty()) << "the broadcast goes to the players who know A, not to A (CM_HOUSE_SCRIPT.java:62)";
 		const std::string houseOfA = "(SELECT id FROM houses WHERE address = " + studioAddress + " AND player_id = " + std::to_string(ca.playerId) + ")";
-		const auto rows = database.queryRows(schema, "SELECT script_id, script FROM house_scripts WHERE house_id = " + houseOfA, 2);
+		const auto rows =
+			database.queryRows(schema, "SELECT script_id, LOWER(HEX(script)), uncompressed_size FROM house_scripts WHERE house_id = " + houseOfA, 3);
 		ASSERT_EQ(rows.size(), 1u) << "PlayerScripts.set stores at once (PlayerScripts.java:50-55); the foreign address is refused";
 		EXPECT_EQ(rows[0][0].value_or(""), "0");
-		EXPECT_EQ(rows[0][1].value_or(""), script1);
+		std::string script1Hex;
+		for (uint8_t byte : script1Bytes)
+			script1Hex += std::format("{:02x}", byte);
+		// house_scripts holds the block as A sent it, with its uncompressed size (Java 46e8d00b9; P4-12: the trailing bytes stay until wave 2)
+		EXPECT_EQ(rows[0][1].value_or(""), script1Hex);
+		EXPECT_EQ(rows[0][2].value_or(""), std::to_string(script1Size));
 		EXPECT_EQ(count("SELECT COUNT(*) FROM house_scripts WHERE script_id = 1"), 0) << "the audit guard (CM_HOUSE_SCRIPT.java)";
 
 		from = a.mark();

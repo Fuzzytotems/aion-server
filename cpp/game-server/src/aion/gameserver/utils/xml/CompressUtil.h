@@ -9,16 +9,14 @@
 namespace aion::gameserver::utils::xml {
 
 /**
- * C++: a static-only class (fieldmap K5). Java uses java.util.zip Deflater/Inflater with the zlib wrapper (RFC 1950); the game server does not
- * link zlib (commons' DeflateEncoder has the same constraint), so both directions are ports:
+ * C++: a static-only class (fieldmap K5). Java uses java.util.zip Deflater/Inflater with the zlib wrapper (RFC 1950); the C++ calls zlib (the
+ * vcpkg port, linked by aion_gs_base) the same way:
  * <ul>
- * <li>compress is zlib's deflate at Java's Deflater() defaults (level 6, 32K window, memLevel 8): the output bytes equal Java's, so a script
- * the client compressed to at most SM_HOUSE_SCRIPTS.MAX_COMPRESSED_SCRIPT_SIZE keeps the size Java gives it when HouseScriptsDAO
- * re-compresses it on load.</li>
- * <li>decompress is a complete RFC 1950/1951 inflater (stored, fixed and dynamic blocks, header and Adler-32 checks) with the checks and
- * messages of zlib's inflate. Invalid data throws IllegalArgumentException with zlib's message (Java: DataFormatException); a stream that ends
- * early or needs a preset dictionary throws the Java RuntimeException "Bad zip data, size: N" as an IllegalStateException. Bytes after the end
- * of the stream are ignored, as Inflater.finished() ends Java's loop.</li>
+ * <li>compress is Deflater() (level 6, windowBits 15, memLevel 8, default strategy) fed the whole input and finished: Java bundles zlib, so the
+ * output bytes are Java's.</li>
+ * <li>decompress is Inflater() driven by Java's loop (1024-byte buffer, Z_PARTIAL_FLUSH). Invalid data throws IllegalArgumentException with
+ * zlib's message (Java: DataFormatException); a stream that ends early or needs a preset dictionary throws the Java RuntimeException "Bad zip
+ * data, size: N" as an IllegalStateException. Bytes after the end of the stream are ignored, as Inflater.finished() ends Java's loop.</li>
  * </ul>
  *
  * @author Rolandas
