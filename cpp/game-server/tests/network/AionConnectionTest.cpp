@@ -224,10 +224,11 @@ TEST_F(AionConnectionTest, ClosePacketIsSentBeforeTheConnectionCloses) {
 		<< logs.dump();
 }
 
-TEST_F(AionConnectionTest, FloodingClientsAreDisconnectedInPffMode1) {
+// upstream 81e409c5e: mode 2 disconnects (the modes 1 and 2 were swapped)
+TEST_F(AionConnectionTest, FloodingClientsAreDisconnectedInPffMode2) {
 	using configs::network::PffConfig;
 	LogCapture logs({CONNECTION_LOGGER});
-	PffConfig::PFF_MODE = 1;
+	PffConfig::PFF_MODE = 2;
 	PffConfig::THRESHOLD_MILLIS_BY_PACKET_OPCODE.set(std::unordered_map<int32_t, int32_t>{{CM_TIME_CHECK, 60000}});
 	struct Restore {
 		~Restore() {

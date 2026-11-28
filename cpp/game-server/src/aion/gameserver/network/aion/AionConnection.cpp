@@ -238,7 +238,7 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 					int64_t diff = now - *last;
 					if (diff < msBetweenPackets) {
 						log.warn(toString() + " is flooding " + pck->getPacketName() + " (last diff: " + std::to_string(diff) + "ms)");
-						if (PffConfig::PFF_MODE.load() == 1) // disconnect
+						if (PffConfig::PFF_MODE.load() == 2) // disconnect
 							return false;
 					}
 				}

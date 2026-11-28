@@ -157,6 +157,11 @@ TEST(BaseClientPacketTest, ReadReturnsFalseAndWarnsIfPacketIsTooShort) {
 	EXPECT_TRUE(logs.contains("warning|com.aionemu.commons.network.packet.BaseClientPacket|[" + std::to_string(opcode) +
 														"] CM_FAKE from FakeConnection 1.2.3.4 is shorter than expected:\n0000: AB CD EF"));
 	EXPECT_FALSE(logs.contains("Reading failed"));
+
+	// upstream 81e409c5e: logged once per opcode
+	CM_FAKE again(bufferOf({0xAB}), opcode, [](CM_FAKE& p) { p.readD(); });
+	EXPECT_FALSE(again.read());
+	EXPECT_EQ(logs.count("is shorter than expected"), 1);
 }
 
 TEST(BaseClientPacketTest, ReadReturnsTrueAndWarnsOncePerOpcodeIfNotFullyRead) {
