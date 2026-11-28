@@ -1,5 +1,6 @@
 #include "aion/gameserver/utils/audit/AuditLogger.h"
 
+#include <format>
 #include <string>
 
 #include "aion/commons/logging/Logger.h"
@@ -24,7 +25,31 @@ const commons::logging::Logger& auditLog() {
 }
 } // namespace
 
-void AuditLogger::log(model::gameobjects::player::Player& player, std::string_view message) {
+/**
+ * Replaces control characters so a client cannot forge log lines
+ * <p>
+ * C++: the UTF-8 bytes below 128 are exactly the ASCII characters (bytes of multibyte sequences are 128 or more), so a byte loop finds the
+ * same characters as Java's loop over the UTF-16 chars.
+ */
+std::string AuditLogger::sanitize(std::string_view message) {
+	std::string sb;
+	sb.reserve(message.size());
+	for (const char ch : message) {
+		const unsigned char c = static_cast<unsigned char>(ch);
+		if (c == '\n')
+			sb += "\\n";
+		else if (c == '\r')
+			sb += "\\r";
+		else if (ChatUtil::isInvalidCharacter(c))
+			sb += std::format("\\u{:04x}", static_cast<int32_t>(c));
+		else
+			sb += ch;
+	}
+	return sb;
+}
+
+void AuditLogger::log(model::gameobjects::player::Player& player, std::string_view messageValue) {
+	const std::string message = sanitize(messageValue);
 	if (configs::main::PunishmentConfig::PUNISHMENT_ENABLE.load())
 		AutoBan::punishment(player);
 	if (configs::main::LoggingConfig::LOG_AUDIT.load())
@@ -35,11 +60,12 @@ void AuditLogger::log(model::gameobjects::player::Player& player, std::string_vi
 	}
 }
 
-void AuditLogger::log(runtime::Ptr<model::gameobjects::player::Player> player, std::string_view message) {
+void AuditLogger::log(runtime::Ptr<model::gameobjects::player::Player> player, std::string_view messageValue) {
 	if (player) {
-		log(*player, message);
+		log(*player, messageValue);
 		return;
 	}
+	const std::string message = sanitize(messageValue);
 	// the Java body with player == null
 	if (configs::main::PunishmentConfig::PUNISHMENT_ENABLE.load())
 		throw runtime::NullPointerException("AutoBan.punishment: player is null"); // player.getClientConnection()
