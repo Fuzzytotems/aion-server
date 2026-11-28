@@ -163,6 +163,11 @@ public:
 	 */
 	static std::vector<std::string> split(std::string_view chatMessage);
 
+	/**
+	 * @return True for control characters (e.g. \n or DEL), which the client cannot send via chat or other input fields.
+	 */
+	static bool isInvalidCharacter(int32_t codePoint);
+
 private:
 	/** Java's indexes are UTF-16 code unit indexes into chatMessage */
 	static int32_t findSplitIndex(std::u16string_view chatMessage, int32_t startIndex, int32_t endIndex);

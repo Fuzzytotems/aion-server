@@ -18,6 +18,7 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
+#include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/audit/AuditLogger.h"
 
 namespace aion::gameserver::utils::audit {
@@ -96,6 +97,33 @@ TEST_F(AuditLoggerTest, NullPlayerWithoutAuditLogWritesNothing) {
 		// GMService without skill data, see above
 	}
 	EXPECT_EQ(capture.text(), "");
+}
+
+// upstream 9d8eeb2f2: control characters of the message are escaped, so a client cannot forge log lines
+TEST_F(AuditLoggerTest, ControlCharactersAreEscaped) {
+	PunishmentConfig::PUNISHMENT_ENABLE.store(false);
+	LoggingConfig::LOG_AUDIT.store(true);
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	AuditLogCapture capture;
+	try {
+		AuditLogger::log(runtime::Ptr<Player>(), std::string("a\nb\rc\td") + '\x1b' + "e\x7f\u00e4");
+	} catch (const runtime::NullPointerException&) {
+		// GMService without skill data, see above
+	}
+	std::string text = capture.text();
+	while (!text.empty() && (text.back() == '\n' || text.back() == '\r'))
+		text.pop_back();
+	EXPECT_EQ(text, "info|null a\\nb\\rc\td\\u001be\\u007f\u00e4");
+}
+
+TEST(ChatUtilInvalidCharacterTest, ControlCharactersExceptTab) {
+	EXPECT_TRUE(ChatUtil::isInvalidCharacter('\n'));
+	EXPECT_TRUE(ChatUtil::isInvalidCharacter(0));
+	EXPECT_TRUE(ChatUtil::isInvalidCharacter(31));
+	EXPECT_TRUE(ChatUtil::isInvalidCharacter(127));
+	EXPECT_FALSE(ChatUtil::isInvalidCharacter('\t'));
+	EXPECT_FALSE(ChatUtil::isInvalidCharacter(' '));
+	EXPECT_FALSE(ChatUtil::isInvalidCharacter(0xe4));
 }
 
 } // namespace

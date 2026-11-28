@@ -463,4 +463,8 @@ int32_t ChatUtil::findSplitIndex(std::u16string_view chatMessage, int32_t startI
 	return endIndex;
 }
 
+bool ChatUtil::isInvalidCharacter(int32_t codePoint) {
+	return codePoint < 32 && codePoint != '\t' || codePoint == 127;
+}
+
 } // namespace aion::gameserver::utils
