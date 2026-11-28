@@ -60,7 +60,6 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory MoveToMe_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory MoveToObject_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Movie_commandFactory; }
-namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory NpcSkill_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Online_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory PasskeyReset_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Pet_commandFactory; }
@@ -216,7 +215,6 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.MoveToMe", &::aion::gameserver::handlers::admincommands::MoveToMe_commandFactory},
 	{"admincommands.MoveToObject", &::aion::gameserver::handlers::admincommands::MoveToObject_commandFactory},
 	{"admincommands.Movie", &::aion::gameserver::handlers::admincommands::Movie_commandFactory},
-	{"admincommands.NpcSkill", &::aion::gameserver::handlers::admincommands::NpcSkill_commandFactory},
 	{"admincommands.Online", &::aion::gameserver::handlers::admincommands::Online_commandFactory},
 	{"admincommands.PasskeyReset", &::aion::gameserver::handlers::admincommands::PasskeyReset_commandFactory},
 	{"admincommands.Pet", &::aion::gameserver::handlers::admincommands::Pet_commandFactory},
