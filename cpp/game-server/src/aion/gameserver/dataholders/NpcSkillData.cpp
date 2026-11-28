@@ -19,7 +19,7 @@ void NpcSkillData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParen
 			order.putIfAbsent(npcId, &npcSkillList, detail::javaHashCode(npcId));
 			if (!npcSkillData.try_emplace(npcId, &npcSkillList).second)
 				commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.NpcSkillData")
-				  .warn("Npc " + std::to_string(npcId) + " has multiple skill lists in npc_skills.xml");
+				  .warn("Npc {} has multiple skill lists in npc_skills.xml", npcId);
 		}
 	}
 	skillListsInHashOrder = order.values();

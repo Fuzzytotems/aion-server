@@ -38,8 +38,8 @@ bool ConsoleCommand::process(model::gameobjects::player::Player& player, std::sp
 
 	if (configs::main::LoggingConfig::LOG_GMAUDIT.load()) {
 		runtime::Ptr<model::gameobjects::VisibleObject> target = player.getTarget();
-		log.info("[Console Command] > [Player: " + player.getName() + "]" + (target ? "[Target: " + target->getName() + "]" : std::string()) +
-				 ": " + getAliasWithPrefix() + " " + join(params, 0));
+		log.info("[Console Command] > [Player: {}]{}: {} {}", player.getName(), target ? "[Target: " + target->getName() + "]" : std::string(),
+			getAliasWithPrefix(), join(params, 0));
 	}
 
 	if (!run(player, params))

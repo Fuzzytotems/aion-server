@@ -51,7 +51,7 @@ static std::span<const int32_t> getAbyssSkills(model::Race race, AbyssRankEnum r
 		}
 	}
 	commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.abyss.AbyssSkills")
-		.warn("No abyss skills for: " + std::string(xml::enumName(race)) + " " + std::string(xml::enumName(rank)));
+		.warn("No abyss skills for: {} {}", std::string(xml::enumName(race)), std::string(xml::enumName(rank)));
 	return {};
 }
 

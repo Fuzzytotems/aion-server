@@ -62,7 +62,7 @@ bool PlayerDAO::isNameUsed(std::string_view name) {
 		rs->next();
 		return rs->getInt("cnt") > 0;
 	} catch (const SQLException& e) {
-		log.error("Can't check if name " + std::string(name) + " is used, returning positive result", e);
+		log.error("Can't check if name {} is used, returning positive result", name, e);
 		return true;
 	}
 }
@@ -104,7 +104,7 @@ void PlayerDAO::storePlayer(model::gameobjects::player::Player& player) {
 		stmt->setInt(27, player.getObjectId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error saving " + player.toString(), e);
+		log.error("Error saving {}", player.toString(), e);
 	}
 }
 
@@ -133,7 +133,7 @@ bool PlayerDAO::saveNewPlayer(model::gameobjects::player::Player& player, int32_
 		stmt->setInt(17, player.getWhBonusExpands());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error saving new " + player.toString(), e);
+		log.error("Error saving new {}", player.toString(), e);
 		return false;
 	}
 	return true;
@@ -150,7 +150,7 @@ runtime::Ref<model::gameobjects::player::PlayerCommonData> PlayerDAO::loadPlayer
 		if (rset->next())
 			playerObjId = rset->getInt("id");
 	} catch (const std::exception& e) {
-		log.error("Could not restore playerId data for player name: " + std::string(name) + " from DB: " + e.what(), e);
+		log.error("Could not restore playerId data for player name: {} from DB: {}", name, e.what(), e);
 	}
 
 	if (playerObjId == 0) {
@@ -199,7 +199,7 @@ runtime::Ref<model::gameobjects::player::PlayerCommonData> PlayerDAO::loadPlayer
 			return cd;
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not load PlayerCommonData data for player: " + std::to_string(playerObjId), e);
+		log.error("Could not load PlayerCommonData data for player: {}", playerObjId, e);
 	}
 	return nullptr;
 }
@@ -301,7 +301,7 @@ bool PlayerDAO::isOnline(int32_t playerId) {
 		if (rs->next())
 			return rs->getBoolean("online");
 	} catch (const SQLException& e) {
-		log.error("Can't get online state of player " + std::to_string(playerId), e);
+		log.error("Can't get online state of player {}", playerId, e);
 	}
 	return false;
 }
@@ -379,7 +379,7 @@ void PlayerDAO::storePlayerName(model::gameobjects::player::PlayerCommonData& re
 		stmt->setInt(2, recipientCommonData.getPlayerObjId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error saving playerName: " + std::to_string(recipientCommonData.getPlayerObjId()) + " " + recipientCommonData.getName(), e);
+		log.error("Error saving playerName: {} {}", recipientCommonData.getPlayerObjId(), recipientCommonData.getName(), e);
 	}
 }
 
@@ -453,7 +453,7 @@ int32_t PlayerDAO::getOldCharacterLevel(int32_t playerObjectId) {
 		if (rs->next())
 			oldLevel = rs->getInt("old_level");
 	} catch (const std::exception& e) {
-		log.error("Error reading old_level for player: " + std::to_string(playerObjectId), e);
+		log.error("Error reading old_level for player: {}", playerObjectId, e);
 	}
 	return oldLevel;
 }
@@ -466,7 +466,7 @@ void PlayerDAO::storeOldCharacterLevel(int32_t playerObjectId, int32_t level) {
 		stmt->setInt(2, playerObjectId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error storing old_level: " + std::to_string(level) + " for player: " + std::to_string(playerObjectId), e);
+		log.error("Error storing old_level: {} for player: {}", level, playerObjectId, e);
 	}
 }
 

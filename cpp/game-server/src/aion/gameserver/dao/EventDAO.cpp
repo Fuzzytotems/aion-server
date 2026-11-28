@@ -76,7 +76,7 @@ std::optional<std::vector<EventDAO::StoredBuffData>> EventDAO::loadStoredBuffDat
 			return storedBuffData;
 		}
 	} catch (const SQLException& e) {
-		log.error("Couldn't load stored event buff info for event: " + std::string(eventName), e);
+		log.error("Couldn't load stored event buff info for event: {}", eventName, e);
 	}
 	return std::nullopt;
 }
@@ -98,7 +98,7 @@ bool EventDAO::storeBuffData(std::string_view eventName, const std::vector<Event
 		stmt->executeBatch();
 		return true;
 	} catch (const std::exception& e) {
-		log.error("Couldn't store event buff info for event: " + std::string(eventName), e);
+		log.error("Couldn't store event buff info for event: {}", eventName, e);
 		return false;
 	}
 }

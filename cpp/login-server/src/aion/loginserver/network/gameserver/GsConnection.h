@@ -68,7 +68,7 @@ public:
 
 	PingPongTask& getPingPongTask() noexcept { return pingPongTask; }
 
-	/** @return String info about this connection: "Gameserver #&lt;id&gt; &lt;ip&gt;" or "Gameserver &lt;ip&gt;" */
+	/** @return String info about this connection: "Game server #&lt;id&gt; &lt;ip&gt;" or "Game server &lt;ip&gt;" */
 	std::string toString() const override;
 
 protected:

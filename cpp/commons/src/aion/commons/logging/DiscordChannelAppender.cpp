@@ -426,7 +426,7 @@ void DiscordChannelAppender::Shared::sendMessage(const Message& message) {
 		if (aborting) // Java: InterruptedException is ignored
 			return;
 		if (message.content.find(ERROR_HEADER) == std::string::npos) // avoid potential recursive message sending (if appender sends warnings)
-			log.warn(std::string(ERROR_HEADER) + message.content + "\nCaused by: " + e.what());
+			log.warn("{}{}\nCaused by: {}", ERROR_HEADER, message.content, e.what());
 	}
 }
 

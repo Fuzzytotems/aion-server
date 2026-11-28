@@ -23,7 +23,7 @@ void CM_GS_AUTH::runImpl() {
 	switch (resp) {
 		case GsAuthResponse::AUTHED:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.loginserver.network.gameserver.clientpackets.CM_GS_AUTH")
-				.info("Gameserver #" + std::to_string(gameServerId) + " is now online");
+				.info("Game server #{} is now online", gameServerId);
 			connection->setState(GsConnection::State::AUTHED);
 			connection->sendPacket(serverpackets::SM_GS_AUTH_RESPONSE(resp));
 			break;

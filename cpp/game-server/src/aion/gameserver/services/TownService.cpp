@@ -78,8 +78,8 @@ TownService::TownService() {
 			}
 		}
 	}
-	log.info("Loaded " + std::to_string(elyosTowns.size()) + " elyos towns.");
-	log.info("Loaded " + std::to_string(asmosTowns.size()) + " asmodian towns.");
+	log.info("Loaded {} Elyos towns", elyosTowns.size());
+	log.info("Loaded {} Asmodian towns", asmosTowns.size());
 }
 
 runtime::Ptr<model::town::Town> TownService::getTownById(int32_t townId) {

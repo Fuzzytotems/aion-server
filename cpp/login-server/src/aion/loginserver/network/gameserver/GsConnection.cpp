@@ -42,7 +42,7 @@ void GsConnection::writePacket(const GsServerPacket& packet, commons::utils::Byt
 
 void GsConnection::onDisconnect() {
 	pingPongTask.stop();
-	log().info(toString() + " disconnected");
+	log().info("{} disconnected", toString());
 	std::shared_ptr<GameServerInfo> gsi;
 	{
 		std::lock_guard lock(fieldMutex);
@@ -70,7 +70,7 @@ void GsConnection::setGameServerInfo(std::shared_ptr<GameServerInfo> newGameServ
 }
 
 std::string GsConnection::toString() const {
-	std::string sb = "Gameserver";
+	std::string sb = "Game server";
 	if (std::shared_ptr<GameServerInfo> gsi = getGameServerInfo())
 		sb.append(" #").append(std::to_string(gsi->getId()));
 	sb.append(" ").append(getIP());
@@ -78,7 +78,7 @@ std::string GsConnection::toString() const {
 }
 
 void GsConnection::onConnect() {
-	log().info("Gameserver connection attempt from: " + getIP());
+	log().info("Game server connected: {}", getIP());
 }
 
 const char* toString(GsConnection::State state) noexcept {

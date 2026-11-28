@@ -33,6 +33,7 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/services/AccountService.h"
 #include "aion/gameserver/services/player/PlayerEnterWorldService.h"
+#include "aion/gameserver/services/player/PlayerLeaveWorldService.h"
 #include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/world/World.h"
@@ -370,7 +371,7 @@ TEST_F(LoginSliceFlowTest, EnterWorldOfAnUnknownCharacterFails) {
 	session.client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(77).data);
 	FakeGameClient::ServerPacket response = session.client.expectPacket(aion::opcodeOf<sp::SM_ENTER_WORLD_CHECK>);
 	EXPECT_EQ(response.data, (std::vector<uint8_t>{2, 0, 0})) << "CONNECTION_ERROR";
-	EXPECT_TRUE(capture.waitFor("Player enterWorld fail: character obj ID 77 was not found on account ID 13.")) << capture.dump();
+	EXPECT_TRUE(capture.waitFor("Player enterWorld fail: character ID 77 was not found on account ID 13")) << capture.dump();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------- database flows
@@ -400,14 +401,32 @@ protected:
 	}
 };
 
+// upstream d22a9af5b: a character whose leave world task is pending (PlayerLeaveWorldService.isLeavingWorld, no longer players.online)
 TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectsACharacterThatIsStillSaving) {
+	loginslice::test::SlicePlayerFactoryScope factory;
 	storeCharacter(4001, "Saving", 41);
 	SliceSession session;
 	session.authenticate(loadAccount(41));
-	loginslice::test::execute("UPDATE players SET online = 1 WHERE id = 4001");
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		Ref<model::gameobjects::player::Player> leaving;
+		try {
+			leaving = services::player::PlayerService::getPlayer(4001, session.accountRef);
+		} catch (const runtime::UnportedException& unported) {
+			GTEST_SKIP() << "another chunk is not ported yet: " << unported.what();
+		}
+		// its move controller was just created: the task waits 10 s
+		services::player::PlayerLeaveWorldService::registerLeaveWorld(*leaving);
+		ASSERT_TRUE(services::player::PlayerLeaveWorldService::isLeavingWorld(4001));
+	}
 	session.client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(4001).data);
 	FakeGameClient::ServerPacket response = session.client.expectPacket(aion::opcodeOf<sp::SM_ENTER_WORLD_CHECK>);
 	EXPECT_EQ(response.data, (std::vector<uint8_t>{6, 0, 0})) << "REENTRY_TIME";
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		services::player::PlayerLeaveWorldService::processPendingLeaveWorldTasks(); // the player never entered the world: nothing to save
+		EXPECT_FALSE(services::player::PlayerLeaveWorldService::isLeavingWorld(4001));
+	}
 }
 
 TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectsAnEarlyReentry) {
@@ -540,7 +559,7 @@ TEST_F(LoginSliceDatabaseFlowTest, EnterWorldOfACharacterThatIsAlreadyInTheWorld
 	session.client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(4071).data);
 	FakeGameClient::ServerPacket rejected = session.client.expectPacket(aion::opcodeOf<sp::SM_ENTER_WORLD_CHECK>);
 	EXPECT_EQ(rejected.data, (std::vector<uint8_t>{2, 0, 0})) << "CONNECTION_ERROR";
-	EXPECT_TRUE(capture.waitFor("Duplicate character obj ID 4071 found in world.")) << capture.dump();
+	EXPECT_TRUE(capture.waitFor("Player enterWorld fail: duplicate character ID 4071 found in world")) << capture.dump();
 	EXPECT_EQ(loginslice::test::createdSlicePlayers.load(), createdBefore) << "the check runs before getPlayer, so no second player is created";
 }
 

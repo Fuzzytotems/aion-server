@@ -55,7 +55,7 @@ runtime::Ref<model::skill::PlayerSkillList> PlayerSkillListDAO::loadSkillList(in
 			skills.push_back(PlayerSkillEntry::create(id, lv, 0, Persistable::PersistentState::UPDATED));
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore SkillList data for player: " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not restore SkillList data for player: {} from DB: {}", playerId, e.what(), e);
 	}
 	return model::skill::PlayerSkillList::create(std::vector<runtime::Ptr<PlayerSkillEntry>>(skills.begin(), skills.end()));
 }
@@ -74,7 +74,7 @@ void PlayerSkillListDAO::store(model::gameobjects::player::Player& player, const
 		addSkills(*con, player, skills);
 		updateSkills(*con, player, skills);
 	} catch (const SQLException&) {
-		log.error("Failed to open connection to database while saving SkillList for player " + std::to_string(player.getObjectId()));
+		log.error("Failed to open connection to database while saving SkillList for player {}", player.getObjectId());
 	}
 
 	for (const runtime::Ptr<PlayerSkillEntry>& skill : skills) {
@@ -99,7 +99,7 @@ void PlayerSkillListDAO::addSkills(commons::database::Connection& con, model::ga
 		ps->executeBatch();
 		con.commit();
 	} catch (const SQLException& e) {
-		log.error("Can't add skills for player: " + std::to_string(player.getObjectId()), e);
+		log.error("Can't add skills for player: {}", player.getObjectId(), e);
 	}
 }
 
@@ -120,7 +120,7 @@ void PlayerSkillListDAO::updateSkills(commons::database::Connection& con, model:
 		ps->executeBatch();
 		con.commit();
 	} catch (const SQLException&) {
-		log.error("Can't update skills for player: " + std::to_string(player.getObjectId()));
+		log.error("Can't update skills for player: {}", player.getObjectId());
 	}
 }
 
@@ -140,7 +140,7 @@ void PlayerSkillListDAO::deleteSkills(commons::database::Connection& con, model:
 		ps->executeBatch();
 		con.commit();
 	} catch (const SQLException&) {
-		log.error("Can't delete skills for player: " + std::to_string(player.getObjectId()));
+		log.error("Can't delete skills for player: {}", player.getObjectId());
 	}
 }
 

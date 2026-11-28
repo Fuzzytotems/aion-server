@@ -54,7 +54,7 @@ const PurificationResult* resultOf(int32_t baseItemId, int32_t resultItemId) {
 // Java ItemPurificationService.java:29-71
 bool ItemPurificationService::isPurificationAllowed(model::gameobjects::player::Player& player, model::gameobjects::Item& baseItem, int32_t resultItemId) {
 	if (dataholders::DataManager::ITEM_PURIFICATION_DATA->getItemPurificationTemplate(baseItem.getItemId()) == nullptr) {
-		log.warn("Item purification template is not available for [resultItemId=" + std::to_string(resultItemId) + "]");
+		log.warn("Item purification template is not available for [resultItemId={}]", resultItemId);
 		return false;
 	}
 

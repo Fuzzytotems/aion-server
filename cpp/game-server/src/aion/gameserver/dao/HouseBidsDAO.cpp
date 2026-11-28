@@ -87,7 +87,7 @@ bool HouseBidsDAO::deleteOrDisableBids(int32_t playerObjectId, const std::vector
 		stmt->setInt(1, playerObjectId);
 		stmt->executeUpdate();
 	} catch (const std::exception& e) {
-		log.error("Cannot delete or disable house bids for player " + std::to_string(playerObjectId), e);
+		log.error("Cannot delete or disable house bids for player {}", playerObjectId, e);
 		return false;
 	}
 	return true;

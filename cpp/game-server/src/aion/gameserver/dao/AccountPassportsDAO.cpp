@@ -70,7 +70,7 @@ void AccountPassportsDAO::loadPassport(model::account::Account& account) {
 			account.setLastStamp(lastStamp);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore completed passport data for account: {} from DB.", account.getId(), e);
+		log.error("Could not restore completed passport data for account: {} from DB", account.getId(), e);
 	}
 }
 
@@ -108,7 +108,7 @@ void AccountPassportsDAO::addPassports(int32_t accountId, model::account::Passpo
 		ps->setTimestamp(4, passport.getArriveDate());
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Error while adding passports for account {}.", accountId, e);
+		log.error("Error while adding passports for account {}", accountId, e);
 	}
 }
 
@@ -122,7 +122,7 @@ void AccountPassportsDAO::updatePassport(int32_t accountId, model::account::Pass
 		ps->setTimestamp(4, passport.getArriveDate());
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Failed to update existing passports for account {}.", accountId, e);
+		log.error("Failed to update existing passports for account {}", accountId, e);
 	}
 }
 
@@ -135,7 +135,7 @@ void AccountPassportsDAO::deletePassport(int32_t accountId, model::account::Pass
 		ps->setTimestamp(3, passport.getArriveDate());
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Failed to delete passports for account {}.", accountId, e);
+		log.error("Failed to delete passports for account {}", accountId, e);
 	}
 }
 
@@ -148,7 +148,7 @@ void AccountPassportsDAO::insertStamps(int32_t accountId) {
 		ps->setTimestamp(3, std::optional<commons::database::Timestamp>());
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Error while adding stamps for account {}.", accountId, e);
+		log.error("Error while adding stamps for account {}", accountId, e);
 	}
 }
 
@@ -161,7 +161,7 @@ void AccountPassportsDAO::updateStamps(model::account::Account& account) {
 		ps->setInt(3, account.getId());
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Failed to update existing passports for account {}.", account.getId(), e);
+		log.error("Failed to update existing passports for account {}", account.getId(), e);
 	}
 }
 
@@ -171,7 +171,7 @@ void AccountPassportsDAO::resetAllLastStamps() {
 		auto ps = con->prepareStatement(RESET_LAST_STAMPS_QUERY);
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Failed to reset all last stamps.", e);
+		log.error("Failed to reset all last stamps", e);
 	}
 }
 
@@ -181,7 +181,7 @@ void AccountPassportsDAO::resetAllStamps() {
 		auto ps = con->prepareStatement(RESET_STAMPS_QUERY);
 		ps->executeUpdate();
 	} catch (const SQLException& e) {
-		log.error("Failed to reset all stamps.", e);
+		log.error("Failed to reset all stamps", e);
 	}
 }
 

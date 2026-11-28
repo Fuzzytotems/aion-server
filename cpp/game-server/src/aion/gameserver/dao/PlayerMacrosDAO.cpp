@@ -62,7 +62,7 @@ runtime::Ref<model::gameobjects::player::Macros> PlayerMacrosDAO::loadMacros(int
 			macros->add(rset->getInt("order"), rset->getString("macro"));
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not load macros for player " + std::to_string(playerId), e);
+		log.error("Could not load macros for player {}", playerId, e);
 	}
 	return macros;
 }

@@ -88,7 +88,7 @@ void ZoneService::init() {
 	// public non-abstract ZoneHandler class; C++: the AION_ZONE_HANDLER markers of the compiled handlers (HandlerRegistry.h)
 	for (const gameserver::handlers::ZoneHandlerEntry& entry : gameserver::handlers::zoneHandlerEntries())
 		addZoneHandlerClass(entry);
-	log.info("Loaded " + std::to_string(zoneHandlers.size()) + " zone handlers.");
+	log.info("Loaded {} zone handlers", zoneHandlers.size());
 }
 
 runtime::Ref<handler::ZoneHandler> ZoneService::getNewZoneHandler(const ZoneName* zoneName) {
@@ -100,7 +100,7 @@ runtime::Ref<handler::ZoneHandler> ZoneService::getNewZoneHandler(const ZoneName
 		try {
 			zoneHandler = zoneClass->create(zoneClass->questId);
 		} catch (const std::exception& ex) {
-			log.warn("Can't instantiate zone handler " + zoneName->name(), ex);
+			log.warn("Can't instantiate zone handler {}", zoneName->name(), ex);
 		}
 	}
 

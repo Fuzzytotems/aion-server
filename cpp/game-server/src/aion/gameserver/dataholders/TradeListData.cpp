@@ -75,7 +75,7 @@ void TradeListData::validateBuyLists(const std::vector<const NpcTemplate*>& npcT
 	}
 	std::sort(missingNpcIds.begin(), missingNpcIds.end());
 	if (!missingNpcIds.empty())
-		log.warn("Missing trade lists for these npcs: " + listToString(missingNpcIds));
+		log.warn("Missing trade lists for these npcs: {}", listToString(missingNpcIds));
 	missingNpcIds.clear();
 	for (const NpcTemplate* npc : npcTemplates) {
 		if (npc->supportsAction(model::DialogAction::TRADE_IN) && getTradeInListTemplate(npc->getTemplateId()) == nullptr)
@@ -83,7 +83,7 @@ void TradeListData::validateBuyLists(const std::vector<const NpcTemplate*>& npcT
 	}
 	std::sort(missingNpcIds.begin(), missingNpcIds.end());
 	if (!missingNpcIds.empty())
-		log.warn("Missing trade-in lists for these npcs: " + listToString(missingNpcIds));
+		log.warn("Missing trade-in lists for these npcs: {}", listToString(missingNpcIds));
 }
 
 } // namespace aion::gameserver::dataholders

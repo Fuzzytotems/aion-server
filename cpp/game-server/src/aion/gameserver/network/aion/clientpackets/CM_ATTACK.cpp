@@ -45,7 +45,7 @@ void CM_ATTACK::runImpl() {
 	if (runtime::Ptr<Creature> creature = runtime::as<Creature>(obj)) {
 		player->getController().attackTarget(creature, time, false);
 	} else if (obj) {
-		log.warn(player->toString() + " attacking unsupported target " + obj->toString());
+		log.warn("{} attacking unsupported target {}", player->toString(), obj->toString());
 	}
 }
 

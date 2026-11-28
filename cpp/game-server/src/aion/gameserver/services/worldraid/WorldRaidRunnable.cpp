@@ -25,15 +25,15 @@ void WorldRaidRunnable::operator()() const {
 	if (!worldRaidSchedule->getLocations())
 		throw runtime::NullPointerException("world raid schedule " + worldRaidSchedule->getId() + " without locations"); // Java: null.stream()
 	const std::vector<int32_t>& locations = *worldRaidSchedule->getLocations();
-	log.debug("Attempting to start world raid with ID: " + worldRaidSchedule->getId() + " and location pool: " + listToString(locations));
+	log.debug("Attempting to start world raid with ID: {} and location pool: {}", worldRaidSchedule->getId(), listToString(locations));
 	std::vector<int32_t> validRaidLocations;
 	for (int32_t locationId : locations)
 		if (WorldRaidService::getInstance().isValidWorldRaidLocation(locationId) && !WorldRaidService::getInstance().isWorldRaidInProgress(locationId))
 			validRaidLocations.push_back(locationId);
 
 	if (validRaidLocations.size() != locations.size()) {
-		log.warn("Invalid world raid location count for raid with ID: " + worldRaidSchedule->getId()
-			+ ". Some locations may be invalid due to a misconfiguration or due to currently running raids!");
+		log.warn("Invalid world raid location count for raid with ID: {}. Some locations may be invalid due to a misconfiguration or due to currently running raids!",
+			worldRaidSchedule->getId());
 		return;
 	}
 
@@ -53,8 +53,7 @@ void WorldRaidRunnable::operator()() const {
 		WorldRaidService::getInstance().startRaid(locationId, worldRaidSchedule->isSpecialRaid());
 
 	if (!validRaidLocations.empty())
-		log.debug("Started scheduled world raid with ID " + worldRaidSchedule->getId() + " at the following raid locations: " +
-			listToString(validRaidLocations));
+		log.debug("Started scheduled world raid with ID {} at the following raid locations: {}", worldRaidSchedule->getId(), listToString(validRaidLocations));
 }
 
 } // namespace aion::gameserver::services::worldraid

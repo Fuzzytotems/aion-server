@@ -412,8 +412,8 @@ TEST(ScenarioServersTest, EveryStartRemovesTheHtmlCacheTheRunBeforeLeft) {
 	servers.startGameServer();
 	ASSERT_NE(servers.gameServer(), nullptr);
 	const std::string log = servers.gameServer()->readLog();
-	EXPECT_EQ(log.find("Cache[HTML]: Using cache file"), std::string::npos) << "the start read the stale " << servers.htmlCacheFile() << ":\n" << log;
-	EXPECT_NE(log.find("Cache[HTML]: Creating cache file"), std::string::npos) << "the start wrote no cache file of its own:\n" << log;
+	EXPECT_NE(log.find("Created HTML cache file..."), std::string::npos) << "the start read the stale " << servers.htmlCacheFile()
+		<< " instead of writing a cache file of its own:\n" << log;
 	std::string content;
 	{
 		std::ifstream written(servers.htmlCacheFile(), std::ios::binary);

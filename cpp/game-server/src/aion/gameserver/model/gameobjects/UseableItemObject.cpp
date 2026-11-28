@@ -158,7 +158,7 @@ void UseableItemObject::onUse(player::Player& player) {
 	}
 
 	if (requiredItem.has_value() ^ action->getRemoveCount().has_value()) {
-		log.warn(toString() + " doesn't have valid usage requirements " + (!requiredItem ? " (item missing)" : "(remove count missing)"));
+		log.warn("{} doesn't have valid usage requirements {}", toString(), !requiredItem ? " (item missing)" : "(remove count missing)");
 		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_OBJECT_ALL_CANT_USE());
 		return;
 	}

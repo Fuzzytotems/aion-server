@@ -74,8 +74,7 @@ void CM_DIALOG_SELECT::runImpl() {
 													+ std::to_string(dialogActionId) + ")");
 	}
 	if (!dialogActionName) {
-		log.warn("Received unknown dialog action id " + std::to_string(dialogActionId) + " (quest " + std::to_string(questId) + ") from "
-			+ player->toString());
+		log.warn("Received unknown dialog action id {} (quest {}) from {}", dialogActionId, questId, player->toString());
 		return;
 	}
 

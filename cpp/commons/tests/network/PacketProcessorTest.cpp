@@ -252,14 +252,14 @@ TEST(PacketProcessorTest, CheckerAdaptsThreadCountLikeJava) {
 
 	processor.checkThreadCount(); // 5 waiting: max threads reached, but 5 < 3 * 2, so no lag warning
 	EXPECT_EQ(processor.getThreadCount(), 3);
-	EXPECT_FALSE(logs.contains("Lag detected!"));
+	EXPECT_FALSE(logs.contains("Lag detected"));
 
 	submitBlocked();
 	submitBlocked();
 	processor.checkThreadCount(); // 7 waiting >= 6
 	EXPECT_EQ(processor.getThreadCount(), 3);
 	EXPECT_TRUE(logs.contains(
-		"warning|com.aionemu.commons.network.PacketProcessor|Lag detected! [7 client packets are waiting for execution]. You should consider increasing PacketProcessor maxThreads or hardware upgrade."));
+		"warning|com.aionemu.commons.network.PacketProcessor|Lag detected: 7 client packets are waiting for execution - consider increasing PacketProcessor maxThreads or hardware upgrade"));
 
 	gate.release();
 	for (auto& con : connections)

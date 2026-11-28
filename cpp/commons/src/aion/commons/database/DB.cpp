@@ -30,7 +30,7 @@ bool DB::select(std::string_view query, const ParamReadStH& reader) {
 		if (reader.handleRead)
 			reader.handleRead(*rset);
 	} catch (const std::exception& e) {
-		log.error("Error executing select query " + std::string(query), e);
+		log.error("Error executing select query {}", query, e);
 		return false;
 	}
 	return true;
@@ -50,7 +50,7 @@ bool DB::call(std::string_view query, const CallReadStH& reader) {
 		if (reader.handleRead)
 			reader.handleRead(*rset);
 	} catch (const std::exception& e) {
-		log.error("Error calling stored procedure " + std::string(query), e);
+		log.error("Error calling stored procedure {}", query, e);
 		return false;
 	}
 	return true;
@@ -69,7 +69,7 @@ bool DB::insertUpdate(std::string_view query, const IUStH& batch) {
 		else
 			stmt->executeUpdate();
 	} catch (const std::exception& e) {
-		log.error("Failed to execute IU query " + std::string(query), e);
+		log.error("Failed to execute IU query {}", query, e);
 		return false;
 	}
 	return true;
@@ -91,7 +91,7 @@ std::unique_ptr<PreparedStatement> DB::prepareStatement(std::string_view sql, in
 		return ps;
 	} catch (const std::exception& e) {
 		// the connection (if any) was recycled by its handle
-		log.error("Can't create PreparedStatement for query: " + std::string(sql), e);
+		log.error("Can't create PreparedStatement for query: {}", sql, e);
 	}
 	return nullptr;
 }

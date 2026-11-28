@@ -199,13 +199,13 @@ void WebRewardService::sendAvailableRewards(runtime::Ptr<model::gameobjects::pla
 	for (const runtime::Ref<model::templates::rewards::RewardEntryItem>& item : list) {
 		try {
 			if (sendRewardItem(*player, *item) || executeRewardAction(*player, *item)) {
-				log.info("[WebRewardService][" + std::to_string(item->getEntryId()) + "] " + player->toString() + " has received " + item->toString());
+				log.info("[WebRewardService][{}] {} has received {}", item->getEntryId(), player->toString(), item->toString());
 				rewarded.push_back(item->getEntryId());
 			} else {
-				log.warn("[WebRewardService][" + std::to_string(item->getEntryId()) + "] " + player->toString() + " could not receive " + item->toString());
+				log.warn("[WebRewardService][{}] {} could not receive {}", item->getEntryId(), player->toString(), item->toString());
 			}
 		} catch (const std::exception& e) { // Java: catch (Exception e)
-			log.error("[WebRewardService][" + std::to_string(item->getEntryId()) + "] error adding " + item->toString() + " to " + player->toString(), e);
+			log.error("[WebRewardService][{}] error adding {} to {}", item->getEntryId(), item->toString(), player->toString(), e);
 		}
 	}
 

@@ -83,13 +83,13 @@ void ItemStoneListDAO::load(const std::vector<runtime::Ptr<model::gameobjects::I
 				switch (stoneType) {
 					case 0:
 						if (item->getSockets(false) <= item->getItemStonesSize()) {
-							log.warn("Deleting manastone " + std::to_string(itemId) + " due to slot overload from " + item->toString());
+							log.warn("Deleting manastone {} due to slot overload from {}", itemId, item->toString());
 							deleteItemStone(*con, item->getObjectId(), slot, stoneType);
 							continue;
 						}
 						if (itemGroupOf(itemId) == model::templates::item::enums::ItemGroup::SPECIAL_MANASTONE &&
 							slot >= item->getItemTemplate()->getSpecialSlots()) {
-							log.warn("Deleting special manastone " + std::to_string(itemId) + " from normal slot of " + item->toString());
+							log.warn("Deleting special manastone {} from normal slot of {}", itemId, item->toString());
 							deleteItemStone(*con, item->getObjectId(), slot, stoneType);
 							continue;
 						}
@@ -104,13 +104,13 @@ void ItemStoneListDAO::load(const std::vector<runtime::Ptr<model::gameobjects::I
 					}
 					case 2:
 						if (item->getSockets(true) <= item->getFusionStonesSize()) {
-							log.warn("Deleting manastone " + std::to_string(itemId) + " due to slot overload from fusioned item of " + item->toString());
+							log.warn("Deleting manastone {} due to slot overload from fusioned item of {}", itemId, item->toString());
 							deleteItemStone(*con, item->getObjectId(), slot, stoneType);
 							continue;
 						}
 						if (itemGroupOf(itemId) == model::templates::item::enums::ItemGroup::SPECIAL_MANASTONE &&
 							slot >= item->getFusionedItemTemplate()->getSpecialSlots()) {
-							log.warn("Deleting special manastone " + std::to_string(itemId) + " from normal slot of fusioned item of " + item->toString());
+							log.warn("Deleting special manastone {} from normal slot of fusioned item of {}", itemId, item->toString());
 							deleteItemStone(*con, item->getObjectId(), slot, stoneType);
 							continue;
 						}
@@ -126,7 +126,7 @@ void ItemStoneListDAO::load(const std::vector<runtime::Ptr<model::gameobjects::I
 			}
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore ItemStoneList data from DB: " + std::string(e.what()), e);
+		log.error("Could not restore ItemStoneList data from DB: {}", e.what(), e);
 	}
 }
 

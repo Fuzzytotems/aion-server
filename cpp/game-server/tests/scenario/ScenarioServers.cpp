@@ -295,7 +295,7 @@ void ScenarioServers::startGameServer() {
 		throw std::runtime_error("the game server did not log 'Game server started' (see " + gs->options().logFile.string() + ")");
 	if (const std::string problem = gameServerProfileProblem(gs->readLog()); !problem.empty())
 		throw std::runtime_error(problem + " (see " + gs->options().logFile.string() + ")");
-	if (ls && !ls->waitForLog("Gameserver #1 is now online", config.startupTimeout))
+	if (ls && !ls->waitForLog("Game server #1 is now online", config.startupTimeout))
 		throw std::runtime_error("the login server did not authenticate game server 1 (see " + ls->options().logFile.string() + ")");
 	if (config.checkClientPort && !waitForClientPort(std::chrono::seconds(30)))
 		throw std::runtime_error("the game server does not accept client connections on port " + std::to_string(gamePort));

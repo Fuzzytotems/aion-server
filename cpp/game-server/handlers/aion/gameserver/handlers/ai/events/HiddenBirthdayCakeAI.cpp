@@ -34,7 +34,7 @@ void HiddenBirthdayCakeAI::logCollectedCakes(int32_t cakes) {
 	int32_t deviation = cakes - lastCakeCount().get();
 	int64_t currentTime = commons::utils::currentTimeMillis();
 	if (currentTime - lastLogTime().get() >= 3600 * 1000) { // Only log once every hour
-		log.info("[EVENT] Total cakes collected: {}; Cakes collected during the last hour: {}.", cakes, deviation);
+		log.info("[EVENT] Total cakes collected: {}; Cakes collected during the last hour: {}", cakes, deviation);
 		lastCakeCount().set(cakes);
 		lastLogTime().set(currentTime);
 	}

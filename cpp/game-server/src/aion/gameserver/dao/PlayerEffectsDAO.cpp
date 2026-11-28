@@ -87,7 +87,7 @@ void PlayerEffectsDAO::storePlayerEffects(model::gameobjects::player::Player& pl
 		ps->executeBatch();
 		con->commit();
 	} catch (const SQLException& e) {
-		log.error("Exception while saving effects of player " + std::to_string(player.getObjectId()), e);
+		log.error("Exception while saving effects of player {}", player.getObjectId(), e);
 	}
 }
 

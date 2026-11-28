@@ -74,7 +74,7 @@ void AuctionAutoFillTask::autoFillAuction(model::Race race) {
 			added++;
 		}
 	}
-	log.info("[" + std::string(xml::enumName(race)) + "] Added " + std::to_string(added) + " new houses automatically to auction.");
+	log.info("[{}] Added {} new houses automatically to auction", xml::enumName(race), added);
 }
 
 std::vector<runtime::Ptr<model::house::House>> AuctionAutoFillTask::findAuctionedHouses(model::Race race) {

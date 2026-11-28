@@ -163,7 +163,7 @@ const std::vector<ItemRaceEntry>* ItemGroupsData::getPetFood(FoodType foodType) 
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.ItemGroupsData")
-			  .warn("Unhandled food type " + std::string(xml::enumName(foodType)));
+			  .warn("Unhandled food type {}", xml::enumName(foodType));
 	}
 	return nullptr;
 }

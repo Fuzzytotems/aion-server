@@ -67,7 +67,7 @@ void HousesDAO::insertNewHouse(model::house::House& house) {
 		stmt->execute();
 		house.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const std::exception& e) {
-		log.error("Could not insert house " + std::to_string(house.getObjectId()), e);
+		log.error("Could not insert house {}", house.getObjectId(), e);
 	}
 }
 
@@ -85,7 +85,7 @@ void HousesDAO::updateHouse(model::house::House& house) {
 		stmt->execute();
 		house.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const std::exception& e) {
-		log.error("Could not store house " + std::to_string(house.getObjectId()), e);
+		log.error("Could not store house {}", house.getObjectId(), e);
 	}
 }
 
@@ -127,10 +127,10 @@ std::unordered_map<int32_t, runtime::Ref<model::house::House>> HousesDAO::loadHo
 			}
 			runtime::Ref<House> house;
 			if (!building) {
-				log.warn("Missing building type for address " + std::to_string(address->getId()));
+				log.warn("Missing building type for address {}", address->getId());
 				continue;
 			} else if (addressHouseIds.contains(address->getId())) {
-				log.warn("Duplicate house address " + std::to_string(address->getId()) + "!");
+				log.warn("Duplicate house address {}!", address->getId());
 				continue;
 			} else {
 				house = model::gameobjects::VisibleObject::create<House>(houseId, building, address, 0);

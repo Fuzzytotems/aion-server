@@ -87,7 +87,7 @@ void HouseController::updateSpawns() {
 	const HouseAddress* address = getOwner().getAddress();
 	const std::vector<model::templates::spawns::HouseSpawn>* templates = dataholders::DataManager::HOUSE_NPCS_DATA->getSpawnsByAddress(address->getId());
 	if (templates == nullptr) {
-		log.warn("Missing npc spawns for house " + std::to_string(address->getId()));
+		log.warn("Missing npc spawns for house {}", address->getId());
 		return;
 	}
 	for (const model::templates::spawns::HouseSpawn& spawn : *templates) {
@@ -107,7 +107,7 @@ void HouseController::updateSpawns() {
 				spawn.getZ(), spawn.getH(), creatorId);
 			npc = runtime::cast<Npc>(spawnengine::SpawnEngine::spawnObject(*t, getOwner().getInstanceId()));
 		} else {
-			log.warn(std::string("Unhandled spawn type ").append(xml::enumName(spawn.getType())));
+			log.warn("Unhandled spawn type {}", xml::enumName(spawn.getType()));
 			continue;
 		}
 		getOwner().updateSpawn(spawn.getType(), npc);

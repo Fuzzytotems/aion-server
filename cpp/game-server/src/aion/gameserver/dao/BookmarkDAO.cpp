@@ -63,7 +63,7 @@ std::vector<runtime::Ref<BookmarkDAO::Bookmark>> BookmarkDAO::loadBookmarks(int3
 		while (rs->next())
 			bookmarks.push_back(Bookmark::create(rs->getString("name"), rs->getInt("world_id"), rs->getFloat("x"), rs->getFloat("y"), rs->getFloat("z")));
 	} catch (const SQLException& e) {
-		log.error("Could not load bookmarks for player: " + std::to_string(playerId), e);
+		log.error("Could not load bookmarks for player: {}", playerId, e);
 	}
 	return bookmarks;
 }
@@ -80,7 +80,7 @@ void BookmarkDAO::storeBookmark(int32_t playerId, BookmarkDAO::Bookmark& bookmar
 		stmt->setFloat(6, bookmark.z());
 		stmt->execute();
 	} catch (const SQLException& e) {
-		log.error("Could not add bookmark for player " + std::to_string(playerId), e);
+		log.error("Could not add bookmark for player {}", playerId, e);
 	}
 }
 
@@ -92,7 +92,7 @@ bool BookmarkDAO::deleteBookmark(int32_t playerId, std::string_view name) {
 		stmt->setString(2, name);
 		return stmt->executeUpdate() > 0;
 	} catch (const SQLException& e) {
-		log.error("Could not delete bookmark " + std::string(name) + " for player " + std::to_string(playerId), e);
+		log.error("Could not delete bookmark {} for player {}", name, playerId, e);
 		return false;
 	}
 }

@@ -160,14 +160,14 @@ TEST_F(AionConnectionTest, PacketsAreGatedByTheConnectionState) {
 	auto connection = server.connection();
 
 	client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(1).data); // AUTHED only
-	EXPECT_TRUE(logs.waitFor("sent CM_ENTER_WORLD but the connections current state (CONNECTED) is invalid for this packet.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("sent CM_ENTER_WORLD but the connection's current state (CONNECTED) is invalid for this packet - packet won't be instantiated")) << logs.dump();
 	client.sendPacket(CM_VERSION_CHECK, PacketWriter().D(2).data); // CONNECTED only
 	ASSERT_TRUE(waitForRecords(1));
 	EXPECT_EQ(PacketRecorder::instance().snapshot()[0].opcode, CM_VERSION_CHECK);
 
 	connection->setState(State::AUTHED);
 	client.sendPacket(CM_VERSION_CHECK, PacketWriter().D(3).data);
-	EXPECT_TRUE(logs.waitFor("sent CM_VERSION_CHECK but the connections current state (AUTHED) is invalid for this packet.")) << logs.dump();
+	EXPECT_TRUE(logs.waitFor("sent CM_VERSION_CHECK but the connection's current state (AUTHED) is invalid for this packet - packet won't be instantiated")) << logs.dump();
 	client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(4).data);
 	ASSERT_TRUE(waitForRecords(2));
 	EXPECT_EQ(PacketRecorder::instance().snapshot()[1].opcode, CM_ENTER_WORLD);

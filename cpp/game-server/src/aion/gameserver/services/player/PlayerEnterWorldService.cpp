@@ -241,14 +241,14 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 	Ptr<Account> account = client->getAccount();
 	Ptr<PlayerAccountData> playerAccData = account->getPlayerAccountData(objectId);
 	if (!playerAccData) {
-		log.warn("Player enterWorld fail: character obj ID {} was not found on account ID {}.", objectId, account->getId());
+		log.warn("Player enterWorld fail: character ID {} was not found on account ID {}", objectId, account->getId());
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR));
 		return;
 	}
 
 	Ptr<PlayerCommonData> pcd = playerAccData->getPlayerCommonData();
 	if (!pcd) {
-		log.warn("Player enterWorld fail: CommonData for character obj ID {} is null.", objectId);
+		log.warn("Player enterWorld fail: CommonData for character ID {} is null", objectId);
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR));
 		return;
 	}
@@ -278,7 +278,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 	}
 
 	if (world::World::getInstance().isInWorld(objectId)) {
-		log.warn("Player enterWorld fail: Duplicate character obj ID {} found in world.", objectId);
+		log.warn("Player enterWorld fail: duplicate character ID {} found in world", objectId);
 		client->sendPacket(SM_ENTER_WORLD_CHECK(SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR));
 		return;
 	}
@@ -401,7 +401,7 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, Player& player)
 	player.getFriendList().setStatus(model::gameobjects::player::FriendList::Status::ONLINE, *pcd);
 	dao::PlayerDAO::onlinePlayer(player, true);
 	dao::PlayerDAO::storeLastOnlineTime(player.getObjectId(), commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis())));
-	log.info("Player " + player.getName() + " (" + account->toString() + ") logged on");
+	log.info("Player {} ({}) logged on", player.getName(), account->toString());
 	pcd->setInEditMode(false);
 
 	world::World::getInstance().storeObject(player);

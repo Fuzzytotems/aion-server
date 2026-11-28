@@ -69,7 +69,7 @@ void load() {
 		std::lock_guard lock(state().mutex);
 		old = std::exchange(state().gameservers, std::move(loaded));
 	}
-	log().info("GameServerTable loaded " + std::to_string(size()) + " registered GameServers.");
+	log().info("Loaded {} registered game servers", size());
 }
 
 GsAuthResponse registerGameServer(const std::shared_ptr<GsConnection>& gsConnection, int8_t requestedId, std::string_view password,
@@ -78,7 +78,7 @@ GsAuthResponse registerGameServer(const std::shared_ptr<GsConnection>& gsConnect
 
 	// This id is not Registered at LoginServer.
 	if (!gsi) {
-		log().warn(gsConnection->toString() + " requestedID: " + std::to_string(requestedId) + " is not registered in LS database!");
+		log().warn("{} requestedID: {} is not registered in LS database!", gsConnection->toString(), requestedId);
 		return GsAuthResponse::NOT_AUTHED;
 	}
 

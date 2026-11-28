@@ -31,7 +31,7 @@ LoginConnection::LoginConnection(std::shared_ptr<commons::network::netty::Connec
 
 std::unique_ptr<commons::network::packet::ClientPacketBase> LoginConnection::createPacket(commons::utils::ByteBuffer& data) {
 	if (!cryptEngine.decrypt(data.remainingSpan())) {
-		log().warn("Wrong checksum from " + toString());
+		log().warn("Wrong checksum from {}", toString());
 		close();
 		return nullptr;
 	}
@@ -137,7 +137,7 @@ std::string LoginConnection::toString() const {
 }
 
 void LoginConnection::onConnect() {
-	log().info("Connection attempt from: " + getIP());
+	log().info("Connection attempt from: {}", getIP());
 	encryptedRSAKeyPair = ncrypt::KeyGen::getEncryptedRSAKeyPair();
 	const ncrypt::KeyGen::BlowfishKey blowfishKey = ncrypt::KeyGen::generateBlowfishKey();
 

@@ -102,7 +102,7 @@ protected:
 };
 
 DuelService::DuelService() {
-	log.info("DuelService started.");
+	log.info("DuelService initialized");
 }
 
 DuelService::~DuelService() = default;

@@ -46,11 +46,6 @@ using runtime::Ptr;
 using runtime::Ref;
 using utils::PacketSendUtility;
 
-/** Java's log text `" ITEM COUNT " + attachedItemCount + " KINAH COUNT " + attachedKinahCount` */
-std::string counts(int64_t attachedItemCount, int64_t attachedKinahCount) {
-	return " ITEM COUNT " + std::to_string(attachedItemCount) + " KINAH COUNT " + std::to_string(attachedKinahCount);
-}
-
 } // namespace
 
 bool SystemMailService::sendMail(std::string_view sender, std::string_view recipientName, std::string_view titleValue, std::string_view messageValue,
@@ -61,22 +56,22 @@ bool SystemMailService::sendMail(std::string_view sender, std::string_view recip
 			return false;
 		const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(attachedItemId);
 		if (itemTemplate == nullptr) {
-			log.warn("[SYSMAILSERVICE] > [SenderName: " + std::string(sender) + "] [RecipientName: " + std::string(recipientName) +
-				"] RETURN ITEM ID:" + std::to_string(attachedItemId) + counts(attachedItemCount, attachedKinahCount) + " ITEM TEMPLATE IS MISSING ");
+			log.warn("[SYSMAILSERVICE] > [SenderName: {}] [RecipientName: {}] RETURN ITEM ID:{} ITEM COUNT {} KINAH COUNT {} ITEM TEMPLATE IS MISSING ",
+				sender, recipientName, attachedItemId, attachedItemCount, attachedKinahCount);
 			return false;
 		}
 	}
 
 	// Java String.length() and substring count UTF-16 code units (CONVENTIONS.md "Strings")
 	if (commons::utils::StringUtils::utf16Length(recipientName) > 16) {
-		log.warn("[SYSMAILSERVICE] > [SenderName: " + std::string(sender) + "] [RecipientName: " + std::string(recipientName) + "] ITEM RETURN" +
-			std::to_string(attachedItemId) + counts(attachedItemCount, attachedKinahCount) + " RECIPIENT NAME LENGTH > 16 ");
+		log.warn("[SYSMAILSERVICE] > [SenderName: {}] [RecipientName: {}] ITEM RETURN{} ITEM COUNT {} KINAH COUNT {} RECIPIENT NAME LENGTH > 16 ",
+			sender, recipientName, attachedItemId, attachedItemCount, attachedKinahCount);
 		return false;
 	}
 
 	if (!sender.starts_with("$$") && commons::utils::StringUtils::utf16Length(sender) > 16) {
-		log.warn("[SYSMAILSERVICE] > [SenderName: " + std::string(sender) + "] [RecipientName: " + std::string(recipientName) + "] ITEM RETURN" +
-			std::to_string(attachedItemId) + counts(attachedItemCount, attachedKinahCount) + " SENDER NAME LENGTH > 16 ");
+		log.warn("[SYSMAILSERVICE] > [SenderName: {}] [RecipientName: {}] ITEM RETURN{} ITEM COUNT {} KINAH COUNT {} SENDER NAME LENGTH > 16 ",
+			sender, recipientName, attachedItemId, attachedItemCount, attachedKinahCount);
 		return false;
 	}
 
@@ -91,13 +86,13 @@ bool SystemMailService::sendMail(std::string_view sender, std::string_view recip
 	Ref<PlayerCommonData> recipientCommonData = player::PlayerService::getOrLoadPlayerCommonData(recipientName);
 
 	if (!recipientCommonData) {
-		log.info("[SYSMAILSERVICE] > [RecipientName: " + std::string(recipientName) + "] NO SUCH CHARACTER NAME.");
+		log.info("[SYSMAILSERVICE] > [RecipientName: {}] NO SUCH CHARACTER NAME", recipientName);
 		return false;
 	}
 
 	if (recipientCommonData->getMailboxLetters() > 199) {
-		log.info("[SYSMAILSERVICE] > [SenderName: " + std::string(sender) + "] [RecipientName: " + recipientCommonData->getName() + "] ITEM RETURN" +
-			std::to_string(attachedItemId) + counts(attachedItemCount, attachedKinahCount) + " MAILBOX FULL ");
+		log.info("[SYSMAILSERVICE] > [SenderName: {}] [RecipientName: {}] ITEM RETURN{} ITEM COUNT {} KINAH COUNT {} MAILBOX FULL ", sender,
+			recipientCommonData->getName(), attachedItemId, attachedItemCount, attachedKinahCount);
 		return false;
 	}
 	Ref<Item> attachedItem;
@@ -128,8 +123,8 @@ bool SystemMailService::sendMail(std::string_view sender, std::string_view recip
 			return false;
 
 	if (configs::main::LoggingConfig::LOG_SYSMAIL.load())
-		log.info("[SYSMAILSERVICE] > [SenderName: " + std::string(sender) + "] [RecipientName: " + std::string(recipientName) + "] RETURN ITEM ID:" +
-			std::to_string(attachedItemId) + counts(attachedItemCount, attachedKinahCount) + " MESSAGE SUCCESSFULLY SENDED ");
+		log.info("[SYSMAILSERVICE] > [SenderName: {}] [RecipientName: {}] RETURN ITEM ID:{} ITEM COUNT {} KINAH COUNT {} MESSAGE SUCCESSFULLY SENDED ",
+			sender, recipientName, attachedItemId, attachedItemCount, attachedKinahCount);
 
 	updateRecipientMailbox(*recipientCommonData, *newLetter);
 	return true;

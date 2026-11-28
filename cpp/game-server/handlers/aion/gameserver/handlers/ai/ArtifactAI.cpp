@@ -270,7 +270,7 @@ void ArtifactAI::onActivate(Player& player) {
 	const SkillTemplate* skillTemplate = dataholders::DataManager::SKILL_DATA->getSkillTemplate(skillId);
 
 	if (skillTemplate == nullptr) {
-		commons::logging::LoggerFactory::getLogger("ai.ArtifactAI").error("No skill template for artifact effect id : " + std::to_string(skillId));
+		commons::logging::LoggerFactory::getLogger("ai.ArtifactAI").error("No skill template for artifact effect id : {}", skillId);
 		return;
 	}
 
@@ -290,8 +290,7 @@ void ArtifactAI::onActivate(Player& player) {
 		return;
 
 	if (LoggingConfig::LOG_SIEGE.load())
-		log.info("Artifact " + std::to_string(getSpawnTemplate()->getSiegeId()) + " activated by " + player.getName() + " (race: " +
-			std::string(xml::enumName(player.getRace())) + ")");
+		log.info("Artifact {} activated by {} (race: {})", getSpawnTemplate()->getSiegeId(), player.getName(), std::string(xml::enumName(player.getRace())));
 
 	if (loc.getStatus() != ArtifactStatus::IDLE)
 		return;

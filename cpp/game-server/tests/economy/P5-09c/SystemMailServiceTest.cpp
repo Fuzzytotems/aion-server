@@ -52,13 +52,13 @@ TEST_F(SystemMailServiceTest, TooLongNamesAreRefused) {
 	EXPECT_FALSE(SystemMailService::sendMail("$$FACTION_PACK_MAIL_SENDER", sixteen, "T", "M", 0, 0, 0, LetterType::NORMAL));
 	std::vector<std::string> lines = log.lines();
 	ASSERT_EQ(lines.size(), 3u);
-	EXPECT_EQ(lines[2], "[SYSMAILSERVICE] > [RecipientName: " + sixteen + "] NO SUCH CHARACTER NAME.");
+	EXPECT_EQ(lines[2], "[SYSMAILSERVICE] > [RecipientName: " + sixteen + "] NO SUCH CHARACTER NAME");
 
 	// the sender's length counts UTF-16 units too: 16 two-byte letters (32 UTF-8 bytes) are not too long
 	EXPECT_FALSE(SystemMailService::sendMail(sixteen, "Nobody", "T", "M", 0, 0, 0, LetterType::NORMAL));
 	lines = log.lines();
 	ASSERT_EQ(lines.size(), 4u);
-	EXPECT_EQ(lines[3], "[SYSMAILSERVICE] > [RecipientName: Nobody] NO SUCH CHARACTER NAME.");
+	EXPECT_EQ(lines[3], "[SYSMAILSERVICE] > [RecipientName: Nobody] NO SUCH CHARACTER NAME");
 }
 
 // SystemMailService.java:64-68: title.substring(0, 20) and message.substring(0, 1000) in UTF-16 units, as in MailService
@@ -102,7 +102,7 @@ TEST_F(SystemMailServiceTest, AnUnknownRecipientIsRefused) {
 	MAIL_REQUIRE_DATABASE();
 	LogCapture log("SYSMAIL_LOG");
 	EXPECT_FALSE(SystemMailService::sendMail("Beyond Aion", "Nobody", "T", "M", 0, 0, 10, LetterType::NORMAL));
-	EXPECT_EQ(log.lines(), (std::vector<std::string>{"[SYSMAILSERVICE] > [RecipientName: Nobody] NO SUCH CHARACTER NAME."}));
+	EXPECT_EQ(log.lines(), (std::vector<std::string>{"[SYSMAILSERVICE] > [RecipientName: Nobody] NO SUCH CHARACTER NAME"}));
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM mail"), 0);
 }
 

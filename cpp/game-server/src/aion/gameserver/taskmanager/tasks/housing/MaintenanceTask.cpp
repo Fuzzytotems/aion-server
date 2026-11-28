@@ -41,7 +41,7 @@ MaintenanceTask& MaintenanceTask::getInstance() {
 
 void MaintenanceTask::executeTask() {
 	std::vector<Ptr<House>> housesToMaintain = findHousesToMaintain();
-	log.info("Executing house maintenance for " + std::to_string(housesToMaintain.size()) + " houses");
+	log.info("Executing house maintenance for {} houses", housesToMaintain.size());
 
 	int64_t now = commons::utils::currentTimeMillis();
 	for (const Ptr<House>& house : housesToMaintain) {
@@ -100,8 +100,7 @@ std::vector<runtime::Ptr<model::house::House>> MaintenanceTask::findHousesToMain
 void MaintenanceTask::putHouseToAuction(model::house::House& house, runtime::Ptr<model::gameobjects::player::PlayerCommonData> owner) {
 	services::HousingService::getInstance().changeOwner(house, 0);
 	services::HousingBidService::getInstance().auction(house, house.getDefaultAuctionPrice());
-	log.info("Auctioned house " + std::to_string(house.getAddress()->getId()) + " because " +
-		(!owner ? std::string("owner got deleted.") : std::string("maintenance fee was overdue.")));
+	log.info("Auctioned house {} because {}", house.getAddress()->getId(), !owner ? "owner got deleted." : "maintenance fee was overdue.");
 	if (owner && owner->isOnline())
 		utils::PacketSendUtility::sendPacket(*owner->getPlayer(), network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_SEQUESTRATE());
 }

@@ -203,7 +203,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	player->setPosition(pos);
 
 	if (!player::PlayerService::storeNewPlayer(*player, accountName, targetAccount)) {
-		textLog.info("failed to store new player to " + std::string(accountName));
+		textLog.info("failed to store new player to {}", accountName);
 		utils::idfactory::IDFactory::getInstance().releaseId(playerCommonData->getPlayerObjId());
 		return nullptr;
 	}
@@ -262,7 +262,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 		}
 		const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
 		if (itemTemplate == nullptr) {
-			textLog.warn("(accId=" + std::to_string(targetAccount) + ") item with id " + std::to_string(itemId) + " was not found in templates");
+			textLog.warn("(accId={}) item with id {} was not found in templates", targetAccount, itemId);
 			continue;
 		}
 
@@ -298,7 +298,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 
 	// read data
 	cnt = readD();
-	textLog.info("EmotionList:" + std::to_string(cnt));
+	textLog.info("EmotionList:{}", cnt);
 	player->setEmotions(std::make_unique<model::gameobjects::player::emotion::EmotionList>(*player));
 	for (int32_t a = 0; a < cnt; a++) { // emotes
 		int32_t id = readD(), remainTime = readD();
@@ -308,7 +308,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	}
 
 	cnt = readD();
-	textLog.info("MotionList:" + std::to_string(cnt));
+	textLog.info("MotionList:{}", cnt);
 	player->setMotions(std::make_unique<model::gameobjects::player::motion::MotionList>(*player));
 	for (int32_t i = 0; i < cnt; i++) { // motions
 		int32_t id = readD(), expiryTime = readD();
@@ -319,7 +319,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	}
 
 	cnt = readD();
-	textLog.info("Macros:" + std::to_string(cnt));
+	textLog.info("Macros:{}", cnt);
 	player->setMacros(model::gameobjects::player::Macros::create());
 	for (int32_t a = 0; a < cnt; a++) { // macros
 		int32_t id = readD();
@@ -330,7 +330,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	}
 
 	cnt = readD();
-	textLog.info("NpcFactions:" + std::to_string(cnt));
+	textLog.info("NpcFactions:{}", cnt);
 	player->setNpcFactions(std::make_unique<model::gameobjects::player::npcFaction::NpcFactions>(*player));
 	for (int32_t a = 0; a < cnt; a++) { // npc factions
 		int32_t id = readD(), time = readD();
@@ -346,7 +346,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 		dao::PlayerNpcFactionsDAO::storeNpcFactions(*player);
 
 	cnt = readD();
-	textLog.info("Pets:" + std::to_string(cnt));
+	textLog.info("Pets:{}", cnt);
 	for (int32_t i = 0; i < cnt; i++) { // pets
 		int32_t petId = readD();
 		int32_t decorationId = readD();
@@ -363,7 +363,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	}
 
 	cnt = readD();
-	textLog.info("TitleList:" + std::to_string(cnt));
+	textLog.info("TitleList:{}", cnt);
 	player->setTitleList(std::make_unique<model::gameobjects::player::title::TitleList>());
 	for (int32_t a = 0; a < cnt; a++) { // titles
 		int32_t id = readD(), remainTime = readD();
@@ -402,7 +402,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 
 	// read skill data
 	cnt = readD();
-	textLog.info("PlayerSkillList:" + std::to_string(cnt));
+	textLog.info("PlayerSkillList:{}", cnt);
 	player->setSkillList(model::skill::PlayerSkillList::create());
 	bool rsCheck = !rsList.empty();
 	for (int32_t a = 0; a < cnt; a++) { // skills
@@ -427,7 +427,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 
 	// read recipe data
 	cnt = readD();
-	textLog.info("RecipeList:" + std::to_string(cnt));
+	textLog.info("RecipeList:{}", cnt);
 	player->setRecipeList(model::gameobjects::player::RecipeList::create());
 	for (int32_t a = 0; a < cnt; a++) { // recipes
 		int32_t recipeId = readD();
@@ -438,7 +438,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 
 	// read quest data
 	cnt = readD();
-	textLog.info("QuestStateList:" + std::to_string(cnt));
+	textLog.info("QuestStateList:{}", cnt);
 	player->setQuestStateList(model::gameobjects::player::QuestStateList::create());
 	for (int32_t a = 0; a < cnt; a++) { // quests
 		int32_t questId = readD();
@@ -456,7 +456,7 @@ runtime::Ptr<Player> CMT_CHARACTER_INFORMATION::readInfo(std::string_view name, 
 	}
 
 	player::PlayerService::storePlayer(*player);
-	textLog.info("finished in " + std::to_string(commons::utils::currentTimeMillis() - st) + " ms");
+	textLog.info("finished in {} ms", commons::utils::currentTimeMillis() - st);
 	return player;
 }
 

@@ -64,7 +64,7 @@ std::string joinSorted(const Range& ids, const std::string& delimiter) {
 
 void QuestSpawnAnalyzer::run(const std::vector<handlers::AbstractQuestHandler*>& questHandlers, const std::vector<runtime::Ptr<QuestNpc>>& questNpcs,
 	bool ignoreEventQuests) {
-	log.info(std::string("Analyzing quest handlers (ignoreEventQuests=") + (ignoreEventQuests ? "true" : "false") + ")...");
+	log.info("Analyzing quest handlers (ignoreEventQuests={})...", ignoreEventQuests ? "true" : "false");
 	int64_t timeMillis = commons::utils::currentTimeMillis();
 	std::unordered_set<int32_t> unobtainableQuests;
 	std::unordered_set<int32_t> factionIds;

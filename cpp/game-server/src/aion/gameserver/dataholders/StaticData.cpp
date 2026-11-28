@@ -115,10 +115,6 @@ const H& field(const std::unique_ptr<H>& holder, const char* name) {
 	return *holder;
 }
 
-std::string n(int64_t value) {
-	return std::to_string(value);
-}
-
 } // namespace
 
 void StaticData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
@@ -127,101 +123,100 @@ void StaticData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent&
 
 void StaticData::logCounts() const {
 	const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.StaticData");
-	log.info("Loaded " + n(field(worldMapsData, "worldMapsData").size()) + " maps");
-	log.info("Loaded " + n(field(materiaData, "materiaData").size()) + " material ids");
-	log.info("Loaded weather for " + n(field(mapWeatherData, "mapWeatherData").size()) + " maps");
-	log.info("Loaded " + n(field(playerExperienceTable, "playerExperienceTable").getMaxLevel()) + " player experience table entries");
-	log.info("Loaded " + n(field(pvpExpTable, "pvpExpTable").getMaxLevel()) + " pvp experience table entries");
-	log.info("Loaded " + n(field(pvpExpModTable, "pvpExpModTable").size()) + " pvp experience modifier entries");
-	log.info("Loaded " + n(field(partyExpModTable, "partyExpModTable").size()) + " party experience modifier entries");
-	log.info("Loaded " + n(field(menteeExpLimitTable, "menteeExpLimitTable").size()) + " mentee experience limit entries");
-	log.info("Loaded " + n(field(absoluteStatsData, "absoluteStatsData").size()) + " absolute stat templates");
-	log.info("Loaded " + n(field(itemCleanup, "itemCleanup").size()) + " item cleanup entries");
-	log.info("Loaded " + n(field(itemData, "itemData").size()) + " item templates");
-	log.info("Loaded " + n(field(itemRandomBonuses, "itemRandomBonuses").size()) + " item bonus templates");
-	log.info("Loaded " + n(field(itemGroupsData, "itemGroupsData").bonusSize()) + " bonus item group templates and " +
-	         n(itemGroupsData->petFoodSize()) + " pet food items");
-	log.info("Loaded " + n(field(npcData, "npcData").size()) + " npc templates");
-	log.info("Loaded " + n(field(customNpcDrop, "customNpcDrop").size()) + " custom npc drops");
-	log.info("Loaded " + n(field(systemMailTemplates, "systemMailTemplates").size()) + " system mail templates");
-	log.info("Loaded " + n(field(npcShoutData, "npcShoutData").size()) + " npc shout templates");
-	log.info("Loaded " + n(field(petData, "petData").size()) + " pet templates and " + n(field(petFeedData, "petFeedData").size()) + " food flavours");
-	log.info("Loaded " + n(field(petDopingData, "petDopingData").size()) + " pet doping templates");
-	log.info("Loaded " + n(field(petBuffsData, "petBuffsData").size()) + " pet buffs templates");
-	log.info("Loaded " + n(field(playerInitialData, "playerInitialData").size()) + " initial player templates");
-	log.info("Loaded " + n(field(tradeListData, "tradeListData").size()) + " trade lists");
-	log.info("Loaded " + n(field(teleporterData, "teleporterData").size()) + " npc teleporter templates");
-	log.info("Loaded " + n(field(teleLocationData, "teleLocationData").size()) + " teleport locations");
-	log.info("Loaded " + n(field(skillData, "skillData").size()) + " skill templates");
-	log.info("Loaded " + n(field(skillChargeData, "skillChargeData").size()) + " skill charge entries");
-	log.info("Loaded " + n(field(motionData, "motionData").size()) + " motion times");
-	log.info("Loaded " + n(field(skillTreeData, "skillTreeData").size()) + " skill learn entries");
-	log.info("Loaded " + n(field(cubeExpandData, "cubeExpandData").size()) + " cube expand entries");
-	log.info("Loaded " + n(field(warehouseExpandData, "warehouseExpandData").size()) + " warehouse expand entries");
-	log.info("Loaded " + n(field(bindPointData, "bindPointData").size()) + " bind point entries");
-	log.info("Loaded " + n(field(questData, "questData").size()) + " quest data entries");
-	log.info("Loaded " + n(field(gatherableData, "gatherableData").size()) + " gatherable entries");
-	log.info("Loaded " + n(field(titleData, "titleData").size()) + " title entries");
-	log.info("Loaded " + n(field(walkerData, "walkerData").size()) + " walker routes");
-	log.info("Loaded " + n(field(walkerVersionsData, "walkerVersionsData").size()) + " walker group variants");
-	log.info("Loaded " + n(field(zoneData, "zoneData").size()) + " zone entries");
-	log.info("Loaded " + n(field(goodsListData, "goodsListData").size()) + " goodslist entries");
-	log.info("Loaded " + n(field(tribeRelationsData, "tribeRelationsData").size()) + " tribe relation entries");
-	log.info("Loaded " + n(field(recipeData, "recipeData").size()) + " recipe entries");
-	log.info("Loaded " + n(field(chestData, "chestData").size()) + " chest locations");
-	log.info("Loaded " + n(field(staticDoorData, "staticDoorData").size()) + " static door locations");
-	log.info("Loaded " + n(field(itemSetData, "itemSetData").size()) + " item set entries");
-	log.info("Loaded " + n(field(npcFactionsData, "npcFactionsData").size()) + " npc factions");
-	log.info("Loaded " + n(field(npcSkillData, "npcSkillData").size()) + " npc skill list entries");
-	log.info("Loaded " + n(field(petSkillData, "petSkillData").size()) + " pet skill list entries");
-	log.info("Loaded " + n(field(siegeLocationData, "siegeLocationData").size()) + " siege location entries");
-	log.info("Loaded " + n(field(vortexData, "vortexData").size()) + " vortex entries");
-	log.info("Loaded " + n(field(riftData, "riftData").size()) + " rift entries");
-	log.info("Loaded " + n(field(baseData, "baseData").size()) + " base entries");
-	log.info("Loaded " + n(field(flyRingData, "flyRingData").size()) + " fly ring entries");
-	log.info("Loaded " + n(petData->size()) + " pet entries");
-	log.info("Loaded " + n(field(guideData, "guideData").size()) + " guide entries");
-	log.info("Loaded " + n(field(roadData, "roadData").size()) + " road entries");
-	log.info("Loaded " + n(field(instanceCooltimeData, "instanceCooltimeData").size()) + " instance cooltime entries");
-	log.info("Loaded " + n(field(decomposableItemsData, "decomposableItemsData").size()) + " decomposable items entries (" +
-	         n(decomposableItemsData->overrideCount()) + " overridden)");
-	log.info("Loaded " + n(field(aiData, "aiData").size()) + " ai templates");
-	log.info("Loaded " + n(field(flyPath, "flyPath").size()) + " flypath templates");
-	log.info("Loaded " + n(field(windstreamsData, "windstreamsData").size()) + " windstream entries");
-	log.info("Loaded " + n(field(assembledNpcData, "assembledNpcData").size()) + " assembled npcs entries");
-	log.info("Loaded " + n(field(cosmeticItemsData, "cosmeticItemsData").size()) + " cosmetic items entries");
-	log.info("Loaded " + n(field(autoGroupData, "autoGroupData").size()) + " auto group entries");
-	log.info("Loaded " + n(field(spawnsData, "spawnsData").size()) + " spawn maps entries");
-	log.info("Loaded " + n(field(eventData, "eventData").size()) + " events");
-	log.info("Loaded " + n(field(panelSkillsData, "panelSkillsData").size()) + " skill panel entries");
-	log.info("Loaded " + n(field(instanceBuffData, "instanceBuffData").size()) + " instance Buffs entries");
-	log.info("Loaded " + n(field(housingObjectData, "housingObjectData").size()) + " housing object entries");
-	log.info("Loaded " + n(field(rideData, "rideData").size()) + " ride info entries");
-	log.info("Loaded " + n(field(instanceExitData, "instanceExitData").size()) + " instance exit entries");
-	log.info("Loaded " + n(field(portalLocData, "portalLocData").size()) + " portal loc entries");
-	log.info("Loaded " + n(field(portalTemplate2, "portalTemplate2").size()) + " portal templates2 entries");
-	log.info("Loaded " + n(field(houseData, "houseData").size()) + " housing lands");
-	log.info("Loaded " + n(field(houseBuildingData, "houseBuildingData").size()) + " house building styles");
-	log.info("Loaded " + n(field(housePartsData, "housePartsData").size()) + " house parts");
-	log.info("Loaded " + n(field(houseNpcsData, "houseNpcsData").size()) + " house spawns");
-	log.info("Loaded " + n(field(assemblyItemData, "assemblyItemData").size()) + " assembly items entries");
-	log.info("Loaded " + n(field(challengeData, "challengeData").size()) + " challenge tasks entries");
-	log.info("Loaded " + n(field(conquerorAndProtectorData, "conquerorAndProtectorData").size()) + " conqueror and protector entries");
-	log.info("Loaded " + n(field(townSpawnsData, "townSpawnsData").getSpawnsCount()) + " town spawns");
-	log.info("Loaded " + n(field(temperingData, "temperingData").size()) + " temperings");
-	log.info("Loaded " + n(field(enchantData, "enchantData").size()) + " enchants");
-	log.info("Loaded " + n(field(globalDropData, "globalDropData").size()) + " global drop rules" +
-	         (field(globalExclusionData, "globalExclusionData").isEmpty() ? "" : " with global drop npc exclusions"));
-	log.info("Loaded " + n(field(multiReturnItem, "multiReturnItem").size()) + " multi return item entries");
-	log.info("Loaded " + n(field(hotspotData, "hotspotData").size()) + " hotspot entries");
-	log.info("Loaded " + n(field(itemPurificationData, "itemPurificationData").size()) + " item purifications entries");
-	log.info("Loaded " + n(field(upgradeArcadeData, "upgradeArcadeData").size()) + " upgrade arcade entries");
-	log.info("Loaded " + n(field(atreianPassportData, "atreianPassportData").size()) + " atreian passports");
-	log.info("Loaded " + n(field(worldRaidData, "worldRaidData").size()) + " world raid locations");
-	log.info("Loaded " + n(field(killBountyData, "killBountyData").size()) + " kill bounty templates");
-	log.info("Loaded " + n(field(legionDominionData, "legionDominionData").size()) + " legion dominion locations");
-	log.info("Loaded " + n(field(skillAliasLocationData, "skillAliasLocationData").size()) + " skill alias locations");
-	log.info("Loaded " + n(field(signetDataTemplates, "signetDataTemplates").size()) + " signet data templates");
+	log.info("Loaded {} maps", field(worldMapsData, "worldMapsData").size());
+	log.info("Loaded {} material ids", field(materiaData, "materiaData").size());
+	log.info("Loaded weather for {} maps", field(mapWeatherData, "mapWeatherData").size());
+	log.info("Loaded {} player experience table entries", field(playerExperienceTable, "playerExperienceTable").getMaxLevel());
+	log.info("Loaded {} pvp experience table entries", field(pvpExpTable, "pvpExpTable").getMaxLevel());
+	log.info("Loaded {} pvp experience modifier entries", field(pvpExpModTable, "pvpExpModTable").size());
+	log.info("Loaded {} party experience modifier entries", field(partyExpModTable, "partyExpModTable").size());
+	log.info("Loaded {} mentee experience limit entries", field(menteeExpLimitTable, "menteeExpLimitTable").size());
+	log.info("Loaded {} absolute stat templates", field(absoluteStatsData, "absoluteStatsData").size());
+	log.info("Loaded {} item cleanup entries", field(itemCleanup, "itemCleanup").size());
+	log.info("Loaded {} item templates", field(itemData, "itemData").size());
+	log.info("Loaded {} item bonus templates", field(itemRandomBonuses, "itemRandomBonuses").size());
+	log.info("Loaded {} bonus item group templates and {} pet food items", field(itemGroupsData, "itemGroupsData").bonusSize(), itemGroupsData->petFoodSize());
+	log.info("Loaded {} npc templates", field(npcData, "npcData").size());
+	log.info("Loaded {} custom npc drops", field(customNpcDrop, "customNpcDrop").size());
+	log.info("Loaded {} system mail templates", field(systemMailTemplates, "systemMailTemplates").size());
+	log.info("Loaded {} npc shout templates", field(npcShoutData, "npcShoutData").size());
+	log.info("Loaded {} pet templates and {} food flavours", field(petData, "petData").size(), field(petFeedData, "petFeedData").size());
+	log.info("Loaded {} pet doping templates", field(petDopingData, "petDopingData").size());
+	log.info("Loaded {} pet buffs templates", field(petBuffsData, "petBuffsData").size());
+	log.info("Loaded {} initial player templates", field(playerInitialData, "playerInitialData").size());
+	log.info("Loaded {} trade lists", field(tradeListData, "tradeListData").size());
+	log.info("Loaded {} npc teleporter templates", field(teleporterData, "teleporterData").size());
+	log.info("Loaded {} teleport locations", field(teleLocationData, "teleLocationData").size());
+	log.info("Loaded {} skill templates", field(skillData, "skillData").size());
+	log.info("Loaded {} skill charge entries", field(skillChargeData, "skillChargeData").size());
+	log.info("Loaded {} motion times", field(motionData, "motionData").size());
+	log.info("Loaded {} skill learn entries", field(skillTreeData, "skillTreeData").size());
+	log.info("Loaded {} cube expand entries", field(cubeExpandData, "cubeExpandData").size());
+	log.info("Loaded {} warehouse expand entries", field(warehouseExpandData, "warehouseExpandData").size());
+	log.info("Loaded {} bind point entries", field(bindPointData, "bindPointData").size());
+	log.info("Loaded {} quest data entries", field(questData, "questData").size());
+	log.info("Loaded {} gatherable entries", field(gatherableData, "gatherableData").size());
+	log.info("Loaded {} title entries", field(titleData, "titleData").size());
+	log.info("Loaded {} walker routes", field(walkerData, "walkerData").size());
+	log.info("Loaded {} walker group variants", field(walkerVersionsData, "walkerVersionsData").size());
+	log.info("Loaded {} zone entries", field(zoneData, "zoneData").size());
+	log.info("Loaded {} goodslist entries", field(goodsListData, "goodsListData").size());
+	log.info("Loaded {} tribe relation entries", field(tribeRelationsData, "tribeRelationsData").size());
+	log.info("Loaded {} recipe entries", field(recipeData, "recipeData").size());
+	log.info("Loaded {} chest locations", field(chestData, "chestData").size());
+	log.info("Loaded {} static door locations", field(staticDoorData, "staticDoorData").size());
+	log.info("Loaded {} item set entries", field(itemSetData, "itemSetData").size());
+	log.info("Loaded {} npc factions", field(npcFactionsData, "npcFactionsData").size());
+	log.info("Loaded {} npc skill list entries", field(npcSkillData, "npcSkillData").size());
+	log.info("Loaded {} pet skill list entries", field(petSkillData, "petSkillData").size());
+	log.info("Loaded {} siege location entries", field(siegeLocationData, "siegeLocationData").size());
+	log.info("Loaded {} vortex entries", field(vortexData, "vortexData").size());
+	log.info("Loaded {} rift entries", field(riftData, "riftData").size());
+	log.info("Loaded {} base entries", field(baseData, "baseData").size());
+	log.info("Loaded {} fly ring entries", field(flyRingData, "flyRingData").size());
+	log.info("Loaded {} pet entries", petData->size());
+	log.info("Loaded {} guide entries", field(guideData, "guideData").size());
+	log.info("Loaded {} road entries", field(roadData, "roadData").size());
+	log.info("Loaded {} instance cooltime entries", field(instanceCooltimeData, "instanceCooltimeData").size());
+	log.info("Loaded {} decomposable items entries ({} overridden)", field(decomposableItemsData, "decomposableItemsData").size(),
+		decomposableItemsData->overrideCount());
+	log.info("Loaded {} ai templates", field(aiData, "aiData").size());
+	log.info("Loaded {} flypath templates", field(flyPath, "flyPath").size());
+	log.info("Loaded {} windstream entries", field(windstreamsData, "windstreamsData").size());
+	log.info("Loaded {} assembled npcs entries", field(assembledNpcData, "assembledNpcData").size());
+	log.info("Loaded {} cosmetic items entries", field(cosmeticItemsData, "cosmeticItemsData").size());
+	log.info("Loaded {} auto group entries", field(autoGroupData, "autoGroupData").size());
+	log.info("Loaded {} spawn maps entries", field(spawnsData, "spawnsData").size());
+	log.info("Loaded {} events", field(eventData, "eventData").size());
+	log.info("Loaded {} skill panel entries", field(panelSkillsData, "panelSkillsData").size());
+	log.info("Loaded {} instance Buffs entries", field(instanceBuffData, "instanceBuffData").size());
+	log.info("Loaded {} housing object entries", field(housingObjectData, "housingObjectData").size());
+	log.info("Loaded {} ride info entries", field(rideData, "rideData").size());
+	log.info("Loaded {} instance exit entries", field(instanceExitData, "instanceExitData").size());
+	log.info("Loaded {} portal loc entries", field(portalLocData, "portalLocData").size());
+	log.info("Loaded {} portal templates2 entries", field(portalTemplate2, "portalTemplate2").size());
+	log.info("Loaded {} housing lands", field(houseData, "houseData").size());
+	log.info("Loaded {} house building styles", field(houseBuildingData, "houseBuildingData").size());
+	log.info("Loaded {} house parts", field(housePartsData, "housePartsData").size());
+	log.info("Loaded {} house spawns", field(houseNpcsData, "houseNpcsData").size());
+	log.info("Loaded {} assembly items entries", field(assemblyItemData, "assemblyItemData").size());
+	log.info("Loaded {} challenge tasks entries", field(challengeData, "challengeData").size());
+	log.info("Loaded {} conqueror and protector entries", field(conquerorAndProtectorData, "conquerorAndProtectorData").size());
+	log.info("Loaded {} town spawns", field(townSpawnsData, "townSpawnsData").getSpawnsCount());
+	log.info("Loaded {} temperings", field(temperingData, "temperingData").size());
+	log.info("Loaded {} enchants", field(enchantData, "enchantData").size());
+	log.info("Loaded {} global drop rules{}", field(globalDropData, "globalDropData").size(),
+		field(globalExclusionData, "globalExclusionData").isEmpty() ? "" : " with global drop npc exclusions");
+	log.info("Loaded {} multi return item entries", field(multiReturnItem, "multiReturnItem").size());
+	log.info("Loaded {} hotspot entries", field(hotspotData, "hotspotData").size());
+	log.info("Loaded {} item purifications entries", field(itemPurificationData, "itemPurificationData").size());
+	log.info("Loaded {} upgrade arcade entries", field(upgradeArcadeData, "upgradeArcadeData").size());
+	log.info("Loaded {} atreian passports", field(atreianPassportData, "atreianPassportData").size());
+	log.info("Loaded {} world raid locations", field(worldRaidData, "worldRaidData").size());
+	log.info("Loaded {} kill bounty templates", field(killBountyData, "killBountyData").size());
+	log.info("Loaded {} legion dominion locations", field(legionDominionData, "legionDominionData").size());
+	log.info("Loaded {} skill alias locations", field(skillAliasLocationData, "skillAliasLocationData").size());
+	log.info("Loaded {} signet data templates", field(signetDataTemplates, "signetDataTemplates").size());
 }
 
 } // namespace aion::gameserver::dataholders

@@ -48,7 +48,7 @@ void Config::load(const Properties& overrides) {
 	if (!unusedProperties.empty()) {
 		removePropertiesUsedInLogbackXml(unusedProperties);
 		for (const std::string& p : unusedProperties)
-			logger().warn("Config property " + p + " is unknown and therefore ignored.");
+			logger().warn("Config property {} is unknown and therefore ignored.", p);
 	}
 
 	// Java resolves the host when the property is bound; the InetAddress of an unresolvable host is null and getAddress() below throws
@@ -59,7 +59,7 @@ void Config::load(const Properties& overrides) {
 			throw commons::utils::Exception(
 				"No connect IP for Aion client configured and local IP discovery failed. Please configure chatserver.network.client.connect_address");
 		NetworkConfig::CLIENT_CONNECT_ADDRESS = {*localIPv4, NetworkConfig::CLIENT_CONNECT_ADDRESS.port};
-		logger().info("No connect IP for Aion client configured, using " + *localIPv4);
+		logger().info("No connect IP for Aion client configured, using {}", *localIPv4);
 	}
 }
 

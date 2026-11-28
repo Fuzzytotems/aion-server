@@ -103,7 +103,7 @@ What you should see:
   (145-148 s with geodata, 0 ERROR and 67 WARN lines).
 - `probe`: `2106 ... first packet 202 bytes ...: CA 00 ...` (SM_INIT, encrypted) and `7777 ... first packet 11 bytes ...: 0B 00 C8 01 ...` (SM_KEY).
 - `logs`: a header line with the ERROR/WARN counts, then the tail. `-Errors` prints `(no ERROR lines)` on a clean start. The login server's
-  log shows `Gameserver #1 is now online` and the probe's `Connection attempt from: 127.0.0.1`.
+  log shows `Game server #1 is now online` and the probe's `Connection attempt from: 127.0.0.1`.
 - `stop`: `gs stopped after 3.1 s, exit code 0`, then the same for `ls`.
 
 The servers keep running after the tool call returns, in their own minimized console windows. `start` reads the Java tree's configs,

@@ -80,7 +80,7 @@ runtime::Ref<model::gameobjects::player::PlayerAppearance> PlayerAppearanceDAO::
 			pa->setHeight(resultSet->getFloat("height"));
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore PlayerAppearance data for player " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not restore PlayerAppearance data for player {} from DB: {}", playerId, e.what(), e);
 		return nullptr;
 	}
 	return pa;

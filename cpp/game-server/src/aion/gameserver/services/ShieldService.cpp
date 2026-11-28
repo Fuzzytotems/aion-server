@@ -79,7 +79,7 @@ void ShieldService::attachShield(model::siege::SiegeLocation& location) {
 		}
 	}
 	if (attached.empty() && location.getType() != model::siege::SiegeType::OUTPOST && location.getLocationId() != 1241) // Outposts and Miren don't have shields
-		log.warn("Could not find a shield for location ID {}.", location.getLocationId());
+		log.warn("Could not find a shield for location ID {}", location.getLocationId());
 }
 
 bool ShieldService::isShieldInsideLocation(model::siege::SiegeShield& shield, model::siege::SiegeLocation& location) {

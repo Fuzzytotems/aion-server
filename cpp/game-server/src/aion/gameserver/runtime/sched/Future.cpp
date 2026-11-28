@@ -210,7 +210,7 @@ bool Future::invokeBody(int64_t maxRuntimeWithoutWarningMillis) noexcept {
 			commons::utils::concurrent::RunnableStatsManager::handleStats(typeid(Future), sched_detail::describeTask(info_), durationNanos);
 		int64_t durationMillis = durationNanos / 1'000'000;
 		if (durationMillis > maxRuntimeWithoutWarningMillis)
-			executeWrapperLog().warn("{} - execution time: {}ms", sched_detail::describeTask(info_), durationMillis);
+			executeWrapperLog().warn("{} - execution time: {} ms", sched_detail::describeTask(info_), durationMillis);
 	} catch (...) {
 		// statistics and warnings are best effort
 	}

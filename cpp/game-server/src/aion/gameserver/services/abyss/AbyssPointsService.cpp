@@ -26,7 +26,7 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 // Java AbyssPointsService.java:25-31 (the kill and PvP variant; M5j stage 1 CP4: PvpService.rewardPlayerTeam and NpcController.doReward)
 void AbyssPointsService::addAp(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& obj, int32_t value) {
 	if (value > 30000) {
-		log.warn("WARN BIG COUNT AP: " + std::to_string(value) + " for " + player.toString() + " from " + obj.toString());
+		log.warn("WARN BIG COUNT AP: {} for {} from {}", value, player.toString(), obj.toString());
 	}
 	addAp(player, value);
 	SiegeService::getInstance().onAbyssPointsAdded(player, obj, value);

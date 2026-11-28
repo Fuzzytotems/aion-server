@@ -27,8 +27,8 @@ RoadService::RoadService() {
 			runtime::Ref<model::road::Road> r = model::gameobjects::VisibleObject::create<model::road::Road>(&rt, instanceId);
 			r->spawn();
 			if (log.isDebugEnabled())
-				log.debug("Added " + r->getName() + " at m=" + std::to_string(r->getWorldId()) + ",x=" + JavaFloat::toString(r->getX()) + ",y=" +
-					JavaFloat::toString(r->getY()) + ",z=" + JavaFloat::toString(r->getZ()) + " [" + std::to_string(instanceId) + "]");
+				log.debug("Added {} at m={},x={},y={},z={} [{}]", r->getName(), r->getWorldId(), JavaFloat::toString(r->getX()), JavaFloat::toString(r->getY()),
+					JavaFloat::toString(r->getZ()), instanceId);
 		}
 	}
 }

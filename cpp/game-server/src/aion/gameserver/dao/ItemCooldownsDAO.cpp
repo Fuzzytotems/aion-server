@@ -77,7 +77,7 @@ void ItemCooldownsDAO::storeItemCooldowns(model::gameobjects::player::Player& pl
 		st->executeBatch();
 		con->commit();
 	} catch (const SQLException& e) {
-		log.error("Error while storing item cooldowns for " + player.toString(), e);
+		log.error("Error while storing item cooldowns for {}", player.toString(), e);
 	}
 }
 

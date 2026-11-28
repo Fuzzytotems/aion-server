@@ -59,10 +59,10 @@ std::shared_ptr<AionConnection> GameConnectionFactoryImpl::create(asio::ip::tcp:
 		const sequrity::FloodManager::Result isFlooding = floodAcceptor->isFlooding(host, true);
 		switch (isFlooding) {
 			case sequrity::FloodManager::Result::REJECTED:
-				log.warn("Rejected connection from " + host);
+				log.warn("Rejected connection from {}", host);
 				return nullptr;
 			case sequrity::FloodManager::Result::WARNED:
-				log.warn("Connection over warn limit from " + host);
+				log.warn("Connection over warn limit from {}", host);
 				break;
 			default:
 				break;

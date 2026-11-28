@@ -69,9 +69,7 @@ bool SiegeDAO::updateSiegeLocation(model::siege::SiegeLocation& siegeLocation) {
 		stmt->setInt(5, siegeLocation.getLocationId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not update siege location " + std::to_string(siegeLocation.getLocationId()) + " (race: " +
-				detail::enumName(siegeLocation.getRace()) + ")",
-			e);
+		log.error("Could not update siege location {} (race: {})", siegeLocation.getLocationId(), detail::enumName(siegeLocation.getRace()), e);
 		return false;
 	}
 	return true;
@@ -88,7 +86,7 @@ bool SiegeDAO::insertSiegeLocation(model::siege::SiegeLocation& siegeLocation) {
 		stmt->setInt(5, siegeLocation.getFactionBalance());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not insert siege location " + std::to_string(siegeLocation.getLocationId()), e);
+		log.error("Could not insert siege location {}", siegeLocation.getLocationId(), e);
 		return false;
 	}
 	return true;

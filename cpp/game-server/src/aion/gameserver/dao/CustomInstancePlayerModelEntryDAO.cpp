@@ -57,7 +57,7 @@ std::vector<runtime::Ref<custom::instance::neuralnetwork::PlayerModelEntry>> Cus
 			entries.push_back(pme);
 		}
 	} catch (const SQLException& e) {
-		log.error("[CUSTOM_INSTANCE] Error loading player model entries on player id " + std::to_string(playerId), e);
+		log.error("[CUSTOM_INSTANCE] Error loading player model entries on player id {}", playerId, e);
 	}
 	return entries;
 }
@@ -103,7 +103,7 @@ void CustomInstancePlayerModelEntryDAO::insertNewRecords(
 		stmt->executeBatch();
 		con->commit();
 	} catch (const std::exception& e) {
-		log.error("Error occured while saving player model entries.", e);
+		log.error("Could not save player model entries", e);
 	}
 }
 

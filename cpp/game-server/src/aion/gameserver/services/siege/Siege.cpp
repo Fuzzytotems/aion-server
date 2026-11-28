@@ -55,7 +55,7 @@ void Siege::startSiege() {
 	}
 
 	if (doubleStart) {
-		log.error("Attempt to start " + toString() + " twice", runtime::IllegalStateException(""));
+		log.error("Attempt to start {} twice", toString(), runtime::IllegalStateException(""));
 	} else {
 		onSiegeStart();
 	}
@@ -75,7 +75,7 @@ void Siege::stopSiege() {
 			BalaurAssaultService::getInstance().onSiegeFinish(*this);
 		}
 	} else {
-		log.error("Attempt to stop " + toString() + " twice", runtime::IllegalStateException(""));
+		log.error("Attempt to stop {} twice", toString(), runtime::IllegalStateException(""));
 	}
 }
 
@@ -191,12 +191,12 @@ void Siege::sendRewardsToParticipants(SiegeRaceCounter& raceCounter, mail::Siege
 				for (size_t i = 0; i < rewardedGpPlayers.size(); i++)
 					ids += (i == 0 ? "" : ", ") + std::to_string(rewardedGpPlayers[i]); // Java: List.toString()
 				ids += "]";
-				log.info(toString() + ": Distributed " + std::to_string(gp) + " " + (isWinner ? "winner" : "loser") + " GP each, to the following players (rank " +
-					std::to_string(rewardLevel) + "): " + ids);
+				log.info("{}: Distributed {} {} GP each, to the following players (rank {}): {}", toString(), gp, isWinner ? "winner" : "loser", rewardLevel,
+					ids);
 			}
 		}
 	} catch (const std::exception& e) {
-		log.error("Error while distributing rewards for " + toString(), e);
+		log.error("Error while distributing rewards for {}", toString(), e);
 	}
 }
 

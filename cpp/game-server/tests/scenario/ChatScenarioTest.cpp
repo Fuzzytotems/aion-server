@@ -9,7 +9,7 @@
 //   Y3  CM_CHAT_AUTH -> SM_CHAT_INIT with a 48-byte token; a fake chat client (chat-server/tests/support/FakePeers.h) authenticates with it;
 //   Y4  A and B join one channel; A speaks; B (and A) receive exactly Java's SM_CHANNEL_MESSAGE; the chatlog row exists;
 //   Y5  G's `//gag A 1 test` reaches the chat server as CM_PLAYER_GAG (its log line; D9: the duration is sent where a point in time is read);
-//   Y6  the chat server is stopped and restarted within 5 s: the game server logs "Reconnecting to chat server in 5s..." and is online again
+//   Y6  the chat server is stopped and restarted within 5 s: the game server logs "Reconnecting to chat server in 5 seconds" and is online again
 //       5 s after the drop; a second drop with the chat server down for 12 s: the connect at 5 s fails and the next comes 10 s later, online at
 //       15 s; a new client's SM_VERSION_CHECK announces it again; no reconnect is attempted at the game server's shutdown;
 //   Y7  logout -> the chat server closes the player's chat connection ("Player[id=...] logged out"); all three processes exit 0; no unported
@@ -705,11 +705,11 @@ void runChatGate() {
 	runCase("Y6", "the chat server restarts within 5 s: reconnected after 5 s; down for 12 s: the 5 s connect fails, online at 15 s", [&] {
 		a.chatClient.reset();
 		b.chatClient.reset();
-		const size_t reconnectsBefore = servers.gameServer()->findLogLines("Reconnecting to chat server in 5s...", 100).size();
+		const size_t reconnectsBefore = servers.gameServer()->findLogLines("Reconnecting to chat server in 5 seconds", 100).size();
 		const std::chrono::milliseconds first = dropAndMeasure(1000ms);
 		EXPECT_GE(first, 5000ms - 500ms) << "ChatServer.java:79-81: an authenticated link reconnects after 5 s";
 		EXPECT_LE(first, 5000ms + RECONNECT_SLACK);
-		EXPECT_EQ(servers.gameServer()->findLogLines("Reconnecting to chat server in 5s...", 100).size(), reconnectsBefore + 1);
+		EXPECT_EQ(servers.gameServer()->findLogLines("Reconnecting to chat server in 5 seconds", 100).size(), reconnectsBefore + 1);
 		const std::chrono::milliseconds second = dropAndMeasure(12000ms);
 		EXPECT_GE(second, 15000ms - 500ms) << "ChatServer.java:56-58: the connect at 5 s fails, the next attempt 10 s later";
 		EXPECT_LE(second, 15000ms + RECONNECT_SLACK);

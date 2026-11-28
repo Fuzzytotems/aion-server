@@ -62,7 +62,7 @@ enum class PoolKind : uint8_t {
  * - Exceptions thrown by execute/schedule/scheduleAtFixedRate bodies are logged as in ThreadPoolManager.java:51-79 (RunnableWrapper, with the
  *   task's call site); a periodic task keeps running after an exception (Java's ScheduledThreadPoolExecutor would stop it; the Java server
  *   wraps bodies so they never throw). submit/submitLongRunning/deferred bodies store the exception (FAILED, get() throws ExecutionException).
- * - Slow-task warnings ("<call site> - execution time: Nms") past the pool's threshold, and RunnableStatsManager records (class Future, method =
+ * - Slow-task warnings ("<call site> - execution time: N ms") past the pool's threshold, and RunnableStatsManager records (class Future, method =
  *   call site) when commons.runnablestats.enable is set, as commons ExecuteWrapper does.
  *
  * Thread-safety: all public members are thread-safe.

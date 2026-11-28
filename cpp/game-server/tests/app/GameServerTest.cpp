@@ -164,7 +164,7 @@ TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) 
 		"DataManager.getInstance()",
 		// Stream.of(QuestEngine, AIEngine, InstanceEngine, ChatProcessor, ZoneService, GeoService).parallel().forEach(GameEngine::init)
 		"QuestEngine.init()", "AIEngine.init()", "InstanceEngine.init()", "ChatProcessor.init()", "ZoneService.init()", "GeoService.init()",
-		"World.getInstance()", "GameTimeService.getInstance()", "DropRegistrationService.getInstance()",
+		"World.getInstance()", "DropRegistrationService.getInstance()",
 		"BaseService.getInstance()", "SiegeService.getInstance()", "WorldRaidService.initWorldRaidLocations()",
 		"VortexService.initVortexLocations()", "RiftService.initRiftLocations()", "LegionDominionService.initLocations()",
 		"HousingService.getInstance()", "HousingBidService.getInstance()", "AuctionEndTask.getInstance()", "AuctionAutoFillTask.getInstance()",
@@ -184,7 +184,7 @@ TEST_F(GameServerTest, StartupStepsAreTheStatementsOfJavaGameServerMainInOrder) 
 		// System.gc() has no counterpart
 		"VersionInfo.logAll()",
 		"initNioServer()", "ShutdownHook",
-		// "Game server started in N seconds." is logged here, after the hook and before the login server
+		// "Game server started in N seconds" is logged here, after the hook and before the login server
 		"LoginServer.connect(nioServer)", "ChatServer.connect(nioServer)",
 	};
 

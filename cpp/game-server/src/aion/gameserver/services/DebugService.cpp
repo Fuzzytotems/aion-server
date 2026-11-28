@@ -19,7 +19,7 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 DebugService::DebugService() {
 	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] { analyzeWorldPlayers(); }, ANALYZE_PLAYERS_INTERVAL,
 		ANALYZE_PLAYERS_INTERVAL);
-	log.info("DebugService started. Analyze interval: " + std::to_string(ANALYZE_PLAYERS_INTERVAL));
+	log.info("DebugService started. Analyze interval: {}", ANALYZE_PLAYERS_INTERVAL);
 }
 
 DebugService::~DebugService() = default;

@@ -33,11 +33,11 @@ void CM_CS_AUTH_RESPONSE::runImpl() {
 			ChatServer::getInstance().setPublicAddress(address, port);
 		} break;
 		case 1: // Not authed
-			log.warn("GameServer is not authenticated at ChatServer side!");
+			log.warn("Authentication failed at the chat server");
 			getConnection()->close();
 			break;
 		case 2: // Already registered
-			log.warn("GameServer is already registered at ChatServer side!");
+			log.warn("Game server is already registered at the chat server");
 			getConnection()->close();
 			break;
 	}

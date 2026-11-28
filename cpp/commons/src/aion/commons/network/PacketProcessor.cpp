@@ -196,8 +196,8 @@ void PacketProcessorBase::checkThreadCount() {
 	} else if (packetsWaitingForExecution > threadSpawnThreshold) {
 		// too small amount of threads
 		if (!newThread() && packetsWaitingForExecution >= static_cast<int64_t>(threadSpawnThreshold) * 3)
-			log().warn("Lag detected! [" + std::to_string(packetsWaitingForExecution) +
-							 " client packets are waiting for execution]. You should consider increasing PacketProcessor maxThreads or hardware upgrade.");
+			log().warn("Lag detected: {} client packets are waiting for execution - consider increasing PacketProcessor maxThreads or hardware upgrade",
+				packetsWaitingForExecution);
 	}
 	previousPacketCount = packetsWaitingForExecution;
 }

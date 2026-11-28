@@ -129,11 +129,11 @@ public:
 	/**
 	 * Shuts the server down with the same sequence and log messages as Java:
 	 * <ol>
-	 * <li>stops accepting connections ("Closing ServerChannels...", "ServerChannels closed.")</li>
-	 * <li>calls onServerClose() on every active connection ("\tClosing N connections...")</li>
-	 * <li>waits up to closeTimeout for connections pending close, then calls close() on the ones still open ("\tForcing N connections to
+	 * <li>stops accepting connections ("Stopped accepting new connections" when there is no active connection)</li>
+	 * <li>calls onServerClose() on every active connection ("Stopped accepting new connections, now closing N connection(s)")</li>
+	 * <li>waits up to closeTimeout for connections pending close, then calls close() on the ones still open ("\tForcing N connection(s) to
 	 * disconnect...")</li>
-	 * <li>logs "\tActive connections left: N"</li>
+	 * <li>logs "\tActive connections left: N" if some are left</li>
 	 * </ol>
 	 * Then (unlike Java, whose dispatcher threads keep running until the JVM exits) all connections that are still not disconnected are
 	 * disconnected immediately, the IO threads are stopped and joined, and the call waits until all pending onDisconnect callbacks have run (with a

@@ -36,7 +36,7 @@ std::vector<runtime::Ref<model::templates::rewards::RewardEntryItem>> RewardServ
 			list.push_back(model::templates::rewards::RewardEntryItem::create(entryId, itemId, count));
 		}
 	} catch (const std::exception& e) {
-		log.error("Couldn't load unreceived web rewards for player " + std::to_string(playerId), e);
+		log.error("Couldn't load unreceived web rewards for player {}", playerId, e);
 	}
 	return list;
 }
@@ -63,7 +63,7 @@ void RewardServiceDAO::storeReceived(const std::vector<int32_t>& ids, int64_t ti
 			idList += std::to_string(ids[i]);
 		}
 		idList += "]";
-		log.error("Error saving received web rewards, player could potentially receive rewards multiple times! Check entry_id's: " + idList, e);
+		log.error("Error saving received web rewards, player could potentially receive rewards multiple times! Check entry_id's: {}", idList, e);
 	}
 }
 

@@ -161,7 +161,7 @@ void Config::load(std::span<const BindFunction> allowedConfigs) {
 			for (const std::string& key : Logging::getPropertyKeys("gameserver"))
 				unusedProperties.erase(key);
 			for (const std::string& unusedProperty : unusedProperties)
-				logger().warn("Config property " + unusedProperty + " is unknown and therefore ignored.");
+				logger().warn("Config property {} is unknown and therefore ignored.", unusedProperty);
 		}
 
 		auto clientConnectAddress = network::NetworkConfig::CLIENT_CONNECT_ADDRESS.get();
@@ -172,7 +172,7 @@ void Config::load(std::span<const BindFunction> allowedConfigs) {
 				throw commons::utils::Exception("No IP for Aion client advertisement configured and local IP discovery failed. Please configure "
 				                                "gameserver.network.client.connect_address");
 			network::NetworkConfig::CLIENT_CONNECT_ADDRESS.set(commons::utils::InetSocketAddress{*localIPv4, clientConnectAddress->port});
-			logger().info("No IP for Aion client advertisement configured, using " + *localIPv4);
+			logger().info("No IP for Aion client advertisement configured, using {}", *localIPv4);
 		}
 	}
 }
@@ -197,7 +197,7 @@ Properties Config::loadProperties() {
 	auto defaults = std::make_shared<Properties>();
 	try {
 		for (const char* configDir : {"./config/administration", "./config/main", "./config/network"}) {
-			logger().info("Loading default configuration values from: " + std::string(configDir) + "/*");
+			logger().info("Loading default configuration values from: {}/*", configDir);
 			PropertiesUtils::loadFromDirectory(*defaults, configDir, false);
 		}
 		if (overrideFileIgnored.load(std::memory_order_acquire)) {

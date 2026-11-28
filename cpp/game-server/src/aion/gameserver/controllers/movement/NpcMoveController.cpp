@@ -426,7 +426,7 @@ bool NpcMoveController::isNextRouteStepChosen() {
 		std::optional<std::string> spawnWalkerId = npc.getSpawn()->getWalkerId();
 		setWalkerTemplate(spawnWalkerId ? dataholders::DataManager::WALKER_DATA->getWalkerTemplate(*spawnWalkerId) : nullptr, 0);
 		if (walkerTemplate.get() == nullptr) {
-			// Java: log.warn("Bad Walker Id: " + walkerId + " - point: " + currentStep.getStepIndex()), unreachable in Java too (setWalkerTemplate
+			// Java: log.warn("Bad Walker Id: {} - point: {}", walkerId, currentStep.getStepIndex()), unreachable in Java too (setWalkerTemplate
 			// throws for a null template)
 			std::optional<std::string> walkerId = npc.getSpawn()->getWalkerId();
 			log.warn("Bad Walker Id: {} - point: {}", walkerId.value_or("null"), detail::nonNull(currentStep.get(), "currentStep")->getStepIndex());

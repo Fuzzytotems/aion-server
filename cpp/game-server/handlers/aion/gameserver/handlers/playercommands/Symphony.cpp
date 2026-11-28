@@ -66,8 +66,7 @@ void Symphony::execute(Player& player, std::span<const std::string> params) {
 	int64_t notAddedCount = ItemService::addItem(player, itemId, itemCount, true, *predicate); // parity= long notAddedCount = ItemService.addItem(player, itemId, itemCount, true, new ItemUpdatePredicate(ItemAddType.DECOMPOSABLE, ItemUpdateType.INC_CASH_ITEM));
 	if (notAddedCount > 0) {
 		static const auto log = commons::logging::LoggerFactory::getLogger("playercommands.Symphony"); // parity: private static final Logger log = LoggerFactory.getLogger(Symphony.class);
-		log.warn("[Legendary Symphony Event] " + std::to_string(notAddedCount) + "x " + std::to_string(itemId) + " could not be added to " + // parity= log.warn("[Legendary Symphony Event] {}x {} could not be added to {}'s inventory.", notAddedCount, itemId, player.getName());
-			player.getName() + "'s inventory."); // parity: (the same)
+		log.warn("[Legendary Symphony Event] {}x {} could not be added to {}'s inventory", notAddedCount, itemId, player.getName());
 	}
 }
 

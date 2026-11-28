@@ -130,7 +130,7 @@ void ShutdownHook::run() {
 				break; // fast exit
 
 			if (remainingSeconds.get() % announceInterval == 0) {
-				log().info("Runtime is shutting down in " + std::to_string(remainingSeconds.get()) + " seconds.");
+				log().info("Runtime is shutting down in {} seconds", remainingSeconds.get());
 				ops.announceShutdown(remainingSeconds.get());
 				announceInterval = nextInterval(remainingSeconds.get(), 5, 60);
 			}

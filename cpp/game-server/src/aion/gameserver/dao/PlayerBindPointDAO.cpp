@@ -44,7 +44,7 @@ void PlayerBindPointDAO::loadBindPoint(model::gameobjects::player::Player& playe
 			player.setBindPoint(bind);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore BindPointPosition data for playerObjId: " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not restore BindPointPosition data for playerObjId: {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 }
 
@@ -61,7 +61,7 @@ bool PlayerBindPointDAO::insertBindPoint(model::gameobjects::player::Player& pla
 		stmt->setByte(6, bpp->getHeading());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not store BindPointPosition data for player " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not store BindPointPosition data for player {} from DB: {}", player.getObjectId(), e.what(), e);
 		return false;
 	}
 	return true;
@@ -82,7 +82,7 @@ bool PlayerBindPointDAO::updateBindPoint(model::gameobjects::player::Player& pla
 		stmt->setFloat(6, static_cast<float>(player.getObjectId()));
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not update BindPointPosition data for player " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not update BindPointPosition data for player {} from DB: {}", player.getObjectId(), e.what(), e);
 		return false;
 	}
 	return true;

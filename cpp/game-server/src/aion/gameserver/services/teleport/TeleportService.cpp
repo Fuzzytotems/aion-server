@@ -554,7 +554,7 @@ void TeleportService::teleportToNpc(model::gameobjects::player::Player& player, 
 		dataholders::DataManager::SPAWNS_DATA->getFirstSpawnByNpcId(player.getWorldId(), npcId);
 
 	if (!searchResult) {
-		log.warn("No npc spawn found for : " + std::to_string(npcId));
+		log.warn("No npc spawn found for : {}", npcId);
 		return;
 	}
 
@@ -648,7 +648,7 @@ void TeleportService::moveToInstanceExit(model::gameobjects::player::Player& pla
 		teleportTo(player, instanceExit->getExitWorld(), instanceExit->getX(), instanceExit->getY(), instanceExit->getZ(), instanceExit->getH());
 	} else {
 		if (instanceExit == nullptr)
-			log.warn("No instance exit found for race: " + std::string(xml::enumName(race)) + " " + std::to_string(worldId));
+			log.warn("No instance exit found for race: {} {}", std::string(xml::enumName(race)), worldId);
 		moveToBindLocation(player);
 	}
 }
@@ -657,19 +657,19 @@ void TeleportService::moveToInstanceExit(model::gameobjects::player::Player& pla
 void TeleportService::useTeleportScroll(model::gameobjects::player::Player& player, std::string_view portalName, int32_t worldId) {
 	const model::templates::portal::PortalScroll* template_ = dataholders::DataManager::PORTAL2_DATA->getPortalScroll(portalName);
 	if (template_ == nullptr) {
-		log.warn("No portal template found for: " + std::string(portalName) + " " + std::to_string(worldId));
+		log.warn("No portal template found for: {} {}", portalName, worldId);
 		return;
 	}
 
 	model::Race playerRace = player.getRace();
 	const model::templates::portal::PortalPath* portalPath = template_->getPortalPath();
 	if (portalPath == nullptr) {
-		log.warn("No portal scroll for " + std::string(xml::enumName(playerRace)) + " on: " + std::string(portalName) + " " + std::to_string(worldId));
+		log.warn("No portal scroll for {} on: {} {}", std::string(xml::enumName(playerRace)), portalName, worldId);
 		return;
 	}
 	const model::templates::portal::PortalLoc* loc = dataholders::DataManager::PORTAL_LOC_DATA->getPortalLoc(portalPath->getLocId());
 	if (loc == nullptr) {
-		log.warn("No portal loc for locId " + std::to_string(portalPath->getLocId()));
+		log.warn("No portal loc for locId {}", portalPath->getLocId());
 		return;
 	}
 	teleportTo(player, worldId, loc->getX(), loc->getY(), loc->getZ());
@@ -693,18 +693,18 @@ void TeleportService::setEventPos(world::WorldPosition& pos, model::Race race) {
 		eventPosElyos.set(runtime::Array<double>::of({static_cast<double>(pos.getMapId()), static_cast<double>(pos.getInstanceId()),
 			static_cast<double>(pos.getX()), static_cast<double>(pos.getY()), static_cast<double>(pos.getZ()), static_cast<double>(pos.getHeading())}));
 		runtime::Ptr<runtime::Array<double>> eventPos = eventPosElyos.get();
-		log.info("elyos: mapId: " + std::to_string(pos.getMapId()) + ", instanceId: " + std::to_string(static_cast<int32_t>(eventPos->get(1)))
-				 + ", X: " + javaDoubleToString(eventPos->get(2)) + ", Y: " + javaDoubleToString(eventPos->get(3)) + ", Z: "
-				 + javaDoubleToString(eventPos->get(4)) + ", H: " + std::to_string(static_cast<int8_t>(static_cast<int32_t>(eventPos->get(5)))));
+		log.info("elyos: mapId: {}, instanceId: {}, X: {}, Y: {}, Z: {}, H: {}", pos.getMapId(), static_cast<int32_t>(eventPos->get(1)),
+			javaDoubleToString(eventPos->get(2)), javaDoubleToString(eventPos->get(3)), javaDoubleToString(eventPos->get(4)),
+			static_cast<int32_t>(static_cast<int8_t>(static_cast<int32_t>(eventPos->get(5)))));
 	} else if (race == model::Race::ASMODIANS) {
 		// WorldPosition::getWorldMapInstance throws the NullPointerException of a position without a region itself (WorldPosition.cpp)
 		runtime::Ptr<world::WorldMapInstance> mapInstance = pos.getWorldMapInstance();
 		eventPosAsmodians.set(runtime::Array<double>::of({static_cast<double>(mapInstance->getMapId()), static_cast<double>(pos.getInstanceId()),
 			static_cast<double>(pos.getX()), static_cast<double>(pos.getY()), static_cast<double>(pos.getZ()), static_cast<double>(pos.getHeading())}));
 		runtime::Ptr<runtime::Array<double>> eventPos = eventPosAsmodians.get();
-		log.info("asmo: mapId: " + std::to_string(pos.getMapId()) + ", instanceId: " + std::to_string(static_cast<int32_t>(eventPos->get(1)))
-				 + ", X: " + javaDoubleToString(eventPos->get(2)) + ", Y: " + javaDoubleToString(eventPos->get(3)) + ", Z: "
-				 + javaDoubleToString(eventPos->get(4)) + ", H: " + std::to_string(static_cast<int8_t>(static_cast<int32_t>(eventPos->get(5)))));
+		log.info("asmo: mapId: {}, instanceId: {}, X: {}, Y: {}, Z: {}, H: {}", pos.getMapId(), static_cast<int32_t>(eventPos->get(1)),
+			javaDoubleToString(eventPos->get(2)), javaDoubleToString(eventPos->get(3)), javaDoubleToString(eventPos->get(4)),
+			static_cast<int32_t>(static_cast<int8_t>(static_cast<int32_t>(eventPos->get(5)))));
 	}
 }
 

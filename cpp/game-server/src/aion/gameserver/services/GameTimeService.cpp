@@ -4,7 +4,6 @@
 #include <string>
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/GameServerError.h"
 #include "aion/gameserver/dao/ServerVariablesDAO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_GAME_TIME.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -17,7 +16,6 @@ namespace aion::gameserver::services {
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.GameTimeService");
 
 GameTimeService::GameTimeService() : gameTime(utils::time::gametime::GameTime::create(dao::ServerVariablesDAO::loadInt("time"))) {
-	log.info("Initialized GameTime");
 }
 
 GameTimeService::~GameTimeService() = default;
@@ -33,7 +31,7 @@ bool GameTimeService::saveGameTime() {
 
 void GameTimeService::startClock() {
 	if (!isStarted.compareAndSet(false, true))
-		throw GameServerError("Tried to start game time twice."); // Java: GameServerError
+		throw runtime::IllegalStateException("Tried to start game time twice.");
 
 	int32_t updateInterval = 3 * 60000; // every 3 minutes
 
@@ -44,15 +42,13 @@ void GameTimeService::startClock() {
 	// task to save the game time and update all clients
 	// callback at GameTimeService.java:54 (fieldmap key GameTimeService@L54:55): pin {this}
 	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] {
-		log.info("Sending current game time to all players");
-		utils::PacketSendUtility::broadcastToWorld(network::aion::serverpackets::SM_GAME_TIME());
-		if (saveGameTime())
-			log.info("Game time saved...");
-		else
+		log.info("Saving current game time and sending it to all players");
+		if (!saveGameTime())
 			log.warn("Error saving game time");
+		utils::PacketSendUtility::broadcastToWorld(network::aion::serverpackets::SM_GAME_TIME());
 	}, updateInterval, updateInterval);
 
-	log.info("GameTime started. Update interval: " + std::to_string(updateInterval / 1000) + "s");
+	log.info("Game time started with an update interval of {} seconds", updateInterval / 1000);
 }
 
 } // namespace aion::gameserver::services

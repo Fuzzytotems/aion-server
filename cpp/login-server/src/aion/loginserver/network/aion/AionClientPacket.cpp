@@ -34,7 +34,7 @@ void AionClientPacket::run() {
 			else
 				name = getConnection()->getIP();
 
-			log().errorCurrentException("error handling client (" + name + ") message " + toString());
+			log().errorCurrentException(fmt::format("error handling client ({}) message {}", name, toString()));
 		} catch (...) {
 			// logging must not throw out of the packet processor
 		}

@@ -114,7 +114,7 @@ TEST_F(ChatServerLinkTest, PacketsOfOtherStatesAreIgnored) {
 	cs = std::make_unique<TestSocket>(acceptor);
 	expectPacket(0x00);
 	send(PacketWriter().C(0x01).D(1).C(0).data); // CM_CS_PLAYER_AUTH_RESPONSE before authentication
-	EXPECT_TRUE(logs.waitFor("sent CM_CS_PLAYER_AUTH_RESPONSE but the connections current state (CONNECTED) is invalid for this packet."))
+	EXPECT_TRUE(logs.waitFor("sent CM_CS_PLAYER_AUTH_RESPONSE but the connection's current state (CONNECTED) is invalid for this packet - packet won't be instantiated"))
 		<< logs.dump();
 	EXPECT_THROW(ChatServer::getInstance().connect(sharedGameServer()), commons::utils::IllegalStateException);
 }

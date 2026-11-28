@@ -103,8 +103,7 @@ void AionConnection::ConnectionAliveChecker::checkAlive(const std::weak_ptr<Aion
 		return; // C++: the connection was destroyed (Java keeps it reachable through this task)
 	int64_t millisSinceLastClientPacket = commons::utils::currentTimeMillis() - con->lastClientMessageTime.get();
 	if (millisSinceLastClientPacket - 5000 > CM_PING::CLIENT_PING_INTERVAL) {
-		log.info("Closing hanged up connection of " + con->toString() + " (last sign of life was " + std::to_string(millisSinceLastClientPacket) +
-			"ms ago)");
+		log.info("Closing hanged up connection of {} (last sign of life was {} ms ago)", con->toString(), millisSinceLastClientPacket);
 		con->close();
 	}
 }
@@ -130,7 +129,7 @@ AionConnection::AionConnection(asio::ip::tcp::socket socket, commons::network::N
 	state.set(State::CONNECTED);
 
 	if (log.isDebugEnabled())
-		log.debug("connection from: " + getIP());
+		log.debug("connection from: {}", getIP());
 
 	lastClientMessageTime.set(commons::utils::currentTimeMillis());
 	// C++: the ConnectionAliveChecker is created in initialized() (it needs weak_from_this()); pffRequests always exists (see processData)
@@ -147,11 +146,11 @@ void AionConnection::sendPacket(AionServerPacket& packet) {
 		commons::utils::concurrent::RunnableStatsManager::handleStats(typeid(packet), "runImpl()", commons::utils::nanoTime() - begin);
 	int32_t frameSize = static_cast<int32_t>(body.bytes->size()) + 2;
 	if (frameSize > AionServerPacket::MAX_CLIENT_SUPPORTED_PACKET_SIZE)
-		log.warn(packet.toString() + " contains " + std::to_string(frameSize - AionServerPacket::MAX_CLIENT_SUPPORTED_PACKET_SIZE) +
-			" more bytes than the game client of " + [this] {
+		log.warn("{} contains {} more bytes than the game client of {} can read", packet.toString(),
+			frameSize - AionServerPacket::MAX_CLIENT_SUPPORTED_PACKET_SIZE, [this] {
 				runtime::Ptr<Player> player = getActivePlayer();
 				return player ? player->toString() : std::string("null");
-			}() + " can read");
+			}());
 	enqueue(std::move(body));
 	traceIfConfigured(*this, packet); // C++ only (see above)
 	// runtime-architecture.md §8.6: the packet name echo of Java's writeData runs at serialization
@@ -208,17 +207,16 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 
 	if (!crypt.decrypt(data.remainingSpan())) {
 		if (++corruptPackets >= MAX_CORRUPT_PACKETS_BEFORE_DISCONNECT) {
-			log.warn("Client packet decryption failed " + std::to_string(corruptPackets.get()) + " times, disconnecting " + toString());
+			log.warn("Client packet decryption failed {} times, disconnecting {}", corruptPackets.get(), toString());
 			return false;
 		}
 		if (log.isDebugEnabled())
-			log.debug("[" + std::to_string(corruptPackets.get()) + "/" + std::to_string(MAX_CORRUPT_PACKETS_BEFORE_DISCONNECT) +
-				"] Decrypt fail, client packet passed...");
+			log.debug("[{}/{}] Decrypt fail, client packet passed...", corruptPackets.get(), MAX_CORRUPT_PACKETS_BEFORE_DISCONNECT);
 		return true;
 	}
 
 	if (data.remaining() < 5) { // op + static code + op == 5 bytes
-		log.warn("Received fake packet from " + toString() + ", disconnecting");
+		log.warn("Received fake packet from {}, disconnecting", toString());
 		return false;
 	}
 
@@ -236,7 +234,7 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 				if (last) {
 					int64_t diff = now - *last;
 					if (diff < msBetweenPackets) {
-						log.warn(toString() + " is flooding " + pck->getPacketName() + " (last diff: " + std::to_string(diff) + "ms)");
+						log.warn("{} is flooding {} (last diff: {} ms)", toString(), pck->getPacketName(), diff);
 						if (PffConfig::PFF_MODE.load() == 2) // disconnect
 							return false;
 						return true; // mode 1: the packet is dropped
@@ -309,7 +307,7 @@ void AionConnection::onDisconnect() {
 	if (msg.empty())
 		msg = " " + toString();
 
-	log.info("Client disconnected:" + msg);
+	log.info("Client disconnected:{}", msg);
 }
 
 bool AionConnection::isAuthenticated() const {

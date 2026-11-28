@@ -57,7 +57,7 @@ AbstractCronTask::AbstractCronTask(const services::cron::CronExpression* cronExp
 	: log(commons::logging::LoggerFactory::getLogger(className)), simpleClassName(simpleNameOf(className)), cronExpression(cronExpression),
 	  lastPlannedRunBeforeServerStart(initialLastPlannedRun()) {
 	if (this->cronExpression == nullptr) {
-		log.info(simpleClassName + " is deactivated");
+		log.info("{} is deactivated", simpleClassName);
 		return;
 	}
 	// Java computes nextRun first and lastPlannedRunBeforeServerStart from it; initialLastPlannedRun() did the same computation with the same "now"
@@ -89,7 +89,7 @@ void AbstractCronTask::runAndScheduleAsyncWithLock() {
 		if (shouldRunOnStart())
 			run();
 		services::cron::CronService::getInstance().schedule(services::cron::CronJob({this}, [this] { run(); }), *cronExpression, true);
-		log.info("Scheduled " + simpleClassName + " with cron expression: " + cronExpression->toString());
+		log.info("Scheduled {} with cron expression: {}", simpleClassName, cronExpression->toString());
 	});
 }
 

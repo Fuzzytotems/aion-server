@@ -182,7 +182,7 @@ void NpcController::onDie(model::gameobjects::Creature& lastAttacker) {
 		npc.getPosition()->getWorldMapInstance()->getInstanceHandler()->onDie(npc);
 		npc.getAi().onGeneralEvent(AIEventType::DIED);
 	} catch (const std::exception& e) {
-		log.error("onDie() exception for " + npc.toString() + ":", e);
+		log.error("onDie() exception for {}:", npc.toString(), e);
 	}
 
 	CreatureController::onDie(lastAttacker);

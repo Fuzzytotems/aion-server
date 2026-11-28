@@ -180,7 +180,6 @@ bool GameServer::main(StartupObserver& observer) {
 	});
 	if (!observer.continueAfterWorld())
 		return false;
-	runStep(observer, step, "GameTimeService.getInstance()", [] { services::GameTimeService::getInstance(); });
 
 	runStep(observer, step, "DropRegistrationService.getInstance()", [] { services::drop::DropRegistrationService::getInstance(); });
 
@@ -268,7 +267,7 @@ bool GameServer::main(StartupObserver& observer) {
 
 	runStep(observer, step, "initNioServer()", [] { nioServer.store(initNioServer(), std::memory_order_release); });
 	runStep(observer, step, "ShutdownHook", [] { ShutdownHook::getInstance().install(); }); // Java: Runtime.getRuntime().addShutdownHook(...)
-	log().info("Game server started in " + std::to_string(commons::utils::currentTimeMillis() / 1000 - START_TIME_SECONDS) + " seconds.");
+	log().info("Game server started in {} seconds", commons::utils::currentTimeMillis() / 1000 - START_TIME_SECONDS);
 
 	runStep(observer, step, "LoginServer.connect(nioServer)", [] { network::loginserver::LoginServer::getInstance().connect(*getNioServer()); });
 	runStep(observer, step, "ChatServer.connect(nioServer)", [] {

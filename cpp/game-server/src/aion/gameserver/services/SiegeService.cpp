@@ -110,9 +110,6 @@ SiegeService::SiegeService()
 	: agent(initialAgentLocation()),
 	  rvrEventPlayers(runtime::RcHashSet<runtime::Ref<model::gameobjects::player::Player>>::create(AION_LOCK_CLASS(SiegeService::rvrEventPlayers))) {
 	if (configs::main::SiegeConfig::SIEGE_ENABLED.load()) {
-		log.info("Initializing sieges...");
-
-		// initialize current siege locations
 		copyLocations(dataholders::DataManager::SIEGE_LOCATION_DATA->getArtifacts(), artifacts);
 		copyLocations(dataholders::DataManager::SIEGE_LOCATION_DATA->getFortress(), fortresses);
 		copyLocations(dataholders::DataManager::SIEGE_LOCATION_DATA->getOutpost(), outposts);
@@ -121,9 +118,11 @@ SiegeService::SiegeService()
 		for (const auto& [id, location] : dataholders::DataManager::SIEGE_LOCATION_DATA->getSiegeLocations())
 			locationsById.emplace(id, location);
 		dao::SiegeDAO::loadSiegeLocations(locationsById);
+		log.info("SiegeService initialized with {} fortresses, {} outposts, {} artifacts and {} agent location(s)", fortresses.size(), outposts.size(),
+			artifacts.size(), agent ? 1 : 0);
 	} else {
 		// Java: Collections.emptyMap() for artifacts, fortresses, outposts and locations; the member maps stay empty
-		log.info("Sieges are disabled in config.");
+		log.info("Sieges are disabled in config");
 	}
 }
 
@@ -185,7 +184,7 @@ void SiegeService::initSieges() {
 	// Start siege of artifacts
 	for (const runtime::Ptr<model::siege::ArtifactLocation>& artifact : artifacts.values()) {
 		if (artifact->isStandAlone()) {
-			log.debug("Starting siege of artifact #" + std::to_string(artifact->getLocationId()));
+			log.debug("Starting siege of artifact #{}", artifact->getLocationId());
 			startSiege(artifact->getLocationId());
 		} else {
 			log.debug("Artifact #{} siege was not started, it belongs to fortress", artifact->getLocationId());
@@ -242,11 +241,11 @@ void SiegeService::startPreparations(int32_t locationId) {
 // Java SiegeService.java:198-218
 void SiegeService::startSiege(int32_t siegeLocationId) {
 	SYNCHRONIZED(*this) {
-		log.debug("Starting siege of siege location: " + std::to_string(siegeLocationId));
+		log.debug("Starting siege of siege location: {}", siegeLocationId);
 
 		// Siege should not be started two times
 		if (activeSieges.containsKey(siegeLocationId)) {
-			log.error("Attempt to start siege twice for siege location: " + std::to_string(siegeLocationId), commons::utils::Exception(""));
+			log.error("Attempt to start siege twice for siege location: {}", siegeLocationId, commons::utils::Exception(""));
 			return;
 		}
 

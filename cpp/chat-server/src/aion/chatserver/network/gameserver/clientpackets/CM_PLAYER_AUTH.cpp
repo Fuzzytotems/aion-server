@@ -31,7 +31,7 @@ void CM_PLAYER_AUTH::runImpl() {
 			service::ChatService::getInstance().registerPlayer(playerId, accName, nick, model::getById(raceId), accessLevel);
 		sendPacket(serverpackets::SM_PLAYER_AUTH_RESPONSE(*chatClient));
 	} catch (const service::NoSuchAlgorithmException& e) {
-		log().error("Error registering player {} on ChatServer", playerId, e);
+		log().error("Error registering player {} on chat server", playerId, e);
 	}
 }
 

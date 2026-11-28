@@ -110,10 +110,9 @@ void GateRepairAI::onActivate(Player& player, const model::templates::siegelocat
 			healValue = door->getLifeStats()->getMaxHp() - door->getLifeStats()->getCurrentHp();
 		}
 		if (LoggingConfig::LOG_SIEGE.load())
-			log.info("Gate Repair Stone with staticId: " + std::to_string(getSpawnTemplate()->getStaticId()) + " siege: " +
-				std::to_string(getSpawnTemplate()->getSiegeId()) + " activated by " + player.toString() + " (race: " +
-				std::string(xml::enumName(player.getRace())) + ") to heal door with staticId: " + std::to_string(door->getSpawn()->getStaticId()) +
-				" by " + std::to_string(healValue));
+			log.info("Gate Repair Stone with staticId: {} siege: {} activated by {} (race: {}) to heal door with staticId: {} by {}",
+				getSpawnTemplate()->getStaticId(), getSpawnTemplate()->getSiegeId(), player.toString(), std::string(xml::enumName(player.getRace())),
+				door->getSpawn()->getStaticId(), healValue);
 		nextActivationTime.set(commons::utils::currentTimeMillis() + repairData.getCd());
 		PacketSendUtility::broadcastPacket(getOwner(), SM_SYSTEM_MESSAGE::STR_MSG_REPAIR_ABYSS_DOOR(player.getName(), std::to_string(healValue)));
 		PacketSendUtility::broadcastPacket(getOwner(), SM_ACTION_ANIMATION(getObjectId(), ActionAnimation::REPAIR_GATE, door->getObjectId()));

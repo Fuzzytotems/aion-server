@@ -66,13 +66,13 @@ std::unique_ptr<CsClientPacket> CsClientPacketFactory::tryCreatePacket(commons::
 	int32_t opCode = data.get() & 0xff;
 	const PacketInfo* packetInfo = findPacket(opCode);
 	if (packetInfo == nullptr) {
-		log.warn(fmt::format("{} sent data with unknown opcode: 0x{:02X}, state={} \n{}", client->toString(), opCode, xml::enumName(state),
-			commons::utils::NetworkUtils::toHex(data)));
+		log.warn("{} sent data with unknown opcode: 0x{:02X}, state={}\n{}", client->toString(), opCode, xml::enumName(state),
+			commons::utils::NetworkUtils::toHex(data));
 		return nullptr;
 	}
 	if (!packetInfo->isValid(state)) {
-		log.warn(client->toString() + " sent " + std::string(packetInfo->getPacketClassName()) + " but the connections current state (" +
-			std::string(xml::enumName(state)) + ") is invalid for this packet. Packet won't be instantiated.");
+		log.warn("{} sent {} but the connection's current state ({}) is invalid for this packet - packet won't be instantiated", client->toString(),
+			packetInfo->getPacketClassName(), xml::enumName(state));
 		return nullptr;
 	}
 	return packetInfo->newPacket(opCode, data, client);

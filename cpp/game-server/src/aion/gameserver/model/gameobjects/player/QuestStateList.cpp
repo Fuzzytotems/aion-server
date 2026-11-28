@@ -29,7 +29,7 @@ bool QuestStateList::hasQuest(int32_t questId) {
 bool QuestStateList::addQuest(int32_t questId, questEngine::model::QuestState& questState) {
 	SYNCHRONIZED(*this) {
 		if (quests.containsKey(questId)) {
-			log.warn("Tried to add duplicate quest to quest list: " + std::to_string(questId));
+			log.warn("Tried to add duplicate quest to quest list: {}", questId);
 			return false;
 		}
 		quests.put(questId, runtime::Ref<questEngine::model::QuestState>(questState));

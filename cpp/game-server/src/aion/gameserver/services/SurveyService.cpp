@@ -38,23 +38,11 @@ std::string replaceAll(std::string text, std::string_view from, std::string_view
 
 } // namespace
 
-// Java: public inner class TaskUpdate implements Runnable (calls taskUpdate() of the enclosing instance, the Immortal singleton). The scheduled
-// lambda pins the singleton (a no-op for Immortals) and runs a TaskUpdate on it.
-class SurveyService::TaskUpdate {
-public:
-	const SurveyService* surveyService; // Java: this$0 (always the singleton, so run() calls getInstance().taskUpdate())
-
-	void run();
-};
-
-void SurveyService::TaskUpdate::run() {
-	log.info("[SurveyController] update task start.");
-	SurveyService::getInstance().taskUpdate();
-}
-
+// method reference this::taskUpdate (the Immortal singleton, so the pin is a no-op)
 SurveyService::SurveyService() {
-	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] { TaskUpdate{this}.run(); }, 2000,
+	utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({this}, [this] { taskUpdate(); }, 2000,
 		int64_t{configs::main::SecurityConfig::SURVEY_DELAY.load()} * 60000);
+	log.info("SurveyService initialized");
 }
 
 bool SurveyService::isActive(model::gameobjects::player::Player& player, int32_t survId) {
@@ -78,7 +66,7 @@ void SurveyService::requestSurvey(model::gameobjects::player::Player& player, in
 	}
 	if (player.getInventory().isFull(template_->getExtraInventoryId())) {
 		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_FULL_INVENTORY());
-		log.warn("[SurveyController] player " + player.getName() + " tried to receive item with full inventory.");
+		log.warn("[SurveyController] player {} tried to receive item with full inventory", player.getName());
 		return;
 	}
 	if (dao::SurveyControllerDAO::useItem(item->uniqueId.get())) {
@@ -97,7 +85,7 @@ void SurveyService::requestSurvey(model::gameobjects::player::Player& player, in
 
 void SurveyService::taskUpdate() {
 	std::vector<runtime::Ref<model::templates::survey::SurveyItem>> newList = dao::SurveyControllerDAO::getAllUnused();
-	if (newList.size() == 0)
+	if (newList.empty())
 		return;
 
 	std::vector<int32_t> players;
@@ -109,7 +97,7 @@ void SurveyService::taskUpdate() {
 				players.push_back(survey->ownerId.get());
 		}
 	}
-	log.info("[SurveyController] found new " + std::to_string(cnt) + " items for " + std::to_string(players.size()) + " players.");
+	log.info("[SurveyController] found new {} items for {} players", cnt, players.size());
 	for (int32_t ownerId : players) {
 		runtime::Ptr<model::gameobjects::player::Player> player = world::World::getInstance().getPlayer(ownerId);
 		if (player) {

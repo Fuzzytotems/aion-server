@@ -52,7 +52,7 @@ void PlayerNpcFactionsDAO::loadNpcFactions(model::gameobjects::player::Player& p
 			factions.addNpcFaction(*faction);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore Npc faction data for playerObjId: " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not restore Npc faction data for playerObjId: {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 }
 
@@ -83,7 +83,7 @@ void PlayerNpcFactionsDAO::insertNpcFaction(int32_t playerObjectId, model::gameo
 		stmt->setInt(6, faction.getQuestId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not insert Npc faction data for playerObjId: " + std::to_string(playerObjectId) + " from DB: " + e.what(), e);
+		log.error("Could not insert Npc faction data for playerObjId: {} from DB: {}", playerObjectId, e.what(), e);
 	}
 }
 
@@ -99,7 +99,7 @@ void PlayerNpcFactionsDAO::updateNpcFaction(int32_t playerObjectId, model::gameo
 		stmt->setInt(6, faction.getId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not update Npc faction data for playerObjId: " + std::to_string(playerObjectId) + " from DB: " + e.what(), e);
+		log.error("Could not update Npc faction data for playerObjId: {} from DB: {}", playerObjectId, e.what(), e);
 	}
 }
 

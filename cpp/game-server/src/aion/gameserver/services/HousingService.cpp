@@ -68,7 +68,7 @@ HousingService::HousingService() {
 	studios.putAll(dao::HousesDAO::loadHouses(allLands(), true));
 	updateInactiveStateForAllHouses();
 	revokeOwnershipOfDeletedPlayers();
-	log.info("Loaded " + std::to_string(customHouses.size()) + " houses and " + std::to_string(studios.size()) + " studios");
+	log.info("Loaded {} houses and {} studios", customHouses.size(), studios.size());
 }
 
 HousingService::~HousingService() = default;
@@ -87,8 +87,7 @@ void HousingService::revokeOwnershipOfDeletedPlayers() {
 	for (const Ptr<House>& house : houses) {
 		// houses table has no player_id foreign key because houses need to stay in DB even on player deletion (to keep bidding possible for example)
 		if (house->getOwnerId() > 0 && !playerIds.contains(house->getOwnerId())) {
-			log.warn("Player with ID " + std::to_string(house->getOwnerId()) + " got deleted from DB, revoking house ownership for house " +
-				std::to_string(house->getAddress()->getId()));
+			log.warn("Player with ID {} got deleted from DB, revoking house ownership for house {}", house->getOwnerId(), house->getAddress()->getId());
 			changeOwner(*house, 0);
 		}
 	}
@@ -215,7 +214,7 @@ void HousingService::spawnHouses(world::WorldMapInstance& instance, int32_t regi
 		spawnedCounter++;
 	}
 	if (spawnedCounter > 0) {
-		log.info("Spawned " + std::to_string(spawnedCounter) + " houses in " + instance.toString());
+		log.info("Spawned {} houses in {}", spawnedCounter, instance.toString());
 	}
 }
 

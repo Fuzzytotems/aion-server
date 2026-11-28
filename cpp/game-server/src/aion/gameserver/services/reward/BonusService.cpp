@@ -83,7 +83,7 @@ std::vector<const BonusItemGroup*> BonusService::getBonusGroups(BonusType type) 
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.reward.BonusService")
-				.warn("Bonus of type " + std::string(xml::enumName(type)) + " is not implemented");
+				.warn("Bonus of type {} is not implemented", std::string(xml::enumName(type)));
 	}
 	return {};
 }

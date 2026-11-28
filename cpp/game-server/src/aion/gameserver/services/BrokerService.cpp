@@ -42,6 +42,7 @@
 #include "aion/gameserver/taskmanager/AbstractFIFOPeriodicTaskManager.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/utils/collections/DynamicServerPacketBodySplitList.h"
 #include "aion/gameserver/utils/collections/ListPart.h"
 #include "aion/gameserver/world/World.h"
@@ -181,7 +182,7 @@ std::string BrokerService::BrokerPeriodicTaskManager::getCalledMethodName() {
 BrokerService::BrokerPeriodicTaskManager::~BrokerPeriodicTaskManager() = default;
 
 void BrokerService::initBrokerService() {
-	log.info("Loading broker...");
+	int64_t startTime = commons::utils::currentTimeMillis();
 	int32_t loadedBrokerItemsCount = 0;
 	int32_t loadedSettledItemsCount = 0;
 
@@ -207,8 +208,8 @@ void BrokerService::initBrokerService() {
 		}
 	}
 
-	log.info("Broker loaded with " + std::to_string(loadedBrokerItemsCount) + " broker items, " + std::to_string(loadedSettledItemsCount) +
-		" settled items.");
+	log.info("BrokerService initialized with {} active items and {} settled items in {} ms", loadedBrokerItemsCount, loadedSettledItemsCount,
+		commons::utils::currentTimeMillis() - startTime);
 }
 
 // Java BrokerService.java:97-142
@@ -434,9 +435,8 @@ void BrokerService::buyBrokerItem(model::gameobjects::player::Player& player, in
 		if (configs::main::LoggingConfig::LOG_BROKER_EXCHANGE.load()) {
 			if (!boughtItem) // Java: NullPointerException on boughtItem.getItemId()
 				throw runtime::NullPointerException("The bought broker item was not added to the inventory");
-			log.info("Player: " + player.getName() + " bought item " + std::to_string(boughtItem->getItemId()) + " [" + boughtItem->getItemName() +
-				"] (count: " + std::to_string(itemCount) + ") from player: " +
-				services::player::PlayerService::getPlayerName(buyingItem->getSellerId()).value_or("null") + " (total price: " + std::to_string(price) + ")");
+			log.info("Player: {} bought item {} [{}] (count: {}) from player: {} (total price: {})", player.getName(), boughtItem->getItemId(),
+				boughtItem->getItemName(), itemCount, services::player::PlayerService::getPlayerName(buyingItem->getSellerId()).value_or("null"), price);
 		}
 
 		// create save task
@@ -650,7 +650,8 @@ void BrokerService::cancelRegisteredItem(model::gameobjects::player::Player& pla
 	}
 	if (brokerItem) {
 		if (brokerItem->getSellerId() != player.getObjectId()) {
-			log.info("[AUDIT] Player: {} tried to get item from broker that he doesn't own", player.getName());
+			utils::audit::AuditLogger::log(player, "tried to get item " + std::to_string(brokerItem->getItemId()) + " from broker that he doesn't own. Seller ID: " +
+				std::to_string(brokerItem->getSellerId()));
 			return;
 		}
 		if (player.getInventory().isFull(brokerItem->getItem()->getItemTemplate()->getExtraInventoryId())) {
@@ -789,7 +790,7 @@ void BrokerService::settleAccount(model::gameobjects::player::Player& player) {
 					itemsLeft = true;
 
 			} else
-				log.warn("Broker settled item missed. ObjID: " + std::to_string(item->getItemUniqueId()));
+				log.warn("Broker settled item missed. ObjID: {}", item->getItemUniqueId());
 		}
 	}
 

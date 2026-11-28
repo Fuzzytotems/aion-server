@@ -40,7 +40,7 @@ void AionClientPacket::run() {
 			runImpl();
 		}
 	} catch (...) {
-		log.errorCurrentException("Error handling client packet from " + connectionToString() + ": " + toString());
+		log.errorCurrentException(fmt::format("Error handling client packet from {}: {}", connectionToString(), toString()));
 	}
 }
 

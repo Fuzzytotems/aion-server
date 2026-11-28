@@ -66,8 +66,7 @@ void CM_PET_EMOTE::runImpl() {
 	if (pet == nullptr || !pet->isSpawned()) // client sometimes just doesn't care...
 		return;
 	if (emote == model::gameobjects::PetEmote::UNKNOWN) {
-		log.warn(player->toString() + " / " + pet->toString() + " sent pet emote " + std::to_string(emoteId) + " (emotionId: " +
-		         std::to_string(emotionId) + ", unk2: " + std::to_string(unk2) + ")");
+		log.warn("{} / {} sent pet emote {} (emotionId: {}, unk2: {})", player->toString(), pet->toString(), emoteId, emotionId, unk2);
 		return;
 	}
 
@@ -75,8 +74,9 @@ void CM_PET_EMOTE::runImpl() {
 	// TODO (check retail) either its client bug or packet problem somewhere
 	// reproducible by flying randomly and falling from long height with fly resume
 	const auto position = [&] {
-		return pet->toString() + " of " + player->toString() + " sent " + std::string(xml::enumName(emote)) + " at x:" + JavaFloat::toString(x1) +
-		       ", y:" + JavaFloat::toString(y1) + ", z:" + JavaFloat::toString(z1) + ", h:" + std::to_string(h);
+		// Java: log.warn("{} of {} sent {} at x:{}, y:{}, z:{}, h:{}", pet, player, emote, x1, y1, z1, h) (floats in Java's Float.toString)
+		return fmt::format("{} of {} sent {} at x:{}, y:{}, z:{}, h:{}", pet->toString(), player->toString(), xml::enumName(emote), JavaFloat::toString(x1),
+			JavaFloat::toString(y1), JavaFloat::toString(z1), h);
 	};
 	if (x1 < 0 || y1 < 0 || z1 < 0) {
 		log.warn(position());

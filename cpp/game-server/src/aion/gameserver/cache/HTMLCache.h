@@ -57,8 +57,6 @@ private:
 	void replaceAll(std::u16string& sb, std::u16string_view pattern, std::u16string_view value);
 
 public:
-	void reloadPath(const std::filesystem::path& f);
-
 	void parseDir(const std::filesystem::path& dir);
 
 	/** @return the content, null (std::nullopt) if the file is not loadable or could not be read */

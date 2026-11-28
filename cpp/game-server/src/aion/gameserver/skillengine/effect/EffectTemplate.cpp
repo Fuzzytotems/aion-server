@@ -417,7 +417,7 @@ std::optional<gameserver::model::stats::container::StatEnum> EffectTemplate::get
 	// Java: StatEnum.valueOf(statEnum.toString() + "_PENETRATION"), whose IllegalArgumentException is caught, logged and answered with null
 	std::optional<StatEnum> toReturn = xml::enumFromName<StatEnum>(std::string(xml::enumName(statEnum)) + "_PENETRATION");
 	if (!toReturn)
-		log.warn("Missing statenum penetration for " + std::string(xml::enumName(statEnum)));
+		log.warn("Missing statenum penetration for {}", xml::enumName(statEnum));
 	return toReturn;
 }
 
