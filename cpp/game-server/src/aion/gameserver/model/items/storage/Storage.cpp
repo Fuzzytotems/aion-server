@@ -234,8 +234,8 @@ runtime::Ptr<gameobjects::Item> Storage::delete_(gameobjects::Item& item, ItemDe
 		ItemPacketService::sendItemDeletePacket(player, requireStorageTypeById(item.getItemLocation()), item, deleteType);
 		if (configs::main::LoggingConfig::LOG_ITEM.load() && !item.getItemTemplate()->isKinah() && item.getItemCount() > 0) {
 			std::string name = (item.getEnchantLevel() > 0 ? "+" + std::to_string(item.getEnchantLevel()) + " " : "") + item.getItemName();
-			log.info("Deleted " + std::to_string(item.getItemId()) + " " + name + " from " + toJavaString(actor) + " (count: "
-				+ std::to_string(item.getItemCount()) + ") (deletion type: " + std::string(xml::enumName(deleteType)) + ")");
+			log.info("Deleted {} {} from {} (count: {}) (deletion type: {})", item.getItemId(), name, toJavaString(actor), item.getItemCount(),
+				xml::enumName(deleteType));
 		}
 		questEngine::QuestEngine::getInstance().onItemRemoved(player, item.getItemId());
 		return item;

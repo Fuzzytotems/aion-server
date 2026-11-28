@@ -9,7 +9,7 @@
 
 namespace aion::chatserver::network::aion::serverpackets {
 
-void SM_CHANNEL_MESSAGE::writeImpl(netty::handler::ClientChannelHandler* cHandler, common::netty::ChannelBuffer& buf) const {
+void SM_CHANNEL_MESSAGE::writeImpl(AionConnection* connection, commons::utils::ByteBuffer& buf) const {
 	writeC(buf, getOpCode());
 	writeC(buf, 0x00);
 	writeD(buf, 0x00);

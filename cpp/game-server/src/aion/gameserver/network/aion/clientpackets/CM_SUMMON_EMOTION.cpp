@@ -61,7 +61,7 @@ void CM_SUMMON_EMOTION::runImpl() {
 			break;
 		case EmotionType::NONE:
 			if (emotionTypeId != model::getTypeId(EmotionType::NONE))
-				log.warn("Unknown emotion type " + std::to_string(emotionTypeId) + " from " + player->toString());
+				log.warn("Unknown emotion type {} from {}", emotionTypeId, player->toString());
 			break;
 		default:
 			break;

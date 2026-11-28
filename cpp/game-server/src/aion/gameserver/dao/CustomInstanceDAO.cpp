@@ -39,7 +39,7 @@ std::optional<custom::instance::CustomInstanceRank> CustomInstanceDAO::loadPlaye
 			return custom::instance::CustomInstanceRank(playerId, rset->getInt("rank"), detail::getTime(rset->getTimestamp("last_entry")),
 				rset->getInt("max_rank"), rset->getInt("dps"));
 	} catch (const SQLException& e) {
-		log.error("[CUSTOM_INSTANCE] Error loading rank object on player id " + std::to_string(playerId), e);
+		log.error("[CUSTOM_INSTANCE] Error loading rank object on player id {}", playerId, e);
 	}
 	return std::nullopt;
 }
@@ -56,7 +56,7 @@ bool CustomInstanceDAO::storePlayer(custom::instance::CustomInstanceRank& rankOb
 		stmt->execute();
 		return true;
 	} catch (const SQLException& e) {
-		log.error("[CUSTOM_INSTANCE] Error storing last entries on player id " + std::to_string(rankObj.getPlayerId()), e);
+		log.error("[CUSTOM_INSTANCE] Error storing last entries on player id {}", rankObj.getPlayerId(), e);
 		return false;
 	}
 }
@@ -81,7 +81,7 @@ std::vector<custom::instance::CustomInstanceRankedPlayer> CustomInstanceDAO::loa
 			players.emplace_back(playerId, rank, lastEntry, maxRank, dps, name, playerClass);
 		}
 	} catch (const SQLException& e) {
-		log.error("[CUSTOM_INSTANCE] Error loading top 10 " + detail::enumName(race) + " players", e);
+		log.error("[CUSTOM_INSTANCE] Error loading top 10 {} players", detail::enumName(race), e);
 	}
 	return players;
 }

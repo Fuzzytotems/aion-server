@@ -71,7 +71,7 @@ void CM_READ_EXPRESS_MAIL::runImpl() {
 			break;
 		}
 		default:
-			log.warn(player.toString() + " sent unknown read express mail action type: " + std::to_string(action));
+			log.warn("{} sent unknown read express mail action type: {}", player.toString(), action);
 	}
 }
 

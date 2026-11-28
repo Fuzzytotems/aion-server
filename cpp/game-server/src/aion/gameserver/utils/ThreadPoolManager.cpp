@@ -62,7 +62,7 @@ std::unique_ptr<ExecutorBackend> createDefaultBackend(const ThreadPoolManager::C
 	if (config.singleExecutor) {
 		auto backend = std::make_unique<runtime::SingleExecutorBackend>(static_cast<size_t>(std::max(1, config.instantQueueCapacity)));
 		runtime::ForkJoinPool::commonPool().setSerial(true);
-		log().info("ThreadPoolManager: Initialized with 1 thread for all pools (gameserver.debug.single_executor)");
+		log().info("ThreadPoolManager initialized with 1 thread for all pools (gameserver.debug.single_executor)");
 		return backend;
 	}
 	int32_t availableProcessors = static_cast<int32_t>(std::max(1u, std::thread::hardware_concurrency()));
@@ -72,7 +72,7 @@ std::unique_ptr<ExecutorBackend> createDefaultBackend(const ThreadPoolManager::C
 	options.instantThreadPriority = config.usePriorities ? 7 : commons::utils::concurrent::NORM_PRIORITY;
 	options.instantQueueCapacity = static_cast<size_t>(std::max(1, config.instantQueueCapacity));
 	auto backend = std::make_unique<runtime::ThreadPoolBackend>(options);
-	log().info("ThreadPoolManager: Initialized with {} instant, {} scheduler and {} long running threads", backend->getInstantPoolSize(),
+	log().info("ThreadPoolManager initialized with {} instant, {} scheduler and {} long running threads", backend->getInstantPoolSize(),
 		backend->getScheduledPoolSize(), backend->getLongRunningPoolSize());
 	return backend;
 }
@@ -272,21 +272,20 @@ std::vector<std::string> ThreadPoolManager::getStats() const {
 void ThreadPoolManager::shutdown() {
 	ExecutorBackend& executor = ensureBackend();
 	int64_t begin = commons::utils::currentTimeMillis();
-	std::vector<FutureRef> pending = executor.pendingTasks();
-	log().info("ThreadPoolManager: Shutting down.");
-	log().info("\t... executing {} scheduled tasks.", countPool(pending, runtime::PoolKind::SCHEDULED));
-	log().info("\t... executing {} instant tasks.", countPool(pending, runtime::PoolKind::INSTANT));
-	log().info("\t... executing {} long running tasks.", countPool(pending, runtime::PoolKind::LONG_RUNNING));
-	pending.clear();
-
 	state().shutdown.store(true, std::memory_order_release);
-	bool success = executor.shutdown(std::chrono::milliseconds(5000)); // Java awaitTermination(5000) inlined: the backend's shutdown waits
+	executor.shutdown(std::chrono::milliseconds(5000)); // Java awaitTermination(5000) inlined: the backend's shutdown waits
 
-	pending = executor.pendingTasks();
-	log().info("\t... success: {} in {} msec.", success, commons::utils::currentTimeMillis() - begin);
-	log().info("\t... {} scheduled tasks left.", countPool(pending, runtime::PoolKind::SCHEDULED));
-	log().info("\t... {} instant tasks left.", countPool(pending, runtime::PoolKind::INSTANT));
-	log().info("\t... {} long running tasks left.", countPool(pending, runtime::PoolKind::LONG_RUNNING));
+	// Java: int tasksLeft = awaitTermination(5000), the sum of the pools' task counts after the wait
+	std::vector<FutureRef> pending = executor.pendingTasks();
+	int64_t scheduledLeft = countPool(pending, runtime::PoolKind::SCHEDULED);
+	int64_t instantLeft = countPool(pending, runtime::PoolKind::INSTANT);
+	int64_t longRunningLeft = countPool(pending, runtime::PoolKind::LONG_RUNNING);
+	int64_t tasksLeft = scheduledLeft + instantLeft + longRunningLeft;
+	if (tasksLeft == 0)
+		log().info("ThreadPoolManager shutdown completed in {} ms", commons::utils::currentTimeMillis() - begin);
+	else
+		log().info("ThreadPoolManager shutdown timed out after {} ms with {} scheduled tasks, {} instant tasks and {} long running tasks left",
+			commons::utils::currentTimeMillis() - begin, scheduledLeft, instantLeft, longRunningLeft);
 }
 
 bool ThreadPoolManager::isShutdown() const noexcept {

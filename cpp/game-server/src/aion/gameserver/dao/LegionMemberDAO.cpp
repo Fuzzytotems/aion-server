@@ -50,7 +50,7 @@ bool LegionMemberDAO::isIdUsed(int32_t playerObjId) {
 		return used;
 	} catch (const SQLException& e) {
 		DB::close(s);
-		log.error("Can't check if name " + std::to_string(playerObjId) + ", is used, returning possitive result", e);
+		log.error("Can't check if name {}, is used, returning possitive result", playerObjId, e);
 		return true;
 	} catch (...) {
 		DB::close(s);
@@ -98,7 +98,7 @@ runtime::Ref<model::team::legion::LegionMember> LegionMemberDAO::loadLegionMembe
 		legionMember->setChallengeScore(resultSet->getInt("challenge_score"));
 		return legionMember;
 	} catch (const SQLException& e) {
-		log.error("Could not load legion member " + std::to_string(playerObjId), e);
+		log.error("Could not load legion member {}", playerObjId, e);
 		return nullptr;
 	}
 }

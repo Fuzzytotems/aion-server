@@ -2,6 +2,7 @@
 
 #include "aion/chatserver/configs/network/NetworkConfig.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/MessageDigest.h"
 
 namespace aion::chatserver::service {
 
@@ -21,11 +22,15 @@ GameServerService& GameServerService::getInstance() {
 	return *instance;
 }
 
-GsAuthResponse GameServerService::registerGameServer(int8_t gameServerId, std::string_view password) {
+GsAuthResponse GameServerService::registerGameServer(int8_t gameServerId, std::string_view password, bool fromLoopback) {
 	std::lock_guard lock(mutex);
 	if (isOnline)
 		return GsAuthResponse::ALREADY_REGISTERED;
-	if (password != configs::network::NetworkConfig::GAMESERVER_PASSWORD)
+	if (configs::network::NetworkConfig::GAMESERVER_PASSWORD.empty() && !fromLoopback) {
+		log().warn("Rejected game server #{} from a remote address: chatserver.network.gameserver.password is not set", gameServerId);
+		return GsAuthResponse::NOT_AUTHED;
+	}
+	if (!commons::utils::MessageDigest::isEqual(password, configs::network::NetworkConfig::GAMESERVER_PASSWORD))
 		return GsAuthResponse::NOT_AUTHED;
 	isOnline = true;
 	GAMESERVER_ID = gameServerId;
@@ -33,7 +38,7 @@ GsAuthResponse GameServerService::registerGameServer(int8_t gameServerId, std::s
 }
 
 void GameServerService::setOffline() {
-	log().info("Gameserver #{} is disconnected", GAMESERVER_ID.load());
+	log().info("Game server #{} disconnected", GAMESERVER_ID.load());
 	std::lock_guard lock(mutex);
 	isOnline = false;
 }

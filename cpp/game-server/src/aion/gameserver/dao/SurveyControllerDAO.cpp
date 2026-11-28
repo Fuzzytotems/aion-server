@@ -51,7 +51,7 @@ bool SurveyControllerDAO::useItem(int32_t id) {
 		stmt->setInt(2, id);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Could not set used state for survey " + std::to_string(id), e);
+		log.error("Could not set used state for survey {}", id, e);
 		return false;
 	}
 	return true;

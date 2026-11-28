@@ -35,7 +35,7 @@ protected:
 	GsClientPacket() noexcept : BaseClientPacket(0) {}
 
 	/** Send new GsServerPacket to connection that is owner of this packet. This method is equivalent to: getConnection()->sendPacket(msg); */
-	void sendPacket(std::shared_ptr<GsServerPacket> msg) const;
+	void sendPacket(const GsServerPacket& msg) const;
 
 	/**
 	 * C++ helper for Java's getConnection().getGameServerInfo(), which is never null for packets of authenticated game servers.

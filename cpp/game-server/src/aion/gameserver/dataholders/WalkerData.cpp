@@ -19,7 +19,7 @@ void WalkerData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent&
 	static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.WalkerData");
 	for (const WalkerTemplate& route : walkerlist) {
 		if (walkerlistData.putIfAbsent(route.getRouteId(), &route))
-			log.warn("Duplicate route ID: " + route.getRouteId());
+			log.warn("Duplicate route ID: {}", route.getRouteId());
 	}
 	// Java: walkerlist.clear(); walkerlist = null (the C++ index points into the storage, which stays)
 }
@@ -77,9 +77,9 @@ void WalkerData::saveData(std::string_view routeId) {
 	std::ofstream file(xml, std::ios::binary | std::ios::trunc);
 	file << out;
 	if (!file) {
-		// Java: log.error("Error while saving data: " + e.getMessage(), e.getCause()) of the marshaller's JAXBException
+		// Java: log.error("Error while saving data: {}", e.getMessage(), e.getCause()) of the marshaller's JAXBException
 		commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.WalkerData")
-			.error("Error while saving data: " + xml.string() + " (cannot be written)");
+			.error("Error while saving data: {}", xml.string() + " (cannot be written)");
 	}
 	walkerlist.clear(); // Java: finally { walkerlist.clear(); walkerlist = null; }
 }

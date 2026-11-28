@@ -33,7 +33,7 @@ int32_t QuestVars::getVarById(int32_t id) {
 
 void QuestVars::setVarById(int32_t id, int32_t var) {
 	if (var > 0x3F) // Java: warn(message, new IllegalArgumentException()) - the exception only carries the stack trace into the log
-		log.warn("Out of range value was passed for quest var on index " + std::to_string(id), runtime::IllegalArgumentException(""));
+		log.warn("Out of range value was passed for quest var on index {}", id, runtime::IllegalArgumentException(""));
 	(*questVars)[id].set(var); // stored as given after the warning; an index outside [0, 6) throws only here, at Java's array store
 }
 

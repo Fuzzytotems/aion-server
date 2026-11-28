@@ -338,7 +338,7 @@ void Lv1HumanBeritraAI::logMetrics() {
 			std::to_string(ai.getDamage()) + ")";
 	}
 
-	log().info("[{}] {} (ID:{}) was killed in {}s. Damage List: {}", getPosition()->getWorldMapInstance()->getTemplate()->getName(),
+	log().info("[{}] {} (ID:{}) was killed in {} seconds. Damage List: {}", getPosition()->getWorldMapInstance()->getTemplate()->getName(),
 		getOwner().getName(), getNpcId(), fullFightTime, damageDealt);
 }
 

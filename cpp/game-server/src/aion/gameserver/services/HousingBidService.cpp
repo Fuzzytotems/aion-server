@@ -75,7 +75,7 @@ HousingBidService::HousingBidService() {
 	for (int32_t deletedPlayerId : deletedPlayerIds)
 		disableBids(deletedPlayerId);
 	setBidInfoToHouses();
-	log.info("Loaded bids for " + std::to_string(bids.size()) + " houses");
+	log.info("Loaded bids for {} houses", bids.size());
 }
 
 HousingBidService::~HousingBidService() = default;
@@ -89,7 +89,7 @@ void HousingBidService::setBidInfoToHouses() {
 	for (const Ptr<House>& house : HousingService::getInstance().getCustomHouses()) {
 		house->setBids(getBidInfo(*house), true);
 		if (house->getBids() && house->isInactive())
-			log.warn(house->toString() + " is for auction but inactive.");
+			log.warn("{} is for auction but inactive", house->toString());
 	}
 }
 
@@ -295,24 +295,22 @@ bool HousingBidService::endAuction(int32_t houseObjectId) {
 			mail::MailFormatter::sendHouseAuctionMail(housePtr, *sellerPcd, result, time, compensation);
 		}
 		if (configs::main::LoggingConfig::LOG_HOUSE_AUCTION.load()) {
-			log.info("Address " + std::to_string(house.getAddress()->getId()) + " not sold for " +
-				std::to_string(houseBids->getInitialOffer()->getKinah()) + " kinah (result: " + std::string(xml::enumName(result)) +
-				"; return: " + std::to_string(compensation) + " kinah)");
+			log.info("Address {} not sold for {} kinah (result: {}; return: {} kinah)", house.getAddress()->getId(),
+				houseBids->getInitialOffer()->getKinah(), std::string(xml::enumName(result)), compensation);
 		}
 	} else {
 		Ptr<model::gameobjects::player::PlayerCommonData> buyerPcd = player::PlayerService::getOrLoadPlayerCommonData(highestBid->getPlayerObjectId());
 
 		if (!buyerPcd) {
 			if (highestBid->getPlayerObjectId() == 0)
-				log.info(house.toString() + " wasn't sold because the winning bidder deleted his character.");
+				log.info("{} wasn't sold because the winning bidder deleted their character", house.toString());
 			else
-				log.warn(house.toString() + " could not be sold to player " + std::to_string(highestBid->getPlayerObjectId()) +
-					" because the player couldn't be found");
+				log.warn("{} could not be sold to player {} because the player couldn't be found", house.toString(), highestBid->getPlayerObjectId());
 			house.getController().updateSign();
 			return true;
 		}
 		if (buyerPcd->getPlayerObjId() == sellerId) {
-			log.warn("Sold " + house.toString() + " to its own owner (" + std::to_string(sellerId) + "), cancelling!");
+			log.warn("Sold {} to its own owner ({}), cancelling!", house.toString(), sellerId);
 			house.getController().updateSign();
 			return true;
 		}
@@ -351,9 +349,8 @@ bool HousingBidService::endAuction(int32_t houseObjectId) {
 
 		if (configs::main::LoggingConfig::LOG_HOUSE_AUCTION.load()) {
 			std::string sellerInfo = !sellerPcd ? "" : " by player " + std::to_string(sellerPcd->getPlayerObjId());
-			log.info("Address " + std::to_string(house.getAddress()->getId()) + " sold" + sellerInfo + " for " + std::to_string(highestBid->getKinah()) +
-				" kinah (" + std::to_string(houseBids->getBidCount()) + " bids; result: " + std::string(xml::enumName(result)) + ") to player " +
-				std::to_string(buyerPcd->getPlayerObjId()));
+			log.info("Address {} sold{} for {} kinah ({} bids; result: {}) to player {}", house.getAddress()->getId(), sellerInfo,
+				highestBid->getKinah(), houseBids->getBidCount(), std::string(xml::enumName(result)), buyerPcd->getPlayerObjId());
 		}
 	}
 	return true;

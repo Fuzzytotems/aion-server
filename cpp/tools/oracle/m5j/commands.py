@@ -9,7 +9,7 @@ Java rules, each with the method the value comes from:
   ChatUtil call, a method) makes the command `unresolved`, with the expression named; the prefixes are AdminCommand.PREFIX "//",
   PlayerCommand.PREFIX "." and ConsoleCommand.PREFIX "" (AdminCommand.java:16, PlayerCommand.java:11, ConsoleCommand.java:15);
 - the syntax info: ChatCommand.parseSyntaxInfo (ChatCommand.java), with ChatUtil.color(text, Color.WHITE) =
-  "[color:<text>;1 1 1]" (ChatUtil.java:33-34 with DecimalFormat(".##") of 255 / 255f);
+  "[color:<text>;1 1 1]" (ChatUtil.format of 255 / 255f, upstream b7bc32976);
 - `help`: ChatCommand.run's first arm (ChatCommand.java:61-64), "Command: " + color(alias with prefix) + "\\n\\t" + (description or
   "No description available.") + "\\n" + syntax info, sent by sendInfo as the parts of ChatUtil.split (ChatUtil.java:346-400, the
   SM_MESSAGE.MESSAGE_SIZE_LIMIT of 1022);
@@ -168,7 +168,7 @@ def read_command(path: Path, package: str) -> dict:
 # ---- ChatUtil and ChatCommand ------------------------------------------------------------------------------------------------------------
 
 def color_white(text: str) -> str:
-	"""ChatUtil.color(text, Color.WHITE): DecimalFormat(".##") of 255 / 255f is "1" """
+	"""ChatUtil.color(text, Color.WHITE): ChatUtil.format of 255 / 255f is "1" """
 	return f"[color:{text};1 1 1]"
 
 

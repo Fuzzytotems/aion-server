@@ -34,9 +34,8 @@ using model::base::BaseType;
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.BaseService");
 
-// Java BaseService.java:30-42
+// Java BaseService.java:27-38
 BaseService::BaseService() {
-	log.info("Initializing bases...");
 	for (const model::templates::base::BaseTemplate& template_ : dataholders::DataManager::BASE_DATA->getAllBaseTemplates()) {
 		runtime::Ref<model::base::BaseLocation> loc;
 		switch (template_.getType().value()) { // Java: the switch on a null type throws NullPointerException
@@ -57,6 +56,7 @@ BaseService::BaseService() {
 		}
 		allBaseLocations.put(template_.getId(), loc);
 	}
+	log.info("BaseService initialized with {} bases", allBaseLocations.size());
 }
 
 BaseService::~BaseService() = default;

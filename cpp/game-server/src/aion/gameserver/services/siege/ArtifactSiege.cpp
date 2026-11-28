@@ -59,7 +59,7 @@ void ArtifactSiege::onSiegeFinish() {
 	if (isBossKilled())
 		onCapture();
 	else
-		log.error("Artifact siege (artifactId:" + std::to_string(getSiegeLocationId()) + ") ended without killing a boss.");
+		log.error("Artifact siege (artifactId:{}) ended without killing a boss", getSiegeLocationId());
 
 	// add new spawns
 	spawnNpcs(getSiegeLocationId(), getSiegeLocation()->getRace(), SiegeModType::PEACE);

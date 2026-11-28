@@ -82,7 +82,7 @@ void CM_HOUSE_TELEPORT::runImpl() {
 		}
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_HOUSE_TELEPORT")
-				.warn("Unhandled house teleport actionId " + std::to_string(actionId));
+				.warn("Unhandled house teleport actionId {}", actionId);
 			return;
 	}
 

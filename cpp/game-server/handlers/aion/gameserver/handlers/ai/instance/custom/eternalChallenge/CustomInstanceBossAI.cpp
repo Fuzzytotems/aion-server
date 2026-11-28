@@ -80,9 +80,8 @@ void CustomInstanceBossAI::handleSpawned() {
 
 	runtime::Ptr<Player> p = world::World::getInstance().getPlayer(playerId);
 	if (p == nullptr) {
-		customInstanceLog().error("[CI_ROAH] No player object found for player id: " + std::to_string(playerId)
-				+ ". Either the player is offline or the central artifact was destroyed by something else.",
-			std::runtime_error("new Exception()"));
+		customInstanceLog().warn("[CI_ROAH] No online player found for ID {} - either the player is offline or the central artifact was destroyed by something else",
+			playerId, std::runtime_error("new Exception()"));
 		return;
 	}
 
@@ -185,7 +184,7 @@ int32_t CustomInstanceBossAI::getPlayerSkill() {
 			int32_t skillId = skills->get(static_cast<int32_t>(i));
 			runtime::Ref<skillengine::model::Skill> skillI = skillengine::SkillEngine::getInstance().getSkill(getOwner(), skillId, 1, getTarget());
 			if (skillI == nullptr) {
-				customInstanceLog().warn("Detected a skill input with not existent template [skillId=" + std::to_string(skillId) + "].");
+				customInstanceLog().warn("Detected a skill input with not existent template [skillId={}].", skillId);
 				output[i] = -1.0;
 				continue;
 			}

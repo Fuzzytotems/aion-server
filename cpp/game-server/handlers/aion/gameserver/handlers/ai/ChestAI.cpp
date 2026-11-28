@@ -33,7 +33,7 @@ void ChestAI::handleDialogStart(Player& player) {
 	chestTemplate.set(DataManager::CHEST_DATA->getChestTemplate(getNpcId()));
 
 	if (chestTemplate.get() == nullptr) {
-		log.warn("Missing chest template or incorrect AI for npc " + std::to_string(getNpcId()));
+		log.warn("Missing chest template or incorrect AI for npc {}", getNpcId());
 		return;
 	}
 	ActionItemNpcAI::handleDialogStart(player);

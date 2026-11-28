@@ -64,7 +64,7 @@ std::unordered_map<int32_t, runtime::Ref<model::challenge::ChallengeTask>> Chall
 			}
 		}
 	} catch (const SQLException& e) {
-		log.error("Could not load " + detail::enumName(type) + " challenge tasks of owner " + std::to_string(ownerId), e);
+		log.error("Could not load {} challenge tasks of owner {}", detail::enumName(type), ownerId, e);
 	}
 	return tasks;
 }
@@ -97,7 +97,7 @@ void ChallengeTasksDAO::insertQuestEntry(model::challenge::ChallengeTask& task, 
 		stmt->executeUpdate();
 		quest.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const SQLException& e) {
-		log.error("Could not insert challenge task " + std::to_string(task.getTaskId()) + " of owner " + std::to_string(task.getOwnerId()), e);
+		log.error("Could not insert challenge task {} of owner {}", task.getTaskId(), task.getOwnerId(), e);
 	}
 }
 
@@ -113,7 +113,7 @@ void ChallengeTasksDAO::updateQuestEntry(model::challenge::ChallengeTask& task, 
 		stmt->executeUpdate();
 		quest.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const SQLException& e) {
-		log.error("Could not update challenge task " + std::to_string(task.getTaskId()) + " of owner " + std::to_string(task.getOwnerId()), e);
+		log.error("Could not update challenge task {} of owner {}", task.getTaskId(), task.getOwnerId(), e);
 	}
 }
 

@@ -1,5 +1,5 @@
-// The stage-0 monster commands (m5j-plan.md §5.2): //spawn, //delete, //kill, //damage, //ai, //npcskill, //useskill, //say (data/handlers/admincommands)
-// and K-10's guard prefix of SpawnsData.saveSpawn (SpawnsData.java:205-214), on a real Player with a real AionConnection (CommandTestSupport.h)
+// The stage-0 monster commands (m5j-plan.md §5.2): //spawn, //delete, //kill, //damage, //ai, //useskill, //say (data/handlers/admincommands;
+// //npcskill went with upstream d2dadc175) and K-10's guard prefix of SpawnsData.saveSpawn (SpawnsData.java:205-214), on a real Player with a real AionConnection (CommandTestSupport.h)
 // and npcs built as tests/cm_ak/EconomyPacketTestSupport.h builds them. The texts are the Java literals.
 
 #include "CommandTestSupport.h"
@@ -33,7 +33,6 @@
 #include "aion/gameserver/handlers/admincommands/Damage.h"
 #include "aion/gameserver/handlers/admincommands/Delete.h"
 #include "aion/gameserver/handlers/admincommands/Kill.h"
-#include "aion/gameserver/handlers/admincommands/NpcSkill.h"
 #include "aion/gameserver/handlers/admincommands/Say.h"
 #include "aion/gameserver/handlers/admincommands/SpawnNpc.h"
 #include "aion/gameserver/handlers/admincommands/UseSkill.h"
@@ -515,19 +514,6 @@ TEST_F(MonsterCommandsTest, AiArms) {
 	EXPECT_TRUE(ai.process(admin, args({"state", "dizzy"})));
 	EXPECT_NE(client()->sentBytes(), info(ai.getSyntaxInfo()));
 	EXPECT_FALSE(client()->sentBytes().empty()) << "AIState.valueOf: \"Invalid ai state.\" and the constants";
-}
-
-// ---- //npcskill (NpcSkill.java:23-71) -----------------------------------------------------------------------------------------------------
-
-TEST_F(MonsterCommandsTest, NpcSkillWithoutSkills) {
-	Player& admin = gm(730207);
-	handlers::admincommands::NpcSkill npcSkill;
-	EXPECT_TRUE(npcSkill.process(admin, args({})));
-	EXPECT_EQ(client()->sentBytes(), exactly({message("You should select a valid target first!")}));
-	Npc& npc = npcAt(admin, 101.0f);
-	target(admin, npc);
-	EXPECT_TRUE(npcSkill.process(admin, args({})));
-	EXPECT_EQ(client()->sentBytes(), exactly({message("This npc does not have any skills.")})) << "the fixture's empty NPC skill data";
 }
 
 // ---- //useskill (UseSkill.java:31-91) -----------------------------------------------------------------------------------------------------

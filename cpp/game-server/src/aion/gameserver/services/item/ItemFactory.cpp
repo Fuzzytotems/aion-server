@@ -16,7 +16,7 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 runtime::Ref<model::gameobjects::Item> ItemFactory::newItem(int32_t itemId) {
 	const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
 	if (itemTemplate == nullptr) {
-		log.error("Item was not populated correctly. Item template is missing for item id: " + std::to_string(itemId));
+		log.error("Item was not populated correctly. Item template is missing for item id: {}", itemId);
 		return nullptr;
 	}
 	return model::gameobjects::Item::create(utils::idfactory::IDFactory::getInstance().nextId(), itemTemplate);

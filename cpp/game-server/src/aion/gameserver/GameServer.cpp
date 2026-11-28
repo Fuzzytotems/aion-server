@@ -4,10 +4,12 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "aion/commons/database/DatabaseFactory.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/logging/Logging.h"
 #include "aion/commons/network/NioServer.h"
 #include "aion/commons/network/ServerCfg.h"
 #include "aion/commons/utils/Exception.h"
@@ -38,11 +40,16 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/instance/InstanceEngine.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/account/Account.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/siege/Influence.h"
+#include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/GameConnectionFactoryImpl.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_QUIT_RESPONSE.h"
 #include "aion/gameserver/network/chatserver/ChatServer.h"
 #include "aion/gameserver/network/loginserver/LoginServer.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/services/RuntimeLifecycle.h"
@@ -80,9 +87,11 @@
 #include "aion/gameserver/services/player/PlayerLimitService.h"
 #include "aion/gameserver/services/transfers/PlayerTransferService.h"
 #include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/taskmanager/AbstractPeriodicTaskManager.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.h"
 #include "aion/gameserver/taskmanager/tasks/housing/MaintenanceTask.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/chathandlers/ChatProcessor.h"
 #include "aion/gameserver/world/World.h"
@@ -101,6 +110,8 @@ const commons::logging::Logger& log() {
 	return *logger;
 }
 
+std::vector<runtime::RuntimeLifecycle::UsedIdsSource> usedIdsSources();
+
 /** The kernel configuration from the loaded configs (RuntimeLifecycle::Options documents the keys); IDFactory's used ids in Java order */
 runtime::RuntimeLifecycle::Options runtimeOptions() {
 	using configs::main::GSConfig;
@@ -112,8 +123,14 @@ runtime::RuntimeLifecycle::Options runtimeOptions() {
 	options.threadPool = RuntimeConfig::threadPoolManagerConfig();
 	options.idFactory = RuntimeConfig::idFactoryConfig();
 	options.cronTimeZone = GSConfig::TIME_ZONE_ID.load();
-	// Java IDFactory.initializeUsedIds order
-	options.usedIds = {
+	options.deferUsedIds = true; // Java (upstream 546f96bd2): IDFactory.getInstance() in initDatabase, after the thread pools and the cron service
+	options.usedIds = usedIdsSources();
+	return options;
+}
+
+/** Java IDFactory.initializeUsedIds order */
+std::vector<runtime::RuntimeLifecycle::UsedIdsSource> usedIdsSources() {
+	return {
 		{"PlayerDAO", [] { return dao::PlayerDAO::getUsedIDs(); }},
 		{"InventoryDAO", [] { return dao::InventoryDAO::getUsedIDs(); }},
 		{"PlayerRegisteredItemsDAO", [] { return dao::PlayerRegisteredItemsDAO::getUsedIDs(); }},
@@ -123,10 +140,12 @@ runtime::RuntimeLifecycle::Options runtimeOptions() {
 		{"HousesDAO", [] { return dao::HousesDAO::getUsedIDs(); }},
 		{"PlayerPetsDAO", [] { return dao::PlayerPetsDAO::getUsedIDs(); }},
 	};
-	return options;
 }
 
 } // namespace
+
+// Java: private static final long START_TIME_NANOS = System.nanoTime(), the first static of the class (C++: static initialization)
+const std::chrono::steady_clock::time_point GameServer::START_TIME_NANOS = std::chrono::steady_clock::now();
 
 const int32_t GameServer::START_TIME_SECONDS = static_cast<int32_t>(
 	std::chrono::duration_cast<std::chrono::seconds>(commons::utils::info::SystemInfo::getProcessStartTime().time_since_epoch()).count());
@@ -150,7 +169,11 @@ bool GameServer::main(StartupObserver& observer) {
 	// Java: JAXBUtil.preLoadContextAsync(StaticData.class) - the C++ binders need no context
 	if (!initUtilityServicesAndConfig(observer, step))
 		return false;
-
+	// Java: CompletableFuture.runAsync(GameServer::initDatabase) while DataManager.getInstance() loads the static data, then
+	// awaitDatabaseInit. C++: one after the other (docs/deviations/P5-14.md)
+	runStep(observer, step, "initDatabase()", [] { initDatabase(); });
+	if (!observer.continueAfterDatabase())
+		return false;
 	runStep(observer, step, "DataManager.getInstance()", [] { dataholders::DataManager::getInstance(); });
 
 	// Java: Stream.of(QuestEngine, AIEngine, InstanceEngine, ChatProcessor, ZoneService, GeoService).parallel().forEach(GameEngine::init)
@@ -173,7 +196,6 @@ bool GameServer::main(StartupObserver& observer) {
 	});
 	if (!observer.continueAfterWorld())
 		return false;
-	runStep(observer, step, "GameTimeService.getInstance()", [] { services::GameTimeService::getInstance(); });
 
 	runStep(observer, step, "DropRegistrationService.getInstance()", [] { services::drop::DropRegistrationService::getInstance(); });
 
@@ -194,6 +216,7 @@ bool GameServer::main(StartupObserver& observer) {
 	runStep(observer, step, "MaintenanceTask.getInstance()", [] { taskmanager::tasks::housing::MaintenanceTask::getInstance(); });
 	runStep(observer, step, "ChallengeTaskService.getInstance()", [] { services::ChallengeTaskService::getInstance(); });
 
+	runStep(observer, step, "AbstractPeriodicTaskManager.startAll()", [] { taskmanager::AbstractPeriodicTaskManager::startAll(); });
 	runStep(observer, step, "SpawnEngine.spawnAll()", [] { spawnengine::SpawnEngine::spawnAll(); });
 	runStep(observer, step, "TownService.getInstance()", [] { services::TownService::getInstance(); });
 	runStep(observer, step, "FlyRingService.getInstance()", [] { services::FlyRingService::getInstance(); });
@@ -254,19 +277,17 @@ bool GameServer::main(StartupObserver& observer) {
 
 	// System.gc();
 
-	runStep(observer, step, "VersionInfo.logAll()", [] {
-		commons::utils::info::VersionInfo::logAll(versionInfo(), configs::main::GSConfig::TIME_ZONE_ID.load());
-		commons::utils::info::SystemInfo::logAll();
-	});
-
 	runStep(observer, step, "initNioServer()", [] { nioServer.store(initNioServer(), std::memory_order_release); });
 	runStep(observer, step, "ShutdownHook", [] { ShutdownHook::getInstance().install(); }); // Java: Runtime.getRuntime().addShutdownHook(...)
-	log().info("Game server started in " + std::to_string(commons::utils::currentTimeMillis() / 1000 - START_TIME_SECONDS) + " seconds.");
 
 	runStep(observer, step, "LoginServer.connect(nioServer)", [] { network::loginserver::LoginServer::getInstance().connect(*getNioServer()); });
 	runStep(observer, step, "ChatServer.connect(nioServer)", [] {
 		if (configs::main::GSConfig::ENABLE_CHAT_SERVER.load())
 			network::chatserver::ChatServer::getInstance().connect(*getNioServer());
+	});
+	runStep(observer, step, "Logging.logStartupStats()", [] {
+		commons::logging::Logging::logStartupStats("com.aionemu.gameserver.GameServer", START_TIME_NANOS, &versionInfo(),
+			configs::main::GSConfig::TIME_ZONE_ID.load());
 	});
 	return true;
 }
@@ -292,17 +313,18 @@ bool GameServer::initUtilityServicesAndConfig(StartupObserver& observer, int32_t
 		configs::Config::load();
 		observer.afterConfigLoad();
 	});
-	// Second should be database factory
-	runStep(observer, step, "DatabaseFactory.init()", [] {
-		commons::database::DatabaseFactory::init(commons::database::DatabaseFactory::gameServerOptions());
-		dao::PlayerDAO::setAllPlayersOffline();
-		if (configs::main::CleaningConfig::CLEANING_ENABLE.load())
-			services::DatabaseCleaningService::deletePlayersOnInactiveAccounts();
-	});
-
-	// Initialize thread pools; Initialize cron service (Java); C++: RuntimeLifecycle also starts IDFactory (Java: IDFactory.getInstance() in main)
-	runStep(observer, step, "ThreadPoolManager, CronService, IDFactory", [] { runtime::RuntimeLifecycle::start(runtimeOptions()); });
+	// Initialize thread pools; Initialize cron service (Java); C++: both through RuntimeLifecycle, which configures IDFactory (its used ids follow
+	// in initDatabase)
+	runStep(observer, step, "ThreadPoolManager, CronService", [] { runtime::RuntimeLifecycle::start(runtimeOptions()); });
 	return observer.continueAfterRuntime();
+}
+
+void GameServer::initDatabase() {
+	commons::database::DatabaseFactory::init(commons::database::DatabaseFactory::gameServerOptions());
+	dao::PlayerDAO::setAllPlayersOffline();
+	if (configs::main::CleaningConfig::CLEANING_ENABLE.load())
+		services::DatabaseCleaningService::deletePlayersOnInactiveAccounts();
+	runtime::RuntimeLifecycle::lockUsedIds(usedIdsSources()); // Java: IDFactory.getInstance(); loads all ids in use, which can take a while on a large database
 }
 
 void GameServer::runStep(StartupObserver& observer, int32_t& step, std::string_view name, const std::function<void()>& body) {
@@ -313,13 +335,45 @@ void GameServer::runStep(StartupObserver& observer, int32_t& step, std::string_v
 }
 
 void GameServer::shutdownNioServer() {
-	if (commons::network::NioServer* server = nioServer.exchange(nullptr, std::memory_order_acq_rel)) {
-		server->shutdown();
+	if (commons::network::NioServer* server = getNioServer()) {
+		if (forceStaffClientsToServerSelectionScreen())
+			std::this_thread::sleep_for(std::chrono::milliseconds(200)); // wait for login server to accept reconnections
+		server->shutdown(); // a second call does nothing (NioServer.h)
 	}
+}
+
+std::vector<std::shared_ptr<network::aion::AionConnection>> GameServer::findClientConnections() {
+	commons::network::NioServer* server = getNioServer();
+	if (server == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("Cannot invoke \"com.aionemu.commons.network.NioServer.findAllConnections()\" because \"nioServer\" is null");
+	std::vector<std::shared_ptr<network::aion::AionConnection>> connections;
+	for (const std::shared_ptr<commons::network::AConnectionBase>& c : server->findAllConnections())
+		if (std::shared_ptr<network::aion::AionConnection> connection = std::dynamic_pointer_cast<network::aion::AionConnection>(c))
+			connections.push_back(std::move(connection));
+	return connections;
+}
+
+bool GameServer::forceStaffClientsToServerSelectionScreen() {
+	std::vector<std::shared_ptr<network::aion::AionConnection>> staffClients;
+	for (const std::shared_ptr<network::aion::AionConnection>& c : findClientConnections())
+		if (c->getAccount() && c->getAccount()->getAccessLevel() > 0)
+			staffClients.push_back(c);
+	if (staffClients.empty())
+		return false;
+	for (const std::shared_ptr<network::aion::AionConnection>& c : staffClients) {
+		if (c->getState() == network::aion::AionConnection::State::IN_GAME)
+			utils::PacketSendUtility::sendPacket(*c->getActivePlayer(), network::aion::serverpackets::SM_QUIT_RESPONSE(true));
+		network::loginserver::LoginServer::getInstance().requestAuthReconnection(c->getAccount()->getId(), c.get());
+	}
+	return true;
 }
 
 bool GameServer::isShutdownScheduled() {
 	return ShutdownHook::getInstance().isRunning();
+}
+
+bool GameServer::isStarting() {
+	return getNioServer() == nullptr;
 }
 
 bool GameServer::isShuttingDownSoon() {

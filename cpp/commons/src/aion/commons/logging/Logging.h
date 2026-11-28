@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -20,7 +21,9 @@
  * login, chat and game server:
  * <table>
  * <tr><th>logback appender</th><th>output</th></tr>
- * <tr><td>out_console</td><td>console: <tt>HH:mm:ss LEVEL [thread] - message</tt>, level highlighted, thread gray</td></tr>
+ * <tr><td>out_console</td><td>console: <tt>HH:mm:ss LEVEL [thread] logger - message</tt> (thread and logger padded to 50 characters), level
+ * highlighted, thread gray, logger cyan; with the environment variable THREAD_LOG (the start scripts set it empty) its value replaces the
+ * thread and logger part</td></tr>
  * <tr><td>app_console</td><td>log/server_console.log: all messages</td></tr>
  * <tr><td>app_error</td><td>log/server_errors.log: ERROR messages only</td></tr>
  * <tr><td>app_warn</td><td>log/server_warnings.log: WARN messages only</td></tr>
@@ -31,24 +34,31 @@
  * <pre>
  * LoggerFactory::configure("ITEM_LOG", {.sinks = {Logging::createFileAppender("item.log", "${date} %message%n", std::nullopt, false)}, .additive = false});
  * </pre>
- * Since logback.xml is not read, the properties it takes from the config files (Discord webhook and avatar URL, gameserver.timezone) must be read by
- * the server before calling init.
+ * Since logback.xml is not read, the properties it takes from the config files (Discord webhook and avatar URL, the rolling limits,
+ * gameserver.timezone) must be read by the server before calling init.
+ * <p>
+ * Every file appender is a logback RollingFileAppender (upstream 36bdccb4d): "x.log" rolls over to "x.%i.log" (FixedWindowRollingPolicy,
+ * indexes 1 to Config::maxRolledFiles) when it reaches Config::maxFileSize (SizeBasedTriggeringPolicy).
  */
+namespace aion::commons::utils::info {
+class VersionInfo;
+} // namespace aion::commons::utils::info
+
 namespace aion::commons::logging::Logging {
 
 /** logback.xml property "date" */
 inline constexpr std::string_view DATE_PATTERN = "%date{\"yyyy-MM-dd'T'HH:mm:ss,SSSXXX\"}";
 /** logback.xml property "consoleTime" */
 inline constexpr std::string_view CONSOLE_TIME_PATTERN = "%date{HH:mm:ss}";
-/** out_console */
-inline constexpr std::string_view CONSOLE_PATTERN = "${consoleTime} %highlight(%-5level) %gray([%thread]) - %message%n";
+/** out_console (upstream b028752d0: thread and logger name, unless the start script sets THREAD_LOG) */
+inline constexpr std::string_view CONSOLE_PATTERN = "${consoleTime} %highlight(%-5level) ${THREAD_LOG:-%threadAndLogger %gray(-) }%message%n";
 /** app_console */
 inline constexpr std::string_view SERVER_CONSOLE_FILE_PATTERN = "${date} %-5level [%thread] %logger - %message%n";
 /** app_warn and app_error */
 inline constexpr std::string_view WARNINGS_AND_ERRORS_FILE_PATTERN = "${date} %logger - %message%n";
 /** app_status_discord, ${avatarUrl} is replaced by the configured avatar URL */
 inline constexpr std::string_view STATUS_DISCORD_PATTERN =
-	"%logger{0} [%thread]|${avatarUrl}|%msg%replace(%n```qml%n%ex```){\\r?\\n```qml\\r?\\n```, ''}%nopex";
+	"%logger{0} [%thread]|${avatarUrl}|%msg%replace(%n```yml%n%ex```){\\r?\\n```yml\\r?\\n```, ''}%nopex";
 
 struct Config {
 	/** logback.xml property "logFolder" */
@@ -68,10 +78,23 @@ struct Config {
 	bool archiveLogs = true;
 	/** write to the console (out_console) */
 	bool console = true;
+	/** &lt;server&gt;.log.max_file_size: rolled file size limit in bytes (logback: SizeBasedTriggeringPolicy maxFileSize, default 100MB) */
+	uint64_t maxFileSize = 100 * 1024 * 1024;
+	/** &lt;server&gt;.log.max_rolled_files: number of rolled files to keep (logback: FixedWindowRollingPolicy maxIndex, default 5) */
+	int32_t maxRolledFiles = 5;
 };
 
 /**
- * Java: Logging.init() and the configuration of the root logger by logback.xml. Archives the old log files (see archiveLogs), then replaces
+ * Java: logback's FileSize.valueOf, which converts the maxFileSize property: a number with an optional unit KB, MB or GB (1024-based, case
+ * insensitive, an optional trailing "s" and blanks before the unit), e.g. "100MB".
+ *
+ * @throws IllegalArgumentException "String value [...] is not in the expected format."
+ */
+uint64_t parseFileSize(std::string_view value);
+
+/**
+ * Java: Logging.init() and the configuration of the root logger by logback.xml. Prints the Banner (C++: only with Config::console), archives
+ * the old log files (see archiveLogs), then replaces
  * the root sinks of LoggerFactory with the appenders listed above and sets the root level. Loggers created before keep working and use the
  * new appenders.
  * <p>
@@ -99,13 +122,19 @@ void shutdown();
 std::filesystem::path getLogFolder();
 
 /**
- * Moves the *.log files of the log folder (including subfolders) of the previous run into a ZIP archive
- * "&lt;log folder&gt;/archived/&lt;last start&gt; to &lt;last modification&gt;.zip" (dates as "yyyy-MM-dd HH.mm", or "Unknown" if the
- * start marker file "[server_start_marker]" did not exist) and updates the start marker to the start time of this process.
+ * Moves the *.log files of the log folder (including subfolders, except "archived") of the previous run into the staging folder
+ * "&lt;log folder&gt;/archived/&lt;last start or now&gt;", updates the start marker file "[server_start_marker]" to the start time of this
+ * process (only after the files were moved), and then packs the staged files into the ZIP archive
+ * "&lt;log folder&gt;/archived/&lt;last start&gt; to &lt;last modification&gt;.zip" (dates as "yyyy-MM-dd HH.mm", "Unknown" without a start
+ * marker) in the background thread "Log-Archiver" (upstream 8912ec714), which deletes them afterwards. Errors of that thread go to the
+ * UncaughtExceptionHandler ("Error archiving old logs").
  *
- * @throws Exception "Error gathering and archiving old logs" with the cause
+ * @throws Exception "Error gathering old logs" with the cause
  */
 void archiveLogs(const std::filesystem::path& logFolder);
+
+/** C++ only: waits for the background archiving of archiveLogs (shutdown and the next archiveLogs wait for it too) */
+void awaitLogArchiver();
 
 /**
  * Java: the ${...} references to server properties in config/logback.xml that are read by Logging's configuration (Config), which servers exclude
@@ -113,15 +142,42 @@ void archiveLogs(const std::filesystem::path& logFolder);
  * chatserver.log.chat.discord.*) and gameserver.timezone, which is also a config field, are not included.
  *
  * @param serverName the property prefix of the server: "loginserver", "chatserver" or "gameserver"
- * @return "&lt;serverName&gt;.log.status.discord.webhook_url" and "&lt;serverName&gt;.log.status.discord.avatar_url"
+ * @return "&lt;serverName&gt;.log.status.discord.webhook_url", "&lt;serverName&gt;.log.status.discord.avatar_url",
+ *         "&lt;serverName&gt;.log.max_file_size" and "&lt;serverName&gt;.log.max_rolled_files"
  */
 std::vector<std::string> getPropertyKeys(std::string_view serverName);
 
-/** @return the pattern with the logback.xml properties ${date} and ${consoleTime} replaced */
+/**
+ * @return the pattern with the logback.xml properties ${date} and ${consoleTime} replaced, and every other ${NAME:-default} by the environment
+ *         variable NAME, or default if it is not set (logback's variable substitution; the servers' patterns use only THREAD_LOG)
+ */
 std::string resolvePattern(std::string_view pattern);
 
 /**
- * Java: a logback FileAppender with PatternLayoutEncoder. The time zone is the one passed to init.
+ * Java: Logging.logStartupStats (upstream 546f96bd2): logs the version information (VersionInfo.logAll, of versionInfo with timeZoneId if
+ * given, else of the executable), the system information (SystemInfo.logAll; Java runs System.gc() before) and then, through the server
+ * class's logger, the startup message (see formatStartupMessage), whose times are taken when this function is called.
+ *
+ * @param serverClass the Java name of the server class (e.g. "com.aionemu.gameserver.GameServer"): the logger name, and its simple name with
+ *          "Server" replaced by " server" is the server name of the message
+ * @param startTimeNanos when the server's startup began (Java: System.nanoTime() in the server class)
+ */
+void logStartupStats(std::string_view serverClass, std::chrono::steady_clock::time_point startTimeNanos,
+	const utils::info::VersionInfo* versionInfo = nullptr, const std::chrono::time_zone* timeZoneId = nullptr);
+
+/**
+ * Java private: "&lt;server&gt; started in S seconds (process running for U)", both with one to three decimals (DecimalFormat "0.0##").
+ * Public in C++ for the tests.
+ *
+ * @param startedNanos when the server was started
+ * @param uptime process uptime when the server was started
+ */
+std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTimeNanos,
+	std::chrono::steady_clock::time_point startedNanos, std::chrono::milliseconds uptime);
+
+/**
+ * Java: a logback RollingFileAppender with PatternLayoutEncoder, FixedWindowRollingPolicy (fileNamePattern "&lt;name&gt;.%i&lt;extension&gt;",
+ * maxIndex Config::maxRolledFiles) and SizeBasedTriggeringPolicy (Config::maxFileSize). The time zone and the limits are the ones passed to init.
  *
  * @param file the file, relative paths are resolved against the log folder of init (Java: ${logFolder}/file)
  * @param pattern logback conversion pattern; ${date} and ${consoleTime} are resolved

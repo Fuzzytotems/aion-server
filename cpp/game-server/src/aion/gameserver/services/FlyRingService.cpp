@@ -20,8 +20,8 @@ FlyRingService::FlyRingService() {
 		runtime::Ref<model::flyring::FlyRing> f = model::gameobjects::VisibleObject::create<model::flyring::FlyRing>(&t, 0);
 		f->spawn();
 		if (log.isDebugEnabled())
-			log.debug("Added " + f->getName() + " at m=" + std::to_string(f->getWorldId()) + ",x=" + JavaFloat::toString(f->getX()) + ",y=" +
-				JavaFloat::toString(f->getY()) + ",z=" + JavaFloat::toString(f->getZ()));
+			log.debug("Added {} at m={},x={},y={},z={}", f->getName(), f->getWorldId(), JavaFloat::toString(f->getX()), JavaFloat::toString(f->getY()),
+				JavaFloat::toString(f->getZ()));
 	}
 }
 

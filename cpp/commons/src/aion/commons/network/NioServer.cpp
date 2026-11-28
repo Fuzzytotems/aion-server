@@ -13,6 +13,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/network/SocketException.h"
 #include "aion/commons/network/detail/ServerContext.h"
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
 
 namespace aion::commons::network {
@@ -30,6 +31,8 @@ const logging::Logger& log() {
 constexpr auto SHUTDOWN_POLL_INTERVAL = std::chrono::milliseconds(100);
 /** delay before accepting again after an accept error (e.g. too many open files), so the IO thread does not spin */
 constexpr auto ACCEPT_RETRY_DELAY = std::chrono::milliseconds(100);
+/** Java: nextTimeoutCheckMillis = nowMillis + 1000 in AcceptReadWriteDispatcherImpl.closeTimedOutConnections */
+constexpr auto TIMEOUT_CHECK_INTERVAL = std::chrono::seconds(1);
 
 /**
  * Resolves the address to one endpoint. IPv4 addresses are preferred when a host name resolves to several addresses, like Java does by default
@@ -101,6 +104,15 @@ struct NioServer::Listener {
 	bool closed = false;
 };
 
+/** The timer of the periodic timeout check of all connections. All its operations run on its strand. */
+struct NioServer::TimeoutChecker {
+	explicit TimeoutChecker(asio::io_context& ioContext) : strand(asio::make_strand(ioContext)), timer(strand) {}
+
+	asio::strand<asio::io_context::executor_type> strand;
+	asio::steady_timer timer;
+	bool stopped = false;
+};
+
 NioServer::NioServer(int32_t readWriteThreads, std::vector<ServerCfg> cfgs, int32_t disconnectThreads)
 	: context(std::make_shared<detail::ServerContext>()), readWriteThreads(readWriteThreads), disconnectThreadCount(std::max(1, disconnectThreads)),
 		cfgs(std::move(cfgs)) {
@@ -157,7 +169,7 @@ void NioServer::start(DisconnectExecutor dcExecutor) {
 #endif
 			listener->acceptor.bind(endpoint);
 			listener->acceptor.listen(); // backlog SOMAXCONN (Java: 50)
-			log().info("Listening on " + cfg.getAddressInfo() + " for " + cfg.clientDescription);
+			log().info("Listening on {} for {}", cfg.getAddressInfo(), cfg.clientDescription);
 			newListeners.push_back(std::move(listener));
 		}
 	} catch (const std::exception& e) {
@@ -208,7 +220,51 @@ void NioServer::start(DisconnectExecutor dcExecutor) {
 
 	for (const auto& listener : listeners)
 		asio::post(listener->strand, [this, listener] { startAccept(listener); });
+	timeoutChecker = std::make_shared<TimeoutChecker>(context->ioContext);
+	asio::post(timeoutChecker->strand, [this] { scheduleTimeoutCheck(); });
 	state = State::RUNNING;
+}
+
+void NioServer::scheduleTimeoutCheck() {
+	if (timeoutChecker->stopped)
+		return;
+	try {
+		timeoutChecker->timer.expires_after(TIMEOUT_CHECK_INTERVAL);
+		timeoutChecker->timer.async_wait(asio::bind_executor(timeoutChecker->strand, [this](const std::error_code& error) {
+			if (error || timeoutChecker->stopped)
+				return;
+			closeTimedOutConnections();
+			scheduleTimeoutCheck();
+		}));
+	} catch (...) {
+		logCurrentException("Could not schedule the timeout check of the connections");
+	}
+}
+
+void NioServer::closeTimedOutConnections() {
+	int64_t nowMillis = utils::currentTimeMillis();
+	std::vector<std::shared_ptr<AConnectionBase>> connections = findAllConnections();
+	for (const auto& connection : connections) {
+		try {
+			connection->closeIfTimedOut(nowMillis);
+		} catch (...) {
+			logCurrentException("Error checking the timeouts of a connection");
+		}
+	}
+}
+
+void NioServer::stopTimeoutChecks() {
+	if (!timeoutChecker)
+		return;
+	auto done = std::make_shared<std::promise<void>>();
+	std::future<void> stopped = done->get_future();
+	asio::post(timeoutChecker->strand, [checker = timeoutChecker, done] {
+		checker->stopped = true;
+		checker->timer.cancel();
+		done->set_value();
+	});
+	if (stopped.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+		log().warn("Timeout stopping the timeout checks of the connections");
 }
 
 void NioServer::startAccept(const std::shared_ptr<Listener>& listener) {
@@ -334,7 +390,8 @@ void NioServer::initializeAndStartIo(const std::shared_ptr<AConnectionBase>& con
 	try {
 		connection->initialized();
 	} catch (...) {
-		// Deviation: in Java the exception escapes to the accept dispatcher (or the caller of an outbound connect) and the connection stays open
+		// Deviation: Java closes the socket and lets the exception escape to the accept dispatcher (or the caller of an outbound connect), so the
+		// connection is never disconnected through the dispatcher; here the connection is closed, so onDisconnect is called
 		try {
 			log().errorCurrentException("Error initializing " + describe(*connection));
 		} catch (...) {
@@ -364,24 +421,22 @@ void NioServer::shutdown(std::chrono::milliseconds closeTimeout) {
 		state = State::SHUTTING_DOWN;
 	}
 
-	log().info("Closing ServerChannels...");
 	closeListeners();
 	{
 		// after closeListeners, so a connection created by an accept that was already in progress is still registered (see onAccept)
 		std::lock_guard lock(context->mutex);
 		context->acceptingConnections = false;
 	}
-	log().info("ServerChannels closed.");
-
-	// find active connections once, at this point new ones cannot be added anymore
 	std::vector<std::shared_ptr<AConnectionBase>> activeConnections;
 	{
 		std::lock_guard lock(context->mutex);
 		activeConnections.assign(context->activeConnections.begin(), context->activeConnections.end());
 	}
 	auto isClosed = [](const std::shared_ptr<AConnectionBase>& connection) { return connection->isClosed(); };
-	if (!activeConnections.empty()) {
-		log().info("\tClosing " + std::to_string(activeConnections.size()) + " connections...");
+	if (activeConnections.empty()) {
+		log().info("Stopped accepting new connections");
+	} else {
+		log().info("Stopped accepting new connections, now closing {} connection(s)", activeConnections.size());
 
 		// notify connections about server close (they should close themselves)
 		for (const auto& connection : activeConnections) {
@@ -404,19 +459,21 @@ void NioServer::shutdown(std::chrono::milliseconds closeTimeout) {
 			}
 			if (std::chrono::steady_clock::now() > timeout) {
 				std::erase_if(activeConnections, isClosed);
-				log().info("\tForcing " + std::to_string(activeConnections.size()) + " connections to disconnect...");
+				log().info("\tForcing {} connection(s) to disconnect...", activeConnections.size());
 				for (const auto& connection : activeConnections)
 					connection->close();
 				break;
 			}
 		}
 		std::erase_if(activeConnections, isClosed);
-		log().info("\tActive connections left: " + std::to_string(activeConnections.size()));
+		if (!activeConnections.empty())
+			log().info("\tActive connections left: {}", activeConnections.size());
 	}
 	activeConnections.clear();
 
 	// Deviation: Java keeps its dispatcher threads running. Here the IO threads are stopped, so all connections are disconnected first, which
 	// guarantees that onDisconnect is called for each of them.
+	stopTimeoutChecks();
 	{
 		std::unique_lock lock(context->mutex);
 		for (const auto& connection : context->activeConnections)
@@ -499,7 +556,7 @@ size_t NioServer::getActiveConnectionCount() const {
 	return context->activeConnections.size();
 }
 
-std::vector<std::shared_ptr<AConnectionBase>> NioServer::snapshotConnections() const {
+std::vector<std::shared_ptr<AConnectionBase>> NioServer::findAllConnections() const {
 	std::lock_guard lock(context->mutex);
 	return {context->activeConnections.begin(), context->activeConnections.end()};
 }

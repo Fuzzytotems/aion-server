@@ -99,7 +99,7 @@ void PortalService::port(const model::templates::portal::PortalPath* portalPath,
 	model::gameobjects::Npc& npc, int8_t difficult) {
 	const PortalLoc* loc = dataholders::DataManager::PORTAL_LOC_DATA->getPortalLoc(requirePath(portalPath).getLocId());
 	if (loc == nullptr) {
-		log.warn("No portal loc for locId " + std::to_string(portalPath->getLocId()));
+		log.warn("No portal loc for locId {}", portalPath->getLocId());
 		return;
 	}
 

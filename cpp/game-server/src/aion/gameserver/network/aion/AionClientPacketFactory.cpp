@@ -113,8 +113,8 @@ std::unique_ptr<AionClientPacket> AionClientPacketFactory::tryCreatePacket(commo
 	}
 	if (!packetInfo->isValid(state)) {
 		if (NetworkConfig::LOG_IGNORED_PACKETS.load())
-			log.warn(client->toString() + " sent " + std::string(packetInfo->getPacketClassName()) + " but the connections current state (" +
-				std::string(xml::enumName(state)) + ") is invalid for this packet. Packet won't be instantiated.");
+			log.warn("{} sent {} but the connection's current state ({}) is invalid for this packet - packet won't be instantiated", client->toString(),
+				packetInfo->getPacketClassName(), xml::enumName(state));
 		return nullptr;
 	}
 	if (packetInfo->packetFactory == nullptr) { // C++ only: the packet class is not ported yet

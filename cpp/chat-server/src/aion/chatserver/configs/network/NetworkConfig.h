@@ -38,6 +38,9 @@ struct NetworkConfig {
 	 */
 	static inline int32_t NIO_READ_WRITE_THREADS = 0;
 
+	/** Time in seconds a client has to authenticate after connecting, before it gets disconnected. */
+	static inline int32_t CLIENT_AUTH_TIMEOUT_SECONDS = 0;
+
 	/** Binds the fields above to their property keys (Java: the @Property annotations). */
 	static void bind(commons::configuration::ConfigurableProcessor& processor);
 };

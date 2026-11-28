@@ -69,11 +69,11 @@ bool PetAdoptionService::validateAdoption(model::gameobjects::player::Player& pl
 		return false;
 	}
 	if (player.getPetList().hasPet(petId)) {
-		log.warn("Duplicate pet adoption " + player.toString() + " (pet: " + std::to_string(petId) + ")");
+		log.warn("Duplicate pet adoption {} (pet: {})", player.toString(), petId);
 		return false;
 	}
 	if (dataholders::DataManager::PET_DATA->getPetTemplate(petId) == nullptr) {
-		log.warn("Trying adopt pet without template. PetId:" + std::to_string(petId));
+		log.warn("Trying adopt pet without template. PetId:{}", petId);
 		return false;
 	}
 	return true;

@@ -112,14 +112,15 @@ TEST(PacketProcessorTest, InvalidArgumentsThrow) {
 			EXPECT_EQ(std::string_view(e.what()), message);
 		}
 	};
-	expectMessage([] { PacketProcessor<FakeConnection>(0, 1, 1, 1); }, "Min Threads must be positive");
-	expectMessage([] { PacketProcessor<FakeConnection>(2, 1, 1, 1); }, "Max Threads must be >= Min Threads");
-	expectMessage([] { PacketProcessor<FakeConnection>(1, 1, 0, 1); }, "Thread Spawn Threshold must be positive");
-	expectMessage([] { PacketProcessor<FakeConnection>(1, 1, 1, 0); }, "Thread Kill Threshold must be positive");
+	expectMessage([] { PacketProcessor<FakeConnection>(0, 1, 1, 1, 500); }, "Min Threads must be positive");
+	expectMessage([] { PacketProcessor<FakeConnection>(2, 1, 1, 1, 500); }, "Max Threads must be >= Min Threads");
+	expectMessage([] { PacketProcessor<FakeConnection>(1, 1, 0, 1, 500); }, "Thread Spawn Threshold must be positive");
+	expectMessage([] { PacketProcessor<FakeConnection>(1, 1, 1, 0, 500); }, "Thread Kill Threshold must be positive");
+	expectMessage([] { PacketProcessor<FakeConnection>(1, 1, 1, 1, 0); }, "Max pending packets per connection must be positive");
 }
 
 TEST(PacketProcessorTest, PacketsOfOneConnectionRunOneAtATimeInOrder) {
-	PacketProcessor<FakeConnection> processor(4, 4, 50, 3);
+	PacketProcessor<FakeConnection> processor(4, 4, 50, 3, 500);
 	constexpr int connectionCount = 6;
 	constexpr int packetsPerConnection = 400;
 	std::vector<std::shared_ptr<FakeConnection>> connections;
@@ -151,7 +152,7 @@ TEST(PacketProcessorTest, PacketsOfOneConnectionRunOneAtATimeInOrder) {
 }
 
 TEST(PacketProcessorTest, DifferentConnectionsRunInParallelUpToMaxThreads) {
-	PacketProcessor<FakeConnection> processor(3, 3, 50, 3);
+	PacketProcessor<FakeConnection> processor(3, 3, 50, 3, 500);
 	Gate gate;
 	std::set<std::string> threadNames;
 	std::mutex namesMutex;
@@ -179,7 +180,7 @@ TEST(PacketProcessorTest, DifferentConnectionsRunInParallelUpToMaxThreads) {
 }
 
 TEST(PacketProcessorTest, BusyConnectionDoesNotBlockOthers) {
-	PacketProcessor<FakeConnection> processor(2, 2, 50, 3);
+	PacketProcessor<FakeConnection> processor(2, 2, 50, 3, 500);
 	Gate gate;
 	auto slow = std::make_shared<FakeConnection>(1);
 	auto fast = std::make_shared<FakeConnection>(2);
@@ -198,7 +199,7 @@ TEST(PacketProcessorTest, BusyConnectionDoesNotBlockOthers) {
 TEST(PacketProcessorTest, ExceptionsDoNotStopWorkers) {
 	LogCapture& logs = LogCapture::instance();
 	logs.clear();
-	PacketProcessor<FakeConnection> processor(1, 1, 50, 3);
+	PacketProcessor<FakeConnection> processor(1, 1, 50, 3, 500);
 	auto con = std::make_shared<FakeConnection>(1);
 	processor.executePacket(task(con, 0, [] { throw utils::IllegalStateException("packet failure"); }));
 	processor.executePacket(task(con, 1, [] { throw 42; }));
@@ -212,7 +213,7 @@ TEST(PacketProcessorTest, ExceptionsDoNotStopWorkers) {
 
 TEST(PacketProcessorTest, ExecutorDecoratorExecutesPackets) {
 	std::atomic<int> decorated = 0;
-	PacketProcessor<FakeConnection> processor(1, 1, 50, 3, [&](network::packet::ClientPacketBase& packet) {
+	PacketProcessor<FakeConnection> processor(1, 1, 50, 3, 500, [&](network::packet::ClientPacketBase& packet) {
 		decorated++;
 		packet.run();
 	});
@@ -226,7 +227,7 @@ TEST(PacketProcessorTest, ExecutorDecoratorExecutesPackets) {
 TEST(PacketProcessorTest, CheckerAdaptsThreadCountLikeJava) {
 	LogCapture& logs = LogCapture::instance();
 	logs.clear();
-	PacketProcessor<FakeConnection> processor(1, 3, 2, 1);
+	PacketProcessor<FakeConnection> processor(1, 3, 2, 1, 500);
 	EXPECT_EQ(processor.getThreadCount(), 1);
 	Gate gate;
 	std::vector<std::shared_ptr<FakeConnection>> connections;
@@ -251,14 +252,14 @@ TEST(PacketProcessorTest, CheckerAdaptsThreadCountLikeJava) {
 
 	processor.checkThreadCount(); // 5 waiting: max threads reached, but 5 < 3 * 2, so no lag warning
 	EXPECT_EQ(processor.getThreadCount(), 3);
-	EXPECT_FALSE(logs.contains("Lag detected!"));
+	EXPECT_FALSE(logs.contains("Lag detected"));
 
 	submitBlocked();
 	submitBlocked();
 	processor.checkThreadCount(); // 7 waiting >= 6
 	EXPECT_EQ(processor.getThreadCount(), 3);
 	EXPECT_TRUE(logs.contains(
-		"warning|com.aionemu.commons.network.PacketProcessor|Lag detected! [7 client packets are waiting for execution]. You should consider increasing PacketProcessor maxThreads or hardware upgrade."));
+		"warning|com.aionemu.commons.network.PacketProcessor|Lag detected: 7 client packets are waiting for execution - consider increasing PacketProcessor maxThreads or hardware upgrade"));
 
 	gate.release();
 	for (auto& con : connections)
@@ -279,7 +280,7 @@ TEST(PacketProcessorTest, CheckerAdaptsThreadCountLikeJava) {
 }
 
 TEST(PacketProcessorTest, WaitingCountGrowthPreventsKill) {
-	PacketProcessor<FakeConnection> processor(1, 2, 5, 3);
+	PacketProcessor<FakeConnection> processor(1, 2, 5, 3, 500);
 	Gate gate;
 	auto blocker = std::make_shared<FakeConnection>(0);
 	processor.executePacket(task(blocker, 0, [&] { gate.pass(); }));
@@ -301,7 +302,7 @@ TEST(PacketProcessorTest, ShutdownDiscardsWaitingPacketsAndJoins) {
 	CM_TASK::instances = 0;
 	std::atomic<int> ran = 0;
 	{
-		PacketProcessor<FakeConnection> processor(1, 4, 50, 3);
+		PacketProcessor<FakeConnection> processor(1, 4, 50, 3, 500);
 		Gate gate;
 		auto con = std::make_shared<FakeConnection>(1);
 		processor.executePacket(task(con, 0, [&] {
@@ -331,7 +332,7 @@ TEST(PacketProcessorTest, ShutdownDiscardsWaitingPacketsAndJoins) {
 
 TEST(PacketProcessorTest, ShutdownFromPacketDoesNotDeadlock) {
 	std::atomic<bool> shutdownReturned = false;
-	auto processor = std::make_unique<PacketProcessor<FakeConnection>>(2, 2, 50, 3);
+	auto processor = std::make_unique<PacketProcessor<FakeConnection>>(2, 2, 50, 3, 500);
 	auto con = std::make_shared<FakeConnection>(1);
 	processor->executePacket(task(con, 0, [&] {
 		processor->shutdown();
@@ -343,7 +344,7 @@ TEST(PacketProcessorTest, ShutdownFromPacketDoesNotDeadlock) {
 }
 
 TEST(PacketProcessorTest, PacketKeepsConnectionAliveUntilExecuted) {
-	PacketProcessor<FakeConnection> processor(1, 1, 50, 3);
+	PacketProcessor<FakeConnection> processor(1, 1, 50, 3, 500);
 	Gate gate;
 	auto blocker = std::make_shared<FakeConnection>(0);
 	processor.executePacket(task(blocker, 0, [&] { gate.pass(); }));
@@ -355,4 +356,31 @@ TEST(PacketProcessorTest, PacketKeepsConnectionAliveUntilExecuted) {
 	EXPECT_FALSE(weak.expired());
 	gate.release();
 	EXPECT_TRUE(waitUntil([&] { return weak.expired(); }));
+}
+
+// upstream 76b2f2bca: a connection may have at most maxPendingPacketsPerConnection packets waiting; the running packet does not count
+TEST(PacketProcessorTest, PacketsBeyondThePendingLimitOfAConnectionAreRejected) {
+	PacketProcessor<FakeConnection> processor(2, 2, 50, 3, 3);
+	const int instancesBefore = CM_TASK::instances.load();
+	Gate gate;
+	auto flooder = std::make_shared<FakeConnection>(0);
+	ASSERT_TRUE(processor.executePacket(task(flooder, 0, [&] { gate.pass(); })));
+	ASSERT_TRUE(waitUntil([&] { return gate.waitingCount() == 1; })); // packet 0 runs, so it is not pending anymore
+	EXPECT_TRUE(processor.executePacket(task(flooder, 1)));
+	EXPECT_TRUE(processor.executePacket(task(flooder, 2)));
+	EXPECT_TRUE(processor.executePacket(task(flooder, 3)));
+	EXPECT_EQ(CM_TASK::instances.load() - instancesBefore, 4);
+	EXPECT_FALSE(processor.executePacket(task(flooder, 4))); // dropped
+	EXPECT_EQ(CM_TASK::instances.load() - instancesBefore, 4);
+
+	// other connections are not affected and are served while the flooder's packet blocks one thread
+	auto other = std::make_shared<FakeConnection>(1);
+	EXPECT_TRUE(processor.executePacket(task(other, 0)));
+	EXPECT_TRUE(waitUntil([&] { return executedCount(*other) == 1; }));
+
+	gate.release();
+	ASSERT_TRUE(waitUntil([&] { return executedCount(*flooder) == 4; }));
+	EXPECT_EQ(flooder->executed, (std::vector<int>{0, 1, 2, 3}));
+	EXPECT_TRUE(processor.executePacket(task(flooder, 5))); // the queue drained, so it accepts packets again
+	EXPECT_TRUE(waitUntil([&] { return executedCount(*flooder) == 5; }));
 }

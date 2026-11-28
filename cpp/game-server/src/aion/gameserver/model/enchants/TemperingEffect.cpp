@@ -112,7 +112,7 @@ void TemperingEffect::apply(gameobjects::player::Player& player, gameobjects::It
 		addAccessoryStatFunctions(item, functions);
 	}
 	if (functions.empty()) {
-		log.warn("Missing tempering effect info for item " + item.toString());
+		log.warn("Missing tempering effect info for item {}", item.toString());
 		return;
 	}
 	if (runtime::Ptr<TemperingEffect> temperingEffect = item.getTemperingEffect())

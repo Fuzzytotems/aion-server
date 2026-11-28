@@ -187,7 +187,7 @@ void AttackUtil::adjustDamageByStatModifiers(Creature& attacker, Creature& attac
 
 	size_t maxListIndex = std::min<size_t>(attackResultList.size(), 2);
 	if (maxListIndex < attackResultList.size()) // should never happen but log just in case
-		log.warn("attackResultList has more elements than expected (" + std::to_string(attackResultList.size()) + ")");
+		log.warn("attackResultList has more elements than expected ({})", attackResultList.size());
 	for (size_t i = 0; i < maxListIndex; i++) {
 		float damageMultiplier = i == 0 ? mainMultiplier : offMultiplier;
 		bool isPhysical = element == model::SkillElement::NONE;

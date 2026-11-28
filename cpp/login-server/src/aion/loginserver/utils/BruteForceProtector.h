@@ -25,7 +25,8 @@ public:
 	 * Records a failed login. The first failure (or the first one after Config::WRONG_LOGIN_BAN_TIME minutes since the first failure of a series)
 	 * starts a new series with count 1; each further failure increases the count until it reached Config::LOGIN_TRY_BEFORE_BAN.
 	 *
-	 * @return true if the failure exceeded the allowed number of tries (the series is removed then), so the IP should be banned
+	 * @return true if the failure exceeded the allowed number of tries (the series is removed then), so the IP should be banned. Series older than
+	 *         WRONG_LOGIN_BAN_TIME are purged once more than PURGE_THRESHOLD IPs are recorded.
 	 */
 	bool addFailedConnect(std::string_view ip);
 
@@ -34,6 +35,9 @@ private:
 		int32_t count;
 		int64_t time;
 	};
+
+	/** Above this many entries, the entries that can no longer lead to a ban are dropped when a new series starts. */
+	static constexpr size_t PURGE_THRESHOLD = 1024;
 
 	BruteForceProtector() = default;
 

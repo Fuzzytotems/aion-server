@@ -32,7 +32,7 @@ int32_t FactionPackDAO::loadReceivingPlayer(int32_t accountId) {
 			return rset->getInt("receiving_player");
 		return 0;
 	} catch (const SQLException& e) {
-		log.error("[FACTION_PACK] Error loading received player id on account id " + std::to_string(accountId), e);
+		log.error("[FACTION_PACK] Error loading received player id on account id {}", accountId, e);
 		return std::numeric_limits<int32_t>::max();
 	}
 }
@@ -46,7 +46,7 @@ bool FactionPackDAO::storeReceivingPlayer(int32_t accountId, int32_t playerId) {
 		stmt->execute();
 		return true;
 	} catch (const std::exception& e) {
-		log.error("[FACTION_PACK] Error saving received player id " + std::to_string(playerId) + " on account id " + std::to_string(accountId), e);
+		log.error("[FACTION_PACK] Error saving received player id {} on account id {}", playerId, accountId, e);
 		return false;
 	}
 }

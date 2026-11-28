@@ -110,7 +110,7 @@ void QuestEngine::init() {
 	// the D3 join (m5d-plan.md I-05): every XML quest, in XMLQuests.getAllQuests' Java HashMap order
 	for (const handlers::models::XMLQuest* xmlQuest : dataholders::DataManager::XML_QUESTS->getAllQuests())
 		xmlQuest->register_(*this); // Java: xmlQuest.register(this)
-	log.info("Loaded " + std::to_string(questHandlers.size()) + " quest handlers.");
+	log.info("Loaded {} quest handlers", questHandlers.size());
 	if (configs::main::GSConfig::ANALYZE_QUESTHANDLERS.load()) {
 		// lambda at QuestEngine.java:108 (fieldmap key QuestEngine@L108): executeLongRunning, pin {this}. Java hands the analyzer the live
 		// values() views, read on the pool thread; C++ takes the snapshots there (the temporaries live until run returns)
@@ -846,7 +846,7 @@ void QuestEngine::registerOnEquipItem(int32_t itemId, int32_t questId) {
 bool QuestEngine::registerCanAct(int32_t questId, int32_t npcId) {
 	const gameserver::model::templates::npc::NpcTemplate* template_ = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
 	if (template_ == nullptr) {
-		log.warn("[QuestEngine] No such NPC template for " + std::to_string(npcId) + " in Q" + std::to_string(questId));
+		log.warn("[QuestEngine] No such NPC template for {} in Q{}", npcId, questId);
 		return false;
 	}
 	if (template_->getAiName() == "quest_use_item") {
@@ -910,7 +910,7 @@ void QuestEngine::addQuestHandler(std::unique_ptr<handlers::AbstractQuestHandler
 	// Immortal handlers (RT-11): the engine keeps every handler it was given, also a duplicate Java drops for the garbage collector
 	AbstractQuestHandler* handler = questHandler.release();
 	if (questHandlers.putIfAbsent(questId, handler) != nullptr)
-		log.warn("Duplicate handler for quest: " + std::to_string(questId));
+		log.warn("Duplicate handler for quest: {}", questId);
 	else
 		handler->register_();
 }

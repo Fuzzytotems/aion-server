@@ -329,6 +329,25 @@ bool equalsIgnoreCase(std::string_view a, std::string_view b) noexcept {
 	}
 }
 
+int32_t compareToIgnoreCase(std::u16string_view a, std::u16string_view b) noexcept {
+	size_t length = std::min(a.size(), b.size());
+	for (size_t i = 0; i < length; i++) {
+		char32_t c1 = a[i];
+		char32_t c2 = b[i];
+		if (c1 == c2)
+			continue;
+		c1 = toUpperCase(c1);
+		c2 = toUpperCase(c2);
+		if (c1 != c2) {
+			c1 = toLowerCase(c1);
+			c2 = toLowerCase(c2);
+			if (c1 != c2)
+				return static_cast<int32_t>(c1) - static_cast<int32_t>(c2);
+		}
+	}
+	return static_cast<int32_t>(a.size()) - static_cast<int32_t>(b.size());
+}
+
 std::string toLowerCase(std::string_view s) {
 	std::string out;
 	out.reserve(s.size());

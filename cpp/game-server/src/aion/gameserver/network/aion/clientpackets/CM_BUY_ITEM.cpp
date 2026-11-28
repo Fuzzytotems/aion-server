@@ -130,7 +130,7 @@ void CM_BUY_ITEM::runImpl() {
 					services::TradeService::performBuyFromShop(*npc, *player, *tradeList);
 				break;
 			default:
-				log.warn("Unknown shop action: " + std::to_string(tradeActionId));
+				log.warn("Unknown shop action: {}", tradeActionId);
 				break;
 		}
 	} else if (const runtime::Ptr<Pet> pet = runtime::as<Pet>(target)) {

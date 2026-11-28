@@ -59,6 +59,8 @@ std::map<std::string, std::string> ScenarioServers::m5aProfile() {
 		// the scenario keys
 		{"gameserver.geodata.enable", "false"},
 		{"gameserver.character.reentry.time", "1"},
+		// upstream a485569df: at most 2 characters per computer (IP and MAC) by default; the gates log in more clients from 127.0.0.1
+		{"gameserver.security.multi_client.max_clients_per_computer", "0"},
 		{"gameserver.shutdown.delay", "2"},
 		// m5c-plan.md G-07: every configurable wall-clock cron job that reaches unported code or spawns into the world, out of every gate run. A
 		// gate whose server was up at Sunday 18:50 on 2026-09-27 failed its unported bar on PanesterraService::startAhserionRaid (P5-SC.md "M5c
@@ -293,7 +295,7 @@ void ScenarioServers::startGameServer() {
 		throw std::runtime_error("the game server did not log 'Game server started' (see " + gs->options().logFile.string() + ")");
 	if (const std::string problem = gameServerProfileProblem(gs->readLog()); !problem.empty())
 		throw std::runtime_error(problem + " (see " + gs->options().logFile.string() + ")");
-	if (ls && !ls->waitForLog("Gameserver #1 is now online", config.startupTimeout))
+	if (ls && !ls->waitForLog("Game server #1 is now online", config.startupTimeout))
 		throw std::runtime_error("the login server did not authenticate game server 1 (see " + ls->options().logFile.string() + ")");
 	if (config.checkClientPort && !waitForClientPort(std::chrono::seconds(30)))
 		throw std::runtime_error("the game server does not accept client connections on port " + std::to_string(gamePort));

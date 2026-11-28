@@ -8,8 +8,7 @@
 #include <span>
 #include <string>
 
-#include "aion/commons/network/AConnection.h"
-#include "aion/commons/network/PacketProcessor.h"
+#include "aion/commons/network/netty/NettyConnection.h"
 #include "aion/loginserver/network/aion/AionServerPacket.h"
 #include "aion/loginserver/network/aion/SessionKey.h"
 #include "aion/loginserver/network/ncrypt/CryptEngine.h"
@@ -26,9 +25,9 @@ namespace aion::loginserver::network::aion {
 /**
  * Object representing connection between LoginServer and Aion Client.
  * <p>
- * <b>Threads.</b> Received packets are read on the connection's IO strand (processData) and executed on the PacketProcessor passed to the
- * constructor (Java: the static PacketProcessor(1, 8, 50, 3)), one packet of a connection at a time. Server packets are written on the IO strand
- * with the connection's guard held. The fields below are also read by other threads (game server packet threads via AccountController, IO
+ * <b>Threads.</b> Received packets are decrypted and read on the connection's IO strand (createPacket) and executed on the packet executor
+ * passed to the constructor (Java: one of the client packet executors of NetConnector), one packet of a connection at a time, and onDisconnect
+ * runs after them. Server packets are written and encrypted by the sending thread, with the channel's guard held. The fields below are also read by other threads (game server packet threads via AccountController, IO
  * threads writing SM_SERVER_LIST, the disconnect executor), so the state and joinedGs are atomics and the account and session key are guarded by
  * an internal leaf mutex (no other lock is taken while holding it). Getters return copies. Packets attaching an account run inside an
  * AccountAttachScope, which orders their logout with onDisconnect.
@@ -37,10 +36,8 @@ namespace aion::loginserver::network::aion {
  *
  * @author -Nemesiss-
  */
-class LoginConnection : public commons::network::AConnection<AionServerPacket> {
+class LoginConnection : public commons::network::netty::NettyConnection<AionServerPacket> {
 public:
-	using Processor = commons::network::PacketProcessor<LoginConnection>;
-
 	/** Possible states of AionConnection */
 	enum class State {
 		/** Means that client just connects */
@@ -52,11 +49,10 @@ public:
 	};
 
 	/**
-	 * @param socket the accepted socket
-	 * @param server the server the connection belongs to
-	 * @param processor the packet processor executing this connection's client packets (Java: static field)
+	 * @param channel the channel of the connection
+	 * @param packetExecutor executes this connection's client packets one after another
 	 */
-	LoginConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server, std::shared_ptr<Processor> processor);
+	LoginConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor);
 
 	/**
 	 * Encrypt packet (Java: encrypt(ByteBuffer)).
@@ -67,11 +63,11 @@ public:
 	 */
 	int32_t encrypt(std::span<uint8_t> data, int32_t length);
 
-	/** @return Scrambled modulus (valid after initialized()) */
+	/** @return Scrambled modulus (valid after onConnect()) */
 	std::span<const uint8_t> getEncryptedModulus() const;
 
 	/**
-	 * @return the RSA key pair whose private key decrypts the login data (Java: getRSAPrivateKey()), valid after initialized()
+	 * @return the RSA key pair whose private key decrypts the login data (Java: getRSAPrivateKey()), valid after onConnect()
 	 */
 	const std::shared_ptr<const ncrypt::EncryptedRSAKeyPair>& getEncryptedRSAKeyPair() const noexcept { return encryptedRSAKeyPair; }
 
@@ -130,16 +126,19 @@ public:
 	};
 
 protected:
-	bool processData(commons::utils::ByteBuffer& data) override;
-	bool writeData(commons::utils::ByteBuffer& data) override;
+	/** Decrypts the packet and creates it. A packet with a wrong checksum closes the connection. */
+	std::unique_ptr<commons::network::packet::ClientPacketBase> createPacket(commons::utils::ByteBuffer& data) override;
+	void writePacket(const AionServerPacket& packet, commons::utils::ByteBuffer& buffer) override;
 	void onDisconnect() override;
-	void onServerClose() override;
-	void initialized() override;
+	bool isAuthenticated() const override { return getState() == State::AUTHED_LOGIN; }
+	int64_t getAuthTimeoutMillis() const override;
+	int32_t getMaxPendingPackets() const override { return 50; }
+	int64_t getMaxPendingWriteBytes() const override { return 256 * 1024; }
+	int64_t getMaxSendStallMillis() const override { return 60'000; }
+	/** Sends SM_INIT with a new RSA key pair and Blowfish key. */
+	void onConnect() override;
 
 private:
-	/** Decrypt packet. @return true if success */
-	bool decrypt(commons::utils::ByteBuffer& buf);
-
 	/** An account to log out, see claimLogout() */
 	struct Logout {
 		std::shared_ptr<model::Account> account;
@@ -156,9 +155,6 @@ private:
 	/** Removes the claimed account from the login server and updates its logout time. fieldMutex must not be held. */
 	void logout(const Logout& claimed);
 
-	/** PacketProcessor for executing packets. */
-	const std::shared_ptr<Processor> processor;
-
 	/**
 	 * Unique Session Id of this connection.
 	 * Deviation: a random positive int (Java: Object.hashCode(), the JVM's random identity hash).
@@ -168,7 +164,7 @@ private:
 	/** Crypt to encrypt/decrypt packets (internally synchronized; used on the IO strand only) */
 	ncrypt::CryptEngine cryptEngine;
 
-	/** Scrambled key pair for RSA, set in initialized() before IO starts and not changed afterwards */
+	/** Scrambled key pair for RSA, set in onConnect() before IO starts and not changed afterwards */
 	std::shared_ptr<const ncrypt::EncryptedRSAKeyPair> encryptedRSAKeyPair;
 
 	/** Current state of this connection */

@@ -19,7 +19,7 @@ void CsClientPacket::run() {
 	try {
 		runImpl();
 	} catch (...) {
-		log.warnCurrentException("error handling ls (" + (getConnection() ? getConnection()->getIP() : std::string("null")) + ") message " + toString());
+		log.warnCurrentException(fmt::format("error handling ls ({}) message {}", getConnection() ? getConnection()->getIP() : std::string("null"), toString()));
 	}
 }
 

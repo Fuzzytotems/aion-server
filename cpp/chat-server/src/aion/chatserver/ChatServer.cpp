@@ -16,7 +16,7 @@
 #endif
 
 #include "aion/chatserver/configs/Config.h"
-#include "aion/chatserver/network/netty/NettyServer.h"
+#include "aion/chatserver/network/NetConnector.h"
 #include "aion/chatserver/service/BroadcastService.h"
 #include "aion/chatserver/service/ChatService.h"
 #include "aion/chatserver/service/GameServerService.h"
@@ -62,8 +62,6 @@ ShutdownState& shutdownState() {
 	return *s;
 }
 
-/** true once NettyServer was created, so a failed startup does not create it just to shut it down */
-std::atomic<bool> nettyServerStarted = false;
 
 /**
  * logback.xml: &lt;logger name="CHAT_LOG" additivity="false"&gt; with the appenders app_chat (log/chat.log, "${date} %message%n") and
@@ -189,11 +187,7 @@ void startup(const Properties& overrides) {
 	service::ChatService::getInstance();
 	service::BroadcastService::getInstance();
 
-	commons::utils::info::VersionInfo::logAll();
-	commons::utils::info::SystemInfo::logAll();
-
-	network::netty::NettyServer::getInstance();
-	nettyServerStarted = true;
+	network::NetConnector::connect();
 }
 
 commons::database::DatabaseFactory::Options databaseOptions() {
@@ -202,8 +196,7 @@ commons::database::DatabaseFactory::Options databaseOptions() {
 }
 
 void shutdown() {
-	if (nettyServerStarted)
-		network::netty::NettyServer::getInstance().shutdownAll();
+	network::NetConnector::shutdown();
 	// shut down logger factory to flush all pending log messages
 	Logging::shutdown();
 }
@@ -219,6 +212,7 @@ void requestShutdown() noexcept {
 
 int main(std::span<const std::string_view> args) {
 	commons::utils::concurrent::setCurrentThreadName("main"); // Java: the main thread's name in log lines
+	const auto startTimeNanos = std::chrono::steady_clock::now(); // Java: long startTimeNanos = System.nanoTime(), before Logging.init
 	commons::utils::concurrent::UncaughtExceptionHandler::install();
 	Arguments arguments = parseArguments(args);
 	try {
@@ -236,6 +230,7 @@ int main(std::span<const std::string_view> args) {
 		log().warn("Unknown command line argument ignored: " + argument);
 
 	installShutdownHook();
+	Logging::logStartupStats("com.aionemu.chatserver.ChatServer", startTimeNanos);
 	waitForShutdownRequest(arguments.stopFile);
 
 	shutdown();

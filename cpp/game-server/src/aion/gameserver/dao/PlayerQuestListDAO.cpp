@@ -71,7 +71,7 @@ runtime::Ref<model::gameobjects::player::QuestStateList> PlayerQuestListDAO::loa
 			questStateList->addQuest(questId, *questState);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore QuestStateList data for player: " + std::to_string(playerObjId) + " from DB: " + e.what(), e);
+		log.error("Could not restore QuestStateList data for player: {} from DB: {}", playerObjId, e.what(), e);
 	}
 	return questStateList;
 }
@@ -97,7 +97,7 @@ void PlayerQuestListDAO::store(model::gameobjects::player::Player& player) {
 		addQuests(*con, player.getObjectId(), qsList);
 		updateQuests(*con, player.getObjectId(), qsList);
 	} catch (const SQLException& e) {
-		log.error("Can't save quests for player " + std::to_string(player.getObjectId()), e);
+		log.error("Can't save quests for player {}", player.getObjectId(), e);
 	}
 
 	for (const runtime::Ptr<QuestState>& qs : qsList) {
@@ -127,7 +127,7 @@ void PlayerQuestListDAO::addQuests(commons::database::Connection& con, int32_t p
 		ps->executeBatch();
 		con.commit();
 	} catch (const SQLException&) {
-		log.error("Failed to insert new quests for player " + std::to_string(playerId));
+		log.error("Failed to insert new quests for player {}", playerId);
 	}
 }
 
@@ -154,7 +154,7 @@ void PlayerQuestListDAO::updateQuests(commons::database::Connection& con, int32_
 		ps->executeBatch();
 		con.commit();
 	} catch (const SQLException&) {
-		log.error("Failed to update existing quests for player " + std::to_string(playerId));
+		log.error("Failed to update existing quests for player {}", playerId);
 	}
 }
 
@@ -179,7 +179,7 @@ void PlayerQuestListDAO::deleteQuest(commons::database::Connection& con, int32_t
 		ps->executeBatch();
 		con.commit();
 	} catch (const SQLException&) {
-		log.error("Failed to delete existing quests for player " + std::to_string(playerId));
+		log.error("Failed to delete existing quests for player {}", playerId);
 	}
 	// Java: questIds.clear() (the frozen parameter is const: store() clears the player's set)
 }

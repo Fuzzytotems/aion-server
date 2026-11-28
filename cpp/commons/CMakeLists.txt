@@ -18,6 +18,8 @@ aion_add_library(aion_commons_core
 	DEPENDS fmt::fmt spdlog::spdlog magic_enum::magic_enum cpr::cpr nlohmann_json::nlohmann_json asio::asio
 )
 target_include_directories(aion_commons_core PUBLIC "${AION_GENERATED_INCLUDE_DIR}")
+# Java: com.aionemu.commons.Banner (the package root, outside the SOURCE_DIRS above)
+target_sources(aion_commons_core PRIVATE "${COMMONS_SRC}/aion/commons/Banner.cpp" "${COMMONS_SRC}/aion/commons/Banner.h")
 
 # .properties loading and @Property-style binding, plus the config classes of commons itself
 aion_add_library(aion_commons_configuration

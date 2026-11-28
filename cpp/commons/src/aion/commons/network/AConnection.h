@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -41,6 +42,13 @@ struct ServerContext;
  * <p>
  * <b>Reading.</b> Data is framed like Java's Dispatcher: every packet starts with a little endian uint16 length that includes these two bytes.
  * processData() receives one packet body (without the length) at a time, as a slice of the read buffer that is only valid during the call.
+ * <p>
+ * <b>Stalled clients.</b> A client could stop reading from its socket while staying alive, so every packet sent to it would pile up in memory.
+ * The connection is closed once nothing could be written to it for getMaxSendStallMillis() while packets wait, or getMaxSendQueueSize()
+ * packets are waiting (checked when a packet is queued, and by NioServer about once per second). Both are unlimited by default.
+ * <p>
+ * <b>Authentication timeout.</b> A connection whose isAuthenticated() is still false getAuthTimeoutMillis() after it was established is closed
+ * by NioServer's periodic check (no limit by default).
  * <p>
  * <b>Closing.</b> close() marks the connection as pending close. It is disconnected as soon as the send queue is empty and all written bytes were
  * handed to the socket, or after 2 seconds at the latest. With a close packet, received data is discarded and EOF or read errors do not disconnect
@@ -148,6 +156,67 @@ protected:
 	/** Schedules the write loop on the strand if necessary. The caller must hold {@link #guard}. */
 	void requestWrite();
 
+	/**
+	 * @return The maximum number of server packets that may wait to be sent before the connection gets closed.
+	 */
+	virtual int32_t getMaxSendQueueSize() const { return std::numeric_limits<int32_t>::max(); }
+
+	/**
+	 * @return The maximum time in milliseconds the remote side may not receive any data while server packets are waiting to be sent, before the
+	 *         connection gets closed.
+	 */
+	virtual int64_t getMaxSendStallMillis() const { return std::numeric_limits<int64_t>::max(); }
+
+	/**
+	 * Java: the check of AConnection.sendPacket before a packet is added to the send queue, for send queues of any type. If the queue is empty,
+	 * the time of the last write progress is reset; otherwise, if too many packets wait or nothing could be written for too long, the send queue is
+	 * cleared (clearSendQueue()) and the connection is closed. The caller must hold {@link #guard} and must have checked canSend().
+	 *
+	 * @param queuedPackets
+	 *          the number of packets in the send queue
+	 * @return false if the packet must not be queued because the connection was closed
+	 */
+	bool admitToSendQueue(size_t queuedPackets);
+
+	/**
+	 * @return True if the remote side has authenticated itself. Connections that didn't authenticate within getAuthTimeoutMillis() get closed.
+	 *         Called with {@link #guard} held.
+	 */
+	virtual bool isAuthenticated() const { return true; }
+
+	/** @return The time in milliseconds the remote side has to authenticate itself, or 0 for no limit. */
+	virtual int64_t getAuthTimeoutMillis() const { return 0; }
+
+	/**
+	 * Called on the strand when data that announced a size of more than the read buffer was received, before the connection is disconnected.
+	 * Logs Java's Dispatcher warning; connections that emulate another framing (the chat and login server's Netty connections) override it.
+	 */
+	virtual void onPacketTooLarge(int32_t size, int32_t capacity) const;
+
+	/**
+	 * Called on the strand when a packet without body (announced size below 3) was received, before the connection is disconnected. Logs Java's
+	 * Dispatcher warning, see onPacketTooLarge.
+	 *
+	 * @param size the announced size (0 to 2)
+	 * @param buf the read buffer positioned after the size
+	 */
+	virtual void onEmptyPacket(int32_t size, const utils::ByteBuffer& buf) const;
+
+	/** Called on the strand after bytes were written to the socket (bytes is the number written by the last socket write). */
+	virtual void onBytesWritten(size_t bytes) noexcept { (void)bytes; }
+
+	/** Called on the strand once the socket was closed, before onDisconnect() is dispatched (e.g. to cancel own timers). */
+	virtual void onSocketClosed() noexcept {}
+
+	/** @return the strand all IO of this connection runs on, e.g. for timers of subclasses */
+	const asio::strand<asio::io_context::executor_type>& getStrand() const noexcept { return strand; }
+
+	/** @return the number of server packets waiting to be sent. The caller must hold {@link #guard}. */
+	virtual size_t getSendQueueSize() const { return 0; }
+
+	/** Removes all server packets waiting to be sent. The caller must hold {@link #guard}. */
+	virtual void clearSendQueue() {}
+
 	/** Lock for the send queue and the close state (Java: guard). Recursive, since writeData implementations may call sendPacket or close. */
 	mutable std::recursive_mutex guard;
 
@@ -158,11 +227,19 @@ private:
 	void startIo();
 	/** Disconnects on the strand (bypassing the close deadline), used by NioServer::shutdown for connections that did not close. */
 	void forceDisconnect();
+	/**
+	 * Called by NioServer about once per second to close connections which didn't authenticate in time or stopped receiving data (Java: called
+	 * by the Dispatcher Thread periodically).
+	 */
+	void closeIfTimedOut(int64_t nowMillis);
 
 	void doRead();
 	void onRead(const std::error_code& error, size_t bytesRead);
 	bool isClosingWithPacket() const;
 	bool parse(utils::ByteBuffer& buf);
+	bool isSendQueueStuck(size_t queuedPackets) const;
+	/** Called after data was written to the socket (Java: called by the Dispatcher). */
+	void onDataWritten() noexcept;
 	void doWrite();
 	void onCloseScheduled();
 	/** Closes the socket and calls onDisconnect() on the disconnect executor, exactly once. Must run on the strand. */
@@ -175,11 +252,15 @@ private:
 	asio::strand<asio::io_context::executor_type> strand;
 	asio::steady_timer closeTimer;
 	const std::string ip;
+	/** Time when this connection was established */
+	const int64_t connectedAtMillis;
 
 	utils::ByteBuffer readBuffer; // strand only
 	utils::ByteBuffer writeBuffer; // strand only (with guard held while writeData fills it)
 	std::vector<uint8_t> outgoing; // strand only: bytes of the async_write in progress
 
+	/** Time when data was last written to the socket or the send queue became non-empty */
+	std::atomic<int64_t> lastWriteProgressMillis = 0;
 	/** Wall clock time (ms) after which a closing connection is force-closed, 0 if not closing (Java: pendingCloseUntilMillis) */
 	std::atomic<int64_t> pendingCloseUntilMillis = 0;
 	/** true once disconnected (Java: closed); set with guard held */
@@ -234,6 +315,8 @@ public:
 		std::lock_guard lock(guard);
 		if (!canSend())
 			return;
+		if (!admitToSendQueue(sendMsgQueue.size()))
+			return;
 		sendMsgQueue.push_back(std::move(serverPacket));
 		requestWrite();
 	}
@@ -265,6 +348,10 @@ protected:
 
 	/** Java: getSendMsgQueue(). The caller must hold guard. */
 	std::deque<std::shared_ptr<TServerPacket>>& getSendMsgQueue() noexcept { return sendMsgQueue; }
+
+	size_t getSendQueueSize() const override { return sendMsgQueue.size(); }
+
+	void clearSendQueue() override { sendMsgQueue.clear(); }
 
 	/** Server packets "to send" queue, guarded by guard. */
 	std::deque<std::shared_ptr<TServerPacket>> sendMsgQueue;

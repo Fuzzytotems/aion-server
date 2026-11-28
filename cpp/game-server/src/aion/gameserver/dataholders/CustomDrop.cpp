@@ -15,7 +15,7 @@ void CustomDrop::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent&
 	for (const model::drop::NpcDrop& drop : npcDrop) {
 		if (!dropById.try_emplace(drop.getNpcId(), &drop).second)
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.CustomDrop")
-			  .warn("Tried to set custom drop for npc " + std::to_string(drop.getNpcId()) + " twice!");
+			  .warn("Tried to set custom drop for npc {} twice!", drop.getNpcId());
 	}
 	// Java: npcDrop = null (the C++ index points into the storage, which stays)
 }

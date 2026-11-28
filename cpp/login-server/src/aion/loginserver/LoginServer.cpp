@@ -192,9 +192,6 @@ void startup(const Properties& overrides) {
 	service::PlayerTransferService::getInstance();
 	playerTransferServiceStarted = true;
 
-	commons::utils::info::VersionInfo::logAll();
-	commons::utils::info::SystemInfo::logAll();
-
 	network::NetConnector::connect();
 }
 
@@ -217,6 +214,7 @@ void requestShutdown() noexcept {
 
 int main(std::span<const std::string_view> args) {
 	commons::utils::concurrent::setCurrentThreadName("main"); // Java: the main thread's name in log lines
+	const auto startTimeNanos = std::chrono::steady_clock::now(); // Java: long startTimeNanos = System.nanoTime(), before Logging.init
 	commons::utils::concurrent::UncaughtExceptionHandler::install();
 	std::vector<std::string> unknownArguments;
 	Properties overrides = parseOverrides(args, unknownArguments);
@@ -235,6 +233,7 @@ int main(std::span<const std::string_view> args) {
 		log().warn("Unknown command line argument ignored: " + argument);
 
 	installShutdownHook();
+	Logging::logStartupStats("com.aionemu.loginserver.LoginServer", startTimeNanos);
 	waitForShutdownRequest();
 
 	shutdown();

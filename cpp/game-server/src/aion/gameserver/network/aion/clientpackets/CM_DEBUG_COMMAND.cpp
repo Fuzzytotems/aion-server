@@ -18,7 +18,7 @@ CM_DEBUG_COMMAND::CM_DEBUG_COMMAND(int32_t opcode, const StateSet& validStates) 
 void CM_DEBUG_COMMAND::runImpl() {
 	runtime::Ptr<model::gameobjects::player::Player> player = getConnection()->getActivePlayer();
 	commons::logging::LoggerFactory::getLogger("ADMINAUDIT_LOG")
-		.info((player ? player->toString() : std::string("null")) + " sent debug command ////" + command);
+		.info("{} sent debug command ////{}", player ? player->toString() : std::string("null"), command);
 }
 
 AION_CLIENT_PACKET(CM_DEBUG_COMMAND);

@@ -41,7 +41,7 @@ void CM_CAPTCHA::readImpl() {
 			break;
 		default:
 			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_CAPTCHA")
-				.warn("Unknown CAPTCHA packet type " + std::to_string(type));
+				.warn("Unknown CAPTCHA packet type {}", type);
 			break;
 	}
 }

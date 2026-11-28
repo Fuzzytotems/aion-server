@@ -128,7 +128,7 @@ void NpcFactions::enterGuild(Npc& npc) {
 	int32_t targetObjectId = npc.getObjectId();
 	const templates::factions::NpcFactionTemplate* npcFactionTemplate = dataholders::DataManager::NPC_FACTIONS_DATA->getNpcFactionByNpcId(npc.getNpcId());
 	if (npcFactionTemplate == nullptr) {
-		log.warn("Missing faction for faction registrar npc " + std::to_string(npc.getNpcId()));
+		log.warn("Missing faction for faction registrar npc {}", npc.getNpcId());
 		return;
 	}
 	runtime::Ptr<NpcFaction> npcFaction = getFactionById(npcFactionTemplate->getId());

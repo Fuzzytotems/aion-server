@@ -99,6 +99,23 @@ TEST_F(PropertiesUtilsTest, LoadFromDirectory) {
 	EXPECT_FALSE(existing.getProperty("d").has_value());
 }
 
+// upstream 2cd926056: the files load in File.compareTo order (Files.find(...).map(Path::toFile).sorted())
+TEST_F(PropertiesUtilsTest, LoadFromDirectoryInFileCompareToOrder) {
+	write("Z.properties", "key=Z\n");
+	write("a.properties", "key=a\n");
+	write("sub/c.properties", "sub=c\n");
+	write("sub-x.properties", "sub=x\n");
+	Properties p;
+	PropertiesUtils::loadFromDirectory(p, dir, true);
+#ifdef _WIN32
+	EXPECT_EQ(p.getProperty("key"), "Z") << "case-insensitive: a.properties before Z.properties";
+	EXPECT_EQ(p.getProperty("sub"), "c") << "'-' (0x2D) before '\\' (0x5C): sub-x.properties before sub\\c.properties";
+#else
+	EXPECT_EQ(p.getProperty("key"), "a") << "case-sensitive: Z.properties before a.properties";
+	EXPECT_EQ(p.getProperty("sub"), "c") << "'-' (0x2D) before '/' (0x2F): sub-x.properties before sub/c.properties";
+#endif
+}
+
 TEST_F(PropertiesUtilsTest, LoadFromDirectoryGivenAFile) {
 	write("single.properties", "x=1\n");
 	Properties p;

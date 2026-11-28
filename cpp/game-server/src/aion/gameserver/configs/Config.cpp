@@ -17,6 +17,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/NetworkUtils.h"
+#include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/configs/administration/AdminConfig.h"
 #include "aion/gameserver/configs/administration/CommandsConfig.h"
@@ -160,7 +161,7 @@ void Config::load(std::span<const BindFunction> allowedConfigs) {
 			for (const std::string& key : Logging::getPropertyKeys("gameserver"))
 				unusedProperties.erase(key);
 			for (const std::string& unusedProperty : unusedProperties)
-				logger().warn("Config property " + unusedProperty + " is unknown and therefore ignored.");
+				logger().warn("Config property {} is unknown and therefore ignored.", unusedProperty);
 		}
 
 		auto clientConnectAddress = network::NetworkConfig::CLIENT_CONNECT_ADDRESS.get();
@@ -171,7 +172,7 @@ void Config::load(std::span<const BindFunction> allowedConfigs) {
 				throw commons::utils::Exception("No IP for Aion client advertisement configured and local IP discovery failed. Please configure "
 				                                "gameserver.network.client.connect_address");
 			network::NetworkConfig::CLIENT_CONNECT_ADDRESS.set(commons::utils::InetSocketAddress{*localIPv4, clientConnectAddress->port});
-			logger().info("No IP for Aion client advertisement configured, using " + *localIPv4);
+			logger().info("No IP for Aion client advertisement configured, using {}", *localIPv4);
 		}
 	}
 }
@@ -196,7 +197,7 @@ Properties Config::loadProperties() {
 	auto defaults = std::make_shared<Properties>();
 	try {
 		for (const char* configDir : {"./config/administration", "./config/main", "./config/network"}) {
-			logger().info("Loading default configuration values from: " + std::string(configDir) + "/*");
+			logger().info("Loading default configuration values from: {}/*", configDir);
 			PropertiesUtils::loadFromDirectory(*defaults, configDir, false);
 		}
 		if (overrideFileIgnored.load(std::memory_order_acquire)) {
@@ -235,6 +236,22 @@ Logging::Config Config::loadLoggingConfig() {
 	config.timeZone = timeZone.empty() ? nullptr : commons::configuration::transformers::ZoneIdTransformer::of(timeZone);
 	config.statusDiscordWebhookUrl = trimmed("gameserver.log.status.discord.webhook_url");
 	config.statusDiscordAvatarUrl = trimmed("gameserver.log.status.discord.avatar_url");
+	// logback.xml: <maxFileSize>${gameserver.log.max_file_size}</maxFileSize> and <maxIndex>${gameserver.log.max_rolled_files}</maxIndex>
+	// (C++: an empty or invalid value keeps the default with a warning, where logback reports a configuration error)
+	if (const std::string maxFileSize = trimmed("gameserver.log.max_file_size"); !maxFileSize.empty()) {
+		try {
+			config.maxFileSize = Logging::parseFileSize(maxFileSize);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid gameserver.log.max_file_size, keeping the default", e);
+		}
+	}
+	if (const std::string maxRolledFiles = trimmed("gameserver.log.max_rolled_files"); !maxRolledFiles.empty()) {
+		try {
+			config.maxRolledFiles = commons::utils::parseInt(maxRolledFiles);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid gameserver.log.max_rolled_files, keeping the default", e);
+		}
+	}
 	return config;
 }
 

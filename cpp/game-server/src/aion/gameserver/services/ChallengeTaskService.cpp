@@ -55,7 +55,7 @@ runtime::Ref<TaskMap> loadTasks(int32_t ownerId, ChallengeType challengeType) {
 } // namespace
 
 ChallengeTaskService::ChallengeTaskService() {
-	log.info("ChallengeTaskService initialized.");
+	log.info("ChallengeTaskService initialized");
 }
 
 ChallengeTaskService::~ChallengeTaskService() = default;
@@ -156,8 +156,7 @@ void ChallengeTaskService::onCityTaskFinish(Player& player, const ChallengeTaskT
 		return;
 	runtime::Ptr<ChallengeQuest> quest = task->getQuest(questId);
 	if (!quest) {
-		log.warn(player.toString() + " finished city task " + std::to_string(task->getTaskId()) + " of town " + std::to_string(*townId) +
-			" but info for quest " + std::to_string(questId) + " is missing.");
+		log.warn("{} finished city task {} of town {} but info for quest {} is missing", player.toString(), task->getTaskId(), *townId, questId);
 		return;
 	}
 	if (quest->getCompleteCount() < quest->getMaxRepeats() && !task->isCompleted()) {
@@ -192,8 +191,7 @@ runtime::Ptr<ChallengeTask> ChallengeTaskService::getChallengeTask(Player& playe
 		buildTaskList(player, ChallengeType::TOWN, townId, TownService::getInstance().getTownById(townId)->getLevel());
 		taskMap = cityTasks.get(townId);
 		if (!taskMap) {
-			log.warn("Town " + std::to_string(townId) + " has no CityTasks! " + player.toString() + ", town residence:" +
-				std::to_string(TownService::getInstance().getTownResidence(player)));
+			log.warn("Town {} has no tasks for {} (town residence: {})", townId, player.toString(), TownService::getInstance().getTownResidence(player));
 			return nullptr;
 		}
 	}

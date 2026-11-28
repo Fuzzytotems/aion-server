@@ -195,9 +195,8 @@ void PrivateStoreService::sellStoreItem(model::gameobjects::player::Player& sell
 				PacketSendUtility::sendPacket(seller, SM_SYSTEM_MESSAGE::STR_MSG_PERSONAL_SHOP_SELL_ITEM(item->getL10n()));
 			else
 				PacketSendUtility::sendPacket(seller, SM_SYSTEM_MESSAGE::STR_MSG_PERSONAL_SHOP_SELL_ITEM_MULTI(boughtItem->getCount(), item->getL10n()));
-			log.info("[PRIVATE STORE] > [Seller: " + seller.getName() + "] sold [Item: " + std::to_string(item->getItemId()) + "][Amount: "
-				+ std::to_string(boughtItem->getCount()) + "] to [Buyer: " + buyer.getName() + "] for [Price: "
-				+ std::to_string(javaMul(boughtItem->getPrice(), boughtItem->getCount())) + "]");
+			log.info("[PRIVATE STORE] > [Seller: {}] sold [Item: {}][Amount: {}] to [Buyer: {}] for [Price: {}]", seller.getName(),
+				item->getItemId(), boughtItem->getCount(), buyer.getName(), javaMul(boughtItem->getPrice(), boughtItem->getCount()));
 		}
 	}
 	buyer.getInventory().decreaseKinah(price);
@@ -231,13 +230,12 @@ std::vector<runtime::Ref<model::trade::TradePSItem>> PrivateStoreService::getBou
 		if (tradeItem->getItemId() >= 0 && tradeItem->getItemId() < static_cast<int32_t>(storeItems.size())) { // itemId is index! blame the one who implemented this
 			TradePSItem& storeItem = *storeItems[static_cast<size_t>(tradeItem->getItemId())];
 			if (tradeItem->getCount() > storeItem.getCount()) {
-				log.warn("[Private Store] Attempt to buy more than for sale: " + std::to_string(tradeItem->getCount()) + " vs. "
-					+ std::to_string(storeItem.getCount()));
+				log.warn("[Private Store] Attempt to buy more than for sale: {} vs. {}", tradeItem->getCount(), storeItem.getCount());
 				return {};
 			}
 			boughtItems.push_back(TradePSItem::create(storeItem.getItemObjId(), storeItem.getItemId(), tradeItem->getCount(), storeItem.getPrice()));
 		} else {
-			log.warn("[Private Store] Attempt to buy from invalid store index: " + std::to_string(tradeItem->getItemId()));
+			log.warn("[Private Store] Attempt to buy from invalid store index: {}", tradeItem->getItemId());
 			return {};
 		}
 	}

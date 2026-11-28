@@ -40,7 +40,7 @@ void CM_START_LOOT::runImpl() {
 			break;
 		default:
 			// Java string concatenation: String.valueOf(player), "null" for null; the byte prints as a signed number
-			log.warn((player ? player->toString() : std::string("null")) + " sent unknown loot action type " + std::to_string(action));
+			log.warn("{} sent unknown loot action type {}", player ? player->toString() : std::string("null"), action);
 	}
 }
 

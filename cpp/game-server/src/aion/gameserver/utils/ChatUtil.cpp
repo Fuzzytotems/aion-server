@@ -7,6 +7,7 @@
 #include <regex>
 
 #include "aion/commons/configuration/transformers/NumberTransformer.h"
+#include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/configs/administration/AdminConfig.h"
@@ -93,52 +94,46 @@ int32_t parseInt(std::u16string_view text) {
 
 } // namespace
 
-std::string ChatUtil::formatDecimal(double value) {
-	if (std::isnan(value))
-		return "NaN";
-	bool isNegative = std::signbit(value);
-	if (std::isinf(value))
-		return isNegative ? "-\xE2\x88\x9E" : "\xE2\x88\x9E"; // DecimalFormatSymbols.getInfinity() of Locale.US: U+221E
-	// the exact decimal expansion is long enough to decide HALF_EVEN for every value with at most 17 significant digits
-	char exact[400];
-	auto [end, error] = std::to_chars(exact, exact + sizeof(exact), std::fabs(value), std::chars_format::fixed, 60);
-	std::string digits(exact, end);
+std::string ChatUtil::format(float number) {
+	// BigDecimal.valueOf(double): the decimal of Double.toString of the widened float (Java 25: the shortest decimal that rounds to the double)
+	double value = number;
+	if (!std::isfinite(value)) // new BigDecimal("NaN"), new BigDecimal("Infinity"), new BigDecimal("-Infinity")
+		throw commons::utils::NumberFormatException(std::string("Character ") + (std::isnan(value) ? "N" : "I")
+			+ " is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.");
+	char shortest[400];
+	auto [end, error] = std::to_chars(shortest, shortest + sizeof(shortest), std::fabs(value), std::chars_format::fixed);
+	std::string digits(shortest, end);
 	size_t point = digits.find('.');
-	std::string integerPart = digits.substr(0, point);
-	std::string fraction = digits.substr(point + 1, 2);
-	std::string rest = digits.substr(point + 3);
-	bool roundUp = false;
-	if (!rest.empty() && rest[0] > '5') {
-		roundUp = true;
-	} else if (!rest.empty() && rest[0] == '5') {
-		bool exactlyHalf = std::all_of(rest.begin() + 1, rest.end(), [](char c) { return c == '0'; });
-		char lastDigit = fraction[1];
-		roundUp = !exactlyHalf || ((lastDigit - '0') % 2 == 1);
-	}
-	std::string number = integerPart + fraction;
+	std::string integerPart = point == std::string::npos ? digits : digits.substr(0, point);
+	std::string fraction = point == std::string::npos ? std::string() : digits.substr(point + 1);
+	// setScale(2, RoundingMode.HALF_UP): a discarded fraction of at least one half rounds away from zero
+	bool roundUp = fraction.size() > 2 && fraction[2] >= '5';
+	fraction.resize(2, '0');
+	std::string scaled = integerPart + fraction;
 	if (roundUp) {
-		size_t i = number.size();
+		size_t i = scaled.size();
 		while (i > 0) {
 			--i;
-			if (number[i] == '9') {
-				number[i] = '0';
+			if (scaled[i] == '9') {
+				scaled[i] = '0';
 			} else {
-				++number[i];
+				++scaled[i];
 				break;
 			}
 			if (i == 0)
-				number.insert(number.begin(), '1');
+				scaled.insert(scaled.begin(), '1');
 		}
 	}
-	std::string integerDigits = number.substr(0, number.size() - 2);
-	std::string fractionDigits = number.substr(number.size() - 2);
+	// stripTrailingZeros().toPlainString(): no trailing fraction zeros, "0" for zero (BigDecimal has no negative zero)
+	std::string integerDigits = scaled.substr(0, scaled.size() - 2);
+	std::string fractionDigits = scaled.substr(scaled.size() - 2);
 	while (!fractionDigits.empty() && fractionDigits.back() == '0')
 		fractionDigits.pop_back();
 	integerDigits.erase(0, std::min(integerDigits.find_first_not_of('0'), integerDigits.size()));
-	std::string result = isNegative ? "-" : "";
 	if (integerDigits.empty() && fractionDigits.empty())
-		return result + "0";
-	result += integerDigits;
+		return "0";
+	std::string result = std::signbit(value) ? "-" : "";
+	result += integerDigits.empty() ? "0" : integerDigits;
 	if (!fractionDigits.empty())
 		result += "." + fractionDigits;
 	return result;
@@ -154,8 +149,8 @@ std::string ChatUtil::color(std::string_view message, int32_t rgb) {
 }
 
 std::string ChatUtil::color(std::string_view message, int32_t r, int32_t g, int32_t b) {
-	return std::format("[color:{};{} {} {}]", message, formatDecimal(static_cast<float>(r) / 255.0f), formatDecimal(static_cast<float>(g) / 255.0f),
-		formatDecimal(static_cast<float>(b) / 255.0f));
+	return std::format("[color:{};{} {} {}]", message, format(static_cast<float>(r) / 255.0f), format(static_cast<float>(g) / 255.0f),
+		format(static_cast<float>(b) / 255.0f));
 }
 
 std::string ChatUtil::genderize(std::string_view wordForMales, std::string_view textForFemales) {
@@ -218,7 +213,7 @@ std::string ChatUtil::position(std::string_view label, int64_t worldId, float x,
 		else
 			subId = 1; // lower
 	}
-	return std::format("[pos:{};{} {} {} {} {}]", label, worldId, formatDecimal(x), formatDecimal(y), formatDecimal(z), subId);
+	return std::format("[pos:{};{} {} {} {} {}]", label, worldId, format(x), format(y), format(z), subId);
 }
 
 runtime::Ref<world::WorldPosition> ChatUtil::getPosition(std::optional<std::string_view> posLink) {
@@ -298,12 +293,16 @@ std::string ChatUtil::item(int32_t itemId) {
 	return std::format("[item:{}]", itemId);
 }
 
-std::string ChatUtil::itemName(int32_t itemId) {
-	return std::format("[item_ex:{}]", itemId);
+std::string ChatUtil::itemName(int32_t itemId, std::string_view playerName) {
+	return std::format("[item_ex:{};{}]", itemId, playerName);
 }
 
 std::string ChatUtil::recipe(int32_t recipeId) {
 	return std::format("[recipe:{}]", recipeId);
+}
+
+std::string ChatUtil::recipeName(int32_t recipeId, std::string_view playerName) {
+	return std::format("[recipe_ex:{};{}]", recipeId, playerName);
 }
 
 std::string ChatUtil::quest(int32_t questId) {
@@ -400,8 +399,10 @@ std::vector<std::string> ChatUtil::split(std::string_view chatMessageValue) {
 	std::vector<std::string> parts;
 	for (int32_t start = 0, length = static_cast<int32_t>(chatMessage.size()); start < length;) {
 		int32_t splitIndex = findSplitIndex(chatMessage, start, length);
-		std::u16string_view part = std::u16string_view(chatMessage).substr(static_cast<size_t>(start), static_cast<size_t>(splitIndex - start));
-		parts.push_back(StringUtils::toWtf8(part));
+		std::u16string messagePart(std::u16string_view(chatMessage).substr(static_cast<size_t>(start), static_cast<size_t>(splitIndex - start)));
+		if (start > 0)
+			messagePart = CONTINUATION_MARK + messagePart;
+		parts.push_back(StringUtils::toWtf8(messagePart));
 		start = splitIndex;
 		if (start < length) {
 			char16_t splitChar = chatMessage[static_cast<size_t>(start)];
@@ -413,7 +414,8 @@ std::vector<std::string> ChatUtil::split(std::string_view chatMessageValue) {
 }
 
 int32_t ChatUtil::findSplitIndex(std::u16string_view chatMessage, int32_t startIndex, int32_t endIndex) {
-	int32_t estimatedDisplayLength = 0;
+	// account for the length of the CONTINUATION_MARK if this is a subsequent part (start > 0)
+	int32_t estimatedDisplayLength = startIndex > 0 ? 1 : 0;
 	int32_t lastNewLineIndex = -1;
 	int32_t lastSpaceIndex = -1;
 	for (int32_t i = startIndex; i < endIndex; i++) {
@@ -459,6 +461,10 @@ int32_t ChatUtil::findSplitIndex(std::u16string_view chatMessage, int32_t startI
 		}
 	}
 	return endIndex;
+}
+
+bool ChatUtil::isInvalidCharacter(int32_t codePoint) {
+	return codePoint < 32 && codePoint != '\t' || codePoint == 127;
 }
 
 } // namespace aion::gameserver::utils

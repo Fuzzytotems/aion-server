@@ -111,7 +111,7 @@ TEST_F(LogoutLifetimeTest, LeaveWorldRunsTheBreakersWhenItThrows) {
 		// the player never entered the world and has no connection: leaveWorld cannot complete (Java: NullPointerException at the latest on
 		// con.setActivePlayer(null)), and every exception on the way must still run the breakers
 		thrown.clear();
-		LIFETIME_RUN(services::player::PlayerLeaveWorldService::leaveWorld(*player), thrown);
+		LIFETIME_RUN(services::player::PlayerLeaveWorldService::leaveWorldForTests(*player), thrown);
 		EXPECT_FALSE(thrown.empty()) << "leaveWorld without a connection throws";
 		EXPECT_FALSE(player->getTarget()) << "L1";
 		EXPECT_FALSE(warehouseActor(*account)) << "L3";
@@ -141,7 +141,7 @@ TEST_F(LogoutLifetimeTest, LogoutDuringItemUseCancelsTheTaskAndReleasesThePlayer
 		itemUse = utils::ThreadPoolManager::getInstance().schedule(runtime::Pin(player), [] {}, 5000);
 		player->getController().addTask(model::TaskId::ITEM_USE, itemUse);
 		// without a client connection leaveWorld ends with Java's NullPointerException, after the controller deleted the player
-		LIFETIME_RUN(services::player::PlayerLeaveWorldService::leaveWorld(*player), thrown);
+		LIFETIME_RUN(services::player::PlayerLeaveWorldService::leaveWorldForTests(*player), thrown);
 		EXPECT_NE(thrown.find("\"con\" is null"), std::string::npos) << "the null connection at the end of leaveWorld: " << thrown;
 		EXPECT_TRUE(itemUse->isCancelled()) << "controller.delete() cancels the tasks of the player";
 	}

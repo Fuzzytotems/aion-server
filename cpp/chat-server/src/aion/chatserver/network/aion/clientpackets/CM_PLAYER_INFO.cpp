@@ -5,7 +5,7 @@ namespace aion::chatserver::network::aion::clientpackets {
 void CM_PLAYER_INFO::readImpl() {
 	readC(); // 0
 	readH(); // 0
-	classId = readC();
+	classId = readUC();
 	readD(); // 0
 	level = readD();
 	unk = readB(135);

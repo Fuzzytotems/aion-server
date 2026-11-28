@@ -46,7 +46,7 @@ void CM_UI_SETTINGS::runImpl() {
 			player->getPlayerSettings()->setHouseBuddies(bytes());
 			break;
 		default:
-			log.warn((player ? player->toString() : std::string("null")) + " sent unknown type of player settings: " + std::to_string(settingsType));
+			log.warn("{} sent unknown type of player settings: {}", player ? player->toString() : std::string("null"), settingsType);
 	}
 }
 

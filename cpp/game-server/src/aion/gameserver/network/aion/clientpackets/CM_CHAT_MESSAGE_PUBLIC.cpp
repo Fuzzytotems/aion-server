@@ -1,5 +1,7 @@
 #include "aion/gameserver/network/aion/clientpackets/CM_CHAT_MESSAGE_PUBLIC.h"
 
+#include <algorithm>
+
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/model/ChatTypeInfo.h"
 #include "aion/gameserver/model/RaceInfo.h"
@@ -15,7 +17,9 @@
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
 #include "aion/gameserver/services/NameRestrictionService.h"
 #include "aion/gameserver/services/player/PlayerChatService.h"
+#include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/utils/chathandlers/ChatProcessor.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
 
@@ -40,6 +44,11 @@ void CM_CHAT_MESSAGE_PUBLIC::readImpl() {
 // Java CM_CHAT_MESSAGE_PUBLIC.java:43-97
 void CM_CHAT_MESSAGE_PUBLIC::runImpl() {
 	const runtime::Ptr<Player> player = getConnection()->getActivePlayer();
+
+	if (std::ranges::any_of(message, [](char c) { return utils::ChatUtil::isInvalidCharacter(static_cast<unsigned char>(c)); })) {
+		utils::audit::AuditLogger::log(player, "sent chat message containing control characters: " + message);
+		return;
+	}
 
 	if (utils::chathandlers::ChatProcessor::getInstance().handleChatCommand(*player, message))
 		return;

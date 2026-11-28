@@ -1,7 +1,7 @@
 // P5-08 player services, M5a subset (m5a-plan.md E1-02..E1-04): HDD bans, the security token, multi-clienting in NONE mode, kisk binds, bind point
 // cooldowns, prison status, pets, duels, recall requests, abyss skills, the life stats restore tasks and the startup cron schedules.
 //
-// Expectations are derived by hand from HDDBanService.java, SecurityTokenService.java, MultiClientingService.java:24-61, KiskService.java:66-89,
+// Expectations are derived by hand from HDDBanService.java, SecurityTokenService.java, MultiClientService.java:24-61, KiskService.java:66-89,
 // BindPointTeleportService.java:30-36,110-137, PunishmentService.java:96-116, PetService.java:63-67, DuelService.java:243-280,
 // RecallService.java:49-104, AbyssSkillService.java:20-40, LifeStatsRestoreService.java:24-38, PlayerLimitService.java:51-53 and
 // AbyssRankUpdateService.java:28-34.
@@ -44,7 +44,7 @@
 #include "aion/gameserver/services/ban/HDDBanService.h"
 #include "aion/gameserver/services/cron/CronExpression.h"
 #include "aion/gameserver/services/cron/CronService.h"
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
 #include "aion/gameserver/services/player/PlayerLimitService.h"
 #include "aion/gameserver/services/player/SecurityTokenService.h"
 #include "aion/gameserver/services/teleport/BindPointTeleportService.h"
@@ -105,13 +105,14 @@ TEST_F(PlayerServicesM5aTest, SecurityTokenIsBase64OfSixteenRandomBytes) {
 	EXPECT_NE(account->getSecurityToken(), token) << "a new random token";
 }
 
-TEST_F(PlayerServicesM5aTest, MultiClientingInNoneModeAlwaysAllowsTheLogin) {
+TEST_F(PlayerServicesM5aTest, MultiClientWithoutLimitsAlwaysAllowsTheLogin) {
 	PlayerFixture f = makePlayer(1, 100);
-	AtomicConfigScope<configs::main::SecurityConfig::MultiClientingRestrictionMode> mode(configs::main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE,
-		configs::main::SecurityConfig::MultiClientingRestrictionMode::NONE);
-	// NONE reads no connection data (MultiClientingService.java:25,37): a null connection is never dereferenced
-	EXPECT_TRUE(services::player::MultiClientingService::tryEnterWorld(*f.player, nullptr));
-	services::player::MultiClientingService::onLeaveWorld(*f.player); // no session of the account: nothing to update
+	AtomicConfigScope<int32_t> maxClients(configs::main::SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER, 0);
+	AtomicConfigScope<bool> bothFactions(configs::main::SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS, true);
+	// without a limit and with both factions allowed no connection data is read (MultiClientService.tryEnterWorld): a null connection is never
+	// dereferenced
+	EXPECT_FALSE(services::player::MultiClientService::tryEnterWorld(*f.player, nullptr).has_value());
+	services::player::MultiClientService::onLeaveWorld(*f.player); // no session of the account: nothing to update
 }
 
 TEST_F(PlayerServicesM5aTest, KiskBindingOfAnOfflinePlayerAndOwnerRegistration) {

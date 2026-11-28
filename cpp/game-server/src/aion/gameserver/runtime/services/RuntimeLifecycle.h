@@ -114,6 +114,11 @@ public:
 		utils::idfactory::IDFactory::Config idFactory;
 		/** locked in this order before the first nextId() */
 		std::vector<UsedIdsSource> usedIds;
+		/**
+		 * true: start() only configures IDFactory, and the caller locks the used ids with lockUsedIds once the database is up (the game server
+		 * since upstream 546f96bd2: IDFactory.getInstance() is part of GameServer.initDatabase, after the thread pools and the cron service)
+		 */
+		bool deferUsedIds = false;
 	};
 
 	enum class State : uint8_t { NEW, STARTING, RUNNING, STOPPING, SHUT_DOWN };
@@ -134,6 +139,12 @@ public:
 
 	/** @throws IllegalStateException if not in state NEW; any exception of a failed step (after the rollback) */
 	static void start(Options options);
+
+	/**
+	 * Locks the used ids of the sources in order and logs "IDFactory: N IDs used" (step 6 of start, or later with Options::deferUsedIds).
+	 * Java: IDFactory.getInstance() (IDFactory.initializeUsedIds).
+	 */
+	static void lockUsedIds(const std::vector<UsedIdsSource>& usedIds);
 
 	/** @throws IllegalStateException if called inside a TaskScope */
 	static ShutdownReport shutdown();

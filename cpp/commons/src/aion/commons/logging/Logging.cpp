@@ -2,8 +2,11 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <format>
 #include <fstream>
+#include <functional>
 #include <mutex>
+#include <regex>
 #include <set>
 #include <stacktrace>
 #include <thread>
@@ -12,6 +15,7 @@
 #include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/stdout_sinks.h>
 
+#include "aion/commons/Banner.h"
 #include "aion/commons/logging/ConsoleAppender.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/logging/PatternLayout.h"
@@ -19,7 +23,10 @@
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/ZipWriter.h"
+#include "aion/commons/utils/concurrent/ThreadName.h"
+#include "aion/commons/utils/concurrent/UncaughtExceptionHandler.h"
 #include "aion/commons/utils/info/SystemInfo.h"
+#include "aion/commons/utils/info/VersionInfo.h"
 
 namespace aion::commons::logging::Logging {
 
@@ -31,6 +38,8 @@ struct State {
 	std::mutex mutex;
 	fs::path logFolder = "log";
 	const std::chrono::time_zone* timeZone = nullptr;
+	uint64_t maxFileSize = Config{}.maxFileSize;
+	int32_t maxRolledFiles = Config{}.maxRolledFiles;
 	std::vector<std::shared_ptr<DiscordChannelAppender>> discordAppenders;
 	/** file appenders created by createFileAppender, flushed by shutdown */
 	std::vector<std::weak_ptr<FileAppender>> fileAppenders;
@@ -38,6 +47,8 @@ struct State {
 	bool shutdownRegistered = false;
 	/** loads the debug symbols for stack traces in the background, see init */
 	std::thread symbolLoader;
+	/** Java: the "Log-Archiver" thread of archiveLogs */
+	std::thread logArchiver;
 	bool symbolsLoading = false;
 };
 
@@ -45,6 +56,22 @@ State& state() {
 	// Deliberately leaked, like the LoggerFactory registry: it must stay valid during static destruction
 	static State* instance = new State();
 	return *instance;
+}
+
+/** @return the environment variable, or nothing if it is not set */
+std::optional<std::string> environmentVariable(const std::string& name) {
+#ifdef _WIN32
+	char* value = nullptr;
+	size_t length = 0;
+	if (_dupenv_s(&value, &length, name.c_str()) != 0 || value == nullptr)
+		return std::nullopt;
+	std::string result(value);
+	std::free(value);
+	return result;
+#else
+	const char* value = std::getenv(name.c_str());
+	return value ? std::optional<std::string>(value) : std::nullopt;
+#endif
 }
 
 void shutdownAtExit() {
@@ -67,70 +94,193 @@ void createArchive(const fs::path& file, const std::vector<fs::path>& files, con
 	fs::create_directories(file.parent_path());
 	utils::ZipWriter zip(file);
 	for (const fs::path& logFile : files)
-		zip.addFile(toUtf8(logFile.lexically_relative(rootDirectory)), logFile);
+		zip.addFile(toUtf8(logFile.lexically_relative(rootDirectory)), logFile); // the entry gets the file's modification time
 	zip.finish();
 }
 
 void remove(const std::vector<fs::path>& files) {
-	for (const fs::path& logFile : files)
-		fs::remove(logFile);
-	// attempt to delete parent folders (only deletes empty folders)
-	std::set<fs::path> parents;
-	for (const fs::path& logFile : files)
-		parents.insert(logFile.parent_path());
-	for (const fs::path& parent : parents) {
+	std::set<fs::path, std::greater<>> parents; // Java: TreeSet<>(Comparator.reverseOrder()), the deepest folders first
+	for (const fs::path& logFile : files) {
 		std::error_code ignored;
-		fs::remove(parent, ignored);
+		fs::remove(logFile, ignored); // Java: Files.deleteIfExists (C++: an error is ignored like a missing file)
+		parents.insert(logFile.parent_path());
 	}
+	for (const fs::path& parent : parents) {
+		std::error_code notEmpty;
+		fs::remove(parent, notEmpty); // only deletes empty folders
+	}
+}
+
+/** Java: moveOldLogFiles - moves the *.log files (outside the archive folder) into the staging folder and removes the folders they leave empty */
+std::vector<fs::path> moveOldLogFiles(const fs::path& logFolder, const fs::path& oldLogsFolder, const fs::path& stagingFolder,
+	std::optional<fs::file_time_type>& lastStopTime) {
+	if (!fs::exists(logFolder))
+		return {};
+	std::vector<fs::path> logFiles;
+	std::vector<fs::path> directories;
+	for (auto it = fs::recursive_directory_iterator(logFolder); it != fs::recursive_directory_iterator(); ++it) {
+		const fs::directory_entry& entry = *it;
+		if (entry.is_directory()) {
+			// Skip the archived/ folder to avoid re-processing leftover subdirectories
+			if (entry.path() == oldLogsFolder) {
+				it.disable_recursion_pending();
+				continue;
+			}
+			directories.push_back(entry.path());
+		} else if (entry.is_regular_file() && utils::StringUtils::toLowerCase(toUtf8(entry.path())).ends_with(".log")) {
+			fs::file_time_type lastModified = entry.last_write_time();
+			fs::path target = stagingFolder / entry.path().lexically_relative(logFolder);
+			fs::create_directories(target.parent_path());
+			fs::rename(entry.path(), target); // Java: Files.move(file, target, REPLACE_EXISTING)
+			logFiles.push_back(target);
+			if (!lastStopTime || *lastStopTime < lastModified)
+				lastStopTime = lastModified;
+		}
+	}
+	// Java: postVisitDirectory deletes each visited folder but the log folder, if it is empty now (the deepest first)
+	for (auto dir = directories.rbegin(); dir != directories.rend(); ++dir) {
+		std::error_code notEmpty;
+		fs::remove(*dir, notEmpty);
+	}
+	return logFiles;
+}
+
+/** Java: updateStartTime */
+void updateStartTime(const fs::path& startTimeFile) {
+	if (!fs::exists(startTimeFile)) {
+		fs::create_directories(startTimeFile.parent_path());
+		if (!std::ofstream(startTimeFile))
+			throw utils::IOException("Could not create " + startTimeFile.string());
+	}
+	auto startTime = std::chrono::floor<std::chrono::milliseconds>(utils::info::SystemInfo::getProcessStartTime());
+	fs::last_write_time(startTimeFile, std::chrono::clock_cast<fs::file_time_type::clock>(startTime));
 }
 
 } // namespace
 
 void archiveLogs(const fs::path& logFolder) {
+	awaitLogArchiver(); // C++: the archiver of an earlier call is done before the files are gathered again
 	try {
 		fs::path oldLogsFolder = logFolder / "archived";
 		fs::path startTimeFile = logFolder / "[server_start_marker]";
-		std::vector<fs::path> logFiles;
 		std::optional<std::chrono::system_clock::time_point> lastStartTime;
-		std::optional<fs::file_time_type> lastStopTime;
-
-		fs::create_directories(logFolder);
-		if (fs::exists(startTimeFile)) {
+		if (fs::exists(startTimeFile))
 			lastStartTime = toSystemTime(fs::last_write_time(startTimeFile));
-		} else if (!std::ofstream(startTimeFile)) {
-			throw utils::IOException("Could not create " + startTimeFile.string());
-		}
-		auto startTime = std::chrono::floor<std::chrono::milliseconds>(utils::info::SystemInfo::getProcessStartTime());
-		fs::last_write_time(startTimeFile, std::chrono::clock_cast<fs::file_time_type::clock>(startTime)); // update with new start time
+		std::optional<fs::file_time_type> lastStopTime;
+		utils::DateTimeFormatter dtf = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm"); // system default time zone
+		std::string stagingName = dtf.format(lastStartTime ? *lastStartTime : std::chrono::system_clock::now());
+		fs::path stagingFolder = oldLogsFolder / fs::path(std::u8string(stagingName.begin(), stagingName.end()));
 
-		for (const fs::directory_entry& entry : fs::recursive_directory_iterator(logFolder)) {
-			if (entry.is_regular_file() && utils::StringUtils::toLowerCase(toUtf8(entry.path())).ends_with(".log")) {
-				logFiles.push_back(entry.path());
-				fs::file_time_type lastModified = entry.last_write_time();
-				if (!lastStopTime || *lastStopTime < lastModified)
-					lastStopTime = lastModified;
-			}
-		}
+		std::vector<fs::path> logFiles = moveOldLogFiles(logFolder, oldLogsFolder, stagingFolder, lastStopTime);
+		// update the start time after old log files have been moved successfully, so that exceptions don't alter the time for the next archival attempt
+		updateStartTime(startTimeFile);
 
 		if (!logFiles.empty()) {
-			utils::DateTimeFormatter dtf = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm"); // system default time zone
 			std::string outFilename = (lastStartTime ? dtf.format(*lastStartTime) : "Unknown") + " to " + dtf.format(toSystemTime(*lastStopTime)) + ".zip";
-			createArchive(oldLogsFolder / fs::path(std::u8string(outFilename.begin(), outFilename.end())), logFiles, logFolder);
-			remove(logFiles);
+			fs::path archive = oldLogsFolder / fs::path(std::u8string(outFilename.begin(), outFilename.end()));
+			// Java: a platform thread "Log-Archiver", so that the JVM completes this task before shutting down (C++: joined by shutdown)
+			State& s = state();
+			std::lock_guard lock(s.mutex);
+			s.logArchiver = std::thread([archive, logFiles = std::move(logFiles), stagingFolder] {
+				utils::concurrent::setCurrentThreadName("Log-Archiver");
+				try {
+					try {
+						createArchive(archive, logFiles, stagingFolder);
+						remove(logFiles);
+					} catch (const std::exception&) {
+						throw utils::Exception("Error archiving old logs", std::current_exception());
+					}
+				} catch (...) {
+					utils::concurrent::UncaughtExceptionHandler::uncaughtException("Log-Archiver", std::current_exception());
+				}
+			});
 		}
 	} catch (const std::exception&) {
-		throw utils::Exception("Error gathering and archiving old logs", std::current_exception());
+		throw utils::Exception("Error gathering old logs", std::current_exception());
 	}
+}
+
+void awaitLogArchiver() {
+	std::thread archiver;
+	{
+		State& s = state();
+		std::lock_guard lock(s.mutex);
+		archiver.swap(s.logArchiver);
+	}
+	if (archiver.joinable())
+		archiver.join();
 }
 
 std::vector<std::string> getPropertyKeys(std::string_view serverName) {
 	std::string prefix(serverName);
-	return {prefix + ".log.status.discord.webhook_url", prefix + ".log.status.discord.avatar_url"};
+	return {prefix + ".log.status.discord.webhook_url", prefix + ".log.status.discord.avatar_url", prefix + ".log.max_file_size",
+		prefix + ".log.max_rolled_files"};
+}
+
+uint64_t parseFileSize(std::string_view value) {
+	// logback FileSize: Pattern.compile("([0-9]+)\\s*(|kb|mb|gb)s?", Pattern.CASE_INSENSITIVE).matcher(value).matches()
+	static const std::regex FILE_SIZE_PATTERN("([0-9]+)\\s*(|kb|mb|gb)s?", std::regex::icase);
+	std::string text(value);
+	std::smatch match;
+	if (std::regex_match(text, match, FILE_SIZE_PATTERN)) {
+		std::string unit = utils::StringUtils::toLowerCase(match[2].str());
+		uint64_t coefficient = unit == "kb" ? 1024 : unit == "mb" ? 1024 * 1024 : unit == "gb" ? 1024 * 1024 * 1024 : 1;
+		try {
+			return std::stoull(match[1].str()) * coefficient;
+		} catch (const std::exception&) {
+		}
+	}
+	throw utils::IllegalArgumentException("String value [" + text + "] is not in the expected format.");
 }
 
 std::string resolvePattern(std::string_view pattern) {
 	std::string resolved = utils::StringUtils::replace(pattern, "${date}", DATE_PATTERN);
-	return utils::StringUtils::replace(resolved, "${consoleTime}", CONSOLE_TIME_PATTERN);
+	resolved = utils::StringUtils::replace(resolved, "${consoleTime}", CONSOLE_TIME_PATTERN);
+	// logback: ${NAME:-default} - the variable, here an environment variable, or the default
+	for (size_t start = resolved.find("${"); start != std::string::npos; start = resolved.find("${", start)) {
+		size_t separator = resolved.find(":-", start);
+		size_t end = resolved.find('}', start);
+		if (end == std::string::npos)
+			break;
+		std::string name = resolved.substr(start + 2, (separator != std::string::npos && separator < end ? separator : end) - start - 2);
+		std::string defaultValue = separator != std::string::npos && separator < end ? resolved.substr(separator + 2, end - separator - 2) : "";
+		std::optional<std::string> value = environmentVariable(name);
+		std::string replacement = value ? *value : defaultValue;
+		resolved.replace(start, end - start + 1, replacement);
+		start += replacement.size();
+	}
+	return resolved;
+}
+
+void logStartupStats(std::string_view serverClass, std::chrono::steady_clock::time_point startTimeNanos, const utils::info::VersionInfo* versionInfo,
+	const std::chrono::time_zone* timeZoneId) {
+	using namespace std::chrono;
+	auto startedNanos = steady_clock::now();
+	auto uptimeMillis = duration_cast<milliseconds>(system_clock::now() - utils::info::SystemInfo::getProcessStartTime());
+	std::string_view simpleName = serverClass.substr(serverClass.rfind('.') == std::string_view::npos ? 0 : serverClass.rfind('.') + 1);
+	std::string serverName = utils::StringUtils::replace(simpleName, "Server", " server");
+	std::string startupMessage = formatStartupMessage(serverName, startTimeNanos, startedNanos, uptimeMillis);
+	if (versionInfo == nullptr)
+		utils::info::VersionInfo::logAll();
+	else
+		utils::info::VersionInfo::logAll(*versionInfo, timeZoneId);
+	// System.gc(): no counterpart
+	utils::info::SystemInfo::logAll();
+	LoggerFactory::getLogger(std::string(serverClass)).info(startupMessage);
+}
+
+std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTimeNanos,
+	std::chrono::steady_clock::time_point startedNanos, std::chrono::milliseconds uptime) {
+	using namespace std::chrono;
+	auto decimalFormat = [](float seconds) { // DecimalFormat("0.0##", Locale.US): one to three decimals, HALF_EVEN
+		std::string text = std::format("{:.3f}", seconds);
+		while (text.ends_with('0') && text[text.size() - 2] != '.')
+			text.pop_back();
+		return text;
+	};
+	float startTime = static_cast<float>(duration_cast<milliseconds>(startedNanos - startTimeNanos).count()) / 1000.0f;
+	return std::format("{} started in {} seconds (process running for {})", server, decimalFormat(startTime),
+		decimalFormat(static_cast<float>(uptime.count()) / 1000.0f));
 }
 
 fs::path getLogFolder() {
@@ -143,7 +293,15 @@ std::shared_ptr<FileAppender> createFileAppender(const fs::path& file, std::stri
 	State& s = state();
 	std::lock_guard lock(s.mutex);
 	fs::path path = file.is_relative() ? s.logFolder / file : file;
-	auto appender = std::make_shared<FileAppender>(path, std::make_unique<PatternLayout>(resolvePattern(pattern), s.timeZone), filter, immediateFlush);
+	// logback.xml: <fileNamePattern>${logFolder}/<name>.%i.log</fileNamePattern> next to <file>${logFolder}/<name>.log</file>
+	FileAppender::RollingPolicy rollingPolicy{
+		.fileNamePattern = path.parent_path() / fs::path(path.stem().u8string() + u8".%i" + path.extension().u8string()),
+		.minIndex = 1,
+		.maxIndex = s.maxRolledFiles,
+		.maxFileSize = s.maxFileSize,
+	};
+	auto appender = std::make_shared<FileAppender>(path, std::make_unique<PatternLayout>(resolvePattern(pattern), s.timeZone), filter, immediateFlush,
+		rollingPolicy);
 	std::erase_if(s.fileAppenders, [](const auto& weak) { return weak.expired(); });
 	s.fileAppenders.push_back(appender);
 	return appender;
@@ -195,12 +353,17 @@ void init(const Config& config) {
 		}
 	}
 
+	// Java: LogLevelHighlightingCompositeConverter.register() and RealGrayCompositeConverter.register() are the colors of PatternLayout
+	if (config.console)
+		Banner::print();
 	if (config.archiveLogs)
 		archiveLogs(config.logFolder);
 	{
 		std::lock_guard lock(s.mutex);
 		s.logFolder = config.logFolder;
 		s.timeZone = config.timeZone;
+		s.maxFileSize = config.maxFileSize;
+		s.maxRolledFiles = config.maxRolledFiles;
 		s.initialized = true;
 	}
 
@@ -271,6 +434,7 @@ void shutdown() {
 		appender->stop(); // messages logged meanwhile still reach the other appenders
 	if (symbolLoader.joinable())
 		symbolLoader.join(); // must not run while the process exits
+	awaitLogArchiver(); // Java: the JVM waits for the platform thread
 	std::vector<spdlog::sink_ptr> previousSinks = LoggerFactory::rootSink()->sinks(); // destroyed after the root sink's lock is released
 	LoggerFactory::rootSink()->set_sinks({std::make_shared<spdlog::sinks::stderr_sink_mt>()});
 }

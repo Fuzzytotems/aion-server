@@ -819,6 +819,10 @@ std::vector<Packet> levelReady(ScenarioClient& client) {
 	return burst;
 }
 
+/** The gate's database, for disconnect (set by the test body) */
+const ScenarioDatabase* gateDatabase = nullptr;
+std::string gateSchema;
+
 /** CM_QUIT(0): the character leaves the world and the connection ends - the only state in which a database read sees its last save */
 void disconnect(ScenarioClient& client) {
 	if (!client.game)
@@ -827,6 +831,9 @@ void disconnect(ScenarioClient& client) {
 	waitFor(*client.game, "SM_QUIT_RESPONSE", 30s);
 	if (!client.game->waitClosed(30s))
 		throw std::runtime_error(client.label + ": the socket stayed open after CM_QUIT(0)");
+	// since upstream d22a9af5b the character leaves the world up to 10 s after its last move or fight (registerLeaveWorld): wait for the save
+	if (gateDatabase != nullptr)
+		gateDatabase->awaitAccountOffline(gateSchema, client.account);
 	client.model.sync();
 	client.npcs.follow(nullptr);
 	client.model.follow(nullptr);
@@ -1374,6 +1381,11 @@ void runM5hGate() {
 	ScenarioServers servers(config, *environment);
 	const std::string schema = servers.gameSchema();
 	const ScenarioDatabase& database = servers.gameDatabase();
+	gateDatabase = &database;
+	gateSchema = schema;
+	struct ForgetGateDatabase {
+		~ForgetGateDatabase() { gateDatabase = nullptr; }
+	} forgetGateDatabase;
 	std::filesystem::create_directories(outputDir);
 
 	bool ok = true;

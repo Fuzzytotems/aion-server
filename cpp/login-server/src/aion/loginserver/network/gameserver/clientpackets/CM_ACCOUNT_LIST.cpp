@@ -30,10 +30,10 @@ void CM_ACCOUNT_LIST::runImpl() {
 		if (!gsi) // not added if the game server disconnected meanwhile (see GameServerInfo::addAccountToGameServer)
 			getGameServerInfo()->addAccountToGameServer(controller::AccountController::loadAccount(id), *connection);
 		else if (gsi->getId() != getGameServerInfo()->getId()) // account already plays on another gameserver
-			connection->sendPacket(std::make_shared<SM_REQUEST_KICK_ACCOUNT>(id, false));
+			connection->sendPacket(SM_REQUEST_KICK_ACCOUNT(id, false));
 	}
-	connection->sendPacket(std::make_shared<SM_MACBAN_LIST>());
-	connection->sendPacket(std::make_shared<SM_HDDBAN_LIST>());
+	connection->sendPacket(SM_MACBAN_LIST());
+	connection->sendPacket(SM_HDDBAN_LIST());
 	controller::AccountController::updateServerListForAllLoggedInPlayers();
 }
 

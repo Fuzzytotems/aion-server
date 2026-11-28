@@ -1,5 +1,5 @@
 // Byte vectors of every packet the chat server sends, written without a connection. The expected bytes are transcribed by hand from the Java
-// writeImpl methods (and AbstractServerPacket.write + LoginPacketEncoder for the client packets, GsServerPacket.write for the game server ones).
+// writeImpl methods (and AbstractServerPacket.write for the client packets, GsServerPacket.write for the game server ones).
 
 #include <memory>
 #include <vector>
@@ -16,8 +16,6 @@
 #include "aion/chatserver/network/aion/serverpackets/SM_PLAYER_AUTH_RESPONSE.h"
 #include "aion/chatserver/network/gameserver/serverpackets/SM_GS_AUTH_RESPONSE.h"
 #include "aion/chatserver/network/gameserver/serverpackets/SM_PLAYER_AUTH_RESPONSE.h"
-#include "aion/chatserver/network/netty/coder/LoginPacketEncoder.h"
-#include "aion/chatserver/network/netty/handler/ClientChannelHandler.h"
 #include "aion/commons/utils/ByteBuffer.h"
 #include "aion/commons/utils/Exception.h"
 #include "support/FakePeers.h"
@@ -35,11 +33,10 @@ using model::message::Message;
 namespace clientsm = network::aion::serverpackets;
 namespace gssm = network::gameserver::serverpackets;
 
-/** ClientChannelHandler.sendPacket without the channel: a 16 KiB buffer, AbstractServerPacket.write, LoginPacketEncoder */
+/** AionConnection.writePacket without the connection: a buffer of the maximum packet size (16 KiB, PacketEncoder), AbstractServerPacket.write */
 Bytes writeClientPacket(const network::aion::AbstractServerPacket& packet) {
-	ByteBuffer buf = ByteBuffer::allocate(network::netty::handler::ClientChannelHandler::SEND_BUFFER_SIZE);
+	ByteBuffer buf = ByteBuffer::allocate(8192 * 2);
 	packet.write(nullptr, buf);
-	network::netty::coder::LoginPacketEncoder::encode(buf);
 	return Bytes(buf.remainingSpan().begin(), buf.remainingSpan().end());
 }
 
@@ -100,7 +97,7 @@ TEST(ServerPacketBytesTest, SmChannelMessageOfASenderWithoutIdentifierThrows) {
 }
 
 TEST(ServerPacketBytesTest, SmChannelMessageBiggerThanTheSendBufferThrows) {
-	// Java: ChannelBuffers.buffer(LITTLE_ENDIAN, 2 * 8192) is fixed, writing past it throws in sendPacket
+	// Java: PacketEncoder writes into a buffer of the maximum packet size (8192 * 2), writing past it throws (and closes the connection)
 	auto channel = std::make_shared<RegionChannel>(1, Race::ELYOS, "map");
 	std::string identifier = "A@B"; // 6 bytes: 29 + 6 + text
 	Message fits(channel, Bytes(16384 - 29 - 6), client(6, identifier));
@@ -141,9 +138,9 @@ TEST(ServerPacketBytesTest, SmPlayerAuthResponseToTheGameServer) {
 }
 
 TEST(ServerPacketBytesTest, PacketNamesLikeJava) {
-	// Java AbstractPacket.toString: simple class name + " [opCode=0x%02X]"
-	EXPECT_EQ(clientsm::SM_CHAT_INI().toString(), "SM_CHAT_INI [opCode=0x31]");
-	EXPECT_EQ(clientsm::SM_PLAYER_AUTH_RESPONSE().toString(), "SM_PLAYER_AUTH_RESPONSE [opCode=0x02]");
+	// upstream 459b35094: the packets are commons packets, BasePacket.toString: "[%03d] " + simple class name
+	EXPECT_EQ(clientsm::SM_CHAT_INI().toString(), "[049] SM_CHAT_INI");
+	EXPECT_EQ(clientsm::SM_PLAYER_AUTH_RESPONSE().toString(), "[002] SM_PLAYER_AUTH_RESPONSE");
 }
 
 } // namespace

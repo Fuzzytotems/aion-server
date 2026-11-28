@@ -19,36 +19,30 @@ const commons::logging::Logger& log() {
 
 } // namespace
 
-GsConnection::GsConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server, std::shared_ptr<Processor> processor,
+GsConnection::GsConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor,
 	std::shared_ptr<utils::ScheduledExecutor> pingPongExecutor)
-	: AConnection(std::move(socket), server, 8192 * 8, 8192 * 8), processor(std::move(processor)), pingPongExecutor(std::move(pingPongExecutor)) {}
+	: NettyConnection(std::move(channel), std::move(packetExecutor)), pingPongExecutor(std::move(pingPongExecutor)) {}
 
-bool GsConnection::processData(commons::utils::ByteBuffer& data) {
-	std::unique_ptr<GsClientPacket> pck = factories::GsPacketHandlerFactory::handle(data, sharedFromThis());
-
-	if (pck && pck->read()) {
-		if (pck->isRunOnReceive())
-			pck->run(); // CM_GS_PONG, see the class comment
+std::unique_ptr<commons::network::packet::ClientPacketBase> GsConnection::createPacket(commons::utils::ByteBuffer& data) {
+	std::unique_ptr<GsClientPacket> pck = factories::GsPacketHandlerFactory::handle(data, std::static_pointer_cast<GsConnection>(shared_from_this()));
+	if (pck && pck->isRunOnReceive()) {
+		// CM_GS_PONG, see the class comment
+		if (pck->read())
+			pck->run();
 		else
-			processor->executePacket(std::move(pck));
+			close(); // like a packet that fails to read in the channel handler
+		return nullptr;
 	}
-
-	return true;
+	return pck;
 }
 
-bool GsConnection::writeData(commons::utils::ByteBuffer& data) {
-	// guard is held by the caller (Java: synchronized (guard))
-	if (sendMsgQueue.empty())
-		return false;
-	std::shared_ptr<GsServerPacket> packet = std::move(sendMsgQueue.front());
-	sendMsgQueue.pop_front();
-	packet->write(*this, data);
-	return true;
+void GsConnection::writePacket(const GsServerPacket& packet, commons::utils::ByteBuffer& buffer) {
+	packet.write(*this, buffer);
 }
 
 void GsConnection::onDisconnect() {
 	pingPongTask.stop();
-	log().info(toString() + " disconnected");
+	log().info("{} disconnected", toString());
 	std::shared_ptr<GameServerInfo> gsi;
 	{
 		std::lock_guard lock(fieldMutex);
@@ -57,11 +51,6 @@ void GsConnection::onDisconnect() {
 	if (gsi)
 		gsi->removeConnection(*this); // Java: setConnection(null) + clearAccountsOnGameServer()
 	controller::AccountController::updateServerListForAllLoggedInPlayers();
-}
-
-void GsConnection::onServerClose() {
-	close();
-	// Deviation: Java shuts down the static PINGPONG_EXECUTOR and PACKET_EXECUTOR here; NetConnector::shutdown shuts them down after the server
 }
 
 void GsConnection::setState(State newState) {
@@ -81,16 +70,15 @@ void GsConnection::setGameServerInfo(std::shared_ptr<GameServerInfo> newGameServ
 }
 
 std::string GsConnection::toString() const {
-	std::string sb = "Gameserver";
+	std::string sb = "Game server";
 	if (std::shared_ptr<GameServerInfo> gsi = getGameServerInfo())
 		sb.append(" #").append(std::to_string(gsi->getId()));
 	sb.append(" ").append(getIP());
 	return sb;
 }
 
-void GsConnection::initialized() {
-	state = State::CONNECTED;
-	log().info("Gameserver connection attempt from: " + getIP());
+void GsConnection::onConnect() {
+	log().info("Game server connected: {}", getIP());
 }
 
 const char* toString(GsConnection::State state) noexcept {

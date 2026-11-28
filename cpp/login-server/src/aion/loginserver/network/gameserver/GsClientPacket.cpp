@@ -22,15 +22,15 @@ void GsClientPacket::run() {
 		runImpl();
 	} catch (...) {
 		try {
-			log().warnCurrentException("error handling gs (" + getConnection()->getIP() + ") message " + toString());
+			log().warnCurrentException(fmt::format("error handling gs ({}) message {}", getConnection()->getIP(), toString()));
 		} catch (...) {
 			// logging must not throw out of the packet processor
 		}
 	}
 }
 
-void GsClientPacket::sendPacket(std::shared_ptr<GsServerPacket> msg) const {
-	getConnection()->sendPacket(std::move(msg));
+void GsClientPacket::sendPacket(const GsServerPacket& msg) const {
+	getConnection()->sendPacket(msg);
 }
 
 std::shared_ptr<GameServerInfo> GsClientPacket::getGameServerInfo() const {

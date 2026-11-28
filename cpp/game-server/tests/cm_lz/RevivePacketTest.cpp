@@ -71,11 +71,7 @@ TEST(RevivePacketReadTest, ReviveRejectReviveAndMotionBodies) {
 	// CM_REVIVE: a single UC revive id
 	expectExactRead<CM_REVIVE>(PacketWriter().C(0).data, REVIVE_OPCODE);
 	expectExactRead<CM_REVIVE>(PacketWriter().C(8).data, REVIVE_OPCODE);
-	{
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_REVIVE>({}, REVIVE_OPCODE), 0);
-		EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
-	}
+	EXPECT_EQ(unreadBytesAfterRead<CM_REVIVE>({}, REVIVE_OPCODE), -1); // upstream e1a399e62: a too short body fails to read
 
 	// CM_REJECT_REVIVE: an empty body; anything in it is left unread
 	expectExactRead<CM_REJECT_REVIVE>({}, REJECT_REVIVE_OPCODE);
@@ -84,11 +80,8 @@ TEST(RevivePacketReadTest, ReviveRejectReviveAndMotionBodies) {
 	// CM_MOTION: C unk, UH motion id, UC motion type = 4 bytes
 	expectExactRead<CM_MOTION>(PacketWriter().C(4).H(0x1234).C(2).data, MOTION_OPCODE);
 	expectExactRead<CM_MOTION>(PacketWriter().C(0).H(0).C(0).data, MOTION_OPCODE);
-	{
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_MOTION>(PacketWriter().C(4).H(0x1234).data, MOTION_OPCODE), 0);
-		EXPECT_TRUE(capture.contains("Missing C")) << "the trailing motion type must underflow: " << capture.dump();
-	}
+	// the trailing motion type underflows
+	EXPECT_EQ(unreadBytesAfterRead<CM_MOTION>(PacketWriter().C(4).H(0x1234).data, MOTION_OPCODE), -1);
 }
 
 TEST(ReviveTypeIdTest, TheClientIdsAreTheOnesTheSwitchExpects) {

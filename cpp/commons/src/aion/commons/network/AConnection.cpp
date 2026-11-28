@@ -29,6 +29,12 @@ const logging::Logger& log() {
 	return *logger;
 }
 
+/** Java: AConnection.log */
+const logging::Logger& connectionLog() {
+	static const auto* logger = new logging::Logger(logging::LoggerFactory::getLogger("com.aionemu.commons.network.AConnection"));
+	return *logger;
+}
+
 /** Java: pendingCloseUntilMillis = System.currentTimeMillis() + 2000 in AConnection.close */
 constexpr int64_t PENDING_CLOSE_MILLIS = 2000;
 
@@ -69,7 +75,7 @@ void logCurrentException(std::string_view message, const AConnectionBase& connec
 
 AConnectionBase::AConnectionBase(asio::ip::tcp::socket connectedSocket, NioServer& server, int32_t rbSize, int32_t wbSize)
 	: context(server.context), socket(std::move(connectedSocket)), strand(asio::make_strand(context->ioContext)), closeTimer(strand),
-		ip(remoteIp(socket)), readBuffer(allocateBuffer(rbSize, "Read")), writeBuffer(allocateBuffer(wbSize, "Write")) {
+		ip(remoteIp(socket)), connectedAtMillis(utils::currentTimeMillis()), readBuffer(allocateBuffer(rbSize, "Read")), writeBuffer(allocateBuffer(wbSize, "Write")) {
 	if (&asio::query(socket.get_executor(), asio::execution::context) != &static_cast<asio::execution_context&>(context->ioContext))
 		throw utils::IllegalArgumentException("The socket of a connection must belong to the io_context of its NioServer");
 }
@@ -83,6 +89,61 @@ std::string AConnectionBase::toString() const {
 void AConnectionBase::close() {
 	std::lock_guard lock(guard);
 	beginClose(false);
+}
+
+void AConnectionBase::onPacketTooLarge(int32_t size, int32_t capacity) const {
+	log().warn(fmt::format("{} announced a packet of {} bytes, which exceeds the read buffer size of {} bytes", describe(*this), size, capacity));
+}
+
+void AConnectionBase::onEmptyPacket(int32_t size, const utils::ByteBuffer& buf) const {
+	(void)size;
+	log().warn("Received empty packet without opcode from " + describe(*this) + ", content: " + utils::NetworkUtils::toHex(buf));
+}
+
+bool AConnectionBase::admitToSendQueue(size_t queuedPackets) {
+	if (queuedPackets == 0) {
+		lastWriteProgressMillis = utils::currentTimeMillis();
+	} else if (isSendQueueStuck(queuedPackets)) {
+		clearSendQueue();
+		close();
+		return false;
+	}
+	return true;
+}
+
+bool AConnectionBase::isSendQueueStuck(size_t queuedPackets) const {
+	if (queuedPackets >= static_cast<size_t>(std::max(0, getMaxSendQueueSize()))) {
+		connectionLog().warn(fmt::format("{} has {} server packets waiting to be sent, disconnecting", describe(*this), queuedPackets));
+		return true;
+	}
+	int64_t millisWithoutProgress = utils::currentTimeMillis() - lastWriteProgressMillis.load();
+	if (millisWithoutProgress > getMaxSendStallMillis()) {
+		connectionLog().warn(fmt::format("{} hasn't received any data for {} ms while {} server packets are waiting to be sent, disconnecting",
+			describe(*this), millisWithoutProgress, queuedPackets));
+		return true;
+	}
+	return false;
+}
+
+void AConnectionBase::closeIfTimedOut(int64_t nowMillis) {
+	std::lock_guard lock(guard);
+	if (!canSend())
+		return;
+	int64_t authTimeoutMillis = getAuthTimeoutMillis();
+	if (authTimeoutMillis > 0 && nowMillis - connectedAtMillis > authTimeoutMillis && !isAuthenticated()) {
+		connectionLog().info(fmt::format("{} didn't authenticate within {} ms, disconnecting", describe(*this), authTimeoutMillis));
+		close();
+		return;
+	}
+	size_t queuedPackets = getSendQueueSize();
+	if (queuedPackets > 0 && isSendQueueStuck(queuedPackets)) {
+		clearSendQueue();
+		close();
+	}
+}
+
+void AConnectionBase::onDataWritten() noexcept {
+	lastWriteProgressMillis = utils::currentTimeMillis();
 }
 
 bool AConnectionBase::beginClose(bool withClosePacket) {
@@ -154,7 +215,19 @@ void AConnectionBase::onRead(const std::error_code& error, size_t bytesRead) {
 	utils::ByteBuffer& rb = readBuffer;
 	rb.position(rb.position() + static_cast<int32_t>(bytesRead));
 	rb.flip();
-	while (rb.remaining() > 2 && rb.remaining() >= static_cast<uint16_t>(rb.getShort(rb.position()))) {
+	while (rb.remaining() > 2) {
+		int32_t size = static_cast<uint16_t>(rb.getShort(rb.position()));
+		if (size > rb.capacity()) {
+			try {
+				onPacketTooLarge(size, rb.capacity());
+			} catch (...) {
+				logCurrentException("Error logging an oversized packet of ", *this);
+			}
+			disconnect();
+			return;
+		}
+		if (rb.remaining() < size)
+			break;
 		// got full message
 		if (!parse(rb)) {
 			disconnect();
@@ -173,18 +246,6 @@ void AConnectionBase::onRead(const std::error_code& error, size_t bytesRead) {
 		return;
 	}
 
-	// Deviation: Java waits forever for a packet that is bigger than the read buffer (the selector spins on a full buffer), here the connection is
-	// closed as soon as the declared size is known.
-	if (rb.position() >= 2) {
-		int32_t declaredSize = static_cast<uint16_t>(rb.getShort(0));
-		if (declaredSize > rb.capacity()) {
-			log().warn(fmt::format("Received packet with a size of {} bytes from {}, which exceeds the read buffer size of {} bytes", declaredSize,
-				describe(*this), rb.capacity()));
-			disconnect();
-			return;
-		}
-	}
-
 	doRead();
 }
 
@@ -196,7 +257,11 @@ bool AConnectionBase::isClosingWithPacket() const {
 bool AConnectionBase::parse(utils::ByteBuffer& buf) {
 	int32_t size = static_cast<uint16_t>(buf.getShort()) - 2; // size includes size of the read short, so we need to subtract two bytes
 	if (size <= 0) {
-		log().warn("Received empty packet without opcode from " + describe(*this) + ", content: " + utils::NetworkUtils::toHex(buf));
+		try {
+			onEmptyPacket(size + 2, buf);
+		} catch (...) {
+			logCurrentException("Error logging an empty packet of ", *this);
+		}
 		return false;
 	}
 	utils::ByteBuffer b = buf.slice();
@@ -255,7 +320,18 @@ void AConnectionBase::doWrite() {
 		return;
 
 	writeInProgress = true;
-	asio::async_write(socket, asio::buffer(outgoing), asio::bind_executor(strand, [self = shared_from_this()](const std::error_code& error, size_t) {
+	// the completion condition sees the bytes written so far before every partial write, so the write progress is noticed like in Java's
+	// Dispatcher, which calls onDataWritten after each socket write that wrote something
+	auto noteProgress = [self = shared_from_this(), written = size_t(0)](const std::error_code& error, size_t transferred) mutable -> size_t {
+		if (transferred > written) {
+			size_t bytes = transferred - written;
+			written = transferred;
+			self->onDataWritten();
+			self->onBytesWritten(bytes);
+		}
+		return asio::transfer_all()(error, transferred);
+	};
+	asio::async_write(socket, asio::buffer(outgoing), std::move(noteProgress), asio::bind_executor(strand, [self = shared_from_this()](const std::error_code& error, size_t) {
 		self->writeInProgress = false;
 		if (error) {
 			self->disconnect();
@@ -289,6 +365,7 @@ void AConnectionBase::disconnect() {
 	socket.shutdown(asio::ip::tcp::socket::shutdown_both, ignored);
 	socket.close(ignored);
 	closeTimer.cancel();
+	onSocketClosed();
 
 	if (!registered)
 		return;

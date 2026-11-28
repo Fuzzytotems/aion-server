@@ -205,17 +205,9 @@ void RuntimeLifecycle::start(Options options) {
 		started.cron = true;
 
 		// 6. IDFactory
-		IDFactory& idFactory = IDFactory::getInstance();
-		idFactory.configure(options.idFactory);
-		for (const UsedIdsSource& source : options.usedIds) {
-			if (!source.load)
-				continue;
-			std::vector<int32_t> ids = source.load();
-			if (log().isDebugEnabled())
-				log().debug("IDFactory: locking {} used IDs of {}", ids.size(), source.name);
-			idFactory.lockIds(ids);
-		}
-		idFactory.logUsedCount();
+		IDFactory::getInstance().configure(options.idFactory);
+		if (!options.deferUsedIds)
+			lockUsedIds(options.usedIds);
 	} catch (...) {
 		ShutdownReport ignored;
 		stopServices(started, ignored);
@@ -223,6 +215,19 @@ void RuntimeLifecycle::start(Options options) {
 		throw;
 	}
 	s.state.store(State::RUNNING, std::memory_order_release);
+}
+
+void RuntimeLifecycle::lockUsedIds(const std::vector<UsedIdsSource>& usedIds) {
+	IDFactory& idFactory = IDFactory::getInstance();
+	for (const UsedIdsSource& source : usedIds) {
+		if (!source.load)
+			continue;
+		std::vector<int32_t> ids = source.load();
+		if (log().isDebugEnabled())
+			log().debug("IDFactory: locking {} used IDs of {}", ids.size(), source.name);
+		idFactory.lockIds(ids);
+	}
+	idFactory.logUsedCount();
 }
 
 RuntimeLifecycle::ShutdownReport RuntimeLifecycle::shutdown() {

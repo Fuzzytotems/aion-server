@@ -1,6 +1,6 @@
 // Channel requests of authenticated clients over TCP (CM_CHANNEL_REQUEST / SM_CHANNEL_RESPONSE, CM_CHANNEL_LEAVE) and the packets the chat
 // server reads without acting on them (CM_PING, CM_PLAYER_INFO, CM_CHANNEL_CREATE, CM_CHANNEL_JOIN): their exact sizes are checked through the
-// "not fully read" warning and the "Missing" errors.
+// "not fully read" warning and the disconnect of packets that are too short.
 
 #include <memory>
 #include <string>
@@ -49,7 +49,7 @@ TEST_F(ChannelFlowTest, LocalizedJobNamesShareTheChannelOfTheirClass) {
 	// the identifier arrives as UTF-16LE: the Korean and the Russian name of the Cleric class give the channel of "job_Cleric"
 	auto gs = connectGameServer();
 	Player player = loginPlayer(*gs, "Kim", 0);
-	std::u16string restrictions = u"\x01" u"77.0.AION.KOR"; // a game server id no other test uses
+	std::u16string restrictions = u"\x01" u"1.0.AION.KOR"; // upstream b0317f967: the registered game server
 	int32_t cleric = player.client->joinChannel(1, u"@\x01" u"job_Cleric" + restrictions);
 	EXPECT_EQ(player.client->joinChannel(2, u"@\x01" u"job_치유성" + restrictions), cleric);
 	EXPECT_EQ(player.client->joinChannel(3, u"@\x01" u"job_Целитель" + restrictions), cleric);
@@ -62,10 +62,9 @@ TEST_F(ChannelFlowTest, MalformedIdentifiersGetNoResponse) {
 	// two parts only: null channel, nothing sent
 	player.client->send(FakeChatClient::buildChannelRequest(1, "@\x01public_map"));
 	EXPECT_TRUE(player.client->socket.expectSilence());
-	// no '_' in the type part: Java ArrayIndexOutOfBoundsException, logged by BaseClientPacket.run
+	// no '_' in the type part: upstream b0317f967 refuses it with a warning (formerly an ArrayIndexOutOfBoundsException)
 	player.client->send(FakeChatClient::buildChannelRequest(2, "@\x01public\x01" "1.0.AION.KOR"));
-	EXPECT_TRUE(log.waitFor("Running failed for packet CM_CHANNEL_REQUEST [opCode=0x10]", EXCEPTION_LOG_TIMEOUT)) << log.dump();
-	EXPECT_TRUE(log.contains("Index 1 out of bounds for length 1")) << log.dump();
+	EXPECT_TRUE(log.waitFor("requested a channel without name: ")) << log.dump();
 	EXPECT_TRUE(player.client->socket.expectSilence());
 }
 
@@ -133,12 +132,21 @@ TEST_F(ChannelFlowTest, PacketsWithoutActionAreReadExactly) {
 	// a last packet with a response proves the four were processed (the events of a client run in order)
 	player.client->joinChannel(11, channelIdentifier("partyFind", "", GS_ID, 0));
 	EXPECT_FALSE(log.contains("was not fully read")) << log.dump();
-	EXPECT_FALSE(log.contains("Missing")) << log.dump();
+	EXPECT_FALSE(log.contains("shorter than expected")) << log.dump();
 	EXPECT_FALSE(log.contains("Unknown packet")) << log.dump();
 }
 
-TEST_F(ChannelFlowTest, ShortOrLongPacketsWithoutActionAreDetected) {
-	LogCapture log({"com.aionemu.chatserver"});
+TEST_F(ChannelFlowTest, LongPacketsWithoutActionAreRead) {
+	auto gs = connectGameServer();
+	Player player = loginPlayer(*gs, "Odd", 0);
+	Bytes ping = FakeChatClient::buildPing();
+	ping.push_back(0x55); // the "not fully read" warning is logged once per opcode and process (BaseClientPacket)
+	ping[0] = static_cast<uint8_t>(ping.size());
+	player.client->send(ping);
+	player.client->joinChannel(1, channelIdentifier("partyFind", "", GS_ID, 0)); // the connection is still open
+}
+
+TEST_F(ChannelFlowTest, ShortPacketsWithoutActionCloseTheConnection) {
 	auto gs = connectGameServer();
 	Player player = loginPlayer(*gs, "Odd", 0);
 	Bytes info = FakeChatClient::buildPlayerInfo(3, 65);
@@ -146,12 +154,7 @@ TEST_F(ChannelFlowTest, ShortOrLongPacketsWithoutActionAreDetected) {
 	info[0] = static_cast<uint8_t>(info.size());
 	info[1] = static_cast<uint8_t>(info.size() >> 8);
 	player.client->send(info);
-	EXPECT_TRUE(log.waitFor("Missing byte[] for: CM_PLAYER_INFO [opCode=0x2C]")) << log.dump();
-	Bytes ping = FakeChatClient::buildPing();
-	ping.push_back(0x55);
-	ping[0] = static_cast<uint8_t>(ping.size());
-	player.client->send(ping);
-	EXPECT_TRUE(log.waitFor("CM_PING [opCode=0xFF] was not fully read! Last 1 bytes were not read from buffer")) << log.dump();
+	EXPECT_TRUE(player.client->socket.waitClosed());
 }
 
 } // namespace

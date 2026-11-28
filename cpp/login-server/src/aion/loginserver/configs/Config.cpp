@@ -9,6 +9,7 @@
 #include "aion/commons/configuration/PropertiesUtils.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 
 namespace aion::loginserver::configs {
@@ -32,6 +33,7 @@ void Config::bind(ConfigurableProcessor& p) {
 	p.bind("loginserver.network.client.logintrybeforeban", LOGIN_TRY_BEFORE_BAN, "5");
 	p.bind("loginserver.network.client.bantimeforbruteforcing", WRONG_LOGIN_BAN_TIME, "15");
 	p.bind("loginserver.network.nio.threads", NIO_READ_WRITE_THREADS, "0");
+	p.bind("loginserver.network.client.auth_timeout_seconds", CLIENT_AUTH_TIMEOUT_SECONDS, "60");
 	p.bind("loginserver.accounts.autocreate", ACCOUNT_AUTO_CREATION, "true");
 	p.bind("loginserver.accounts.external_auth.url", EXTERNAL_AUTH_URL, "");
 	p.bind("loginserver.server.bruteforceprotector", ENABLE_BRUTEFORCE_PROTECTION, "true");
@@ -51,7 +53,7 @@ void Config::load() {
 		for (const std::string& key : Logging::getPropertyKeys("loginserver"))
 			unusedProperties.erase(key);
 		for (const std::string& unusedProperty : unusedProperties)
-			logger().warn("Config property " + unusedProperty + " is unknown and therefore ignored.");
+			logger().warn("Config property {} is unknown and therefore ignored.", unusedProperty);
 	}
 }
 
@@ -89,6 +91,23 @@ Logging::Config Config::loadLoggingConfig() {
 	const std::string avatarUrl = merged.getProperty("loginserver.log.status.discord.avatar_url", "");
 	config.statusDiscordWebhookUrl = std::string(commons::utils::StringUtils::trim(webhookUrl));
 	config.statusDiscordAvatarUrl = std::string(commons::utils::StringUtils::trim(avatarUrl));
+	auto trimmed = [&merged](std::string_view key) { return std::string(commons::utils::StringUtils::trim(merged.getProperty(key, ""))); };
+	// logback.xml: <maxFileSize>${loginserver.log.max_file_size}</maxFileSize> and <maxIndex>${loginserver.log.max_rolled_files}</maxIndex>
+	// (C++: an empty or invalid value keeps the default with a warning, where logback reports a configuration error)
+	if (const std::string maxFileSize = trimmed("loginserver.log.max_file_size"); !maxFileSize.empty()) {
+		try {
+			config.maxFileSize = Logging::parseFileSize(maxFileSize);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid loginserver.log.max_file_size, keeping the default", e);
+		}
+	}
+	if (const std::string maxRolledFiles = trimmed("loginserver.log.max_rolled_files"); !maxRolledFiles.empty()) {
+		try {
+			config.maxRolledFiles = commons::utils::parseInt(maxRolledFiles);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid loginserver.log.max_rolled_files, keeping the default", e);
+		}
+	}
 	return config;
 }
 

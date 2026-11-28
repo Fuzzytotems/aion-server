@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <thread>
 #include <string>
 
 #include "decoders/SkillDecoders.h"
@@ -59,6 +60,14 @@ int32_t GameSession::readKey(std::chrono::milliseconds timeout) {
 }
 
 void GameSession::send(int32_t opcode, std::span<const uint8_t> data) {
+	// upstream 55d0af937 rate limits CM_CREATE_CHARACTER and CM_CHECK_NICKNAME to one per 500 ms (config/network/pff.properties), and the flood
+	// filter (mode 1) drops a packet that comes sooner: pace them like a real client, which needs a few hundred ms per step of the creation
+	if (opcode == CM_CREATE_CHARACTER || opcode == CM_CHECK_NICKNAME) {
+		auto last = lastPacedSend.find(opcode);
+		if (last != lastPacedSend.end())
+			std::this_thread::sleep_until(last->second + PACED_SEND_INTERVAL);
+		lastPacedSend[opcode] = std::chrono::steady_clock::now();
+	}
 	client.sendPacket(opcode, data);
 }
 

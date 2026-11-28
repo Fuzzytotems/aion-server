@@ -79,8 +79,8 @@ void PeriodicInstanceManager::scheduleRegistration(std::span<const cron::CronExp
 		cron::CronService::getInstance().schedule(cron::CronJob({this}, [this, message, maskId, registrationPeriod] { openRegistration(*message, maskId, registrationPeriod); }),
 			*startExpression);
 		log.info("Scheduled registration opening for " + agtName(maskId) + " based on cron expression: " + startExpression->toString());
-		log.info("Scheduled " + agtName(maskId) + ": based on cron expression: " + startExpression->toString() + " Duration: " +
-			std::to_string(registrationPeriod) + " in minutes");
+		log.info("Scheduled {}: based on cron expression: {} Duration: {} in minutes", agtName(maskId), startExpression->toString(),
+			registrationPeriod);
 	}
 }
 

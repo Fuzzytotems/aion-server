@@ -69,9 +69,9 @@ runtime::Ptr<model::gameobjects::StaticDoor> StaticDoorService::getDoor(model::g
 	runtime::Ptr<model::gameobjects::StaticDoor> door = runtime::as<model::gameobjects::StaticDoor>(object);
 	if (door == nullptr) {
 		if (object == nullptr)
-			log.warn("Door (ID: " + std::to_string(doorId) + ") is missing near " + player.getPosition()->toString());
+			log.warn("Door (ID: {}) is missing near {}", doorId, player.getPosition()->toString());
 		else
-			log.warn("Door (ID: " + std::to_string(doorId) + ") is not a static door but " + object->toString());
+			log.warn("Door (ID: {}) is not a static door but {}", doorId, object->toString());
 		return nullptr;
 	}
 	return door;

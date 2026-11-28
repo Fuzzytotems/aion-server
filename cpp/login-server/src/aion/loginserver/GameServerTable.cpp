@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/MessageDigest.h"
 #include "aion/commons/utils/NetworkUtils.h"
 #include "aion/loginserver/dao/GameServersDAO.h"
 #include "aion/loginserver/network/gameserver/GsConnection.h"
@@ -68,7 +69,7 @@ void load() {
 		std::lock_guard lock(state().mutex);
 		old = std::exchange(state().gameservers, std::move(loaded));
 	}
-	log().info("GameServerTable loaded " + std::to_string(size()) + " registered GameServers.");
+	log().info("Loaded {} registered game servers", size());
 }
 
 GsAuthResponse registerGameServer(const std::shared_ptr<GsConnection>& gsConnection, int8_t requestedId, std::string_view password,
@@ -77,7 +78,7 @@ GsAuthResponse registerGameServer(const std::shared_ptr<GsConnection>& gsConnect
 
 	// This id is not Registered at LoginServer.
 	if (!gsi) {
-		log().warn(gsConnection->toString() + " requestedID: " + std::to_string(requestedId) + " is not registered in LS database!");
+		log().warn("{} requestedID: {} is not registered in LS database!", gsConnection->toString(), requestedId);
 		return GsAuthResponse::NOT_AUTHED;
 	}
 
@@ -89,7 +90,8 @@ GsAuthResponse registerGameServer(const std::shared_ptr<GsConnection>& gsConnect
 		return GsAuthResponse::ALREADY_REGISTERED;
 
 	// Check if password and ip are ok.
-	if (gsi->getPassword() != password || !commons::utils::NetworkUtils::checkIPMatching(gsi->getIpMask(), gsConnection->getIP())) {
+	if (!commons::utils::MessageDigest::isEqual(gsi->getPassword(), password) ||
+			!commons::utils::NetworkUtils::checkIPMatching(gsi->getIpMask(), gsConnection->getIP())) {
 		log().warn(gsConnection->toString() + " requested ID: " + std::to_string(requestedId) + " has wrong IP or password!");
 		return GsAuthResponse::NOT_AUTHED;
 	}
@@ -130,7 +132,7 @@ bool kickAccountFromGameServer(int32_t accountId, bool notifyDoubleLogin) {
 		return false;
 	// Deviation: the connection may have been cleared by a concurrent disconnect (Java: NullPointerException); the kick request is skipped then
 	if (std::shared_ptr<GsConnection> connection = gsi->getConnection())
-		connection->sendPacket(std::make_shared<network::gameserver::serverpackets::SM_REQUEST_KICK_ACCOUNT>(accountId, notifyDoubleLogin));
+		connection->sendPacket(network::gameserver::serverpackets::SM_REQUEST_KICK_ACCOUNT(accountId, notifyDoubleLogin));
 	return true;
 }
 

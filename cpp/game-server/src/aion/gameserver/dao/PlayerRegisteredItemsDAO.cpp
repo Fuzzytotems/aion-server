@@ -96,7 +96,7 @@ void PlayerRegisteredItemsDAO::loadRegistry(model::house::HouseRegistry& registr
 		}
 		registry.setPersistentState(hasInvalidDecors ? Persistable::PersistentState::UPDATE_REQUIRED : Persistable::PersistentState::UPDATED);
 	} catch (const std::exception& e) {
-		log.error("Could not load house registry data for player " + std::to_string(registry.getOwner()->getOwnerId()), e);
+		log.error("Could not load house registry data for player {}", registry.getOwner()->getOwnerId(), e);
 	}
 }
 
@@ -169,7 +169,7 @@ bool PlayerRegisteredItemsDAO::store(model::house::HouseRegistry& registry, int3
 		storeDecors(*con, decorsToAdd, playerId, true);
 		registry.setPersistentState(Persistable::PersistentState::UPDATED);
 	} catch (const SQLException& e) {
-		log.error("Can't save registered items for player: " + std::to_string(playerId), e);
+		log.error("Can't save registered items for player: {}", playerId, e);
 	}
 
 	for (const runtime::Ptr<HouseObject>& obj : objects) {
@@ -311,7 +311,7 @@ bool PlayerRegisteredItemsDAO::deletePlayerItems(int32_t playerId) {
 		stmt->setInt(1, playerId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error in deleting all player registered items. PlayerObjId: " + std::to_string(playerId), e);
+		log.error("Error in deleting all player registered items. PlayerObjId: {}", playerId, e);
 		return false;
 	}
 	return true;
@@ -324,7 +324,7 @@ void PlayerRegisteredItemsDAO::resetRegistry(int32_t playerId) {
 		stmt->setInt(1, playerId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error in resetting player registered items. PlayerObjId: " + std::to_string(playerId), e);
+		log.error("Error in resetting player registered items. PlayerObjId: {}", playerId, e);
 	}
 }
 

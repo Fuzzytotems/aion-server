@@ -1,5 +1,7 @@
 #include "aion/gameserver/network/aion/clientpackets/CM_CHAT_MESSAGE_WHISPER.h"
 
+#include <algorithm>
+
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/model/ChatType.h"
@@ -14,6 +16,7 @@
 #include "aion/gameserver/services/player/PlayerChatService.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/world/World.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -38,6 +41,12 @@ void CM_CHAT_MESSAGE_WHISPER::readImpl() {
 void CM_CHAT_MESSAGE_WHISPER::runImpl() {
 	const std::string realName = utils::ChatUtil::getRealCharName(name);
 	const runtime::Ptr<Player> sender = getConnection()->getActivePlayer();
+
+	if (std::ranges::any_of(message, [](char c) { return utils::ChatUtil::isInvalidCharacter(static_cast<unsigned char>(c)); })) {
+		utils::audit::AuditLogger::log(sender, "sent whisper message containing control characters: " + message);
+		return;
+	}
+
 	const runtime::Ptr<Player> receiver = world::World::getInstance().getPlayer(realName);
 
 	if (receiver == nullptr) {

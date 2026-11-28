@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <utility>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
@@ -26,13 +27,14 @@ void checkArgument(bool condition, const char* errorMessage) {
 } // namespace
 
 PacketProcessorBase::PacketProcessorBase(int32_t minThreads, int32_t maxThreads, int32_t threadSpawnThreshold, int32_t threadKillThreshold,
-	Executor executor)
+	int32_t maxPendingPacketsPerConnection, Executor executor)
 	: minThreads(minThreads), maxThreads(maxThreads), threadSpawnThreshold(threadSpawnThreshold), threadKillThreshold(threadKillThreshold),
-		executor(std::move(executor)) {
+		maxPendingPacketsPerConnection(maxPendingPacketsPerConnection), executor(std::move(executor)) {
 	checkArgument(minThreads > 0, "Min Threads must be positive");
 	checkArgument(maxThreads >= minThreads, "Max Threads must be >= Min Threads");
 	checkArgument(threadSpawnThreshold > 0, "Thread Spawn Threshold must be positive");
 	checkArgument(threadKillThreshold > 0, "Thread Kill Threshold must be positive");
+	checkArgument(maxPendingPacketsPerConnection > 0, "Max pending packets per connection must be positive");
 
 	try {
 		{
@@ -94,18 +96,21 @@ void PacketProcessorBase::joinFinishedThreads() {
 	});
 }
 
-void PacketProcessorBase::execute(const void* connectionKey, std::unique_ptr<packet::ClientPacketBase> packet) {
+bool PacketProcessorBase::execute(const void* connectionKey, std::unique_ptr<packet::ClientPacketBase> packet) {
 	std::unique_lock lock(mutex);
 	if (shuttingDown)
-		return; // the packet is discarded (destroyed with the parameter, after the lock was released)
+		return true; // the packet is discarded (destroyed with the parameter, after the lock was released)
 
 	ConnectionQueue& queue = queues[connectionKey];
+	if (std::cmp_greater_equal(queue.packets.size(), maxPendingPacketsPerConnection))
+		return false; // the packet is dropped (destroyed with the parameter, after the lock was released); the queue is not empty, so it stays
 	queue.packets.push_back(std::move(packet));
 	waitingPackets++;
 	if (!queue.running && queue.packets.size() == 1) {
 		readyConnections.push_back(connectionKey);
 		notEmpty.notify_one();
 	}
+	return true;
 }
 
 void PacketProcessorBase::workerLoop(Worker& worker) {
@@ -191,8 +196,8 @@ void PacketProcessorBase::checkThreadCount() {
 	} else if (packetsWaitingForExecution > threadSpawnThreshold) {
 		// too small amount of threads
 		if (!newThread() && packetsWaitingForExecution >= static_cast<int64_t>(threadSpawnThreshold) * 3)
-			log().warn("Lag detected! [" + std::to_string(packetsWaitingForExecution) +
-							 " client packets are waiting for execution]. You should consider increasing PacketProcessor maxThreads or hardware upgrade.");
+			log().warn("Lag detected: {} client packets are waiting for execution - consider increasing PacketProcessor maxThreads or hardware upgrade",
+				packetsWaitingForExecution);
 	}
 	previousPacketCount = packetsWaitingForExecution;
 }

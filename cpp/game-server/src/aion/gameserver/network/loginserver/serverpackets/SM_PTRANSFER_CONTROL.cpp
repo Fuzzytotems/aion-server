@@ -318,8 +318,7 @@ void SM_PTRANSFER_CONTROL::writeImpl(LoginServerConnection* con, commons::utils:
 			std::vector<runtime::Ptr<questEngine::model::QuestState>> quests;
 			for (runtime::Ptr<questEngine::model::QuestState> qs : qsl->getAllQuestState()) {
 				if (!qs) {
-					log().warn("there are null quest on player " + this->player->getName() + ". taskId #" + std::to_string(this->taskId) +
-						". transfer skip that");
+					log().warn("there are null quest on player {}. taskId #{}. transfer skip that", this->player->getName(), this->taskId);
 					continue;
 				}
 				quests.push_back(qs);

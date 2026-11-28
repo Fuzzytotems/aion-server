@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -251,7 +252,11 @@ public:
 	/** reads SM_KEY (recorded as SM_KEY) */
 	int32_t readKey(std::chrono::milliseconds timeout = std::chrono::seconds(10));
 
+	/** Sends a client packet. CM_CREATE_CHARACTER and CM_CHECK_NICKNAME are paced: at least PACED_SEND_INTERVAL after the last one of the same opcode. */
 	void send(int32_t opcode, std::span<const uint8_t> data);
+
+	/** the packet flood filter's interval of the paced packets (500 ms, config/network/pff.properties) plus a margin */
+	static constexpr std::chrono::milliseconds PACED_SEND_INTERVAL{510};
 
 	/** @return the next server packet (recorded), std::nullopt on timeout or close */
 	std::optional<Packet> next(std::chrono::milliseconds timeout);
@@ -779,6 +784,8 @@ private:
 	Packet record(const network::test::FakeGameClient::ServerPacket& packet);
 
 	std::vector<Packet> packets;
+	/** when CM_CREATE_CHARACTER and CM_CHECK_NICKNAME were sent last (see send) */
+	std::map<int32_t, std::chrono::steady_clock::time_point> lastPacedSend;
 };
 
 } // namespace aion::gameserver::scenario

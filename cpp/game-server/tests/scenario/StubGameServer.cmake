@@ -4,8 +4,8 @@
 # --check-output reports m5a_summary.txt and unported_trace.txt, logs the runtime shutdown and exits with code 0. With
 # -Dgameserver.stub.fail=true among its arguments it logs a startup stop and exits with code 1 instead, without waiting for the stop file.
 # With -Dgameserver.html.cache.file=<path> it does at startup what HTMLCache::reload does with that file (HTMLCache.java:64-120), as far as
-# the harness can see it: a file that is already there is read ("Cache[HTML]: Using cache file... OK."), a missing one is written
-# ("Cache[HTML]: Creating cache file... OK."), both before "Game server started" - so a harness test can tell which of the two the start saw.
+# the harness can see it: a file that is already there is read without a log line, a missing one is written ("Created HTML cache file..."),
+# both before "Game server started" - so a harness test can tell which of the two the start saw.
 # Its log says what aion_game_server's says about the operator's config/mygs.properties: "Ignoring ./config/mygs.properties (C++ test hook
 # --ignore-mygs-properties)" with that switch, "Loading: ./config/mygs.properties" without it - or with -Dgameserver.stub.profile=read, a server
 # that takes the switch and reads the file anyway (ScenarioServers::gameServerProfileProblem fails the start).
@@ -46,13 +46,13 @@ if(fail)
 endif()
 if(NOT html_cache_file STREQUAL "")
 	if(EXISTS "${html_cache_file}")
-		execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Cache[HTML]: Using cache file... OK.")
+		# HTMLCache reads it without a log line (since upstream 7840be30d)
 	else()
-		execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Cache[HTML]: Creating cache file... OK.")
 		file(WRITE "${html_cache_file}" "stub html cache\n")
+		execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Created HTML cache file...")
 	endif()
 endif()
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Game server started in 0 seconds.")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Game server started in 0.1 seconds (process running for 0.2)")
 if(stop_file STREQUAL "")
 	message(FATAL_ERROR "stub game server: no --stop-file")
 endif()

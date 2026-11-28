@@ -78,8 +78,7 @@ void RiftManager::spawnRift(RiftEnum rift, runtime::Ptr<model::vortex::VortexLoc
 			rl->addSpawned(*slave);
 		}
 	}
-	log.info("Rift opened: " + std::string(xml::enumName(rift)) + ", spawned " + std::to_string(spawned) + " Npcs (guards=" +
-		(isWithGuards ? "true" : "false") + ").");
+	log.info("Rift opened: {}, spawned {} Npcs (guards={}).", std::string(xml::enumName(rift)), spawned, isWithGuards);
 }
 
 // Java RiftManager.java:87-101

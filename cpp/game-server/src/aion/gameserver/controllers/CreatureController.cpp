@@ -431,8 +431,7 @@ void CreatureController::addTask(model::TaskId taskId, runtime::FutureRef task) 
 		if (oldTask) {
 			oldTask->cancel(false);
 			if (taskId == TaskId::DESPAWN) {
-				log.warn("Despawn task for " + getOwner().toString() +
-					" was cancelled and replaced with another one, possibly delaying the intended despawn time.");
+				log.warn("Despawn task for {} was cancelled and replaced with another one, possibly delaying the intended despawn time", getOwner().toString());
 			}
 		}
 		return task;
@@ -478,7 +477,7 @@ bool CreatureController::useSkill(int32_t skillId, int32_t skillLevel) {
 			return skill->useSkill();
 		}
 	} catch (const std::exception& ex) {
-		log.error("Exception during skill use: " + std::to_string(skillId), ex);
+		log.error("Exception during skill use: {}", skillId, ex);
 	}
 	return false;
 }
@@ -511,7 +510,7 @@ bool CreatureController::useChargeSkill(skillengine::model::Skill& startSkill, i
 		if (skill)
 			result = skill->useSkill(); // Java: return skill.useSkill() - the finally below still cancels the start skill
 	} catch (const std::exception& ex) {
-		log.error("Could not use charge skill " + std::to_string(startSkill.getSkillId()) + " with charge time " + std::to_string(chargeTimeMillis), ex);
+		log.error("Could not use charge skill {} with charge time {}", startSkill.getSkillId(), chargeTimeMillis, ex);
 	} catch (...) {
 		startSkill.cancelCast(); // Java finally before a Throwable that is no Exception propagates
 		throw;

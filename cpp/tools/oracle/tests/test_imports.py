@@ -1,7 +1,8 @@
 import unittest
+from pathlib import Path
 
 from staticdata_oracle import OracleError
-from staticdata_oracle.imports import java_parse_boolean, list_xml_files, ntfs_sort_key, resolve_imports
+from staticdata_oracle.imports import ascii_name, java_parse_boolean, list_xml_files, resolve_imports, windows_file_key
 from tests.support import Tree, xml
 
 
@@ -48,14 +49,14 @@ class ImportResolutionTest(unittest.TestCase):
 		[imp] = self.resolve(7)
 		self.assertEqual(imp.rel, "data_russia")
 
-	def test_directory_order_is_depth_first_uppercase_ordinal(self):
+	def test_directory_order_is_file_compare_to(self):
 		for rel in ["d/b.xml", "d/A.xml", "d/_x.xml", "d/a_dir/z.xml", "d/a_dir/Y.XML", "d/B_dir/c.xml", "d/notes.txt", "d/b.xsd", "d/[1].xml"]:
 			self.tree.write(rel, xml("spawns"))
 		self.tree.static_data('file="d" singleRootTag="true"')
 		[imp] = self.resolve()
-		# uppercase ordinal: "A.XML" < "A_DIR" < "B.XML" < "B_DIR" < "[1].XML" < "_X.XML" ('.'=0x2E < '_'=0x5F, '['=0x5B < '_')
-		self.assertEqual([f.rel for f in imp.files], ["d/A.xml", "d/a_dir/Y.XML", "d/a_dir/z.xml", "d/b.xml", "d/B_dir/c.xml", "d/[1].xml",
-		                                             "d/_x.xml"])
+		# File.compareTo on Windows (upstream 2cd926056), lower-cased paths: '.'=0x2E < '['=0x5B < '\'=0x5C < '_'=0x5F < 'a'
+		self.assertEqual([f.rel for f in imp.files], ["d/[1].xml", "d/_x.xml", "d/A.xml", "d/a_dir/Y.XML", "d/a_dir/z.xml", "d/b.xml",
+		                                             "d/B_dir/c.xml"])
 		self.assertEqual([f.skip_root_start for f in imp.files], [False] + [True] * 6)
 		self.assertTrue(all(f.skip_root_end for f in imp.files))
 
@@ -66,11 +67,12 @@ class ImportResolutionTest(unittest.TestCase):
 		[imp] = self.resolve()
 		self.assertEqual([f.rel for f in imp.files], ["d/a.xml"])
 
-	def test_ntfs_sort_key(self):
-		self.assertLess(ntfs_sort_key("Zeta.xml"), ntfs_sort_key("_a.xml"))
-		self.assertLess(ntfs_sort_key("a.xml"), ntfs_sort_key("a_b.xml"))
+	def test_windows_file_key(self):
+		self.assertLess(windows_file_key(Path("_a.xml")), windows_file_key(Path("Zeta.xml")))
+		self.assertLess(windows_file_key(Path("a.xml")), windows_file_key(Path("a_b.xml")))
+		self.assertLess(windows_file_key(Path("a-b.xml")), windows_file_key(Path("a/c.xml")))
 		with self.assertRaises(OracleError):
-			ntfs_sort_key("café.xml")
+			ascii_name("café.xml")
 
 	def test_case_collision_is_rejected(self):
 		self.tree.write("d/a.xml", xml("spawns"))

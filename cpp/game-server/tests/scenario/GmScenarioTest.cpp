@@ -101,11 +101,12 @@ constexpr int32_t STR_INGAME_BLOCK_ENABLE_NO_CHAT = 1300808;
 constexpr int32_t STR_INGAME_BLOCK_IN_NO_CHAT = 1300814;
 
 /**
- * The stage-0 command set (m5j-plan.md §17.4, the 41 commands the C++ registers with AION_ADMIN_COMMAND, AION_PLAYER_COMMAND and
- * AION_CONSOLE_COMMAND): X2 asks each for its help through the channel a client uses for it
+ * The stage-0 command set (m5j-plan.md §17.4, the commands the C++ registers with AION_ADMIN_COMMAND, AION_PLAYER_COMMAND and
+ * AION_CONSOLE_COMMAND; 40 of the 41 since //npcskill went with upstream d2dadc175): X2 asks each for its help through the channel a client uses
+ * for it
  */
 constexpr std::string_view STAGE0_ADMIN[] = {"addexp", "addskill", "addtitle", "ai", "announce", "coords", "damage", "delskill", "delete",
-	"dispel", "enemy", "gag", "heal", "info", "invis", "invul", "kick", "kill", "morph", "movie", "npcskill", "online", "removecd", "say", "see",
+	"dispel", "enemy", "gag", "heal", "info", "invis", "invul", "kick", "kill", "morph", "movie", "online", "removecd", "say", "see",
 	"set", "spawn", "speed", "stat", "state", "time", "useskill", "weather", "whisper", "zone"};
 constexpr std::string_view STAGE0_PLAYER[] = {"gmlist", "help", "id"};
 constexpr std::string_view STAGE0_CONSOLE[] = {"clearusercoolt", "leveldown", "levelup"};

@@ -37,7 +37,7 @@ void PlayerPetsDAO::saveFeedStatus(int32_t petObjectId, int32_t hungryLevel, int
 		stmt->setInt(4, petObjectId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error updating feed status for pet #" + std::to_string(petObjectId), e);
+		log.error("Error updating feed status for pet #{}", petObjectId, e);
 	}
 }
 
@@ -52,7 +52,7 @@ void PlayerPetsDAO::saveDopingBag(int32_t petObjectId, model::templates::pet::Pe
 		stmt->setInt(2, petObjectId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error update doping for pet #" + std::to_string(petObjectId), e);
+		log.error("Error update doping for pet #{}", petObjectId, e);
 	}
 }
 
@@ -64,7 +64,7 @@ void PlayerPetsDAO::setTime(int32_t petObjectId, int64_t time) {
 		stmt->setInt(2, petObjectId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error update pet #" + std::to_string(petObjectId), e);
+		log.error("Error update pet #{}", petObjectId, e);
 	}
 }
 
@@ -84,7 +84,7 @@ void PlayerPetsDAO::insertPlayerPet(model::gameobjects::player::Player& player, 
 		stmt->setInt(9, petCommonData.getExpireTime());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error inserting new pet #" + std::to_string(petCommonData.getObjectId()) + ", name: " + petCommonData.getName(), e);
+		log.error("Error inserting new pet #{}, name: {}", petCommonData.getObjectId(), petCommonData.getName(), e);
 	}
 }
 
@@ -95,7 +95,7 @@ void PlayerPetsDAO::removePlayerPet(int32_t petObjectId) {
 		stmt->setInt(1, petObjectId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error removing pet #" + std::to_string(petObjectId), e);
+		log.error("Error removing pet #{}", petObjectId, e);
 	}
 }
 
@@ -131,7 +131,7 @@ std::vector<runtime::Ref<model::gameobjects::player::PetCommonData>> PlayerPetsD
 			pets.push_back(std::move(petCommonData));
 		}
 	} catch (const std::exception& e) {
-		log.error("Error loading pets for " + player.toString(), e);
+		log.error("Error loading pets for {}", player.toString(), e);
 	}
 	return pets;
 }
@@ -144,7 +144,7 @@ void PlayerPetsDAO::updatePetName(model::gameobjects::player::PetCommonData& pet
 		stmt->setInt(2, petCommonData.getObjectId());
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error update pet #" + std::to_string(petCommonData.getObjectId()), e);
+		log.error("Error update pet #{}", petCommonData.getObjectId(), e);
 	}
 }
 

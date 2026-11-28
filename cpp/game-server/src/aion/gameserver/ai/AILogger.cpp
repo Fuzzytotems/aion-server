@@ -13,13 +13,13 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 
 void AILogger::info(AbstractAI& ai, std::string_view message) {
 	if (ai.isLogging()) {
-		log.info("[AI] " + std::to_string(ai.getOwner().getObjectId()) + " - " + std::string(message));
+		log.info("[AI] {} - {}", ai.getOwner().getObjectId(), message);
 	}
 }
 
 void AILogger::moveinfo(model::gameobjects::Creature& owner, std::string_view message) {
 	if (configs::main::AIConfig::MOVE_DEBUG.load() && owner.getAi().isLogging()) {
-		log.info("[AI] " + std::to_string(owner.getObjectId()) + " - " + std::string(message));
+		log.info("[AI] {} - {}", owner.getObjectId(), message);
 	}
 }
 

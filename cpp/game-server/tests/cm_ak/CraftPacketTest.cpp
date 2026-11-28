@@ -56,7 +56,7 @@ void noExit(int32_t) {
 
 /**
  * GameServer.isShuttingDownSoon() for the scope: a shutdown scheduled with 30 s left (GameServer.initShutdown -> ShutdownHook.initShutdown), its
- * hook thread held in the first worldHasPlayers until the scope ends, every other operation and the exit a no-op (the pattern of
+ * hook thread held in the first countdownNeeded until the scope ends, every other operation and the exit a no-op (the pattern of
  * tests/itemsvc/ItemMoveSplitServiceTest.cpp and tests/app/GameServerTest.cpp). The destructor releases the thread, waits for it and resets
  * the hook.
  */
@@ -65,7 +65,7 @@ public:
 	ShutdownSoonScope() {
 		ShutdownHook::setExitFunctionForTests(&noExit);
 		ShutdownHook::Operations ops;
-		ops.worldHasPlayers = [this] {
+		ops.countdownNeeded = [this] {
 			while (!release.load())
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			return false;
@@ -160,19 +160,13 @@ TEST(CraftReadTest, ARepeatedItemIdKeepsTheCountReadLast) {
 	EXPECT_EQ(unread, 0);
 }
 
-// A body shorter than its count: Java's readD and readQ log the underflow and answer 0 (BaseClientPacket), so the missing material is item 0
-// with count 0, and the body still reads
-TEST(CraftReadTest, AShortBodyReadsZeroesAsJavaDoes) {
+// A body shorter than its count: upstream e1a399e62 - readD and readQ throw on the underflow, so the packet fails to read (formerly they
+// answered 0 and the missing material was item 0 with count 0)
+TEST(CraftReadTest, AShortBodyFailsToRead) {
 	PacketWriter body;
 	body.C(0).D(OVEN).D(ROAST_ININA_RECIPE).D(1).H(2).C(0).D(ININA).Q(1);
-	LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
 	int32_t unread = -1;
-	auto p = readAlone<CM_CRAFT>(CM_CRAFT_OPCODE, body.data, unread);
-	ASSERT_NE(p, nullptr);
-	EXPECT_EQ(Access::materialsData(*p), (CraftMaterials{{ININA, 1}, {0, 0}}));
-	EXPECT_TRUE(capture.contains("Missing D")) << capture.dump();
-	EXPECT_TRUE(capture.contains("Missing Q")) << capture.dump();
-	EXPECT_EQ(unread, 0);
+	EXPECT_EQ(readAlone<CM_CRAFT>(CM_CRAFT_OPCODE, body.data, unread), nullptr);
 }
 
 TEST(CraftReadTest, TheMarkerRegistersTheClassUnderItsJavaOpcode) {

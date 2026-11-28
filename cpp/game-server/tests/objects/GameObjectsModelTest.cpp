@@ -259,11 +259,6 @@ TEST_F(GameObjectsModelTest, ItemCollectionsAreCreatedLazilyAndToStringFollowsJa
 	ASSERT_TRUE(stones);
 	EXPECT_EQ(item->getItemStones(), stones) << "created once";
 	EXPECT_NE(item->toString().find("manaStones=[], fusionStones=null"), std::string::npos);
-
-	Ptr<runtime::RcArrayList<Ref<stats::calc::functions::StatFunction>>> modifiers = item->getCurrentModifiers();
-	ASSERT_TRUE(modifiers);
-	EXPECT_TRUE(modifiers->isEmpty());
-	EXPECT_EQ(item->getCurrentModifiers(), modifiers);
 }
 
 /**
@@ -290,7 +285,7 @@ private:
 
 /**
  * Deviation (D6, docs/deviations/P4-11a.md): the first calls of the lazy getters on several threads publish one collection. Java's unguarded
- * `if (currentModifiers == null) currentModifiers = new ArrayList<>()` can hand two threads different lists and lose what one of them adds.
+ * `if (fusionStones == null) this.fusionStones = itemStonesCollection()` can hand two threads different lists and lose what one of them adds.
  */
 TEST_F(GameObjectsModelTest, LazilyCreatedItemCollectionsArePublishedOnce) {
 	const templates::item::ItemTemplate* ring = itemTemplate(R"(id="120000002" item_group="RING")");
@@ -301,7 +296,6 @@ TEST_F(GameObjectsModelTest, LazilyCreatedItemCollectionsArePublishedOnce) {
 			item = Item::create(5000 + round, ring);
 		}
 		constexpr int threads = 8;
-		std::vector<runtime::RcArrayList<Ref<stats::calc::functions::StatFunction>>*> seenModifiers(threads);
 		std::vector<runtime::RcTreeSet<Ref<items::ManaStone>>*> seenStones(threads);
 		std::atomic<bool> go{false};
 		std::vector<std::thread> workers;
@@ -311,7 +305,6 @@ TEST_F(GameObjectsModelTest, LazilyCreatedItemCollectionsArePublishedOnce) {
 				while (!go.load())
 					std::this_thread::yield();
 				TEST_SCOPE;
-				seenModifiers[static_cast<size_t>(t)] = item->getCurrentModifiers().get();
 				seenStones[static_cast<size_t>(t)] = item->getFusionStones().get();
 			});
 		}
@@ -321,7 +314,6 @@ TEST_F(GameObjectsModelTest, LazilyCreatedItemCollectionsArePublishedOnce) {
 		widener.reset();
 		TEST_SCOPE;
 		for (int t = 0; t < threads; ++t) {
-			EXPECT_EQ(seenModifiers[static_cast<size_t>(t)], item->getCurrentModifiers().get());
 			EXPECT_EQ(seenStones[static_cast<size_t>(t)], item->getFusionStones().get());
 		}
 	}

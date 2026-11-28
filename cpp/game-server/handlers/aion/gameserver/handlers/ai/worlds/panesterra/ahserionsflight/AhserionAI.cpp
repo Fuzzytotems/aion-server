@@ -207,8 +207,8 @@ void AhserionAI::logMetrics() {
 		damageDealt += ai.getAttacker()->getName() + " (ID: " + std::to_string(ai.getAttacker()->getObjectId()) + ", Dmg: " +
 			std::to_string(ai.getDamage()) + ")";
 	}
-	log.info("[" + std::string(getPosition()->getWorldMapInstance()->getTemplate()->getName()) + "] " + getOwner().getName() + " (ID:" +
-		std::to_string(getNpcId()) + ") was killed in " + std::to_string(fullFightTime) + "s. Damage List: " + damageDealt);
+	log.info("[{}] {} (ID:{}) was killed in {} seconds. Damage List: {}", getPosition()->getWorldMapInstance()->getTemplate()->getName(),
+		getOwner().getName(), getNpcId(), fullFightTime, damageDealt);
 }
 
 } // namespace aion::gameserver::handlers::ai::worlds::panesterra::ahserionsflight

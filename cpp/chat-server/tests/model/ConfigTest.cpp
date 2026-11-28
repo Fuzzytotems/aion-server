@@ -130,7 +130,10 @@ TEST_F(ConfigTest, LoggingConfigReadsTheLogbackProperties) {
 	EXPECT_EQ(config.statusDiscordAvatarUrl, "avatar-%level");
 	EXPECT_EQ(Config::loadLogbackProperties().getProperty("chatserver.log.chat.discord.webhook_url", "missing"), "");
 	std::vector<std::string> keys = Config::getLogbackPropertyKeys();
-	EXPECT_EQ(keys.size(), 4u);
+	EXPECT_EQ(keys.size(), 6u); // the Discord webhook and avatar of the status and chat appenders, the rolling limits (upstream 36bdccb4d)
+	// the shipped logging.properties: 100MB and five rolled files
+	EXPECT_EQ(config.maxFileSize, 100ULL * 1024 * 1024);
+	EXPECT_EQ(config.maxRolledFiles, 5);
 }
 
 TEST(ChatServerArgumentsTest, OverridesStopFileAndUnknownArguments) {

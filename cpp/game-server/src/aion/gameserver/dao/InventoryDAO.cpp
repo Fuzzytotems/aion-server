@@ -79,7 +79,7 @@ void InventoryDAO::loadItems(int32_t ownerId, model::items::storage::StorageType
 			itemConsumer(*item);
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not load " + detail::enumName(storageType) + " items of owner " + std::to_string(ownerId), e);
+		log.error("Could not load {} items of owner {}", detail::enumName(storageType), ownerId, e);
 	}
 }
 
@@ -120,7 +120,7 @@ std::vector<runtime::Ref<model::account::PlayerAccountData::VisibleItem>> Invent
 			items.push_back(model::account::PlayerAccountData::VisibleItem::create(slotType, itemSkinId, godStoneItemId, itemColor));
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not load equipped items of owner " + std::to_string(ownerId), e);
+		log.error("Could not load equipped items of owner {}", ownerId, e);
 	}
 	return items;
 }
@@ -169,7 +169,7 @@ int32_t InventoryDAO::loadPlayerAccountId(int32_t playerId) {
 			accountId = rset->getInt("account_id");
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore accountId data for player: " + std::to_string(playerId) + " from DB: " + e.what(), e);
+		log.error("Could not restore accountId data for player: {} from DB: {}", playerId, e.what(), e);
 	}
 	return accountId;
 }
@@ -185,7 +185,7 @@ int32_t InventoryDAO::loadLegionId(int32_t playerId) {
 			legionId = rset->getInt("legion_id");
 		}
 	} catch (const std::exception& e) {
-		log.error("Failed to load legion id for player id: " + std::to_string(playerId), e);
+		log.error("Failed to load legion id for player id: {}", playerId, e);
 	}
 	return legionId;
 }
@@ -263,7 +263,7 @@ bool InventoryDAO::store(const std::vector<runtime::Ptr<model::gameobjects::Item
 		insertResult = insertItems(*con, itemsToInsert, playerId, accountId, legionId);
 		updateResult = updateItems(*con, itemsToUpdate, playerId, accountId, legionId);
 	} catch (const SQLException& e) {
-		log.error("Can't save inventory for player: " + (playerId ? std::to_string(*playerId) : std::string("null")), e);
+		log.error("Can't save inventory for player: {}", (playerId ? std::to_string(*playerId) : std::string("null")), e);
 	}
 
 	for (const runtime::Ptr<Item>& item : items) {
@@ -420,7 +420,7 @@ bool InventoryDAO::deletePlayerOrLegionItems(int32_t playerOrLegionId) {
 		stmt->setInt(1, playerOrLegionId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error deleting all player or legion items. playerOrLegionId: " + std::to_string(playerOrLegionId), e);
+		log.error("Error deleting all player or legion items. playerOrLegionId: {}", playerOrLegionId, e);
 		return false;
 	}
 	return true;
@@ -433,7 +433,7 @@ void InventoryDAO::deleteAccountWH(int32_t accountId) {
 		stmt->setInt(1, accountId);
 		stmt->execute();
 	} catch (const std::exception& e) {
-		log.error("Error deleting all items from account WH. AccountId: " + std::to_string(accountId), e);
+		log.error("Error deleting all items from account WH. AccountId: {}", accountId, e);
 	}
 }
 

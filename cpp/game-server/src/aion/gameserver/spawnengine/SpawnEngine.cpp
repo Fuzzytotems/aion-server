@@ -215,9 +215,9 @@ void SpawnEngine::spawnInstance(world::WorldMapInstance& instance, int8_t diffic
 	}
 	if (spawnedCounter > 0) {
 		if (eventTemplate == nullptr)
-			log.info("Spawned " + std::to_string(spawnedCounter) + " objects in " + instance.toString());
+			log.info("Spawned {} objects in {}", spawnedCounter, instance.toString());
 		else
-			log.info("[" + eventTemplate->getName() + "] Spawned " + std::to_string(spawnedCounter) + " event objects in " + instance.toString());
+			log.info("[{}] Spawned {} event objects in {}", eventTemplate->getName(), spawnedCounter, instance.toString());
 	}
 	if (eventTemplate == nullptr)
 		services::HousingService::getInstance().spawnHouses(instance, ownerId);
@@ -225,8 +225,7 @@ void SpawnEngine::spawnInstance(world::WorldMapInstance& instance, int8_t diffic
 
 bool SpawnEngine::checkPool(model::templates::spawns::SpawnGroup& spawn) {
 	if (spawn.getPool() >= spawn.getSpawnTemplates().size()) {
-		log.warn("Spawn pool size must be smaller than spots to take effect, npcId: " + std::to_string(spawn.getNpcId()) +
-			", worldId: " + std::to_string(spawn.getWorldId()));
+		log.warn("Spawn pool size must be smaller than spots to take effect, npcId: {}, worldId: {}", spawn.getNpcId(), spawn.getWorldId());
 		return false;
 	}
 	return true;
@@ -235,8 +234,8 @@ bool SpawnEngine::checkPool(model::templates::spawns::SpawnGroup& spawn) {
 void SpawnEngine::printWorldSpawnStats() {
 	StatsCollector function;
 	world::World::getInstance().forEachObject([&function](model::gameobjects::VisibleObject& object) { function.accept(object); });
-	log.info("Loaded " + std::to_string(function.getNpcCount()) + " npc spawns");
-	log.info("Loaded " + std::to_string(function.getGatherableCount()) + " gatherable spawns");
+	log.info("Loaded {} npc spawns", function.getNpcCount());
+	log.info("Loaded {} gatherable spawns", function.getGatherableCount());
 }
 
 } // namespace aion::gameserver::spawnengine

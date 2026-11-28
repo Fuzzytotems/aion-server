@@ -87,8 +87,8 @@ runtime::Ptr<model::siege::FortressLocation> FortressSiege::getSiegeLocation() c
 // Java FortressSiege.java onSiegeStart
 void FortressSiege::onSiegeStart() {
 	if (configs::main::LoggingConfig::LOG_SIEGE.load())
-		log.info(toString() + ": Siege started. Race: " + std::string(xml::enumName(getSiegeLocation()->getRace())) + ", legion ID: " +
-			std::to_string(getSiegeLocation()->getLegionId()));
+		log.info("{}: Siege started. Race: {}, legion ID: {}", toString(), std::string(xml::enumName(getSiegeLocation()->getRace())),
+			getSiegeLocation()->getLegionId());
 	// Mark fortress as vulnerable
 	getSiegeLocation()->setVulnerable(true);
 
@@ -160,11 +160,10 @@ void FortressSiege::onSiegeFinish() {
 		if (isBossKilled()) {
 			runtime::Ptr<SiegeRaceCounter> winner = getWinnerRaceCounter();
 			const std::optional<int32_t> winnerLegionId = winner->getWinnerLegionId();
-			log.info(toString() + ": Siege finished. Old race: " + std::string(xml::enumName(oldRace)) + ", legion ID: " + std::to_string(legionIdBefore) +
-				" -> New race: " + std::string(xml::enumName(winner->getSiegeRace())) + ", legion ID: " + std::to_string(winnerLegionId.value_or(0)));
+			log.info("{}: Siege finished. Old race: {}, legion ID: {} -> New race: {}, legion ID: {}", toString(), std::string(xml::enumName(oldRace)),
+				legionIdBefore, std::string(xml::enumName(winner->getSiegeRace())), winnerLegionId.value_or(0));
 		} else {
-			log.info(toString() + ": Siege finished. No winner found. Race: " + std::string(xml::enumName(oldRace)) + ", legion ID: " +
-				std::to_string(legionIdBefore));
+			log.info("{}: Siege finished. No winner found. Race: {}, legion ID: {}", toString(), std::string(xml::enumName(oldRace)), legionIdBefore);
 		}
 	}
 
@@ -369,8 +368,8 @@ void FortressSiege::distributeLegionRewards(SiegeRaceCounter& winnerRaceCounter)
 	runtime::Ptr<model::team::legion::Legion> legion = legionId == 0 ? nullptr : LegionService::getInstance().getLegion(legionId);
 	if (!legion) {
 		if (configs::main::LoggingConfig::LOG_SIEGE.load())
-			log.info(toString() + ": Skipped sending legion rewards because the fortress is not owned by any legion (owner race: " +
-				std::string(xml::enumName(getSiegeLocation()->getRace())) + ").");
+			log.info("{}: Skipped sending legion rewards because the fortress is not owned by any legion (owner race: {}).", toString(),
+				std::string(xml::enumName(getSiegeLocation()->getRace())));
 		return;
 	}
 	distributeLegionGp(*legion, winnerRaceCounter);
@@ -393,24 +392,25 @@ void FortressSiege::distributeLegionGp(model::team::legion::Legion& legion, Sieg
 
 		if (participatedLegionMembers.empty()) {
 			if (configs::main::LoggingConfig::LOG_SIEGE.load())
-				log.info(toString() + ": Distributed no GP to the members of " + legion.toString() + " because no one made AP");
+				log.info("{}: Distributed no GP to the members of {} because no one made AP", toString(), legion.toString());
 		} else {
 			const int32_t gp = std::min(utils::JavaMath::round(static_cast<float>(legionGp) / static_cast<float>(participatedLegionMembers.size())),
 				configs::main::SiegeConfig::LEGION_GP_CAP_PER_MEMBER.load());
 			for (int32_t participant : participatedLegionMembers)
 				abyss::GloryPointsService::addGp(participant, gp);
 			if (configs::main::LoggingConfig::LOG_SIEGE.load()) {
-				std::string ids = "[";
+				std::string ids = "["; // Java: Set.toString()
 				bool first = true;
 				for (int32_t participant : participatedLegionMembers) {
 					ids += (first ? "" : ", ") + std::to_string(participant);
 					first = false;
 				}
-				log.info(toString() + ": Distributed " + std::to_string(gp) + " GP each, to the following members of " + legion.toString() + ": " + ids + "]");
+				ids += "]";
+				log.info("{}: Distributed {} GP each, to the following members of {}: {}", toString(), gp, legion.toString(), ids);
 			}
 		}
 	} catch (const std::exception& e) {
-		log.error("Error while distributing legion GP for " + toString(), e);
+		log.error("Error while distributing legion GP for {}", toString(), e);
 	}
 }
 
@@ -449,10 +449,10 @@ void FortressSiege::distributeLegionRewards(model::team::legion::Legion& legion)
 			if (nonKinahItems > 0)
 				msg += std::string(msg.empty() ? "Sent " : " and sent ") + std::to_string(nonKinahItems) + " legion rewards to brigade general " +
 					brigadeGeneral->getName() + " of " + legion.toString() + " (see sysmail.log)";
-			log.info(toString() + ": " + msg);
+			log.info("{}: {}", toString(), msg);
 		}
 	} catch (const std::exception& e) {
-		log.error("Error while distributing legion rewards for " + toString(), e);
+		log.error("Error while distributing legion rewards for {}", toString(), e);
 	}
 }
 

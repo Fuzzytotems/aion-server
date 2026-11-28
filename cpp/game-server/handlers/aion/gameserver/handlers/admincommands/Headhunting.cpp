@@ -148,8 +148,7 @@ bool Headhunting::analyzeSeason(Player& admin) {
 	for (runtime::Ptr<model::event::Headhunter> hunter : headhunters.values()) { // parity= for (Headhunter hunter : headhunters.values()) {
 		runtime::Ref<model::gameobjects::player::PlayerCommonData> pcd = services::player::PlayerService::getOrLoadPlayerCommonData(hunter->getHunterId());
 		if (pcd == nullptr) {
-			static const auto log = commons::logging::LoggerFactory::getLogger("EVENT_LOG"); // parity: (the logger)
-			log.warn("PlayerID: " + std::to_string(hunter->getHunterId()) + " did not exist anymore."); // parity= log.warn("PlayerID: " + hunter.getHunterId() + " did not exist anymore.");
+			sendInfo(admin, "Player with ID " + std::to_string(hunter->getHunterId()) + " did not exist anymore."); // parity= sendInfo(admin, "Player with ID " + hunter.getHunterId() + " did not exist anymore.");
 			continue;
 		}
 		model::PlayerClass pc = pcd->getPlayerClass();
@@ -273,12 +272,12 @@ void Headhunting::rewardPlayers(Player& admin) {
 							item->getCount(), 0, model::gameobjects::LetterType::BLACKCLOUD)) { // parity= item.getCount(), 0, LetterType.BLACKCLOUD)) {
 						sentMails++;
 					} else {
-						log.error("Failed to send reward mail to player " + name + " for rank " + rank + ". (ItemId: " + std::to_string(item->getId()) + " Count: " // parity= log.error("Failed to send reward mail to player " + name + " for rank " + rank + ". (ItemId: " + item.getId() + " Count: "
-							+ std::to_string(item->getCount()) + ")."); // parity= + item.getCount() + ").");
+						log.error("Failed to send reward mail to player {} for rank {}. (ItemId: {} Count: {}).", name, rank, item->getId(), // parity= log.error("Failed to send reward mail to player {} for rank {}. (ItemId: {} Count: {}).", name, rank, item.getId(),
+							item->getCount()); // parity= item.getCount());
 					}
 				}
-				log.info("[Race: " + std::string(xml::enumName(race)) + "] [PlayerClass: " + std::string(xml::enumName(pc)) + "] [Rank: " + rank // parity= log.info("[Race: " + race + "] [PlayerClass: " + pc + "] [Rank: " + rank + "] [RewardedPlayer: " + name + "] [Kills: " + hunter.getKills() + "]");
-					+ "] [RewardedPlayer: " + name + "] [Kills: " + std::to_string(hunter->getKills()) + "]"); // parity: (the same)
+				log.info("[Race: {}] [PlayerClass: {}] [Rank: {}] [RewardedPlayer: {}] [Kills: {}]", std::string(xml::enumName(race)), std::string(xml::enumName(pc)), // parity= log.info("[Race: {}] [PlayerClass: {}] [Rank: {}] [RewardedPlayer: {}] [Kills: {}]", race, pc, rank, name, hunter.getKills());
+					rank, name, hunter->getKills()); // parity: (the same)
 				rewardedPlayers++;
 			}
 		}

@@ -9,7 +9,7 @@
 
 #include "aion/chatserver/configs/main/LoggingConfig.h"
 #include "aion/chatserver/configs/network/NetworkConfig.h"
-#include "aion/chatserver/network/netty/NettyServer.h"
+#include "aion/chatserver/network/NetConnector.h"
 #include "support/FakePeers.h"
 #include "support/TestUtils.h"
 
@@ -18,7 +18,7 @@ namespace aion::chatserver::test {
 /**
  * Starts the chat server's network in-process for each test, like ChatServer::startup does (without database and logging setup): NetworkConfig
  * set programmatically (both servers on 127.0.0.1 with ports chosen by the OS, the game server password "gspass", the connect address
- * 127.0.0.1:10241 that SM_GS_AUTH_RESPONSE announces), then a NettyServer. TearDown shuts it down, which disconnects every game server, so each
+ * 127.0.0.1:10241 that SM_GS_AUTH_RESPONSE announces), then NetConnector::connect. TearDown shuts it down, which disconnects every game server, so each
  * test can register its own.
  * <p>
  * The services keep static state across tests (like in the Java server), so tests use unique player ids (nextPlayerId) and channel names
@@ -45,13 +45,13 @@ protected:
 		startServer();
 	}
 
-	void TearDown() override { server.reset(); }
+	void TearDown() override { network::NetConnector::shutdown(); }
 
 	/** (Re)starts the network. Tests that change a config value restart it afterwards, so no server thread reads a field while it is written. */
 	void startServer() {
-		server.reset();
-		server = std::make_unique<network::netty::NettyServer>();
-		auto addresses = server->getBoundAddresses();
+		network::NetConnector::shutdown();
+		network::NetConnector::connect();
+		auto addresses = network::NetConnector::getBoundAddresses();
 		ASSERT_EQ(addresses.size(), 2u);
 		clientPort = addresses[0].port;
 		gsPort = addresses[1].port;
@@ -96,7 +96,6 @@ protected:
 		return std::string(prefix) + std::to_string(next++);
 	}
 
-	std::unique_ptr<network::netty::NettyServer> server;
 	uint16_t clientPort = 0;
 	uint16_t gsPort = 0;
 };

@@ -12,6 +12,7 @@
 #include "aion/commons/logging/Logger.h"
 #include "aion/commons/utils/DateTimeFormatter.h"
 #include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
 
@@ -22,6 +23,10 @@ using utils::IllegalArgumentException;
 namespace {
 
 constexpr std::string_view SET_DEFAULT_COLOR = "\x1b[0;39m";
+/** Java: LogLevelHighlightingCompositeConverter.DARK_GRAY_FG */
+constexpr std::string_view DARK_GRAY_FG = "90";
+/** Java: RealGrayCompositeConverter.GRAY_FG, which the servers register for %gray (logback's BOLD + BLACK_FG renders black in IntelliJ) */
+constexpr std::string_view REAL_GRAY_FG = "38;5;242";
 constexpr std::string_view ISO8601_PATTERN = "yyyy-MM-dd HH:mm:ss,SSS";
 constexpr std::string_view LINE_SEPARATOR = spdlog::details::os::default_eol;
 
@@ -186,6 +191,76 @@ private:
 	int32_t length;
 };
 
+/** Java: com.aionemu.commons.logging.ThreadAndLoggerNameConverter (%threadAndLogger{width}, upstream b028752d0) */
+class ThreadAndLoggerConverter final : public Converter {
+public:
+	ThreadAndLoggerConverter(int32_t width, bool colors) : width(width), colors(colors) {}
+
+	void convert(const Event& event, std::string& out) override {
+		std::string threadName = replaceStart(utils::concurrent::getCurrentThreadName(), "ForkJoinPool.commonPool-", "FJ-pool-");
+		std::string thread = "[" + threadName + "]";
+		std::string_view space = " ";
+		int32_t loggerMaxLen = std::max(1, width - length(thread) - length(space));
+		std::string_view loggerName(event.msg.logger_name.data(), event.msg.logger_name.size());
+		std::string logger = loggerName.empty() ? "" : detail::abbreviateLoggerName(loggerName, loggerMaxLen);
+		int32_t threadAndLoggerLength = length(thread) + length(logger);
+		if (threadAndLoggerLength >= width) {
+			thread = shortenThread(threadName, width - length(logger) - (logger.empty() ? 0 : length(space)));
+			threadAndLoggerLength = length(thread) + length(logger);
+		}
+		int32_t paddingLength = std::max(logger.empty() ? 0 : 1, width - threadAndLoggerLength);
+		std::string padding;
+		for (int32_t i = 0; i < paddingLength; i++)
+			padding += space;
+		format(thread, padding, logger, out);
+	}
+
+private:
+	/** Java String.length(): UTF-16 code units */
+	static int32_t length(std::string_view text) { return utils::StringUtils::utf16Length(text); }
+
+	static std::string replaceStart(std::string_view threadName, std::string_view start, std::string_view replacement) {
+		if (threadName.starts_with(start))
+			return std::string(replacement) + std::string(threadName.substr(start.size()));
+		return std::string(threadName);
+	}
+
+	static std::string shortenThread(std::string_view threadNameValue, int32_t lengthValue) {
+		std::string threadName = replaceStart(threadNameValue, "ReadWrite", "RW");
+		threadName = replaceStart(threadName, "PacketProcessor", "PP");
+		lengthValue -= 2; // enclosing brackets
+		lengthValue = std::max(4, lengthValue); // shorter would be unhelpful
+		return "[" + truncateLeft(threadName, lengthValue) + "]";
+	}
+
+	static std::string truncateLeft(const std::string& s, int32_t maxLength) {
+		std::u16string utf16 = utils::StringUtils::toUtf16(s);
+		int32_t size = static_cast<int32_t>(utf16.size());
+		if (size <= maxLength)
+			return s;
+		int32_t beginIndex = size - maxLength + 1;
+		return beginIndex <= 0 || beginIndex >= size ? "\u2026" : "\u2026" + utils::StringUtils::toUtf8(std::u16string_view(utf16).substr(beginIndex));
+	}
+
+	/** C++: without colors the escape sequences are left out, like the other color converters */
+	void format(const std::string& thread, const std::string& padding, const std::string& logger, std::string& out) const {
+		if (colors)
+			out += "\x1b[" + std::string(REAL_GRAY_FG) + "m";
+		out += thread;
+		out += padding;
+		if (!logger.empty()) {
+			if (colors)
+				out += "\x1b[36m"; // CYAN_FG
+			out += logger;
+		}
+		if (colors)
+			out += "\x1b[0m";
+	}
+
+	int32_t width;
+	bool colors;
+};
+
 class MessageConverter final : public Converter {
 public:
 	void convert(const Event& event, std::string& out) override { out += event.message; }
@@ -248,15 +323,19 @@ public:
 	}
 
 private:
+	/** Java: LogLevelHighlightingCompositeConverter (upstream b028752d0), which the servers register for %highlight */
 	static std::string_view highlightColor(spdlog::level::level_enum level) noexcept {
 		switch (level) {
 			case spdlog::level::err:
 			case spdlog::level::critical:
 				return "1;31";
 			case spdlog::level::warn:
-				return "31";
+				return "33"; // YELLOW_FG
 			case spdlog::level::info:
 				return "34";
+			case spdlog::level::debug:
+			case spdlog::level::trace:
+				return DARK_GRAY_FG;
 			default:
 				return "39";
 		}
@@ -305,7 +384,7 @@ private:
 std::optional<std::string_view> colorCodeOf(std::string_view keyword) {
 	static constexpr std::pair<std::string_view, std::string_view> COLORS[] = {
 		{"black", "30"},        {"red", "31"},       {"green", "32"},      {"yellow", "33"},        {"blue", "34"},       {"magenta", "35"},
-		{"cyan", "36"},         {"white", "37"},     {"gray", "1;30"},       {"boldRed", "1;31"},     {"boldGreen", "1;32"}, {"boldYellow", "1;33"},
+		{"cyan", "36"},         {"white", "37"},     {"gray", REAL_GRAY_FG}, {"boldRed", "1;31"},     {"boldGreen", "1;32"}, {"boldYellow", "1;33"},
 		{"boldBlue", "1;34"},   {"boldMagenta", "1;35"}, {"boldCyan", "1;36"}, {"boldWhite", "1;37"}, {"highlight", ""},
 	};
 	for (const auto& [name, code] : COLORS) {
@@ -535,6 +614,17 @@ private:
 				}
 			}
 			return std::make_unique<LoggerConverter>(length);
+		}
+		if (keyword == "threadAndLogger") { // the servers' <conversionRule conversionWord="threadAndLogger"> (upstream b028752d0)
+			int32_t width = 50;
+			if (!options.empty()) {
+				try {
+					width = utils::parseInt(options[0]);
+				} catch (const std::exception&) {
+					std::fprintf(stderr, "ERROR in ThreadAndLoggerNameConverter - Invalid width \"%s\", using default value: %d\n", options[0].c_str(), width);
+				}
+			}
+			return std::make_unique<ThreadAndLoggerConverter>(width, colors);
 		}
 		if (keyword == "message" || keyword == "msg" || keyword == "m")
 			return std::make_unique<MessageConverter>();

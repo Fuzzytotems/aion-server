@@ -12,8 +12,7 @@ namespace aion::gameserver::questEngine::handlers::models::xmlQuest::events {
 /**
  * Java com.aionemu.gameserver.questEngine.handlers.models.xmlQuest.events.QuestEvent.
  * <p>
- * C++ notes (P4-08): `getIds()` returns the bound ids or an empty list where Java lazily stores a new empty list into the template (the
- * templates are const after load; no Java caller adds to the returned list).
+ * C++ notes (P4-08): `getIds()` returns the bound ids or an empty list (Java: List.of() since upstream 15eaf77b6).
  *
  * @author Mr. Poke
  */

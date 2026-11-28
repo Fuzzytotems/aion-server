@@ -23,6 +23,10 @@ public:
 	 * Automatically punishes player, if punishments are enabled.
 	 */
 	static void log(model::gameobjects::player::Player& player, std::string_view message);
+private:
+	/** Replaces control characters so a client cannot forge log lines (Java: a null message becomes "") */
+	static std::string sanitize(std::string_view message);
+public:
 
 	/**
 	 * C++ only (header request 5a-pre-4): Java's `log(Player, String)` called with a player that may be null. CM_PING passes

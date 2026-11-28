@@ -250,9 +250,9 @@ void PvpService::logKill(model::gameobjects::player::Player& winner, model::game
 					assistants += ",";
 				assistants += p->toString();
 			}
-			log.info("[KILL] " + winner.toString() + " killed " + victim.toString() + " assisted by " + assistants);
+			log.info("[KILL] {} killed {} assisted by {}", winner.toString(), victim.toString(), assistants);
 		} else
-			log.info("[KILL] " + winner.toString() + " killed " + victim.toString());
+			log.info("[KILL] {} killed {}", winner.toString(), victim.toString());
 	}
 
 	if (configs::main::LoggingConfig::LOG_PL.load()) {

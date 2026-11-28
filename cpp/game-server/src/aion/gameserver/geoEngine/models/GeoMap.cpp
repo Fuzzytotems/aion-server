@@ -321,17 +321,17 @@ void GeoMap::setDoorState(int32_t instanceId, int32_t doorId, bool open) {
 	runtime::Ptr<runtime::Array<runtime::Ref<DespawnableNode>>> doors = despawnableDoors.get(doorId);
 	if (doors == nullptr) {
 		if (configs::main::GeoDataConfig::GEO_ENABLE.load() && !getIgnorableDoorIds().contains(doorId))
-			log.warn("No geometry found for door " + std::to_string(doorId) + " in world " + std::to_string(mapId));
+			log.warn("No geometry found for door {} in world {}", doorId, mapId);
 	} else {
 		if (runtime::Ptr<DespawnableNode> closed = doors->get(0)) {
 			closed->setActive(instanceId, !open);
 		} else {
-			log.warn("Door state 1 not available for door " + std::to_string(doorId) + " in world " + std::to_string(mapId));
+			log.warn("Door state 1 not available for door {} in world {}", doorId, mapId);
 		}
 		if (runtime::Ptr<DespawnableNode> opened = doors->get(1)) {
 			opened->setActive(instanceId, open);
 		} else {
-			log.warn("Door state 2 not available for door " + std::to_string(doorId) + " in world " + std::to_string(mapId));
+			log.warn("Door state 2 not available for door {} in world {}", doorId, mapId);
 		}
 	}
 }

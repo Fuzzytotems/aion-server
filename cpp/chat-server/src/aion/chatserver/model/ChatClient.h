@@ -16,8 +16,8 @@ namespace aion::chatserver::model::channel {
 class Channel;
 }
 
-namespace aion::chatserver::network::netty::handler {
-class ClientChannelHandler;
+namespace aion::chatserver::network::aion {
+class AionConnection;
 }
 
 namespace aion::chatserver::model {
@@ -27,11 +27,11 @@ namespace aion::chatserver::model {
  * connection and channels.
  * <p>
  * <b>Threads.</b> The game server's packets, the client's own packets and the broadcasts of other clients use a ChatClient concurrently, so
- * the mutable state (identifier, channel handler, channels, last message times) is guarded by a mutex and the gag time is atomic (Java: plain
+ * the mutable state (identifier, connection, channels, last message times) is guarded by a mutex and the gag time is atomic (Java: plain
  * fields and unsynchronized lists inside a ConcurrentHashMap).
  * <p>
- * <b>Ownership.</b> ChatService, BroadcastService and the client's ClientChannelHandler hold the ChatClient; the ChatClient holds the handler
- * (Java: a reference cycle the garbage collector resolves). The handler drops its reference when it is disconnected, which breaks the cycle.
+ * <b>Ownership.</b> ChatService, BroadcastService and the client's AionConnection hold the ChatClient; the ChatClient holds the connection
+ * (Java: a reference cycle the garbage collector resolves). The connection drops its reference when it is disconnected, which breaks the cycle.
  * <p>
  * Java: com.aionemu.chatserver.model.ChatClient
  *
@@ -67,17 +67,31 @@ public:
 	void setIdentifier(std::vector<uint8_t> identifier);
 
 	/** @return the client's connection, nullptr before the client authenticated */
-	std::shared_ptr<network::netty::handler::ClientChannelHandler> getChannelHandler() const;
+	std::shared_ptr<network::aion::AionConnection> getConnection() const;
 
-	void setChannelHandler(std::shared_ptr<network::netty::handler::ClientChannelHandler> channelHandler);
+	void setConnection(std::shared_ptr<network::aion::AionConnection> connection);
 
 	/**
 	 * Adds the channel to the client's channels. A client is in one channel per type, except for ChannelType::JOB: starting classes join both
-	 * main class channels, so up to 2 job channels are kept (a third one replaces both).
+	 * main class channels, so up to 2 job channels are kept (a third one replaces both). Only use via ChatChannels, which tracks channel
+	 * members.
+	 *
+	 * @return Channels the client left to join this one.
 	 */
-	void addChannel(std::shared_ptr<channel::Channel> channel);
+	std::vector<std::shared_ptr<channel::Channel>> addChannel(std::shared_ptr<channel::Channel> channel);
 
-	/** @return true if the client was in the channel (compared by id); false for a null channel */
+	/**
+	 * Only use via ChatChannels, which tracks channel members.
+	 *
+	 * @return Channels the client left.
+	 */
+	std::vector<std::shared_ptr<channel::Channel>> removeAllChannels();
+
+	/**
+	 * Only use via ChatChannels, which tracks channel members.
+	 *
+	 * @return true if the client was in the channel (compared by id); false for a null channel
+	 */
 	bool removeChannel(const std::shared_ptr<channel::Channel>& channel);
 
 	bool isInChannel(const channel::Channel& channel) const;
@@ -109,10 +123,10 @@ private:
 	const std::optional<Race> race;
 	const int8_t accessLevel;
 
-	/** guards identifier, channelHandler, channels and lastMessageTime */
+	/** guards identifier, connection, channels and lastMessageTime */
 	mutable std::mutex mutex;
 	std::optional<std::vector<uint8_t>> identifier;
-	std::shared_ptr<network::netty::handler::ClientChannelHandler> channelHandler;
+	std::shared_ptr<network::aion::AionConnection> connection;
 	std::atomic<int64_t> gagTime = 0;
 
 	/**

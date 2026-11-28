@@ -83,7 +83,7 @@ void WarehouseService::expandWarehouse(model::gameobjects::player::Player& playe
 	const model::templates::StorageExpansionTemplate* expansionTemplate =
 		dataholders::DataManager::WAREHOUSEEXPANDER_DATA->getWarehouseExpansionTemplate(npc.getNpcId());
 	if (expansionTemplate == nullptr) {
-		log.warn("Warehouse expansion template could not be found for " + npc.toString());
+		log.warn("Warehouse expansion template could not be found for {}", npc.toString());
 		return;
 	}
 

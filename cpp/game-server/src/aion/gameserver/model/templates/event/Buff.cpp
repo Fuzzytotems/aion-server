@@ -21,7 +21,7 @@ void Buff::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*par
 		std::string list;
 		for (int32_t id : ids)
 			list += (list.empty() ? "" : ", ") + std::to_string(id);
-		log.warn("Pool size for event buffs must be smaller than skill id size (skill ids: [" + list + "]).");
+		log.warn("Pool size for event buffs must be smaller than skill id size (skill ids: [{}]).", list);
 	}
 }
 

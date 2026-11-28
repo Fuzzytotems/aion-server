@@ -327,7 +327,7 @@ void WorldMapInstance::setDoorState(int32_t staticId, bool open) {
 			return;
 		}
 	}
-	log.warn("Door (ID: " + std::to_string(staticId) + ") doesn't exist", runtime::Exception("java.lang.RuntimeException"));
+	log.warn("Door (ID: {}) doesn't exist", staticId, runtime::Exception("java.lang.RuntimeException"));
 }
 
 runtime::JavaIterator<runtime::Ptr<model::gameobjects::VisibleObject>> WorldMapInstance::iterator() {

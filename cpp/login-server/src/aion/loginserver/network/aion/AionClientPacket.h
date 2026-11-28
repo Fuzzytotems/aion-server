@@ -31,8 +31,16 @@ protected:
 	 */
 	AionClientPacket(commons::utils::ByteBuffer buf, std::shared_ptr<LoginConnection> client, int32_t opcode);
 
+	/**
+	 * Reads the fields, then the padding to whole Blowfish blocks (up to 7 bytes) that the client puts between them and the checksum. Anything
+	 * longer stays unread and gets reported.
+	 */
+	void readImpl() final;
+
+	virtual void readFields() = 0;
+
 	/** Send new AionServerPacket to connection that is owner of this packet. This method is equvalent to: getConnection()->sendPacket(msg); */
-	void sendPacket(std::shared_ptr<AionServerPacket> msg) const;
+	void sendPacket(const AionServerPacket& msg) const;
 };
 
 } // namespace aion::loginserver::network::aion

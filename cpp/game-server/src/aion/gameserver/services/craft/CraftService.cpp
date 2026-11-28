@@ -205,8 +205,8 @@ void CraftService::finishCrafting(model::gameobjects::player::Player& player, co
 
 	if (configs::main::LoggingConfig::LOG_CRAFT.load()) {
 		const ItemTemplate* itemTemplate = nonNull(dataholders::DataManager::ITEM_DATA->getItemTemplate(productItemId), "itemTemplate");
-		log.info("Player " + player.getName() + " crafted item " + std::to_string(productItemId) + " [" + itemTemplate->getName() + "] (count: " +
-			std::to_string(recipe.getQuantity()) + ")" + (critCount > 0 ? " - critical" : ""));
+		log.info("Player {} crafted item {} [{}] (count: {}){}", player.getName(), productItemId, itemTemplate->getName(), recipe.getQuantity(),
+			critCount > 0 ? " - critical" : "");
 	}
 
 	if (recipe.getCraftDelayId()) {

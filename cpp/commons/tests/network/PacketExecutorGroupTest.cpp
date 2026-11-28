@@ -1,5 +1,7 @@
-// The replacement of Netty's ExecutionHandler with an OrderedMemoryAwareThreadPoolExecutor: the events of a channel run one at a time in order,
-// channels run in parallel, and the shutdown does not wait for a task beyond its timeout.
+// The packet executors of the chat server (C++ replacement of Netty's DefaultEventExecutorGroup): the tasks of a connection run one at a time
+// in order, connections run in parallel, and the shutdown does not wait for a task beyond its timeout.
+
+
 
 #include <atomic>
 #include <chrono>
@@ -12,13 +14,14 @@
 
 #include <gtest/gtest.h>
 
-#include "aion/chatserver/network/netty/pipeline/ExecutionHandler.h"
-#include "support/TestUtils.h"
+#include "aion/commons/network/netty/PacketExecutorGroup.h"
+#include "NetworkTestUtils.h"
 
-namespace aion::chatserver::test {
+using namespace std::chrono_literals;
+using namespace nettest;
+using aion::commons::network::netty::PacketExecutorGroup;
+
 namespace {
-
-using network::netty::pipeline::ExecutionHandler;
 
 /** Flags shared with the tasks; tasks capture it by shared_ptr, so a task that outlives the test (a detached thread) stays valid. */
 struct Flags {
@@ -28,8 +31,8 @@ struct Flags {
 	std::atomic<bool> finished = false;
 };
 
-TEST(ExecutionHandlerTest, TasksOfAChannelRunInSubmissionOrder) {
-	auto handler = std::make_shared<ExecutionHandler>(4);
+TEST(PacketExecutorGroupTest, TasksOfAChannelRunInSubmissionOrder) {
+	auto handler = std::make_shared<PacketExecutorGroup>(4);
 	int channel = 0;
 	std::mutex mutex;
 	std::vector<int> order;
@@ -61,9 +64,9 @@ TEST(ExecutionHandlerTest, TasksOfAChannelRunInSubmissionOrder) {
 		EXPECT_EQ(order[static_cast<size_t>(i)], i);
 }
 
-TEST(ExecutionHandlerTest, ATaskOfARunningChannelWaitsUntilTheRunningOneEnded) {
+TEST(PacketExecutorGroupTest, ATaskOfARunningChannelWaitsUntilTheRunningOneEnded) {
 	// a second thread is free, but the channel's second task must not start while its first one runs
-	auto handler = std::make_shared<ExecutionHandler>(2);
+	auto handler = std::make_shared<PacketExecutorGroup>(2);
 	int channel = 0;
 	auto flags = std::make_shared<Flags>();
 	handler->execute(&channel, [flags] {
@@ -80,8 +83,8 @@ TEST(ExecutionHandlerTest, ATaskOfARunningChannelWaitsUntilTheRunningOneEnded) {
 	handler->shutdown(5s);
 }
 
-TEST(ExecutionHandlerTest, ChannelsRunInParallel) {
-	auto handler = std::make_shared<ExecutionHandler>(2);
+TEST(PacketExecutorGroupTest, ChannelsRunInParallel) {
+	auto handler = std::make_shared<PacketExecutorGroup>(2);
 	int first = 0;
 	int second = 0;
 	auto flags = std::make_shared<Flags>();
@@ -97,10 +100,10 @@ TEST(ExecutionHandlerTest, ChannelsRunInParallel) {
 	handler->shutdown(5s);
 }
 
-TEST(ExecutionHandlerTest, AnIdleThreadDoesNotMakeASecondChannelWait) {
+TEST(PacketExecutorGroupTest, AnIdleThreadDoesNotMakeASecondChannelWait) {
 	// a thread that was notified but did not take its channel yet still counts as idle: two channels becoming ready at once need two threads
 	for (int round = 0; round < 3; round++) {
-		auto handler = std::make_shared<ExecutionHandler>(2);
+		auto handler = std::make_shared<PacketExecutorGroup>(2);
 		int warmUp = 0;
 		int first = 0;
 		int second = 0;
@@ -115,8 +118,8 @@ TEST(ExecutionHandlerTest, AnIdleThreadDoesNotMakeASecondChannelWait) {
 	}
 }
 
-TEST(ExecutionHandlerTest, ChannelsAreForgottenWhenTheirLastTaskEnded) {
-	auto handler = std::make_shared<ExecutionHandler>(2);
+TEST(PacketExecutorGroupTest, ChannelsAreForgottenWhenTheirLastTaskEnded) {
+	auto handler = std::make_shared<PacketExecutorGroup>(2);
 	int channels[3] = {};
 	auto flags = std::make_shared<Flags>();
 	handler->execute(&channels[0], [flags] { waitUntil([&] { return flags->release.load(); }, 5s); });
@@ -130,8 +133,8 @@ TEST(ExecutionHandlerTest, ChannelsAreForgottenWhenTheirLastTaskEnded) {
 	handler->shutdown(5s);
 }
 
-TEST(ExecutionHandlerTest, ShutdownRunsQueuedTasksAndDiscardsLaterOnes) {
-	auto handler = std::make_shared<ExecutionHandler>(1);
+TEST(PacketExecutorGroupTest, ShutdownRunsQueuedTasksAndDiscardsLaterOnes) {
+	auto handler = std::make_shared<PacketExecutorGroup>(1);
 	int channel = 0;
 	std::atomic<int> ran = 0;
 	for (int i = 0; i < 50; i++)
@@ -144,10 +147,11 @@ TEST(ExecutionHandlerTest, ShutdownRunsQueuedTasksAndDiscardsLaterOnes) {
 	EXPECT_EQ(handler->getPendingTaskCount(), 0u);
 }
 
-TEST(ExecutionHandlerTest, ShutdownDoesNotWaitForARunningTaskBeyondItsTimeout) {
+TEST(PacketExecutorGroupTest, ShutdownDoesNotWaitForARunningTaskBeyondItsTimeout) {
 	// e.g. a chat log insert on a database that does not answer: the thread is left to end after its task, holding the handler
-	LogCapture log({"org.jboss.netty.handler.execution.ExecutionHandler"});
-	auto handler = std::make_shared<ExecutionHandler>(1);
+	LogCapture& log = LogCapture::instance();
+	log.clear();
+	auto handler = std::make_shared<PacketExecutorGroup>(1);
 	int channel = 0;
 	auto flags = std::make_shared<Flags>();
 	handler->execute(&channel, [flags] {
@@ -160,24 +164,24 @@ TEST(ExecutionHandlerTest, ShutdownDoesNotWaitForARunningTaskBeyondItsTimeout) {
 	auto start = std::chrono::steady_clock::now();
 	handler->shutdown(200ms);
 	EXPECT_LT(std::chrono::steady_clock::now() - start, 2s);
-	EXPECT_TRUE(log.contains("Discarded 1 channel events on shutdown")) << log.dump();
-	EXPECT_TRUE(log.contains("1 threads still run a channel event after the shutdown timeout, they end after it")) << log.dump();
+	EXPECT_TRUE(log.contains("Discarded 1 tasks on shutdown"));
+	EXPECT_TRUE(log.contains("1 threads still run a task after the shutdown timeout, they end after it"));
 	handler.reset(); // the running thread keeps it
 	flags->release = true;
 	waitUntil([&] { return flags->finished.load(); });
 }
 
-TEST(ExecutionHandlerTest, AnExceptionIsLoggedAndTheChannelContinues) {
-	LogCapture log({"org.jboss.netty.handler.execution.ExecutionHandler"});
-	auto handler = std::make_shared<ExecutionHandler>(1);
+TEST(PacketExecutorGroupTest, AnExceptionIsLoggedAndTheChannelContinues) {
+	LogCapture& log = LogCapture::instance();
+	log.clear();
+	auto handler = std::make_shared<PacketExecutorGroup>(1);
 	int channel = 0;
 	std::atomic<bool> ran = false;
 	handler->execute(&channel, [] { throw std::runtime_error("boom"); });
 	handler->execute(&channel, [&] { ran = true; });
 	EXPECT_TRUE(waitUntil([&] { return ran.load(); }));
-	EXPECT_TRUE(log.contains("Exception while executing a channel event")) << log.dump();
+	EXPECT_TRUE(log.contains("Exception while executing a task"));
 	handler->shutdown(5s);
 }
 
 } // namespace
-} // namespace aion::chatserver::test

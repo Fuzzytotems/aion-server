@@ -100,7 +100,7 @@ void WalkerGroup::form() {
 			throw runtime::NullPointerException("WalkerTemplate.getRows() is null for " + walkTemplate->getRouteId());
 		const std::vector<int32_t>& rows = *walkTemplate->getRows();
 		if (std::accumulate(rows.begin(), rows.end(), 0) != static_cast<int32_t>(memberList.size())) {
-			log.warn("Invalid row sizes for walk cluster " + walkTemplate->getRouteId());
+			log.warn("Invalid row sizes for walk cluster {}", walkTemplate->getRouteId());
 		}
 		if (rows.size() == 1) {
 			// Line formation: distance 2 meters from each other (divide by 2 and multiple by 2)
@@ -154,7 +154,7 @@ void WalkerGroup::form() {
 			}
 		}
 	} else if (getWalkType() == WalkerGroupType::POINT) {
-		log.warn("No formation specified for walk cluster " + firstMember(memberList).getWalkTemplate()->getRouteId());
+		log.warn("No formation specified for walk cluster {}", firstMember(memberList).getWalkTemplate()->getRouteId());
 	}
 }
 

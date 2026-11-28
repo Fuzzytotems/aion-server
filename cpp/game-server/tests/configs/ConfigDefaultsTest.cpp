@@ -558,9 +558,10 @@ TEST_F(ConfigDefaultsTest, SecurityConfig) {
 	EXPECT_EQ(main::SecurityConfig::FLOOD_MSG.load(), 6);
 	EXPECT_FALSE(main::SecurityConfig::ENABLE_FLYPATH_VALIDATOR.load());
 	EXPECT_EQ(main::SecurityConfig::SURVEY_DELAY.load(), 20);
-	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load(), main::SecurityConfig::MultiClientingRestrictionMode::NONE);
-	EXPECT_EQ(*main::SecurityConfig::MULTI_CLIENTING_IGNORED_MAC_ADDRESSES.get(), (std::unordered_set<std::string>{}));
-	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES.load(), 20);
+	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER.load(), 2);
+	EXPECT_TRUE(main::SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS.load());
+	EXPECT_EQ(*main::SecurityConfig::MULTI_CLIENT_IGNORED_MAC_ADDRESSES.get(), (std::unordered_set<std::string>{}));
+	EXPECT_EQ(main::SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES.load(), 20);
 	EXPECT_FALSE(main::SecurityConfig::HDD_SERIAL_LOCK_ENABLE.load());
 	EXPECT_FALSE(main::SecurityConfig::HDD_SERIAL_LOCK_UNLOCKED_ACCOUNTS.load());
 }
@@ -619,9 +620,13 @@ TEST_F(ConfigDefaultsTest, NetworkConfig) {
 	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_MAX_THREADS.load(), 4);
 	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_THREAD_KILL_THRESHOLD.load(), 3);
 	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_THREAD_SPAWN_THRESHOLD.load(), 50);
+	EXPECT_EQ(network::NetworkConfig::PACKET_PROCESSOR_MAX_PENDING_PACKETS_PER_CONNECTION.load(), 500);
+	EXPECT_EQ(network::NetworkConfig::MAX_PENDING_SERVER_PACKETS.load(), 20000);
+	EXPECT_EQ(network::NetworkConfig::MAX_SEND_STALL_SECONDS.load(), 60);
+	EXPECT_EQ(network::NetworkConfig::CLIENT_AUTH_TIMEOUT_SECONDS.load(), 60);
 	EXPECT_FALSE(network::NetworkConfig::LOG_UNKNOWN_PACKETS.load());
 	EXPECT_FALSE(network::NetworkConfig::LOG_IGNORED_PACKETS.load());
-	EXPECT_FALSE(network::NetworkConfig::ENABLE_FLOOD_CONNECTIONS.load());
+	EXPECT_TRUE(network::NetworkConfig::ENABLE_FLOOD_CONNECTIONS.load());
 	EXPECT_EQ(network::NetworkConfig::Flood_Tick.load(), 1000);
 	EXPECT_EQ(network::NetworkConfig::Flood_SWARN.load(), 10);
 	EXPECT_EQ(network::NetworkConfig::Flood_SReject.load(), 20);

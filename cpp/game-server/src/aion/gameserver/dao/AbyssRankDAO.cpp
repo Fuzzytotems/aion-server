@@ -189,7 +189,7 @@ runtime::Ref<model::gameobjects::player::AbyssRank> AbyssRankDAO::loadAbyssRank(
 			abyssRank->setPersistentState(Persistable::PersistentState::NEW);
 		}
 	} catch (const SQLException& e) {
-		log.error("Couldn't load abyss rank for player " + std::to_string(playerId), e);
+		log.error("Couldn't load abyss rank for player {}", playerId, e);
 	}
 	return abyssRank;
 }
@@ -239,7 +239,7 @@ bool AbyssRankDAO::insertRank(int32_t playerId, model::gameobjects::player::Abys
 		stmt->execute();
 		return true;
 	} catch (const SQLException& e) {
-		log.error("Couldn't insert abyss rank for player " + std::to_string(playerId), e);
+		log.error("Couldn't insert abyss rank for player {}", playerId, e);
 		return false;
 	}
 }
@@ -267,7 +267,7 @@ bool AbyssRankDAO::updateRank(int32_t playerId, model::gameobjects::player::Abys
 		stmt->execute();
 		return true;
 	} catch (const SQLException& e) {
-		log.error("Couldn't update abyss rank of player " + std::to_string(playerId), e);
+		log.error("Couldn't update abyss rank of player {}", playerId, e);
 		return false;
 	}
 }
@@ -280,7 +280,7 @@ void AbyssRankDAO::dailyUpdateGp(utils::stats::AbyssRankEnum rank) {
 		stmt->setInt(2, model::gameobjects::detail::abyssRankId(rank));
 		stmt->execute();
 	} catch (const SQLException& e) {
-		log.error("Couldn't decrease daily GP for rank " + detail::enumName(rank), e);
+		log.error("Couldn't decrease daily GP for rank {}", detail::enumName(rank), e);
 	}
 }
 
@@ -363,7 +363,7 @@ int32_t AbyssRankDAO::loadLegionMemberCount(commons::database::Connection& con, 
 		rs->next();
 		return rs->getInt("players");
 	} catch (const SQLException& e) {
-		log.error("Couldn't load legion member count for legion " + std::to_string(legionId), e);
+		log.error("Couldn't load legion member count for legion {}", legionId, e);
 		return 0;
 	}
 }
@@ -383,7 +383,7 @@ std::optional<std::vector<AbyssRankDAO::RankingListPlayerGp>> AbyssRankDAO::load
 		}
 		return rankingList;
 	} catch (const SQLException& e) {
-		log.error("Couldn't load top ranks for race " + detail::enumName(race), e);
+		log.error("Couldn't load top ranks for race {}", detail::enumName(race), e);
 		return std::nullopt;
 	}
 }
@@ -401,7 +401,7 @@ std::optional<std::unordered_map<int32_t, int32_t>> AbyssRankDAO::loadApOfPlayer
 			apByPlayerId.insert_or_assign(rs->getInt("player_id"), rs->getInt("ap"));
 		return apByPlayerId;
 	} catch (const SQLException& e) {
-		log.error("Couldn't load ranks for race " + detail::enumName(race) + " (minRank " + detail::enumName(minRank) + ")", e);
+		log.error("Couldn't load ranks for race {} (minRank {})", detail::enumName(race), detail::enumName(minRank), e);
 		return std::nullopt;
 	}
 }
@@ -414,7 +414,7 @@ void AbyssRankDAO::updateAbyssRank(int32_t playerId, utils::stats::AbyssRankEnum
 		stmt->setInt(2, playerId);
 		stmt->execute();
 	} catch (const SQLException& e) {
-		log.error("Couldn't update abyss rank of player " + std::to_string(playerId) + " to " + detail::enumName(rank), e);
+		log.error("Couldn't update abyss rank of player {} to {}", playerId, detail::enumName(rank), e);
 	}
 }
 

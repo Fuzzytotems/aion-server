@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -10,6 +12,7 @@
 
 #include <spdlog/details/os.h>
 
+#include "aion/commons/Banner.h"
 #include "aion/commons/logging/Logging.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/DateTimeFormatter.h"
@@ -140,13 +143,41 @@ TEST(LoggingTest, ReinitializingArchivesFilesOfOpenConfigAppenders) {
 		EXPECT_NO_THROW(Logging::init({.logFolder = folder.path, .console = false})); // archives item.log while the appender still has it open
 		LoggerFactory::removeConfig("test.reinit.ITEM_LOG");
 	}
+	Logging::awaitLogArchiver();
 	EXPECT_EQ(std::distance(fs::directory_iterator(folder.path / "archived"), fs::directory_iterator()), 1);
 	EXPECT_FALSE(fs::exists(folder.path / "item.log"));
 }
 
 TEST(LoggingTest, PropertyKeys) {
 	EXPECT_EQ(Logging::getPropertyKeys("gameserver"),
-		(std::vector<std::string>{"gameserver.log.status.discord.webhook_url", "gameserver.log.status.discord.avatar_url"}));
+		(std::vector<std::string>{"gameserver.log.status.discord.webhook_url", "gameserver.log.status.discord.avatar_url",
+			"gameserver.log.max_file_size", "gameserver.log.max_rolled_files"}));
+}
+
+// logback FileSize.valueOf (the maxFileSize of the rolling appenders, upstream 36bdccb4d)
+TEST(LoggingTest, ParseFileSizeLikeLogback) {
+	EXPECT_EQ(Logging::parseFileSize("100MB"), 100ULL * 1024 * 1024);
+	EXPECT_EQ(Logging::parseFileSize("100 mb"), 100ULL * 1024 * 1024);
+	EXPECT_EQ(Logging::parseFileSize("5kbs"), 5ULL * 1024);
+	EXPECT_EQ(Logging::parseFileSize("2GB"), 2ULL * 1024 * 1024 * 1024);
+	EXPECT_EQ(Logging::parseFileSize("1234"), 1234ULL);
+	EXPECT_THROW(Logging::parseFileSize("1.5MB"), aion::commons::utils::IllegalArgumentException);
+	EXPECT_THROW(Logging::parseFileSize(" 100MB"), aion::commons::utils::IllegalArgumentException);
+	EXPECT_THROW(Logging::parseFileSize("100TB"), aion::commons::utils::IllegalArgumentException);
+}
+
+TEST(LoggingTest, FileAppendersRollWithTheLimitsOfInit) {
+	TempFolder folder("aion_LoggingTest_rolling");
+	Logging::init({.logFolder = folder.path, .console = false, .maxFileSize = 1234, .maxRolledFiles = 3});
+	std::shared_ptr<FileAppender> appender = Logging::createFileAppender("item.log", "%msg%n");
+	ASSERT_TRUE(appender->getRollingPolicy());
+	EXPECT_EQ(appender->getRollingPolicy()->fileNamePattern, folder.path / "item.%i.log");
+	EXPECT_EQ(appender->getRollingPolicy()->maxIndex, 3);
+	EXPECT_EQ(appender->getRollingPolicy()->maxFileSize, 1234U);
+	appender.reset();
+	Logging::init({.logFolder = folder.path, .console = false}); // the default limits again for the tests that follow
+	EXPECT_EQ(Logging::createFileAppender("item.log", "%msg%n")->getRollingPolicy()->maxFileSize, 100ULL * 1024 * 1024);
+	Logging::shutdown();
 }
 
 TEST(LoggingTest, ExceptionsInLogFilesLikeLogback) {
@@ -192,9 +223,13 @@ TEST(LoggingTest, ArchivesLogsOfPreviousRun) {
 	writeFile(folder.path / "notes.txt", "kept", fileTime(lastStart));
 
 	Logging::archiveLogs(folder.path);
+	// upstream 8912ec714: the files are moved to the staging folder at once and packed in the background
+	EXPECT_FALSE(fs::exists(folder.path / "server_console.log"));
+	Logging::awaitLogArchiver();
 
 	auto format = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm");
 	fs::path archive = folder.path / "archived" / (format.format(lastStart) + " to " + format.format(lastStop) + ".zip");
+	EXPECT_FALSE(fs::exists(folder.path / "archived" / format.format(lastStart))) << "the staging folder is removed after packing";
 	EXPECT_TRUE(fs::exists(archive)) << archive;
 	EXPECT_FALSE(fs::exists(folder.path / "server_console.log"));
 	EXPECT_FALSE(fs::exists(folder.path / "chat.LOG"));
@@ -210,6 +245,7 @@ TEST(LoggingTest, ArchivesLogsOfPreviousRun) {
 
 	// next start: no log files, nothing to archive
 	Logging::archiveLogs(folder.path);
+	Logging::awaitLogArchiver();
 	EXPECT_EQ(std::distance(fs::directory_iterator(folder.path / "archived"), fs::directory_iterator()), 1);
 }
 
@@ -234,7 +270,40 @@ TEST(LoggingTest, ArchiveErrorsAreWrapped) {
 		Logging::archiveLogs(folder.path / "file");
 		FAIL() << "no exception";
 	} catch (const utils::Exception& e) {
-		EXPECT_STREQ(e.what(), "Error gathering and archiving old logs");
+		EXPECT_STREQ(e.what(), "Error gathering old logs"); // upstream 8912ec714
 		EXPECT_TRUE(e.cause());
 	}
+}
+
+// upstream b028752d0: Logging.formatStartupMessage
+TEST(LoggingTest, StartupMessage) {
+	auto started = std::chrono::steady_clock::now();
+	EXPECT_EQ(Logging::formatStartupMessage("Game server", started - std::chrono::milliseconds(12340), started, std::chrono::milliseconds(15005)),
+		"Game server started in 12.34 seconds (process running for 15.005)");
+	EXPECT_EQ(Logging::formatStartupMessage("Login server", started - std::chrono::seconds(2), started, std::chrono::milliseconds(2100)),
+		"Login server started in 2.0 seconds (process running for 2.1)");
+}
+
+// upstream b028752d0: Banner
+TEST(LoggingTest, BannerLines) {
+	std::string plain = Banner::createBanner(3, 1, false);
+	EXPECT_EQ(plain.find('\x1b'), std::string::npos);
+	EXPECT_EQ(std::count(plain.begin(), plain.end(), '\n'), 9);
+	EXPECT_NE(Banner::createBanner(3, 1, true).find("\x1b[38;5;81;40m"), std::string::npos);
+}
+
+// upstream 8912ec714: the start marker is updated only after the old files were moved, so a failed attempt keeps the archive name
+TEST(LoggingTest, FailedArchivingKeepsTheStartMarker) {
+	using namespace std::chrono;
+	TempFolder folder("aion_LoggingTest_marker");
+	auto lastStart = sys_days(2026y / August / 1) + 10h + 5min;
+	writeFile(folder.path / "[server_start_marker]", "", fileTime(lastStart));
+	writeFile(folder.path / "server_console.log", "console content", fileTime(lastStart + 1h));
+	// a file where the staging folder must be created makes the move fail
+	auto format = utils::DateTimeFormatter::ofPattern("yyyy-MM-dd HH.mm");
+	writeFile(folder.path / "archived" / format.format(lastStart), "blocks the staging folder", fileTime(lastStart));
+	EXPECT_THROW(Logging::archiveLogs(folder.path), utils::Exception);
+	auto markerTime = floor<minutes>(clock_cast<system_clock>(fs::last_write_time(folder.path / "[server_start_marker]")));
+	EXPECT_EQ(markerTime, floor<minutes>(lastStart));
+	EXPECT_TRUE(fs::exists(folder.path / "server_console.log"));
 }

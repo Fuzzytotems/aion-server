@@ -34,7 +34,7 @@ void StaticDoorSpawnManager::spawnTemplate(world::WorldMapInstance& instance) {
 		world::geo::GeoService::getInstance().setDoorState(instance.getMapId(), instance.getInstanceId(), data->getId(), staticDoor->isOpen());
 	}
 	if (counter > 0)
-		log.info("Spawned " + std::to_string(counter) + " static doors in " + instance.toString());
+		log.info("Spawned {} static doors in {}", counter, instance.toString());
 }
 
 } // namespace aion::gameserver::spawnengine

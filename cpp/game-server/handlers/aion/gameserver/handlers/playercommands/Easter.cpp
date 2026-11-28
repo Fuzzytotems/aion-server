@@ -83,8 +83,7 @@ void Easter::execute(Player& player, std::span<const std::string> params) {
 	int64_t notAddedCount = ItemService::addItem(player, reward.itemId, reward.itemCount, true, *predicate); // parity= long notAddedCount = ItemService.addItem(player, reward.itemId, reward.itemCount, true, new ItemUpdatePredicate(ItemAddType.DECOMPOSABLE, ItemUpdateType.INC_CASH_ITEM));
 	if (notAddedCount > 0) {
 		static const auto log = commons::logging::LoggerFactory::getLogger("playercommands.Easter"); // parity: private static final Logger log = LoggerFactory.getLogger(Easter.class);
-		log.warn("[Easter Event] " + std::to_string(notAddedCount) + "/" + std::to_string(reward.itemCount) + " of " + std::to_string(reward.itemId) + // parity= log.warn("[Easter Event] " + notAddedCount + "/" + reward.itemCount + " of " + reward.itemId + " could not be added.");
-			" could not be added."); // parity: (the same)
+		log.warn("[Easter Event] {}/{} of {} could not be added", notAddedCount, reward.itemCount, reward.itemId);
 	}
 }
 

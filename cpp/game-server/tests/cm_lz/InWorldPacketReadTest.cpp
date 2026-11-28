@@ -60,11 +60,8 @@ TEST(InWorldPacketReadTest, NoServicePacketBodies) {
 }
 
 TEST(InWorldPacketReadTest, ShortAndLongBodies) {
-	{ // CM_SUBZONE_CHANGE without its byte
-		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
-		EXPECT_EQ(unreadBytesAfterRead<CM_SUBZONE_CHANGE>({}, 230), 0);
-		EXPECT_TRUE(capture.contains("Missing C")) << capture.dump();
-	}
+	// CM_SUBZONE_CHANGE without its byte fails to read (upstream e1a399e62)
+	EXPECT_EQ(unreadBytesAfterRead<CM_SUBZONE_CHANGE>({}, 230), -1);
 	{ // the empty-body packets read nothing, so trailing bytes stay unread
 		LogCapture capture({BASE_CLIENT_PACKET_LOGGER});
 		EXPECT_EQ(unreadBytesAfterRead<CM_MAY_QUIT>(PacketWriter().D(1).data, 231), 4);

@@ -1,5 +1,7 @@
 #include "aion/gameserver/services/player/PlayerLeaveWorldService.h"
 
+#include <algorithm>
+#include <chrono>
 #include <memory>
 
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -10,6 +12,7 @@
 #include "aion/gameserver/controllers/PetController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
+#include "aion/gameserver/controllers/movement/PlayerMoveController.h"
 #include "aion/gameserver/dao/ItemCooldownsDAO.h"
 #include "aion/gameserver/dao/PlayerCooldownsDAO.h"
 #include "aion/gameserver/dao/PlayerDAO.h"
@@ -17,7 +20,6 @@
 #include "aion/gameserver/dao/PlayerLifeStatsDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
-#include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/Pet.h"
@@ -39,7 +41,6 @@
 #include "aion/gameserver/questEngine/model/QuestEnv.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Finally.h"
-#include "aion/gameserver/runtime/sched/Pin.h"
 #include "aion/gameserver/services/AutoGroupService.h"
 #include "aion/gameserver/services/BrokerService.h"
 #include "aion/gameserver/services/DuelService.h"
@@ -51,7 +52,7 @@
 #include "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.h"
 #include "aion/gameserver/services/findgroup/FindGroupService.h"
 #include "aion/gameserver/services/instance/InstanceService.h"
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
 #include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/services/summons/SummonsService.h"
@@ -66,18 +67,36 @@
 
 namespace aion::gameserver::services::player {
 
-// Anonymous classes and stored lambdas of the Java class (hub-headers.md §7.3):
-//   com.aionemu.gameserver.services.player.PlayerLeaveWorldService@L53:71 - the leaveWorld task of leaveWorldDelayed, pinned on the player
-
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.player.PlayerLeaveWorldService");
 
 using model::gameobjects::player::Player;
 using runtime::Ptr;
 
-void PlayerLeaveWorldService::leaveWorldDelayed(Player& player, int64_t delayInMillis) {
-	runtime::FutureRef leaveWorldTask =
-		utils::ThreadPoolManager::getInstance().schedule(runtime::Pin(&player), [&player] { leaveWorld(player); }, delayInMillis);
-	player.getController().addTask(model::TaskId::DESPAWN, std::move(leaveWorldTask));
+runtime::ConcurrentHashMap<runtime::Ref<Player>, runtime::Ref<PlayerLeaveWorldService::LeaveWorldTask>> PlayerLeaveWorldService::leaveWorldTaskByPlayer{
+	AION_LOCK_CLASS(PlayerLeaveWorldService::leaveWorldTaskByPlayer#stripe)};
+
+void PlayerLeaveWorldService::registerLeaveWorld(Player& player) {
+	int64_t lastActionTimeMillis = std::max(player.getMoveController()->getLastMoveUpdate(), player.getController().getLastCombatTime());
+	int64_t millisSinceLastPlayerAction = commons::utils::currentTimeMillis() - lastActionTimeMillis;
+	int64_t waitTimeMillis = std::chrono::milliseconds(std::chrono::seconds(10)).count();
+	int64_t delayMillis = std::max<int64_t>(0, waitTimeMillis - millisSinceLastPlayerAction);
+	leaveWorldTaskByPlayer.computeIfAbsent(runtime::Ref<Player>(player), [&player] { return LeaveWorldTask::create(player); })->scheduleOrRun(delayMillis);
+}
+
+bool PlayerLeaveWorldService::isLeavingWorld(int32_t playerObjectId) {
+	for (const runtime::Ref<Player>& p : leaveWorldTaskByPlayer.keySet())
+		if (p->getObjectId() == playerObjectId)
+			return true;
+	return false;
+}
+
+bool PlayerLeaveWorldService::isLeavingWorld(Player& player) {
+	return leaveWorldTaskByPlayer.containsKey(runtime::Ref<Player>(player));
+}
+
+void PlayerLeaveWorldService::processPendingLeaveWorldTasks() {
+	for (const runtime::Ref<LeaveWorldTask>& task : leaveWorldTaskByPlayer.values())
+		task->run();
 }
 
 void PlayerLeaveWorldService::leaveWorld(Player& player) {
@@ -88,7 +107,7 @@ void PlayerLeaveWorldService::leaveWorld(Player& player) {
 
 	Ptr<world::WorldPosition> pos = player.getPosition();
 	if (!pos || !pos->getMapRegion()) { // ensure safe logout
-		log.warn(player.toString() + " had invalid position: " + (pos ? pos->toString() : std::string("null")) + " so he was reset to bind point");
+		log.warn("{} had invalid position: {} so he was reset to bind point", player.toString(), pos ? pos->toString() : std::string("null"));
 		Ptr<model::gameobjects::player::BindPointPosition> bp = player.getBindPoint();
 		runtime::Ref<world::WorldPosition> newPosition;
 		if (bp)
@@ -110,7 +129,7 @@ void PlayerLeaveWorldService::leaveWorld(Player& player) {
 	if (configs::main::AutoGroupConfig::AUTO_GROUP_ENABLE.load())
 		AutoGroupService::getInstance().onLogout(player);
 	conquerorAndProtectorSystem::ConquerorAndProtectorService::getInstance().onLeaveMap(player);
-	MultiClientingService::onLeaveWorld(player);
+	MultiClientService::onLeaveWorld(player);
 	instance::InstanceService::onLogout(player);
 	utils::audit::GMService::getInstance().onPlayerLogout(player);
 	KiskService::getInstance().onLogout(player);
@@ -171,11 +190,56 @@ void PlayerLeaveWorldService::leaveWorld(Player& player) {
 
 	dao::PlayerDAO::storeOldCharacterLevel(player.getObjectId(), player.getLevel());
 	dao::PlayerDAO::storeLastOnlineTime(player.getObjectId(), lastOnline);
-	dao::PlayerDAO::onlinePlayer(player, false); // marks that player was fully saved and may enter world again
+	dao::PlayerDAO::onlinePlayer(player, false);
 
 	if (!con) // Java: NullPointerException
 		throw runtime::NullPointerException("Cannot invoke \"AionConnection.setActivePlayer(Player)\" because \"con\" is null");
 	con->setActivePlayer(nullptr);
 }
+
+PlayerLeaveWorldService::LeaveWorldTask::LeaveWorldTask(Player& playerValue) : player(playerValue) {
+}
+
+runtime::Ref<PlayerLeaveWorldService::LeaveWorldTask> PlayerLeaveWorldService::LeaveWorldTask::create(Player& player) {
+	return runtime::makeRef<LeaveWorldTask>(player);
+}
+
+// lint: L7 Java's synchronized scheduleOrRun (fieldmap.py counts it under the name "schedule")
+void PlayerLeaveWorldService::LeaveWorldTask::scheduleOrRun(int64_t delayMillis) {
+	SYNCHRONIZED(*this) {
+		if (finished.get() || future.get()) // lint: L12 Field<FutureRef>::get reads the field, it does not wait for the task
+			return;
+		if (delayMillis <= 0)
+			run();
+		else
+			future.set(utils::ThreadPoolManager::getInstance().schedule(this, &LeaveWorldTask::run, delayMillis));
+	}
+}
+
+void PlayerLeaveWorldService::LeaveWorldTask::run() {
+	SYNCHRONIZED(*this) {
+		if (finished.get())
+			return;
+		finished.set(true);
+		// Java: finally { leaveWorldTaskByPlayer.remove(player, this); }
+		auto removeTask = runtime::finally([this]() noexcept {
+			try {
+				leaveWorldTaskByPlayer.remove(player, runtime::Ref<LeaveWorldTask>(*this));
+			} catch (...) {
+				log.errorCurrentException("Could not unregister the leave world task of " + player->toString());
+			}
+		});
+		try {
+			if (player->isOnline())
+				leaveWorld(*player);
+			if (runtime::FutureRef pending = future.get()) // lint: L12 Field<FutureRef>::get reads the field, it does not wait for the task
+				pending->cancel(false);
+		} catch (...) {
+			log.errorCurrentException("Error while processing leave world task for " + player->toString());
+		}
+	}
+}
+
+PlayerLeaveWorldService::LeaveWorldTask::~LeaveWorldTask() = default;
 
 } // namespace aion::gameserver::services::player

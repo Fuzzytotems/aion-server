@@ -37,7 +37,7 @@ void AnnouncementService::reload() {
 		schedule(*announcement);
 
 	commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.AnnouncementService")
-		.info("Loaded " + std::to_string(announcements.size()) + " announcements");
+		.info("Loaded {} announcements", announcements.size());
 }
 
 // anonymous Runnable at AnnouncementService.java:55 (fieldmap key AnnouncementService$1); argument 1 of scheduleAtFixedRate(); storage: task in

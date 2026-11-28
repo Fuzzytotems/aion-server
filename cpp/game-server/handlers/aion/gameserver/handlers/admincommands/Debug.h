@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <vector>
 
 #include "aion/gameserver/handlers/admincommands/AdminCommandsPrelude.h"
@@ -20,8 +19,6 @@ public:
 
 private:
 	std::vector<runtime::Ptr<Player>> findConnectedPlayers();
-
-	std::vector<std::shared_ptr<network::aion::AionConnection>> findAionConnections();
 };
 
 } // namespace aion::gameserver::handlers::admincommands

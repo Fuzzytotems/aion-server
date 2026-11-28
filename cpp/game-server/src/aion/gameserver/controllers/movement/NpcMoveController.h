@@ -36,7 +36,7 @@ private:
 	runtime::Field<bool> nextPointFromGeo{};
 	runtime::Field<bool> isStop_{}; // Java: isStop
 
-	runtime::Field<runtime::Ref<runtime::RcLinkedList<runtime::Ref<model::geometry::Point3D>>>> lastSteps{};
+	runtime::Field<runtime::Ref<runtime::RcArrayDeque<runtime::Ref<model::geometry::Point3D>>>> lastSteps{};
 
 	runtime::Field<const model::templates::walker::WalkerTemplate*> walkerTemplate{};
 	runtime::Field<const model::templates::walker::RouteStep*> currentStep{};

@@ -16,6 +16,7 @@
 #include "aion/chatserver/model/channel/LfgChannel.h"
 #include "aion/chatserver/model/channel/RegionChannel.h"
 #include "aion/chatserver/model/channel/TradeChannel.h"
+#include "aion/chatserver/service/GameServerService.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/Numbers.h"
 #include "support/TestUtils.h"
@@ -25,6 +26,12 @@ namespace {
 
 using namespace model;
 using namespace model::channel;
+
+// upstream b0317f967: channels can only be requested for the registered game server, so the tests' requests use game server 1
+const bool gameServer1Registered = [] {
+	service::GameServerService::GAMESERVER_ID = 1;
+	return true;
+}();
 
 std::shared_ptr<ChatClient> player(std::optional<Race> race, int8_t accessLevel = 0) {
 	static std::atomic<int32_t> nextId = 1;
@@ -61,13 +68,12 @@ TEST(ChatChannelsTest, GameServerRaceAndTypeSeparateChannels) {
 	auto asmodian = player(Race::ASMODIANS);
 	std::string meta = unique("map");
 	auto first = ChatChannels::getOrCreate(elyos, request("public_" + meta, "1.0.AION.KOR"));
-	auto otherGs = ChatChannels::getOrCreate(elyos, request("public_" + meta, "2.0.AION.KOR"));
 	auto otherRace = ChatChannels::getOrCreate(asmodian, request("public_" + meta, "1.1.AION.KOR"));
 	auto otherType = ChatChannels::getOrCreate(elyos, request("trade_" + meta, "1.0.AION.KOR"));
-	EXPECT_NE(first, otherGs);
+	ASSERT_NE(first, nullptr);
+	EXPECT_EQ(first->getGameServerId(), 1);
 	EXPECT_NE(first, otherRace);
 	EXPECT_NE(first, otherType);
-	EXPECT_EQ(otherGs->getGameServerId(), 2);
 	EXPECT_EQ(dynamic_cast<RaceChannel&>(*otherRace).getRace(), Race::ASMODIANS);
 }
 
@@ -79,24 +85,20 @@ TEST(ChatChannelsTest, OnlyStaffMayRequestChannelsOfAnotherRace) {
 	auto asmodianChannel = ChatChannels::getOrCreate(gm, request("public_" + meta, "1.1.AION.KOR"));
 	ASSERT_NE(asmodianChannel, nullptr);
 	EXPECT_EQ(dynamic_cast<RaceChannel&>(*asmodianChannel).getRace(), Race::ASMODIANS);
-	auto unknownRace = ChatChannels::getOrCreate(gm, request("public_" + meta, "1.7.AION.KOR"));
-	ASSERT_NE(unknownRace, nullptr);
-	EXPECT_EQ(dynamic_cast<RaceChannel&>(*unknownRace).getRace(), std::nullopt);
-	// a player of an unknown race (null) may request channels of unknown races
-	EXPECT_EQ(ChatChannels::getOrCreate(player(std::nullopt), request("public_" + meta, "1.7.AION.KOR")), unknownRace);
+	// upstream b0317f967: channels of unknown races are refused, also to staff and to players of an unknown race
+	EXPECT_EQ(ChatChannels::getOrCreate(gm, request("public_" + meta, "1.7.AION.KOR")), nullptr);
+	EXPECT_EQ(ChatChannels::getOrCreate(player(std::nullopt), request("public_" + meta, "1.7.AION.KOR")), nullptr);
 }
 
 TEST(ChatChannelsTest, LfgIsOnePerRaceAndGameServer) {
 	auto elyos = player(Race::ELYOS);
-	int32_t gs = commons::utils::parseInt(unique("")) + 100;
-	auto lfg = ChatChannels::getOrCreate(elyos, request("partyFind_", std::to_string(gs) + ".0.AION.KOR"));
+	auto lfg = ChatChannels::getOrCreate(elyos, request("partyFind_", "1.0.AION.KOR"));
 	ASSERT_NE(dynamic_cast<LfgChannel*>(lfg.get()), nullptr);
-	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("partyFind_whatever", std::to_string(gs) + ".0.AION.KOR")), lfg);
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("partyFind_whatever", "1.0.AION.KOR")), lfg);
 }
 
 TEST(ChatChannelsTest, JobChannelsAreSharedByAllLanguagesOfAClass) {
-	int32_t gs = commons::utils::parseInt(unique("")) + 1000;
-	std::string restrictions = std::to_string(gs) + ".1.AION.KOR";
+	std::string restrictions = "1.1.AION.KOR";
 	auto asmodian = player(Race::ASMODIANS);
 	auto english = ChatChannels::getOrCreate(asmodian, request("job_Songweaver", restrictions));
 	ASSERT_NE(dynamic_cast<JobChannel*>(english.get()), nullptr);
@@ -138,20 +140,29 @@ TEST(ChatChannelsTest, IdentifiersWithoutThreePartsGiveNull) {
 	EXPECT_THROW(ChatChannels::getOrCreate(nullptr, request("public_" + unique("map"), "1.0.AION.KOR")), commons::utils::IllegalStateException);
 }
 
-TEST(ChatChannelsTest, MalformedPartsThrowLikeJava) {
+// upstream b0317f967: the retail validations, each refused request is logged
+TEST(ChatChannelsTest, MalformedRequestsAreRefusedAndLogged) {
+	LogCapture log({"com.aionemu.chatserver.model.channel.ChatChannels"});
 	auto elyos = player(Race::ELYOS);
-	// channelType[1]: ArrayIndexOutOfBoundsException
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("public", "1.0.AION.KOR")), commons::utils::IndexOutOfBoundsException);
-	// channelRestrictions[0] and [1]
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("public_map", "...")), commons::utils::IndexOutOfBoundsException);
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("public_map", "1")), commons::utils::IndexOutOfBoundsException);
-	// Integer.parseInt
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("public_map", "x.0.AION.KOR")), commons::utils::NumberFormatException);
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("public_map", "1. 0.AION.KOR")), commons::utils::NumberFormatException);
-	// an unknown type matches no channel and throws in addChannel's switch (Java: NullPointerException)
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("private_" + unique("x"), "1.0.AION.KOR")), commons::utils::IllegalStateException);
-	// an empty type part: "".split("_", 2) is [""], so channelType[1] throws
-	EXPECT_THROW(ChatChannels::getOrCreate(elyos, request("", "1.0.AION.KOR")), commons::utils::IndexOutOfBoundsException);
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("public", "1.0.AION.KOR")), nullptr);
+	EXPECT_TRUE(log.contains("requested a channel without name: ")) << log.dump();
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("", "1.0.AION.KOR")), nullptr); // "".split("_", 2) is [""]
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("private_" + unique("x"), "1.0.AION.KOR")), nullptr);
+	EXPECT_TRUE(log.contains("requested a channel of an unknown type: ")) << log.dump();
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("public_" + std::string(65, 'm'), "1.0.AION.KOR")), nullptr);
+	EXPECT_TRUE(log.contains("requested a channel with a too long name: ")) << log.dump();
+	EXPECT_NE(ChatChannels::getOrCreate(elyos, request("public_" + std::string(64, 'n'), "1.0.AION.KOR")), nullptr);
+	for (std::string_view restrictions : {"...", "1", "x.0.AION.KOR", "1. 0.AION.KOR"})
+		EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("public_map", restrictions)), nullptr) << restrictions;
+	EXPECT_EQ(log.count("requested a channel with malformed restrictions: "), 4) << log.dump();
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("public_map", "2.0.AION.KOR")), nullptr); // not the registered game server
+	EXPECT_TRUE(log.contains("requested a channel of game server 2: ")) << log.dump();
+	service::GameServerService::GAMESERVER_ID = 99;
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("public_map", "99.0.AION.KOR")), nullptr); // 99 is forbidden
+	service::GameServerService::GAMESERVER_ID = 1;
+	EXPECT_TRUE(log.contains("requested a channel of game server 99: ")) << log.dump();
+	EXPECT_EQ(ChatChannels::getOrCreate(elyos, request("public_map", "1.2.AION.KOR")), nullptr);
+	EXPECT_TRUE(log.contains("requested a channel of an unknown race: ")) << log.dump();
 }
 
 TEST(ChatChannelsTest, UnknownIdIsNull) {
@@ -161,7 +172,7 @@ TEST(ChatChannelsTest, UnknownIdIsNull) {
 TEST(ChatChannelsTest, ConcurrentRequestsOfANewChannelGetTheSameOne) {
 	// finding and creating a channel is one step (deviation: Java can create two channels for the same identifier)
 	constexpr size_t THREADS = 8;
-	constexpr size_t ROUNDS = 200;
+	constexpr size_t ROUNDS = 40; // upstream b0317f967: at most 256 channels, and the tests of this process share them
 	std::vector<std::string> identifiers;
 	for (size_t round = 0; round < ROUNDS; round++)
 		identifiers.push_back(request("public_" + unique("race"), "1.0.AION.KOR"));
@@ -187,6 +198,34 @@ TEST(ChatChannelsTest, ConcurrentRequestsOfANewChannelGetTheSameOne) {
 		}
 	}
 	EXPECT_EQ(differing, 0);
+}
+
+} // namespace
+} // namespace aion::chatserver::test
+
+namespace aion::chatserver::test {
+namespace {
+
+// upstream 17093650f: channels are removed when their last member leaves or logs out, and a joined channel replaces the old one of its type
+TEST(ChatChannelsTest, ChannelsWithoutMembersAreRemoved) {
+	auto alice = player(Race::ELYOS);
+	auto bob = player(Race::ELYOS);
+	std::string first = request("public_" + unique("map"), "1.0.AION.KOR");
+	auto channel = ChatChannels::join(alice, first);
+	ASSERT_NE(channel, nullptr);
+	EXPECT_EQ(ChatChannels::join(bob, first), channel);
+	EXPECT_EQ(ChatChannels::join(bob, first), channel); // joining again does not count twice
+	EXPECT_EQ(channel->memberCount, 2);
+	EXPECT_TRUE(ChatChannels::leave(*alice, channel));
+	EXPECT_FALSE(ChatChannels::leave(*alice, channel));
+	EXPECT_EQ(ChatChannels::getChannelById(channel->getChannelId()), channel);
+	// a map change: the new region channel replaces the old one, which is removed without members
+	auto next = ChatChannels::join(bob, request("public_" + unique("map"), "1.0.AION.KOR"));
+	ASSERT_NE(next, nullptr);
+	EXPECT_EQ(ChatChannels::getChannelById(channel->getChannelId()), nullptr);
+	ChatChannels::leaveAll(*bob);
+	EXPECT_EQ(ChatChannels::getChannelById(next->getChannelId()), nullptr);
+	EXPECT_FALSE(bob->isInChannel(*next));
 }
 
 } // namespace

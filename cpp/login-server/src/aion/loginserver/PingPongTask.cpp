@@ -14,12 +14,12 @@ using network::gameserver::GsConnection;
 
 void PingPongTask::run() {
 	if (unrespondedPingCount.fetch_add(1) <= 2) {
-		connection.sendPacket(std::make_shared<network::gameserver::serverpackets::SM_PING>());
+		connection.sendPacket(network::gameserver::serverpackets::SM_PING());
 	} else {
 		stop();
 		std::shared_ptr<GameServerInfo> gsi = connection.getGameServerInfo();
 		commons::logging::LoggerFactory::getLogger("com.aionemu.loginserver.PingPongTask")
-			.warn("Gameserver #" + (gsi ? std::to_string(gsi->getId()) : std::string("null")) + " connection died, closing it.");
+			.warn("Game server #{} connection died, closing it.", gsi ? std::to_string(gsi->getId()) : std::string("null"));
 		connection.close();
 	}
 }

@@ -74,7 +74,7 @@ void PlayerCooldownsDAO::storePlayerCooldowns(model::gameobjects::player::Player
 		st->executeBatch();
 		con->commit();
 	} catch (const SQLException& e) {
-		log.error("Couldn't save cooldowns for " + player.toString(), e);
+		log.error("Couldn't save cooldowns for {}", player.toString(), e);
 	}
 }
 

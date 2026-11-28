@@ -54,7 +54,7 @@ std::unique_ptr<FriendList> loadFriendListPart(model::gameobjects::player::Playe
 			}
 		}
 	} catch (const std::exception& e) {
-		log.error("Could not restore FriendList data for player: " + std::to_string(player.getObjectId()) + " from DB: " + e.what(), e);
+		log.error("Could not restore FriendList data for player: {} from DB: {}", player.getObjectId(), e.what(), e);
 	}
 	std::vector<runtime::Ptr<Friend>> friendPtrs(friends.begin(), friends.end());
 	return std::make_unique<FriendList>(player, friendPtrs);

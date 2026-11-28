@@ -26,7 +26,11 @@ namespace aion::commons::logging {
  * <tr><td>%n</td><td>line separator of the platform (like Java's System.lineSeparator())</td></tr>
  * <tr><td>%ex / %exception / %throwable, %nopex / %nopexception</td><td>see below</td></tr>
  * <tr><td>%highlight(...), %black(...), %red(...), %green(...), %yellow(...), %blue(...), %magenta(...), %cyan(...), %white(...), %gray(...),
- * %boldRed(...) and the other bold colors</td><td>ANSI colors like logback (plain output if colors are disabled)</td></tr>
+ * %boldRed(...) and the other bold colors</td><td>ANSI colors like logback (plain output if colors are disabled), with the servers'
+ * replacements: %highlight shows WARN yellow and DEBUG/TRACE dark gray (LogLevelHighlightingCompositeConverter), %gray is 256-color gray
+ * (RealGrayCompositeConverter)</td></tr>
+ * <tr><td>%threadAndLogger{width}</td><td>the servers' ThreadAndLoggerNameConverter: "[thread] logger" padded to width (default 50), the logger
+ * abbreviated and the thread shortened to fit, gray and cyan</td></tr>
  * <tr><td>%replace(...){regex, replacement}</td><td>regular expression replacement (ECMAScript syntax; Java's $1 group references work)</td></tr>
  * <tr><td>%(...)</td><td>grouping, e.g. for a common format modifier</td></tr>
  * </table>

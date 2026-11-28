@@ -218,7 +218,7 @@ TEST(WorldRealDataTest, WorldCreatesAllMapsAndZoneServiceTheirZoneInstances) {
 			EXPECT_TRUE(far) << instance->toString() << ": the last region of the map";
 		}
 	}
-	EXPECT_EQ(maps, expectedCount(counts, "world_maps")) << "World: 161 world maps created.";
+	EXPECT_EQ(maps, expectedCount(counts, "world_maps")) << "Created 161 world maps";
 	EXPECT_GE(instances, maps);
 	std::cout << maps << " world maps with " << instances << " instances\n";
 
