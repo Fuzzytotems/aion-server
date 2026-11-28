@@ -9,6 +9,7 @@
 
 #include "aion/commons/database/DatabaseFactory.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/logging/Logging.h"
 #include "aion/commons/network/NioServer.h"
 #include "aion/commons/network/ServerCfg.h"
 #include "aion/commons/utils/Exception.h"
@@ -134,6 +135,9 @@ runtime::RuntimeLifecycle::Options runtimeOptions() {
 }
 
 } // namespace
+
+// Java: private static final long START_TIME_NANOS = System.nanoTime(), the first static of the class (C++: static initialization)
+const std::chrono::steady_clock::time_point GameServer::START_TIME_NANOS = std::chrono::steady_clock::now();
 
 const int32_t GameServer::START_TIME_SECONDS = static_cast<int32_t>(
 	std::chrono::duration_cast<std::chrono::seconds>(commons::utils::info::SystemInfo::getProcessStartTime().time_since_epoch()).count());
@@ -267,7 +271,7 @@ bool GameServer::main(StartupObserver& observer) {
 
 	runStep(observer, step, "initNioServer()", [] { nioServer.store(initNioServer(), std::memory_order_release); });
 	runStep(observer, step, "ShutdownHook", [] { ShutdownHook::getInstance().install(); }); // Java: Runtime.getRuntime().addShutdownHook(...)
-	log().info("Game server started in {} seconds", commons::utils::currentTimeMillis() / 1000 - START_TIME_SECONDS);
+	log().info(commons::logging::Logging::formatStartupMessage("Game server", START_TIME_NANOS));
 
 	runStep(observer, step, "LoginServer.connect(nioServer)", [] { network::loginserver::LoginServer::getInstance().connect(*getNioServer()); });
 	runStep(observer, step, "ChatServer.connect(nioServer)", [] {

@@ -35,6 +35,12 @@ public:
 	/** @return true if color escape sequences are written */
 	bool isColorEnabled() const noexcept { return colors; }
 
+	/** C++ only (Banner.print, Java: IO.print): writes text to the standard output like a ConsoleAppender does (UTF-16 on a Windows console) */
+	static void printToStandardOutput(std::string_view text);
+
+	/** C++ only: true if the standard output is a terminal that interprets color escape sequences (enabled on Windows if needed) */
+	static bool standardOutputSupportsColors() noexcept;
+
 protected:
 	void sink_it_(const spdlog::details::log_msg& msg) override;
 	void flush_() override;
@@ -43,6 +49,7 @@ private:
 	ConsoleAppender(std::string_view pattern, const std::chrono::time_zone* timeZone, std::optional<LevelFilter> filter, Target target, bool colors);
 
 	void write(std::string_view text);
+	static void write(std::string_view text, Target outputTarget, bool toWindowsConsole);
 
 	Target target;
 	std::optional<LevelFilter> filter;

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -10,6 +12,7 @@
 
 #include <spdlog/details/os.h>
 
+#include "aion/commons/Banner.h"
 #include "aion/commons/logging/Logging.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/DateTimeFormatter.h"
@@ -264,4 +267,18 @@ TEST(LoggingTest, ArchiveErrorsAreWrapped) {
 		EXPECT_STREQ(e.what(), "Error gathering and archiving old logs");
 		EXPECT_TRUE(e.cause());
 	}
+}
+
+// upstream b028752d0: Logging.formatStartupMessage
+TEST(LoggingTest, StartupMessage) {
+	std::string message = Logging::formatStartupMessage("Game server", std::chrono::steady_clock::now() - std::chrono::milliseconds(12340));
+	EXPECT_TRUE(std::regex_match(message, std::regex(R"(Game server started in 12\.3[4-9]?\d? seconds \(process running for \d+\.\d{1,3}\))"))) << message;
+}
+
+// upstream b028752d0: Banner
+TEST(LoggingTest, BannerLines) {
+	std::string plain = Banner::createBanner(3, 1, false);
+	EXPECT_EQ(plain.find('\x1b'), std::string::npos);
+	EXPECT_EQ(std::count(plain.begin(), plain.end(), '\n'), 9);
+	EXPECT_NE(Banner::createBanner(3, 1, true).find("\x1b[38;5;81;40m"), std::string::npos);
 }

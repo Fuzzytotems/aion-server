@@ -302,16 +302,16 @@ if(NOT EXISTS "${OUTPUT_DIR}/log/server_console.log")
 endif()
 
 set(started FALSE)
-if(log MATCHES "Game server started in [0-9-]+ seconds")
+if(log MATCHES "Game server started in [0-9.]+ seconds")
 	set(started TRUE)
 endif()
 # HTMLCache.getInstance() is a startup step (GameServer.cpp), so a started server has written its cache file - into OUTPUT_DIR, not below the
 # shared working directory. Existence alone proves nothing (the M5c stage-0 review: an earlier run's file passed it while this run failed to
-# write ./cache/html.cache), so the file must also be this run's: the server did not read one ("Using cache file"), and the file is not older
-# than the start of this run. (The log line "Creating cache file" proves nothing here: HTMLCache logs it before it tries the write.)
+# write ./cache/html.cache), so the file must also be this run's: the server wrote one ("Created HTML cache file...", which HTMLCache logs after
+# a successful write since upstream 7840be30d; it reads an existing file without a log line), and the file is not older than the start of this run.
 if(started)
-	if(log MATCHES "Cache\\[HTML\\]: Using cache file")
-		fail("${test_name}: the server read an existing ${html_cache_file} instead of parsing, compacting and writing its own")
+	if(NOT log MATCHES "Created HTML cache file\\.\\.\\.")
+		fail("${test_name}: the server did not write its own ${html_cache_file} (it read an existing one, or the write failed)")
 	endif()
 	if(NOT EXISTS "${html_cache_file}")
 		fail("${test_name}: the server started but wrote no ${html_cache_file} (-Dgameserver.html.cache.file was not honoured)")

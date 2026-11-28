@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <format>
 #include <fstream>
 #include <mutex>
 #include <regex>
@@ -13,6 +14,7 @@
 #include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/stdout_sinks.h>
 
+#include "aion/commons/Banner.h"
 #include "aion/commons/logging/ConsoleAppender.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/logging/PatternLayout.h"
@@ -48,6 +50,22 @@ State& state() {
 	// Deliberately leaked, like the LoggerFactory registry: it must stay valid during static destruction
 	static State* instance = new State();
 	return *instance;
+}
+
+/** @return the environment variable, or nothing if it is not set */
+std::optional<std::string> environmentVariable(const std::string& name) {
+#ifdef _WIN32
+	char* value = nullptr;
+	size_t length = 0;
+	if (_dupenv_s(&value, &length, name.c_str()) != 0 || value == nullptr)
+		return std::nullopt;
+	std::string result(value);
+	std::free(value);
+	return result;
+#else
+	const char* value = std::getenv(name.c_str());
+	return value ? std::optional<std::string>(value) : std::nullopt;
+#endif
 }
 
 void shutdownAtExit() {
@@ -150,7 +168,35 @@ uint64_t parseFileSize(std::string_view value) {
 
 std::string resolvePattern(std::string_view pattern) {
 	std::string resolved = utils::StringUtils::replace(pattern, "${date}", DATE_PATTERN);
-	return utils::StringUtils::replace(resolved, "${consoleTime}", CONSOLE_TIME_PATTERN);
+	resolved = utils::StringUtils::replace(resolved, "${consoleTime}", CONSOLE_TIME_PATTERN);
+	// logback: ${NAME:-default} - the variable, here an environment variable, or the default
+	for (size_t start = resolved.find("${"); start != std::string::npos; start = resolved.find("${", start)) {
+		size_t separator = resolved.find(":-", start);
+		size_t end = resolved.find('}', start);
+		if (end == std::string::npos)
+			break;
+		std::string name = resolved.substr(start + 2, (separator != std::string::npos && separator < end ? separator : end) - start - 2);
+		std::string defaultValue = separator != std::string::npos && separator < end ? resolved.substr(separator + 2, end - separator - 2) : "";
+		std::optional<std::string> value = environmentVariable(name);
+		std::string replacement = value ? *value : defaultValue;
+		resolved.replace(start, end - start + 1, replacement);
+		start += replacement.size();
+	}
+	return resolved;
+}
+
+std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTime) {
+	using namespace std::chrono;
+	auto decimalFormat = [](float seconds) { // DecimalFormat("0.0##", Locale.US): one to three decimals, HALF_EVEN
+		std::string text = std::format("{:.3f}", seconds);
+		while (text.ends_with('0') && text[text.size() - 2] != '.')
+			text.pop_back();
+		return text;
+	};
+	float startSeconds = static_cast<float>(duration_cast<milliseconds>(steady_clock::now() - startTime).count()) / 1000.0f;
+	float processUptime =
+		static_cast<float>(duration_cast<milliseconds>(system_clock::now() - utils::info::SystemInfo::getProcessStartTime()).count()) / 1000.0f;
+	return std::format("{} started in {} seconds (process running for {})", server, decimalFormat(startSeconds), decimalFormat(processUptime));
 }
 
 fs::path getLogFolder() {
@@ -223,6 +269,9 @@ void init(const Config& config) {
 		}
 	}
 
+	// Java: LogLevelHighlightingCompositeConverter.register() and RealGrayCompositeConverter.register() are the colors of PatternLayout
+	if (config.console)
+		Banner::print();
 	if (config.archiveLogs)
 		archiveLogs(config.logFolder);
 	{

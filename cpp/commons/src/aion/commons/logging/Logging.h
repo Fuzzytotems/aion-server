@@ -21,7 +21,9 @@
  * login, chat and game server:
  * <table>
  * <tr><th>logback appender</th><th>output</th></tr>
- * <tr><td>out_console</td><td>console: <tt>HH:mm:ss LEVEL [thread] - message</tt>, level highlighted, thread gray</td></tr>
+ * <tr><td>out_console</td><td>console: <tt>HH:mm:ss LEVEL [thread] logger - message</tt> (thread and logger padded to 50 characters), level
+ * highlighted, thread gray, logger cyan; with the environment variable THREAD_LOG (the start scripts set it empty) its value replaces the
+ * thread and logger part</td></tr>
  * <tr><td>app_console</td><td>log/server_console.log: all messages</td></tr>
  * <tr><td>app_error</td><td>log/server_errors.log: ERROR messages only</td></tr>
  * <tr><td>app_warn</td><td>log/server_warnings.log: WARN messages only</td></tr>
@@ -44,8 +46,8 @@ namespace aion::commons::logging::Logging {
 inline constexpr std::string_view DATE_PATTERN = "%date{\"yyyy-MM-dd'T'HH:mm:ss,SSSXXX\"}";
 /** logback.xml property "consoleTime" */
 inline constexpr std::string_view CONSOLE_TIME_PATTERN = "%date{HH:mm:ss}";
-/** out_console */
-inline constexpr std::string_view CONSOLE_PATTERN = "${consoleTime} %highlight(%-5level) %gray([%thread]) - %message%n";
+/** out_console (upstream b028752d0: thread and logger name, unless the start script sets THREAD_LOG) */
+inline constexpr std::string_view CONSOLE_PATTERN = "${consoleTime} %highlight(%-5level) ${THREAD_LOG:-%threadAndLogger %gray(-) }%message%n";
 /** app_console */
 inline constexpr std::string_view SERVER_CONSOLE_FILE_PATTERN = "${date} %-5level [%thread] %logger - %message%n";
 /** app_warn and app_error */
@@ -87,7 +89,8 @@ struct Config {
 uint64_t parseFileSize(std::string_view value);
 
 /**
- * Java: Logging.init() and the configuration of the root logger by logback.xml. Archives the old log files (see archiveLogs), then replaces
+ * Java: Logging.init() and the configuration of the root logger by logback.xml. Prints the Banner (C++: only with Config::console), archives
+ * the old log files (see archiveLogs), then replaces
  * the root sinks of LoggerFactory with the appenders listed above and sets the root level. Loggers created before keep working and use the
  * new appenders.
  * <p>
@@ -134,8 +137,19 @@ void archiveLogs(const std::filesystem::path& logFolder);
  */
 std::vector<std::string> getPropertyKeys(std::string_view serverName);
 
-/** @return the pattern with the logback.xml properties ${date} and ${consoleTime} replaced */
+/**
+ * @return the pattern with the logback.xml properties ${date} and ${consoleTime} replaced, and every other ${NAME:-default} by the environment
+ *         variable NAME, or default if it is not set (logback's variable substitution; the servers' patterns use only THREAD_LOG)
+ */
 std::string resolvePattern(std::string_view pattern);
+
+/**
+ * Java: Logging.formatStartupMessage (upstream b028752d0): "&lt;server&gt; started in S seconds (process running for U)", both with one to
+ * three decimals (DecimalFormat "0.0##").
+ *
+ * @param startTime when the server's startup began (Java: System.nanoTime() in the server class)
+ */
+std::string formatStartupMessage(std::string_view server, std::chrono::steady_clock::time_point startTime);
 
 /**
  * Java: a logback RollingFileAppender with PatternLayoutEncoder, FixedWindowRollingPolicy (fileNamePattern "&lt;name&gt;.%i&lt;extension&gt;",
