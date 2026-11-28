@@ -88,3 +88,42 @@ TEST(FileAppenderTest, OpenFileCanBeDeletedAndRenamed) {
 	EXPECT_FALSE(std::filesystem::exists(folder.path / "renamed.log"));
 	log(appender, "into the deleted file", spdlog::level::info);
 }
+
+// logback RollingFileAppender with FixedWindowRollingPolicy and SizeBasedTriggeringPolicy (upstream 36bdccb4d)
+TEST(FileAppenderTest, RollsOverAtTheSizeLimitAndKeepsTheWindow) {
+	TempFolder folder("aion_FileAppenderTest_rolling");
+	auto file = folder.path / "server_console.log";
+	FileAppender::RollingPolicy policy{.fileNamePattern = folder.path / "server_console.%i.log", .minIndex = 1, .maxIndex = 2, .maxFileSize = 10};
+	EXPECT_EQ(policy.fileNameOf(3), folder.path / "server_console.3.log");
+	{
+		FileAppender appender(file, std::make_unique<PatternLayout>("%msg%n"), std::nullopt, true, policy);
+		log(appender, "message-1", spdlog::level::info); // 9 bytes + EOL: reaches the limit, the next message rolls over first
+		EXPECT_FALSE(std::filesystem::exists(folder.path / "server_console.1.log"));
+		log(appender, "message-2", spdlog::level::info);
+		EXPECT_EQ(readFile(folder.path / "server_console.1.log"), "message-1" + EOL);
+		EXPECT_EQ(readFile(file), "message-2" + EOL);
+		log(appender, "message-3", spdlog::level::info);
+		log(appender, "message-4", spdlog::level::info); // the window holds two files: message-1 is dropped
+		EXPECT_EQ(readFile(file), "message-4" + EOL);
+		EXPECT_EQ(readFile(folder.path / "server_console.1.log"), "message-3" + EOL);
+		EXPECT_EQ(readFile(folder.path / "server_console.2.log"), "message-2" + EOL);
+		EXPECT_FALSE(std::filesystem::exists(folder.path / "server_console.3.log"));
+	}
+	{
+		// an existing file counts with its size
+		FileAppender appender(file, std::make_unique<PatternLayout>("%msg%n"), std::nullopt, true, policy);
+		log(appender, "message-5", spdlog::level::info);
+		EXPECT_EQ(readFile(file), "message-5" + EOL);
+		EXPECT_EQ(readFile(folder.path / "server_console.1.log"), "message-4" + EOL);
+	}
+}
+
+TEST(FileAppenderTest, RollingWindowIsBoundedLikeLogback) {
+	TempFolder folder("aion_FileAppenderTest_window");
+	FileAppender below(folder.path / "a.log", std::make_unique<PatternLayout>("%msg%n"), std::nullopt, true,
+		FileAppender::RollingPolicy{.fileNamePattern = folder.path / "a.%i.log", .minIndex = 1, .maxIndex = 0});
+	EXPECT_EQ(below.getRollingPolicy()->maxIndex, 1);
+	FileAppender above(folder.path / "b.log", std::make_unique<PatternLayout>("%msg%n"), std::nullopt, true,
+		FileAppender::RollingPolicy{.fileNamePattern = folder.path / "b.%i.log", .minIndex = 1, .maxIndex = 50});
+	EXPECT_EQ(above.getRollingPolicy()->maxIndex, 21);
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -31,8 +32,11 @@
  * <pre>
  * LoggerFactory::configure("ITEM_LOG", {.sinks = {Logging::createFileAppender("item.log", "${date} %message%n", std::nullopt, false)}, .additive = false});
  * </pre>
- * Since logback.xml is not read, the properties it takes from the config files (Discord webhook and avatar URL, gameserver.timezone) must be read by
- * the server before calling init.
+ * Since logback.xml is not read, the properties it takes from the config files (Discord webhook and avatar URL, the rolling limits,
+ * gameserver.timezone) must be read by the server before calling init.
+ * <p>
+ * Every file appender is a logback RollingFileAppender (upstream 36bdccb4d): "x.log" rolls over to "x.%i.log" (FixedWindowRollingPolicy,
+ * indexes 1 to Config::maxRolledFiles) when it reaches Config::maxFileSize (SizeBasedTriggeringPolicy).
  */
 namespace aion::commons::logging::Logging {
 
@@ -68,7 +72,19 @@ struct Config {
 	bool archiveLogs = true;
 	/** write to the console (out_console) */
 	bool console = true;
+	/** &lt;server&gt;.log.max_file_size: rolled file size limit in bytes (logback: SizeBasedTriggeringPolicy maxFileSize, default 100MB) */
+	uint64_t maxFileSize = 100 * 1024 * 1024;
+	/** &lt;server&gt;.log.max_rolled_files: number of rolled files to keep (logback: FixedWindowRollingPolicy maxIndex, default 5) */
+	int32_t maxRolledFiles = 5;
 };
+
+/**
+ * Java: logback's FileSize.valueOf, which converts the maxFileSize property: a number with an optional unit KB, MB or GB (1024-based, case
+ * insensitive, an optional trailing "s" and blanks before the unit), e.g. "100MB".
+ *
+ * @throws IllegalArgumentException "String value [...] is not in the expected format."
+ */
+uint64_t parseFileSize(std::string_view value);
 
 /**
  * Java: Logging.init() and the configuration of the root logger by logback.xml. Archives the old log files (see archiveLogs), then replaces
@@ -113,7 +129,8 @@ void archiveLogs(const std::filesystem::path& logFolder);
  * chatserver.log.chat.discord.*) and gameserver.timezone, which is also a config field, are not included.
  *
  * @param serverName the property prefix of the server: "loginserver", "chatserver" or "gameserver"
- * @return "&lt;serverName&gt;.log.status.discord.webhook_url" and "&lt;serverName&gt;.log.status.discord.avatar_url"
+ * @return "&lt;serverName&gt;.log.status.discord.webhook_url", "&lt;serverName&gt;.log.status.discord.avatar_url",
+ *         "&lt;serverName&gt;.log.max_file_size" and "&lt;serverName&gt;.log.max_rolled_files"
  */
 std::vector<std::string> getPropertyKeys(std::string_view serverName);
 
@@ -121,7 +138,8 @@ std::vector<std::string> getPropertyKeys(std::string_view serverName);
 std::string resolvePattern(std::string_view pattern);
 
 /**
- * Java: a logback FileAppender with PatternLayoutEncoder. The time zone is the one passed to init.
+ * Java: a logback RollingFileAppender with PatternLayoutEncoder, FixedWindowRollingPolicy (fileNamePattern "&lt;name&gt;.%i&lt;extension&gt;",
+ * maxIndex Config::maxRolledFiles) and SizeBasedTriggeringPolicy (Config::maxFileSize). The time zone and the limits are the ones passed to init.
  *
  * @param file the file, relative paths are resolved against the log folder of init (Java: ${logFolder}/file)
  * @param pattern logback conversion pattern; ${date} and ${consoleTime} are resolved

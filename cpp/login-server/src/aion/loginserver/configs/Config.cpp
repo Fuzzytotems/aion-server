@@ -9,6 +9,7 @@
 #include "aion/commons/configuration/PropertiesUtils.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 
 namespace aion::loginserver::configs {
@@ -90,6 +91,23 @@ Logging::Config Config::loadLoggingConfig() {
 	const std::string avatarUrl = merged.getProperty("loginserver.log.status.discord.avatar_url", "");
 	config.statusDiscordWebhookUrl = std::string(commons::utils::StringUtils::trim(webhookUrl));
 	config.statusDiscordAvatarUrl = std::string(commons::utils::StringUtils::trim(avatarUrl));
+	auto trimmed = [&merged](std::string_view key) { return std::string(commons::utils::StringUtils::trim(merged.getProperty(key, ""))); };
+	// logback.xml: <maxFileSize>${loginserver.log.max_file_size}</maxFileSize> and <maxIndex>${loginserver.log.max_rolled_files}</maxIndex>
+	// (C++: an empty or invalid value keeps the default with a warning, where logback reports a configuration error)
+	if (const std::string maxFileSize = trimmed("loginserver.log.max_file_size"); !maxFileSize.empty()) {
+		try {
+			config.maxFileSize = Logging::parseFileSize(maxFileSize);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid loginserver.log.max_file_size, keeping the default", e);
+		}
+	}
+	if (const std::string maxRolledFiles = trimmed("loginserver.log.max_rolled_files"); !maxRolledFiles.empty()) {
+		try {
+			config.maxRolledFiles = commons::utils::parseInt(maxRolledFiles);
+		} catch (const std::exception& e) {
+			logger().warn("Invalid loginserver.log.max_rolled_files, keeping the default", e);
+		}
+	}
 	return config;
 }
 
