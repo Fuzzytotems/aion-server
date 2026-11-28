@@ -73,11 +73,25 @@ public:
 
 	/**
 	 * Adds the channel to the client's channels. A client is in one channel per type, except for ChannelType::JOB: starting classes join both
-	 * main class channels, so up to 2 job channels are kept (a third one replaces both).
+	 * main class channels, so up to 2 job channels are kept (a third one replaces both). Only use via ChatChannels, which tracks channel
+	 * members.
+	 *
+	 * @return Channels the client left to join this one.
 	 */
-	void addChannel(std::shared_ptr<channel::Channel> channel);
+	std::vector<std::shared_ptr<channel::Channel>> addChannel(std::shared_ptr<channel::Channel> channel);
 
-	/** @return true if the client was in the channel (compared by id); false for a null channel */
+	/**
+	 * Only use via ChatChannels, which tracks channel members.
+	 *
+	 * @return Channels the client left.
+	 */
+	std::vector<std::shared_ptr<channel::Channel>> removeAllChannels();
+
+	/**
+	 * Only use via ChatChannels, which tracks channel members.
+	 *
+	 * @return true if the client was in the channel (compared by id); false for a null channel
+	 */
 	bool removeChannel(const std::shared_ptr<channel::Channel>& channel);
 
 	bool isInChannel(const channel::Channel& channel) const;

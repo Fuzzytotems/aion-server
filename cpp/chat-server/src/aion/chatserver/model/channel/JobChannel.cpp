@@ -30,23 +30,26 @@ const std::vector<AliasSet>& aliasSets() {
 	return *sets;
 }
 
-/** Java: classIdentifier.split("\\[f:")[0] */
-std::string withoutFemaleSuffix(std::string_view classIdentifier) {
-	std::vector<std::string> parts = commons::utils::StringUtils::splitJava(classIdentifier, "[f:");
-	if (parts.empty())
-		throw commons::utils::IndexOutOfBoundsException("Index 0 out of bounds for length 0");
-	return parts[0];
+/**
+ * The client requests the channel with its localized class name as is. German, Spanish, French and Polish class names carry the female form in
+ * the client's gender markup, e.g. Kleriker[f:"Klerikerin"], which is the same for male and female characters.
+ *
+ * @return The class name without the female form.
+ */
+std::string_view baseName(std::string_view classIdentifier) {
+	size_t femaleSuffix = classIdentifier.find("[f:");
+	return femaleSuffix == std::string_view::npos ? classIdentifier : classIdentifier.substr(0, femaleSuffix);
 }
 
 } // namespace
 
 JobChannel::JobChannel(int32_t gameServerId, std::optional<Race> race, std::string_view classIdentifier)
-	: RaceChannel(ChannelType::JOB, gameServerId, race), classIdentifiers(withAliases(withoutFemaleSuffix(classIdentifier))) {
+	: RaceChannel(ChannelType::JOB, gameServerId, race), classIdentifiers(withAliases(baseName(classIdentifier))) {
 }
 
 // parameters renamed from the Java names, which would hide members (see RaceChannel::matches)
 bool JobChannel::matches(std::optional<ChannelType> type, int32_t gsId, std::optional<Race> requestedRace, std::string_view requestedClass) const {
-	return RaceChannel::matches(type, gsId, requestedRace, requestedClass) && std::ranges::find(classIdentifiers, requestedClass) != classIdentifiers.end();
+	return RaceChannel::matches(type, gsId, requestedRace, requestedClass) && std::ranges::find(classIdentifiers, baseName(requestedClass)) != classIdentifiers.end();
 }
 
 std::string JobChannel::name() const {

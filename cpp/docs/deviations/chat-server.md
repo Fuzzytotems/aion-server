@@ -35,7 +35,7 @@ not listed behaves like Java.
 | Area | Java | C++ | Reason |
 |---|---|---|---|
 | `ChatChannels.getOrCreate` | Looks for a matching channel, then creates one: two clients requesting a new channel at once can create two channels for the same identifier, each chatting in its own | Finding and creating is one step under the channel map's lock (test `ChatChannelsTest.ConcurrentRequestsOfANewChannelGetTheSameOne`) | Java race |
-| Iteration order | `ConcurrentHashMap<Integer, ...>` order: ascending ids only until they wrap the table (in a 32-slot table id 32 comes before id 5) | Ascending id | Both orders are unspecified. Visible (1) in which channel `getOrCreate` returns when several match: every job channel created by a "[f:" request (see below) matches the plain class name, and C++ always returns the lowest id, Java the first in its table order; (2) if a send throws in the middle of a broadcast (the clients after it get nothing, as in Java) |
+| Iteration order | `ConcurrentHashMap<Integer, ...>` order: ascending ids only until they wrap the table (in a 32-slot table id 32 comes before id 5) | Ascending id | Both orders are unspecified. Visible (1) in which channel `getOrCreate` returns when several match: C++ always returns the lowest id, Java the first in its table order; (2) if a send throws in the middle of a broadcast (the clients after it get nothing, as in Java) |
 | `ChatClient` threads | Plain fields and unsynchronized `ArrayList`s inside a `ConcurrentHashMap`, used by the game server's packets, the client's packets and other clients' broadcasts | A mutex guards identifier, connection, channels and message times; the gag time is atomic | Data races are undefined behaviour |
 | Null (`NullPointerException`) cases | NPE: `name()` of a channel of an unknown race, an unknown channel type in `addChannel`'s switch, a client without `ChatClient` or without identifier | `commons::utils::IllegalStateException` with a text like Java's helpful NPE message | No null references; the same observable result (logged by the packet's `run`, nothing sent) |
 | Index errors | `ArrayIndexOutOfBoundsException`, `StringIndexOutOfBoundsException` | `commons::utils::IndexOutOfBoundsException` with Java's message ("Index 1 out of bounds for length 1", "begin 0, end -1, length 4") | Exception name only |
@@ -74,6 +74,4 @@ These look like bugs but are the specification; tests pin them down.
   a logout after a second registration removes the entry by id but does not close the first connection. Java has the same race: the game
   server's packets run in order, but they are not serialized with the client's packets.
 - **Access levels 0x80 to 0xFF count as staff**: the access level is a signed byte compared with 0 (`ChannelFlowTest.ChannelOfTheOtherRaceIsRefusedUnlessStaff`).
-- **A job channel request with a "[f:" suffix never matches**: the suffix is cut off for the alias lookup but not for the comparison, so each
-  such request creates a new channel (`ChannelTest.JobChannelMatchesEveryLocalizedNameOfItsClass`).
-- Channels are never removed; `CM_CHANNEL_CREATE` and `CM_CHANNEL_JOIN` are read and ignored.
+- `CM_CHANNEL_CREATE` and `CM_CHANNEL_JOIN` are read and ignored.

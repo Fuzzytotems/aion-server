@@ -202,3 +202,31 @@ TEST(ChatChannelsTest, ConcurrentRequestsOfANewChannelGetTheSameOne) {
 
 } // namespace
 } // namespace aion::chatserver::test
+
+namespace aion::chatserver::test {
+namespace {
+
+// upstream 17093650f: channels are removed when their last member leaves or logs out, and a joined channel replaces the old one of its type
+TEST(ChatChannelsTest, ChannelsWithoutMembersAreRemoved) {
+	auto alice = player(Race::ELYOS);
+	auto bob = player(Race::ELYOS);
+	std::string first = request("public_" + unique("map"), "1.0.AION.KOR");
+	auto channel = ChatChannels::join(alice, first);
+	ASSERT_NE(channel, nullptr);
+	EXPECT_EQ(ChatChannels::join(bob, first), channel);
+	EXPECT_EQ(ChatChannels::join(bob, first), channel); // joining again does not count twice
+	EXPECT_EQ(channel->memberCount, 2);
+	EXPECT_TRUE(ChatChannels::leave(*alice, channel));
+	EXPECT_FALSE(ChatChannels::leave(*alice, channel));
+	EXPECT_EQ(ChatChannels::getChannelById(channel->getChannelId()), channel);
+	// a map change: the new region channel replaces the old one, which is removed without members
+	auto next = ChatChannels::join(bob, request("public_" + unique("map"), "1.0.AION.KOR"));
+	ASSERT_NE(next, nullptr);
+	EXPECT_EQ(ChatChannels::getChannelById(channel->getChannelId()), nullptr);
+	ChatChannels::leaveAll(*bob);
+	EXPECT_EQ(ChatChannels::getChannelById(next->getChannelId()), nullptr);
+	EXPECT_FALSE(bob->isInChannel(*next));
+}
+
+} // namespace
+} // namespace aion::chatserver::test
