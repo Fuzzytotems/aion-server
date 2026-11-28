@@ -5,8 +5,7 @@
 #include <mutex>
 #include <string>
 
-#include "aion/commons/network/AConnection.h"
-#include "aion/commons/network/PacketProcessor.h"
+#include "aion/commons/network/netty/NettyConnection.h"
 #include "aion/loginserver/PingPongTask.h"
 #include "aion/loginserver/network/gameserver/GsServerPacket.h"
 #include "aion/loginserver/utils/ScheduledExecutor.h"
@@ -22,11 +21,11 @@ namespace aion::loginserver::network::gameserver {
 /**
  * Object representing connection between LoginServer and GameServer.
  * <p>
- * <b>Packet execution.</b> Deviation: Java executes game server packets on a cached thread pool (PACKET_EXECUTOR) in no particular order, so
- * e.g. a CM_ACCOUNT_DISCONNECTED could be processed before the CM_ACCOUNT_AUTH sent before it, and packets of one connection run concurrently on
- * unsynchronized state. Here they are executed by a PacketProcessor (see NetConnector), which runs the packets of different game servers in
- * parallel but those of one game server one at a time in the order they were received. The exception is CM_GS_PONG, which runs directly on the
- * IO thread (GsClientPacket::isRunOnReceive): queued behind a slow packet (e.g. a CM_ACCOUNT_LIST with thousands of accounts loaded from the
+ * <b>Packet execution.</b> Deviation: Java executes game server packets on a cached thread pool (PACKET_EXECUTOR, "Packets of game servers are
+ * executed concurrently, not one after another"), so e.g. a CM_ACCOUNT_DISCONNECTED could be processed before the CM_ACCOUNT_AUTH sent before it,
+ * and packets of one connection run concurrently on unsynchronized state. Here the packet executor (see NetConnector) runs the packets of
+ * different game servers in parallel but those of one game server one at a time in the order they were received. The exception is CM_GS_PONG,
+ * which runs directly on the IO thread (GsClientPacket::isRunOnReceive, see createPacket): queued behind a slow packet (e.g. a CM_ACCOUNT_LIST with thousands of accounts loaded from the
  * database), the pongs would not be counted and the PingPongTask would close a game server that answers every ping, while in Java they run
  * concurrently with the slow packet.
  * <p>
@@ -37,10 +36,8 @@ namespace aion::loginserver::network::gameserver {
  *
  * @author -Nemesiss-
  */
-class GsConnection : public commons::network::AConnection<GsServerPacket> {
+class GsConnection : public commons::network::netty::NettyConnection<GsServerPacket> {
 public:
-	using Processor = commons::network::PacketProcessor<GsConnection>;
-
 	/** Possible states of GsConnection */
 	enum class State {
 		/** Means that GameServer just connect, but is not authenticated yet */
@@ -50,12 +47,11 @@ public:
 	};
 
 	/**
-	 * @param socket the accepted socket
-	 * @param server the server the connection belongs to
-	 * @param processor executes the received packets (Java: static PACKET_EXECUTOR)
+	 * @param channel the channel of the connection
+	 * @param packetExecutor executes the received packets (Java: static PACKET_EXECUTOR)
 	 * @param pingPongExecutor runs the PingPongTask (Java: static PINGPONG_EXECUTOR)
 	 */
-	GsConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server, std::shared_ptr<Processor> processor,
+	GsConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor,
 		std::shared_ptr<utils::ScheduledExecutor> pingPongExecutor);
 
 	/** @return Current state of this connection. */
@@ -76,16 +72,15 @@ public:
 	std::string toString() const override;
 
 protected:
+	std::unique_ptr<commons::network::packet::ClientPacketBase> createPacket(commons::utils::ByteBuffer& data) override;
+	void writePacket(const GsServerPacket& packet, commons::utils::ByteBuffer& buffer) override;
+	int32_t getMaxPendingPackets() const override { return 10'000; }
 	bool isAuthenticated() const override { return getState() == State::AUTHED; }
 	int64_t getAuthTimeoutMillis() const override { return 30'000; }
-	bool processData(commons::utils::ByteBuffer& data) override;
-	bool writeData(commons::utils::ByteBuffer& data) override;
+	void onConnect() override;
 	void onDisconnect() override;
-	void onServerClose() override;
-	void initialized() override;
 
 private:
-	const std::shared_ptr<Processor> processor;
 	const std::shared_ptr<utils::ScheduledExecutor> pingPongExecutor;
 
 	/** Current state of this connection */

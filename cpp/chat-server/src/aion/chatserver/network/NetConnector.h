@@ -5,7 +5,7 @@
 
 #include "aion/commons/utils/InetSocketAddress.h"
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 class PacketExecutorGroup;
 }
 
@@ -41,6 +41,6 @@ void shutdown();
 std::vector<commons::utils::InetSocketAddress> getBoundAddresses();
 
 /** C++ addition for tests: the packet executors (nullptr if not connected). */
-std::shared_ptr<netty::PacketExecutorGroup> getPacketExecutors();
+std::shared_ptr<commons::network::netty::PacketExecutorGroup> getPacketExecutors();
 
 } // namespace aion::chatserver::network::NetConnector

@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "aion/chatserver/network/gameserver/GsServerPacket.h"
-#include "aion/chatserver/network/netty/NettyConnection.h"
+#include "aion/commons/network/netty/NettyConnection.h"
 
 namespace aion::chatserver::network::gameserver {
 
@@ -17,14 +17,14 @@ namespace aion::chatserver::network::gameserver {
  *
  * @author KID
  */
-class GsConnection : public netty::NettyConnection<GsServerPacket> {
+class GsConnection : public commons::network::netty::NettyConnection<GsServerPacket> {
 public:
 	enum class GameServerConnectionState {
 		CONNECTED,
 		AUTHED
 	};
 
-	GsConnection(std::shared_ptr<netty::ConnectionHandler> channel, Executor packetExecutor);
+	GsConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor);
 
 	GameServerConnectionState getState() const noexcept { return state.load(); }
 

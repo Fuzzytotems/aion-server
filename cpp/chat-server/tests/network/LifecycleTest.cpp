@@ -14,7 +14,7 @@
 #include "aion/chatserver/model/Race.h"
 #include "aion/chatserver/network/NetConnector.h"
 #include "aion/chatserver/network/aion/AionConnection.h"
-#include "aion/chatserver/network/netty/PacketExecutorGroup.h"
+#include "aion/commons/network/netty/PacketExecutorGroup.h"
 #include "aion/chatserver/service/ChatService.h"
 #include "support/FakePeers.h"
 #include "support/TestUtils.h"
@@ -84,7 +84,7 @@ TEST_F(LifecycleTest, ALoginReadBeforeTheDisconnectRunsBeforeTheDisconnectCallba
 	ASSERT_TRUE(log.waitFor("Client connected: 127.0.0.1")) << log.dump();
 
 	// occupy every packet executor thread, so the client's next packets stay queued
-	std::shared_ptr<network::netty::PacketExecutorGroup> executor = network::NetConnector::getPacketExecutors();
+	std::shared_ptr<commons::network::netty::PacketExecutorGroup> executor = network::NetConnector::getPacketExecutors();
 	auto release = std::make_shared<std::atomic<bool>>(false);
 	auto busy = std::make_shared<std::atomic<int32_t>>(0);
 	int blockers[PACKET_EXECUTOR_THREADS] = {};
@@ -121,7 +121,7 @@ TEST_F(LifecycleTest, ShutdownClosesConnectedClientsAndRunsTheirDisconnectCallba
 	alice.client->joinChannel(1, identifier);
 	bob.client->joinChannel(1, identifier);
 
-	std::shared_ptr<network::netty::PacketExecutorGroup> executor = network::NetConnector::getPacketExecutors();
+	std::shared_ptr<commons::network::netty::PacketExecutorGroup> executor = network::NetConnector::getPacketExecutors();
 	auto busy = std::make_shared<std::atomic<int32_t>>(0);
 	int blockers[PACKET_EXECUTOR_THREADS] = {};
 	for (int& blocker : blockers) {

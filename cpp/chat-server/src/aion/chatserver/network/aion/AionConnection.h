@@ -8,7 +8,7 @@
 #include <string_view>
 
 #include "aion/chatserver/network/aion/AbstractServerPacket.h"
-#include "aion/chatserver/network/netty/NettyConnection.h"
+#include "aion/commons/network/netty/NettyConnection.h"
 
 namespace aion::chatserver::model {
 class ChatClient;
@@ -24,14 +24,14 @@ namespace aion::chatserver::network::aion {
  * <p>
  * Java: com.aionemu.chatserver.network.aion.AionConnection
  */
-class AionConnection : public netty::NettyConnection<AbstractServerPacket> {
+class AionConnection : public commons::network::netty::NettyConnection<AbstractServerPacket> {
 public:
 	enum class State {
 		CONNECTED,
 		AUTHED
 	};
 
-	AionConnection(std::shared_ptr<netty::ConnectionHandler> channel, Executor packetExecutor);
+	AionConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor);
 	~AionConnection() override;
 
 	State getState() const noexcept { return state.load(); }

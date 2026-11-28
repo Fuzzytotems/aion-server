@@ -25,8 +25,8 @@ private:
 	int32_t accountId{};
 	/** loginOk is part of session key - its used for security purposes we will check if this is the key what login server sends. */
 	int32_t loginOk{};
-	int32_t unk1{}; // Java: @SuppressWarnings("unused")
-	int32_t unk2{}; // Java: @SuppressWarnings("unused")
+	/** The value the client got in bytes 16-23 of S_RESULT_PASSPORT (SM_UNK_3_5_1), 0 on a normal login. */
+	int64_t passportKey{}; // Java: @SuppressWarnings("unused")
 
 public:
 	/** Constructs new instance of <tt>CM_L2AUTH_LOGIN_CHECK </tt> packet */

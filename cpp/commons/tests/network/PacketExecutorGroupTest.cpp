@@ -14,13 +14,14 @@
 
 #include <gtest/gtest.h>
 
-#include "aion/chatserver/network/netty/PacketExecutorGroup.h"
-#include "support/TestUtils.h"
+#include "aion/commons/network/netty/PacketExecutorGroup.h"
+#include "NetworkTestUtils.h"
 
-namespace aion::chatserver::test {
+using namespace std::chrono_literals;
+using namespace nettest;
+using aion::commons::network::netty::PacketExecutorGroup;
+
 namespace {
-
-using network::netty::PacketExecutorGroup;
 
 /** Flags shared with the tasks; tasks capture it by shared_ptr, so a task that outlives the test (a detached thread) stays valid. */
 struct Flags {
@@ -148,7 +149,8 @@ TEST(PacketExecutorGroupTest, ShutdownRunsQueuedTasksAndDiscardsLaterOnes) {
 
 TEST(PacketExecutorGroupTest, ShutdownDoesNotWaitForARunningTaskBeyondItsTimeout) {
 	// e.g. a chat log insert on a database that does not answer: the thread is left to end after its task, holding the handler
-	LogCapture log({"com.aionemu.chatserver.network.netty.PacketExecutorGroup"});
+	LogCapture& log = LogCapture::instance();
+	log.clear();
 	auto handler = std::make_shared<PacketExecutorGroup>(1);
 	int channel = 0;
 	auto flags = std::make_shared<Flags>();
@@ -162,24 +164,24 @@ TEST(PacketExecutorGroupTest, ShutdownDoesNotWaitForARunningTaskBeyondItsTimeout
 	auto start = std::chrono::steady_clock::now();
 	handler->shutdown(200ms);
 	EXPECT_LT(std::chrono::steady_clock::now() - start, 2s);
-	EXPECT_TRUE(log.contains("Discarded 1 tasks on shutdown")) << log.dump();
-	EXPECT_TRUE(log.contains("1 threads still run a task after the shutdown timeout, they end after it")) << log.dump();
+	EXPECT_TRUE(log.contains("Discarded 1 tasks on shutdown"));
+	EXPECT_TRUE(log.contains("1 threads still run a task after the shutdown timeout, they end after it"));
 	handler.reset(); // the running thread keeps it
 	flags->release = true;
 	waitUntil([&] { return flags->finished.load(); });
 }
 
 TEST(PacketExecutorGroupTest, AnExceptionIsLoggedAndTheChannelContinues) {
-	LogCapture log({"com.aionemu.chatserver.network.netty.PacketExecutorGroup"});
+	LogCapture& log = LogCapture::instance();
+	log.clear();
 	auto handler = std::make_shared<PacketExecutorGroup>(1);
 	int channel = 0;
 	std::atomic<bool> ran = false;
 	handler->execute(&channel, [] { throw std::runtime_error("boom"); });
 	handler->execute(&channel, [&] { ran = true; });
 	EXPECT_TRUE(waitUntil([&] { return ran.load(); }));
-	EXPECT_TRUE(log.contains("Exception while executing a task")) << log.dump();
+	EXPECT_TRUE(log.contains("Exception while executing a task"));
 	handler->shutdown(5s);
 }
 
 } // namespace
-} // namespace aion::chatserver::test

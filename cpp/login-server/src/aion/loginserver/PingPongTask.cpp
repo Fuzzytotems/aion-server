@@ -14,7 +14,7 @@ using network::gameserver::GsConnection;
 
 void PingPongTask::run() {
 	if (unrespondedPingCount.fetch_add(1) <= 2) {
-		connection.sendPacket(std::make_shared<network::gameserver::serverpackets::SM_PING>());
+		connection.sendPacket(network::gameserver::serverpackets::SM_PING());
 	} else {
 		stop();
 		std::shared_ptr<GameServerInfo> gsi = connection.getGameServerInfo();

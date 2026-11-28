@@ -18,7 +18,7 @@ public:
 	explicit SM_PLAY_FAIL(AionAuthResponse response) noexcept : AionServerPacket(0x06), response(response) {}
 
 protected:
-	void writeImpl(LoginConnection& con, commons::utils::ByteBuffer& buf) const override { writeD(buf, getId(response)); }
+	void writeImpl(LoginConnection& con, commons::utils::ByteBuffer& buf) const override { writeC(buf, getId(response)); }
 
 private:
 	/** response - why play fail */

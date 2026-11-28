@@ -132,7 +132,7 @@ bool kickAccountFromGameServer(int32_t accountId, bool notifyDoubleLogin) {
 		return false;
 	// Deviation: the connection may have been cleared by a concurrent disconnect (Java: NullPointerException); the kick request is skipped then
 	if (std::shared_ptr<GsConnection> connection = gsi->getConnection())
-		connection->sendPacket(std::make_shared<network::gameserver::serverpackets::SM_REQUEST_KICK_ACCOUNT>(accountId, notifyDoubleLogin));
+		connection->sendPacket(network::gameserver::serverpackets::SM_REQUEST_KICK_ACCOUNT(accountId, notifyDoubleLogin));
 	return true;
 }
 

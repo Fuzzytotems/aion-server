@@ -74,18 +74,15 @@ TEST_F(ClientFlowTest, AutoCreatedAccountLogsInAndGetsTheServerListWithAllServer
 	auto init = client.readInit();
 	EXPECT_EQ(init.protocolRevision, 0xc621);
 	client.sendPacket(AionTestClient::buildCM_AUTH_GG(init.sessionId));
-	PacketReader gg(client.expectPacket(0x0b));
-	gg.C();
-	EXPECT_EQ(gg.D(), init.sessionId);
+	client.expectPacket(0x0b); // SM_AUTH_GG is empty (upstream bce89b2fc)
 
 	const std::string name = newAccountName();
 	PacketReader ok(client.login(name, "secret", 0x03));
 	ok.C();
 	int32_t accountId = ok.D();
 	int32_t loginOk = ok.D();
-	EXPECT_EQ(ok.D(), 0);
-	EXPECT_EQ(ok.D(), 0);
-	EXPECT_EQ(ok.D(), 0x3ea);
+	EXPECT_EQ(ok.B(20), std::vector<uint8_t>(20)); // upstream bce89b2fc: not used by the 4.8 client
+	EXPECT_EQ(ok.D(), 0); // penalty flags
 
 	EXPECT_EQ(accountIdOf(name), accountId);
 	EXPECT_EQ(database::queryString("SELECT password FROM account_data WHERE id = " + std::to_string(accountId)), utils::AccountUtils::encodePassword("secret"));

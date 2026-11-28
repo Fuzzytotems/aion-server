@@ -2,7 +2,7 @@
 
 The chat server port (`cpp/chat-server`, Java `chat-server`). Since upstream 459b35094 the Java server handles both ports with Netty 4.2
 (`network/NetConnector`, `network/netty`: `NettyConnection`, `ConnectionHandler`, `NettyPipeline`, `PacketEncoder`); the C++ port runs both on
-one commons `NioServer` (asio) and reproduces the Netty pipeline on top of it (`network/netty/ConnectionHandler`). Every difference that can be
+one commons `NioServer` (asio) and reproduces the Netty pipeline on top of it (`network/netty/ConnectionHandler`, in commons since upstream bce89b2fc, which moved the Netty classes there for the login server). Every difference that can be
 observed from outside (wire, logs, timing, threads) is listed here; the code marks the non-obvious ones with a `Deviation:` comment. Anything
 not listed behaves like Java.
 

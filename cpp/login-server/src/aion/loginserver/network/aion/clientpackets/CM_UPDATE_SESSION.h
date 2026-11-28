@@ -21,7 +21,7 @@ public:
 		: AionClientPacket(std::move(buf), std::move(client), opCode) {}
 
 protected:
-	void readImpl() override;
+	void readFields() override;
 	void runImpl() override;
 
 private:

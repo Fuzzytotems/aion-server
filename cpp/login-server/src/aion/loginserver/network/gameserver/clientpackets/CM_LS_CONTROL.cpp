@@ -27,7 +27,7 @@ void CM_LS_CONTROL::runImpl() {
 			break;
 	}
 	bool result = dao::AccountDAO::updateAccount(*account);
-	sendPacket(std::make_shared<serverpackets::SM_LS_CONTROL_RESPONSE>(type, param, account->getId().value(), adminId, result));
+	sendPacket(serverpackets::SM_LS_CONTROL_RESPONSE(type, param, account->getId().value(), adminId, result));
 }
 
 } // namespace aion::loginserver::network::gameserver::clientpackets

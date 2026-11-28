@@ -41,8 +41,14 @@ void AionClientPacket::run() {
 	}
 }
 
-void AionClientPacket::sendPacket(std::shared_ptr<AionServerPacket> msg) const {
-	getConnection()->sendPacket(std::move(msg));
+void AionClientPacket::readImpl() {
+	readFields();
+	if (getRemainingBytes() < 8)
+		readB(getRemainingBytes());
+}
+
+void AionClientPacket::sendPacket(const AionServerPacket& msg) const {
+	getConnection()->sendPacket(msg);
 }
 
 } // namespace aion::loginserver::network::aion

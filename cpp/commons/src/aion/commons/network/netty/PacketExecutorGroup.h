@@ -12,14 +12,14 @@
 #include <unordered_map>
 #include <vector>
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 /**
  * Runs the packets of the connections (and their disconnect callbacks) on a thread pool, the tasks of one connection one at a time in the order
  * they were submitted, the tasks of different connections in parallel.
  * <p>
- * C++ replacement of Netty's DefaultEventExecutorGroup(8, new DefaultThreadFactory("PacketProcessor")) of NetConnector, whose next() executor
- * every connection gets. Deviation: Netty binds each connection to one of the 8 threads, so a slow packet also delays the connections sharing
+ * C++ replacement of Netty's DefaultEventExecutorGroup(8, new DefaultThreadFactory("PacketProcessor")) of the chat and login server's
+ * NetConnector, whose next() executor every client connection gets. Deviation: Netty binds each connection to one of the 8 threads, so a slow packet also delays the connections sharing
  * its thread; here a connection is only bound to its own queue, and up to maxThreads threads ("PacketProcessor-&lt;n&gt;") are started on
  * demand, one for each connection that is ready while no idle thread is left to take it, and stay until shutdown(). The number of queued
  * packets per connection is limited by NettyConnection.
@@ -105,4 +105,4 @@ private:
 	std::vector<bool> exited;
 };
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty

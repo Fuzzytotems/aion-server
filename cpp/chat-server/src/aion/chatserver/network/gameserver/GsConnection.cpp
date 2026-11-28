@@ -18,7 +18,7 @@ const commons::logging::Logger& log() {
 
 } // namespace
 
-GsConnection::GsConnection(std::shared_ptr<netty::ConnectionHandler> channel, Executor packetExecutor)
+GsConnection::GsConnection(std::shared_ptr<commons::network::netty::ConnectionHandler> channel, Executor packetExecutor)
 	: NettyConnection(std::move(channel), std::move(packetExecutor)) {
 }
 

@@ -97,7 +97,7 @@ void CM_BAN::runImpl() {
 	}
 
 	// Respond to GS
-	sendPacket(std::make_shared<serverpackets::SM_BAN_RESPONSE>(type, accountId, ip, time, adminObjId, result));
+	sendPacket(serverpackets::SM_BAN_RESPONSE(type, accountId, ip, time, adminObjId, result));
 }
 
 } // namespace aion::loginserver::network::gameserver::clientpackets

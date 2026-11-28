@@ -50,18 +50,18 @@ public:
 		cryptEngine.updateKey(blowfishKey);
 	}
 
-	/** AionServerPacket.write: [size][opcode + data] with the slice after the size encrypted with length = payload size - 2 */
+	/** AionServerPacket.write (upstream bce89b2fc): [size][opcode + data] with the whole payload after the size encrypted */
 	std::vector<uint8_t> write(std::span<const uint8_t> payload) {
 		writeBuffer[0] = 0;
 		writeBuffer[1] = 0;
 		std::ranges::copy(payload, writeBuffer.begin() + 2);
-		int32_t size = cryptEngine.encrypt(std::span(writeBuffer).subspan(2), static_cast<int32_t>(payload.size()) - 2) + 2;
+		int32_t size = cryptEngine.encrypt(std::span(writeBuffer).subspan(2), static_cast<int32_t>(payload.size())) + 2;
 		writeBuffer[0] = static_cast<uint8_t>(size);
 		writeBuffer[1] = static_cast<uint8_t>(size >> 8);
 		return {writeBuffer.begin(), writeBuffer.begin() + size};
 	}
 
-	/** SM_INIT.writeImpl (payload with opcode) */
+	/** SM_INIT.writeImpl (payload with opcode, upstream bce89b2fc) */
 	std::vector<uint8_t> buildSM_INIT() const {
 		std::vector<uint8_t> payload{0x00};
 		appendInt(payload, sessionId);
@@ -70,13 +70,7 @@ public:
 		payload.insert(payload.end(), modulus.begin(), modulus.end());
 		payload.insert(payload.end(), 16, uint8_t{0});
 		payload.insert(payload.end(), blowfishKey.begin(), blowfishKey.end());
-		payload.insert(payload.end(), 7, uint8_t{0});
-		payload.push_back(0);
-		appendInt(payload, 0);
-		payload.insert(payload.end(), {0, 0});
-		payload.push_back(0);
-		appendInt(payload, 0x3FCE09ED);
-		appendInt(payload, 0);
+		payload.push_back(0); // login mode
 		return payload;
 	}
 
@@ -168,7 +162,7 @@ TEST(AionLoginClientCryptoTest, DecryptsSmInit) {
 	ServerConnection server;
 	AionLoginClientCrypto client;
 	std::vector<uint8_t> frame = server.writeSM_INIT();
-	ASSERT_EQ(frame.size(), 202u); // payload 192 -> encrypted 200 + size header
+	ASSERT_EQ(frame.size(), 186u); // payload 170 -> encrypted 184 + size header
 
 	AionLoginClientCrypto::InitPacket init = client.decryptInitPacket(frame);
 	EXPECT_TRUE(client.isInitialized());
@@ -179,7 +173,7 @@ TEST(AionLoginClientCryptoTest, DecryptsSmInit) {
 	EXPECT_EQ(init.blowfishKey, server.blowfishKey);
 	EXPECT_EQ(client.getBlowfishKey(), server.blowfishKey);
 	EXPECT_TRUE(std::ranges::equal(client.getModulus(), modulusOf(server.encryptedRSAKeyPair->getRSAKeyPair())));
-	ASSERT_EQ(init.body.size(), 200u);
+	ASSERT_EQ(init.body.size(), 184u);
 	EXPECT_TRUE(std::equal(server.lastPayload.begin(), server.lastPayload.end(), init.body.begin()));
 
 	EXPECT_THROW(client.decryptInitPacket(frame), IllegalStateException);
@@ -199,27 +193,24 @@ TEST(AionLoginClientCryptoTest, ServerPacketsAfterInit) {
 		std::vector<uint8_t> payload = randomBytes(size);
 		std::vector<uint8_t> body = client.decryptServerPacket(server.write(payload));
 		ASSERT_EQ(body.size() % 8, 0u);
-		ASSERT_GT(body.size(), size - 1);
-		if (size % 8 == 5) {
-			// the checksum (last word) covers the last payload byte
-			EXPECT_EQ(body.size(), size + 3);
-			EXPECT_TRUE(std::equal(payload.begin(), payload.end() - 1, body.begin()));
-		} else {
-			EXPECT_TRUE(std::equal(payload.begin(), payload.end(), body.begin())) << size;
-		}
+		// upstream bce89b2fc: the whole payload is encrypted, followed by zeroed padding and the checksum
+		ASSERT_GE(body.size(), size + 4);
+		EXPECT_TRUE(std::equal(payload.begin(), payload.end(), body.begin())) << size;
+		EXPECT_TRUE(std::all_of(body.begin() + static_cast<ptrdiff_t>(size), body.end() - 4, [](uint8_t b) { return b == 0; })) << size;
 	}
 }
 
-TEST(AionLoginClientCryptoTest, SmInitWithOverlappingXorKey) {
-	// a first packet with payload size % 8 == 1 loses its last byte to the XOR key word, like in Java
+TEST(AionLoginClientCryptoTest, SmInitOfAnySizeKeepsItsPayload) {
+	// formerly a first packet with payload size % 8 == 1 lost its last byte to the XOR key word
 	ServerConnection server;
 	AionLoginClientCrypto client;
 	std::vector<uint8_t> payload = server.buildSM_INIT();
-	payload.push_back(0x5A); // 193 bytes
+	payload.push_back(0x5A);
 	std::vector<uint8_t> frame = server.write(payload);
-	ASSERT_EQ(frame.size(), 2u + 200u);
+	// upstream bce89b2fc: the whole payload is encrypted, so the XOR key word follows it
+	ASSERT_EQ(frame.size(), 2u + (payload.size() + 8 + 8) / 8 * 8);
 	AionLoginClientCrypto::InitPacket init = client.decryptInitPacket(frame);
-	EXPECT_TRUE(std::equal(payload.begin(), payload.end() - 1, init.body.begin()));
+	EXPECT_TRUE(std::equal(payload.begin(), payload.end(), init.body.begin()));
 	EXPECT_EQ(init.blowfishKey, server.blowfishKey);
 }
 
@@ -386,8 +377,11 @@ TEST(AionLoginClientCryptoTest, DecXORPassInvertsFirstPacketObfuscationForAllSiz
 		std::vector<uint8_t> body(buffer.begin(), buffer.begin() + static_cast<ptrdiff_t>(size));
 		aion::loginserver::network::ncrypt::BlowfishCipher(AionLoginClientCrypto::INITIAL_KEY).decipher(body);
 		AionLoginClientCrypto::decXORPass(body);
+		// upstream bce89b2fc: the bytes from length on are zeroed before the XOR pass
+		std::vector<uint8_t> expected = plain;
+		std::fill(expected.begin() + std::max<int32_t>(0, length), expected.begin() + static_cast<ptrdiff_t>(size), uint8_t{0});
 		size_t keyPos = size == 8 ? 4 : size - 8;
-		EXPECT_TRUE(std::equal(body.begin(), body.begin() + static_cast<ptrdiff_t>(keyPos), plain.begin())) << length;
-		EXPECT_TRUE(std::equal(body.begin() + static_cast<ptrdiff_t>(keyPos + 4), body.end(), plain.begin() + static_cast<ptrdiff_t>(keyPos + 4))) << length;
+		EXPECT_TRUE(std::equal(body.begin(), body.begin() + static_cast<ptrdiff_t>(keyPos), expected.begin())) << length;
+		EXPECT_TRUE(std::equal(body.begin() + static_cast<ptrdiff_t>(keyPos + 4), body.end(), expected.begin() + static_cast<ptrdiff_t>(keyPos + 4))) << length;
 	}
 }

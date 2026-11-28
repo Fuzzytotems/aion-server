@@ -1,4 +1,4 @@
-#include "aion/chatserver/network/netty/PacketExecutorGroup.h"
+#include "aion/commons/network/netty/PacketExecutorGroup.h"
 
 #include <utility>
 
@@ -6,12 +6,12 @@
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
 
-namespace aion::chatserver::network::netty {
+namespace aion::commons::network::netty {
 
 namespace {
 
-const commons::logging::Logger& log() {
-	static const auto* logger = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.chatserver.network.netty.PacketExecutorGroup"));
+const logging::Logger& log() {
+	static const auto* logger = new logging::Logger(logging::LoggerFactory::getLogger("com.aionemu.commons.network.netty.PacketExecutorGroup"));
 	return *logger;
 }
 
@@ -19,7 +19,7 @@ const commons::logging::Logger& log() {
 
 PacketExecutorGroup::PacketExecutorGroup(int32_t maxThreads) : maxThreads(maxThreads) {
 	if (maxThreads < 1)
-		throw commons::utils::IllegalArgumentException("maxThreads must be at least 1, but was " + std::to_string(maxThreads));
+		throw utils::IllegalArgumentException("maxThreads must be at least 1, but was " + std::to_string(maxThreads));
 }
 
 PacketExecutorGroup::~PacketExecutorGroup() {
@@ -48,7 +48,7 @@ void PacketExecutorGroup::execute(const void* channel, Task task) {
 	if (std::cmp_greater(ready.size(), idleThreads) && std::cmp_less(threads.size(), maxThreads)) {
 		size_t index = threads.size();
 		threads.emplace_back([self = shared_from_this(), index] {
-			commons::utils::concurrent::setCurrentThreadName("PacketProcessor-" + std::to_string(index));
+			utils::concurrent::setCurrentThreadName("PacketProcessor-" + std::to_string(index));
 			self->workerLoop(index);
 		});
 		exited.push_back(false);
@@ -160,4 +160,4 @@ size_t PacketExecutorGroup::getChannelCount() const {
 	return queues.size();
 }
 
-} // namespace aion::chatserver::network::netty
+} // namespace aion::commons::network::netty
