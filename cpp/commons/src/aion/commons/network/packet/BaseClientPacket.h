@@ -23,7 +23,7 @@ public:
 
 	/**
 	 * Reads data from the packet buffer by calling readImpl(). A packet that is shorter than readImpl expects (utils::BufferUnderflowException)
-	 * logs a warning with a hex dump of the packet, other exceptions thrown by readImpl are logged as errors together with a hex dump, and false
+	 * logs a warning with a hex dump of the packet (once per opcode), other exceptions thrown by readImpl are logged as errors together with a hex dump, and false
 	 * is returned in both cases (the packet should not be executed and the connection is closed). If readImpl leaves bytes unread, a warning is
 	 * logged once per opcode.
 	 * <p>

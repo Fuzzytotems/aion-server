@@ -31,6 +31,17 @@ bool addPartiallyReadPacket(int32_t opcode) {
 	return partiallyReadPackets.insert(opcode).second;
 }
 
+/**
+ * Opcodes of packets for which the "is shorter than expected" warning was already logged (Java: tooShortPackets, ConcurrentHashMap.newKeySet()).
+ * @return true if the opcode was not in the set yet
+ */
+bool addTooShortPacket(int32_t opcode) {
+	static std::mutex mutex;
+	static std::unordered_set<int32_t> tooShortPackets;
+	std::lock_guard lock(mutex);
+	return tooShortPackets.insert(opcode).second;
+}
+
 } // namespace
 
 bool ClientPacketBase::read() {
@@ -45,8 +56,9 @@ bool ClientPacketBase::read() {
 		return true;
 	} catch (const utils::BufferUnderflowException&) {
 		try {
-			log().warn(fmt::format("{} from {} is shorter than expected:\n{}", toString(), connectionToString(),
-				utils::NetworkUtils::toHex(buf, startPos, buf.limit())));
+			if (addTooShortPacket(getOpCode()))
+				log().warn(fmt::format("{} from {} is shorter than expected:\n{}", toString(), connectionToString(),
+					utils::NetworkUtils::toHex(buf, startPos, buf.limit())));
 		} catch (...) {
 			// logging must not turn a read failure into an exception
 		}
