@@ -36,7 +36,7 @@
 #include "aion/gameserver/services/conquerorAndProtectorSystem/CPInfo.h"
 #include "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.h"
 #include "aion/gameserver/services/drop/DropRegistrationService.h"
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
 #include "aion/gameserver/services/trade/PricesService.h"
 
 namespace aion::gameserver::network::aion::serverpackets::detail {
@@ -94,7 +94,7 @@ int64_t getEarnedKinahFromSoldItems(model::gameobjects::player::PlayerCommonData
 std::optional<int32_t> checkForFactionSwitchCooldownTime(model::Race race, AionConnection* con) {
 	if (auto lookup = lookupFor(&PacketLookupsForTests::factionSwitchCooldownTime))
 		return lookup(race, con);
-	return services::player::MultiClientingService::checkForFactionSwitchCooldownTime(race, con);
+	return services::player::MultiClientService::checkForFactionSwitchCooldownTime(race, con);
 }
 
 int32_t getTownIdByPosition(model::gameobjects::Creature& creature) {

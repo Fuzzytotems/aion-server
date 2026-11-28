@@ -35,6 +35,5 @@ struct ThreadConfig;
 struct WorldConfig;
 
 // Nested types (declared inside their outer class, include its header):
-//   SecurityConfig::MultiClientingRestrictionMode
 
 } // namespace aion::gameserver::configs::main

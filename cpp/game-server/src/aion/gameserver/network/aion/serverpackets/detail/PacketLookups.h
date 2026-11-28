@@ -47,7 +47,7 @@ bool haveUnreadMail(int32_t playerId);
 /** Java: BrokerService.getInstance().getEarnedKinahFromSoldItems(playerCommonData) */
 int64_t getEarnedKinahFromSoldItems(model::gameobjects::player::PlayerCommonData& playerCommonData);
 
-/** Java: MultiClientingService.checkForFactionSwitchCooldownTime(race, con) (Java Integer: std::nullopt for null) */
+/** Java: MultiClientService.checkForFactionSwitchCooldownTime(race, con) (Java Integer: std::nullopt for null) */
 std::optional<int32_t> checkForFactionSwitchCooldownTime(model::Race race, AionConnection* con);
 
 /** Java: TownService.getInstance().getTownIdByPosition(creature) */

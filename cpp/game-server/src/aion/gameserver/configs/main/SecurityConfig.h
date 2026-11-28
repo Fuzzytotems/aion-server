@@ -15,7 +15,6 @@ namespace aion::gameserver::configs::main {
  * Java: com.aionemu.gameserver.configs.main.SecurityConfig
  */
 struct SecurityConfig {
-	enum class MultiClientingRestrictionMode { NONE, FULL, SAME_FACTION };
 
 	static inline std::atomic<bool> AION_BIN_CHECK{false};
 
@@ -61,21 +60,22 @@ struct SecurityConfig {
 	static inline std::atomic<int32_t> SURVEY_DELAY{0};
 
 	/**
-	 * Restriction mode for multi-clienting:<br>
-	 * NONE - Players are allowed to log in multiple accounts per computer<br>
-	 * FULL - Players are allowed to log in one account per computer<br>
-	 * SAME_FACTION - Players are allowed to log in multiple accounts per computer, but only log in characters of the same faction<br>
+	 * Maximum number of characters that can be logged in simultaneously from one computer (0 = unlimited). C++: 0 until the config is loaded,
+	 * like Java's field.
 	 */
-	static inline std::atomic<MultiClientingRestrictionMode> MULTI_CLIENTING_RESTRICTION_MODE{MultiClientingRestrictionMode::NONE};
+	static inline std::atomic<int32_t> MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER{0};
+
+	/** Whether characters of both factions can be logged in from the same IP or MAC address. C++: true until the config is loaded. */
+	static inline std::atomic<bool> MULTI_CLIENT_ALLOW_BOTH_FACTIONS{true};
 
 	/** Comma separated list of MAC addresses that are allowed to log in regardless of the configured restrictions. */
-	static inline ConfigValue<std::unordered_set<std::string>> MULTI_CLIENTING_IGNORED_MAC_ADDRESSES;
+	static inline ConfigValue<std::unordered_set<std::string>> MULTI_CLIENT_IGNORED_MAC_ADDRESSES;
 
 	/**
-	 * If multi-clienting is restricted to the same faction, logging in characters of one faction will be denied until all characters of the opposite
+	 * If characters of both factions are not allowed, logging in characters of one faction will be denied until all characters of the opposite
 	 * faction have been offline for the specified amount of time.
 	 */
-	static inline std::atomic<int32_t> MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES{0};
+	static inline std::atomic<int32_t> MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES{0};
 
 	static inline std::atomic<bool> HDD_SERIAL_LOCK_ENABLE{false};
 

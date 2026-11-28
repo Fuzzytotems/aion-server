@@ -474,9 +474,9 @@ TEST_F(LoginSliceDatabaseFlowTest, CreateCharacterValidation) {
 /**
  * The multi-client reject of enterWorld (m5a-plan.md S-05/S-10 case a): a first character is put into the world by hand with a connection of the
  * same MAC address (a full enter world needs the static data of the whole server, which the stage-2 scenario gate provides), then a second client
- * is rejected by MultiClientingService and the Player that getPlayer created must be released again.
+ * is rejected by MultiClientService and the Player that getPlayer created must be released again.
  */
-TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectedByMultiClientingReleasesThePlayer) {
+TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectedByMultiClientLimitReleasesThePlayer) {
 	loginslice::test::SlicePlayerFactoryScope factory;
 	storeCharacter(4061, "First", 50);
 	storeCharacter(4062, "Second", 51);
@@ -496,9 +496,8 @@ TEST_F(LoginSliceDatabaseFlowTest, EnterWorldRejectedByMultiClientingReleasesThe
 		world::World::getInstance().storeObject(*online);
 	}
 
-	// a second client from the same IP with the same MAC address is rejected (SecurityConfig.MULTI_CLIENTING_RESTRICTION_MODE = FULL)
-	AtomicConfigScope mode(configs::main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE,
-		configs::main::SecurityConfig::MultiClientingRestrictionMode::FULL);
+	// a second client from the same IP with the same MAC address is rejected (SecurityConfig.MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER = 1)
+	AtomicConfigScope<int32_t> mode(configs::main::SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER, 1);
 	const int32_t createdBefore = loginslice::test::createdSlicePlayers.load();
 	const int32_t destroyedBefore = loginslice::test::destroyedSlicePlayers.load();
 	SliceSession second;
@@ -652,9 +651,8 @@ TEST_F(LoginSliceDatabaseFlowTest, AnEnterRejectedOnASecondConnectionKeepsTheAcc
 		ASSERT_EQ(services::player::PlayerService::accountWarehouseActor(*account).get(), online.get()) << "getPlayer made the first character the actor";
 	}
 
-	// the second connection is rejected by MultiClientingService after getPlayer made the second character the actor
-	AtomicConfigScope mode(configs::main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE,
-		configs::main::SecurityConfig::MultiClientingRestrictionMode::FULL);
+	// the second connection is rejected by MultiClientService after getPlayer made the second character the actor
+	AtomicConfigScope<int32_t> mode(configs::main::SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER, 1);
 	const int32_t createdBefore = loginslice::test::createdSlicePlayers.load();
 	second.client.sendPacket(CM_ENTER_WORLD, PacketWriter().D(4102).data);
 	NEXT_PACKET_OR_SKIP(second, rejected);

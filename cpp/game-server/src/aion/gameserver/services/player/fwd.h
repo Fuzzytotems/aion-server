@@ -6,7 +6,7 @@ namespace aion::gameserver::services::player {
 
 class GeneralUpdateTask;
 class ItemUpdateTask;
-class MultiClientingService;
+class MultiClientService;
 class PlayerChatService;
 class PlayerEnterWorldService;
 class PlayerLeaveWorldService;
@@ -17,8 +17,8 @@ class PlayerService;
 class SecurityTokenService;
 
 // Nested types (declared inside their outer class, include its header):
-//   MultiClientingService::AccountSession
-//   MultiClientingService::Identifiers
+//   MultiClientService::AccountSession
+//   MultiClientService::Identifiers
 //   PlayerLimitService::SingletonHolder
 
 } // namespace aion::gameserver::services::player

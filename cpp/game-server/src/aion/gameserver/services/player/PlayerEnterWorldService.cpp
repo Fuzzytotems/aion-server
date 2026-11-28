@@ -147,7 +147,7 @@
 #include "aion/gameserver/services/instance/InstanceService.h"
 #include "aion/gameserver/services/mail/MailService.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
 #include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/services/reward/AdventService.h"
 #include "aion/gameserver/services/reward/VeteranRewardService.h"
@@ -333,15 +333,13 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, int32_t objectI
 			}
 		});
 		try {
-			if (player->isStaff() || MultiClientingService::tryEnterWorld(*player, client)) {
+			std::optional<SM_ENTER_WORLD_CHECK::Msg> denialMsg =
+				player->isStaff() ? std::nullopt : MultiClientService::tryEnterWorld(*player, client);
+			if (!denialMsg) {
 				enterWorld(client, *player);
 				enteredWorld = true;
 			} else {
-				SM_ENTER_WORLD_CHECK::Msg msg = configs::main::SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load() ==
-						configs::main::SecurityConfig::MultiClientingRestrictionMode::SAME_FACTION
-					? SM_ENTER_WORLD_CHECK::Msg::BOTH_FACTIONS
-					: SM_ENTER_WORLD_CHECK::Msg::CONNECTION_ERROR;
-				client->sendPacket(SM_ENTER_WORLD_CHECK(msg));
+				client->sendPacket(SM_ENTER_WORLD_CHECK(*denialMsg));
 			}
 		} catch (...) {
 			player->getController().delete_();

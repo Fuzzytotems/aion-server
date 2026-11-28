@@ -1,9 +1,11 @@
-#include "aion/gameserver/services/player/MultiClientingService.h"
+#include "aion/gameserver/services/player/MultiClientService.h"
 
 #include <chrono>
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/StringUtils.h"
@@ -20,22 +22,22 @@
 
 namespace aion::gameserver::services::player {
 
-static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.player.MultiClientingService");
+static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.player.MultiClientService");
 
-MultiClientingService::AccountSession::AccountSession(int32_t value) : accountId(value) {
+MultiClientService::AccountSession::AccountSession(int32_t value) : accountId(value) {
 }
 
-runtime::Ref<MultiClientingService::AccountSession> MultiClientingService::AccountSession::create(int32_t value) {
-	return runtime::makeRef<MultiClientingService::AccountSession>(value);
+runtime::Ref<MultiClientService::AccountSession> MultiClientService::AccountSession::create(int32_t value) {
+	return runtime::makeRef<MultiClientService::AccountSession>(value);
 }
 
-bool MultiClientingService::AccountSession::isIgnored() {
+bool MultiClientService::AccountSession::isIgnored() {
 	SYNCHRONIZED(*this) {
-		return !identifiers.isEmpty() && configs::main::SecurityConfig::MULTI_CLIENTING_IGNORED_MAC_ADDRESSES.get()->contains(identifiers.getFirst()->mac());
+		return !identifiers.isEmpty() && configs::main::SecurityConfig::MULTI_CLIENT_IGNORED_MAC_ADDRESSES.get()->contains(identifiers.getFirst()->mac());
 	}
 }
 
-void MultiClientingService::AccountSession::putIdentifiers(network::aion::AionConnection* connection) {
+void MultiClientService::AccountSession::putIdentifiers(network::aion::AionConnection* connection) {
 	SYNCHRONIZED(*this) {
 		runtime::Ref<Identifiers> ids = Identifiers::create(connection->getIP(), connection->getMacAddress());
 		if (!identifiers.contains(ids)) {
@@ -46,7 +48,7 @@ void MultiClientingService::AccountSession::putIdentifiers(network::aion::AionCo
 	}
 }
 
-bool MultiClientingService::AccountSession::hasAny(std::string_view ip, std::string_view mac) {
+bool MultiClientService::AccountSession::hasAny(std::string_view ip, std::string_view mac) {
 	SYNCHRONIZED(*this) {
 		for (const runtime::Ref<Identifiers>& ids : identifiers.snapshot()) {
 			if (ids->ip() == ip || ids->mac() == mac)
@@ -56,10 +58,10 @@ bool MultiClientingService::AccountSession::hasAny(std::string_view ip, std::str
 	}
 }
 
-bool MultiClientingService::AccountSession::isExpired() {
+bool MultiClientService::AccountSession::isExpired() {
 	int64_t minLastOnline = commons::utils::currentTimeMillis()
 		- std::chrono::duration_cast<std::chrono::milliseconds>(
-			std::chrono::minutes(configs::main::SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES.load())).count();
+			std::chrono::minutes(configs::main::SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES.load())).count();
 	for (int64_t t : lastCharOnlineTimeMillis.values().toVector()) {
 		if (t > minLastOnline)
 			return false;
@@ -67,35 +69,35 @@ bool MultiClientingService::AccountSession::isExpired() {
 	return true;
 }
 
-void MultiClientingService::AccountSession::enterWorld(model::gameobjects::player::Player& player) {
+void MultiClientService::AccountSession::enterWorld(model::gameobjects::player::Player& player) {
 	lastCharOnlineTimeMillis.put(player.getRace(), std::numeric_limits<int64_t>::max());
 }
 
-void MultiClientingService::AccountSession::leaveWorld(model::gameobjects::player::Player& player) {
+void MultiClientService::AccountSession::leaveWorld(model::gameobjects::player::Player& player) {
 	lastCharOnlineTimeMillis.put(player.getRace(), commons::utils::currentTimeMillis());
 }
 
-bool MultiClientingService::AccountSession::wasPlayingOnSameIpOrMac(model::Race race, int64_t minLastOnlineMillis,
+bool MultiClientService::AccountSession::wasPlayingOnSameIpOrMac(model::Race race, int64_t minLastOnlineMillis,
 	network::aion::AionConnection* con) {
 	std::optional<int64_t> lastOnlineMillis = lastCharOnlineTimeMillis.get(race);
 	return lastOnlineMillis && *lastOnlineMillis > minLastOnlineMillis && hasAny(con->getIP(), con->getMacAddress());
 }
 
-MultiClientingService::AccountSession::~AccountSession() = default;
+MultiClientService::AccountSession::~AccountSession() = default;
 
-MultiClientingService::Identifiers::Identifiers(std::string_view ip, std::string_view mac)
+MultiClientService::Identifiers::Identifiers(std::string_view ip, std::string_view mac)
 	: ip_(ip), mac_(mac) {
 }
 
-runtime::Ref<MultiClientingService::Identifiers> MultiClientingService::Identifiers::create(std::string_view ip, std::string_view mac) {
+runtime::Ref<MultiClientService::Identifiers> MultiClientService::Identifiers::create(std::string_view ip, std::string_view mac) {
 	return runtime::makeRef<Identifiers>(ip, mac);
 }
 
-bool MultiClientingService::Identifiers::equals(const Identifiers& obj) const {
+bool MultiClientService::Identifiers::equals(const Identifiers& obj) const {
 	return ip_ == obj.ip_ && mac_ == obj.mac_;
 }
 
-int32_t MultiClientingService::Identifiers::hashCode() const {
+int32_t MultiClientService::Identifiers::hashCode() const {
 	// Java record hashCode (java.lang.runtime.ObjectMethods): 31 * h + hash(component); String.hashCode over the UTF-16 code units
 	const auto stringHash = [](const std::string& value) {
 		uint32_t hash = 0;
@@ -108,36 +110,31 @@ int32_t MultiClientingService::Identifiers::hashCode() const {
 	return static_cast<int32_t>(h);
 }
 
-MultiClientingService::Identifiers::~Identifiers() = default;
+MultiClientService::Identifiers::~Identifiers() = default;
 
-bool MultiClientingService::tryEnterWorld(model::gameobjects::player::Player& player, network::aion::AionConnection* con) {
+std::optional<network::aion::serverpackets::SM_ENTER_WORLD_CHECK::Msg> MultiClientService::tryEnterWorld(model::gameobjects::player::Player& player,
+	network::aion::AionConnection* con) {
 	using configs::main::SecurityConfig;
-	using MultiClientingRestrictionMode = SecurityConfig::MultiClientingRestrictionMode;
-	const MultiClientingRestrictionMode mode = SecurityConfig::MULTI_CLIENTING_RESTRICTION_MODE.load();
-	if (mode == MultiClientingRestrictionMode::FULL && !SecurityConfig::MULTI_CLIENTING_IGNORED_MAC_ADDRESSES.get()->contains(con->getMacAddress())) {
-		std::string mac = con->getMacAddress();
-		std::string hdd = con->getHddSerial();
-		std::string ip = con->getIP();
-		for (const runtime::Ptr<model::gameobjects::player::Player>& onlinePlayer : world::World::getInstance().getAllPlayers()) {
-			std::shared_ptr<network::aion::AionConnection> onlineConnection = onlinePlayer->getClientConnection();
-			if (!onlineConnection)
-				throw runtime::NullPointerException("onlinePlayer.getClientConnection()"); // Java: NullPointerException
-			bool sameIp = ip == onlineConnection->getIP();
-			bool sameMac = !mac.empty() && mac == onlineConnection->getMacAddress();
-			bool sameHdd = !hdd.empty() && hdd == onlineConnection->getHddSerial();
-			if (sameIp && (sameMac || sameHdd)) {
-				log.info("Blocked {} from logging on (multi-clienting on {} with {})", player.toString(), sameMac ? "MAC address " + mac : "HDD " + hdd,
-					onlinePlayer->toString());
-				return false;
-			}
+	using Msg = network::aion::serverpackets::SM_ENTER_WORLD_CHECK::Msg;
+	int32_t maxClients = SecurityConfig::MULTI_CLIENT_MAX_CLIENTS_PER_COMPUTER.load();
+	if (maxClients > 0 && !SecurityConfig::MULTI_CLIENT_IGNORED_MAC_ADDRESSES.get()->contains(con->getMacAddress())) {
+		std::vector<runtime::Ptr<model::gameobjects::player::Player>> playersOnSameComputer = findPlayersOnSameComputer(con);
+		if (std::cmp_greater_equal(playersOnSameComputer.size(), maxClients)) {
+			std::string players = "[";
+			for (size_t i = 0; i < playersOnSameComputer.size(); i++)
+				players += (i > 0 ? ", " : "") + playersOnSameComputer[i]->toString();
+			players += "]";
+			log.info("Blocked {} from logging on (multi-client limit of {} reached by {})", player.toString(), maxClients, players);
+			return Msg::CONNECTION_ERROR;
 		}
-	} else if (mode == MultiClientingRestrictionMode::SAME_FACTION) {
+	}
+	if (!SecurityConfig::MULTI_CLIENT_ALLOW_BOTH_FACTIONS.load()) {
 		sessionsByAccountId.values().removeIf([](const auto& session) { return session->isExpired(); });
 		SYNCHRONIZED(sessionsByAccountId) {
 			std::optional<int32_t> matchedAccountId = checkForFactionSwitchCooldownTime(player.getRace(), con);
 			if (matchedAccountId) {
 				log.info("Blocked {} from logging on (faction switch cooldown from account ID {})", player.toString(), *matchedAccountId);
-				return false;
+				return Msg::BOTH_FACTIONS;
 			}
 			runtime::Ptr<AccountSession> accountSession =
 				sessionsByAccountId.computeIfAbsent(player.getAccount()->getId(), [](int32_t accountId) { return AccountSession::create(accountId); });
@@ -145,23 +142,35 @@ bool MultiClientingService::tryEnterWorld(model::gameobjects::player::Player& pl
 			accountSession->enterWorld(player);
 		}
 	}
-	return true;
+	return std::nullopt;
 }
 
-void MultiClientingService::onLeaveWorld(model::gameobjects::player::Player& player) {
+std::vector<runtime::Ptr<model::gameobjects::player::Player>> MultiClientService::findPlayersOnSameComputer(network::aion::AionConnection* con) {
+	std::string ip = con->getIP();
+	std::string mac = con->getMacAddress();
+	std::vector<runtime::Ptr<model::gameobjects::player::Player>> players;
+	for (const runtime::Ptr<model::gameobjects::player::Player>& onlinePlayer : world::World::getInstance().getAllPlayers()) {
+		std::shared_ptr<network::aion::AionConnection> onlineCon = onlinePlayer->getClientConnection();
+		if (onlineCon && ip == onlineCon->getIP() && mac == onlineCon->getMacAddress())
+			players.push_back(onlinePlayer);
+	}
+	return players;
+}
+
+void MultiClientService::onLeaveWorld(model::gameobjects::player::Player& player) {
 	runtime::Ptr<AccountSession> session = sessionsByAccountId.get(player.getAccount()->getId());
 	if (session)
 		session->leaveWorld(player);
 }
 
-std::optional<int32_t> MultiClientingService::checkForFactionSwitchCooldownTime(model::Race race, network::aion::AionConnection* con) {
+std::optional<int32_t> MultiClientService::checkForFactionSwitchCooldownTime(model::Race race, network::aion::AionConnection* con) {
 	using configs::main::SecurityConfig;
-	if (SecurityConfig::MULTI_CLIENTING_IGNORED_MAC_ADDRESSES.get()->contains(con->getMacAddress()))
+	if (SecurityConfig::MULTI_CLIENT_IGNORED_MAC_ADDRESSES.get()->contains(con->getMacAddress()))
 		return std::nullopt;
 	model::Race oppositeRace = race == model::Race::ELYOS ? model::Race::ASMODIANS : model::Race::ELYOS;
 	int64_t minLastOnlineMillis = commons::utils::currentTimeMillis()
 		- std::chrono::duration_cast<std::chrono::milliseconds>(
-			std::chrono::minutes(SecurityConfig::MULTI_CLIENTING_FACTION_SWITCH_COOLDOWN_MINUTES.load())).count();
+			std::chrono::minutes(SecurityConfig::MULTI_CLIENT_FACTION_SWITCH_COOLDOWN_MINUTES.load())).count();
 	for (const auto& session : sessionsByAccountId.values().toVector()) {
 		if (!session->isIgnored() && session->wasPlayingOnSameIpOrMac(oppositeRace, minLastOnlineMillis, con))
 			return session->accountId; // Java: findAny
