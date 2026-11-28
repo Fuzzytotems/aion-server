@@ -185,7 +185,7 @@ TEST(PatternLayoutTest, StatusDiscordPatternSeparatesExceptions) {
 
 	utils::IllegalStateException exception("mailbox full", std::make_exception_ptr(std::runtime_error("disk")));
 	std::string output = logWithLayout(pattern, [&](const Logger& log) { log.error("Could not send mail", exception); });
-	EXPECT_EQ(output, "MailService [main]|https://server/ERROR.png|Could not send mail" + EOL + "```qml" + EOL + throwableText(exception) + "```");
+	EXPECT_EQ(output, "MailService [main]|https://server/ERROR.png|Could not send mail" + EOL + "```yml" + EOL + throwableText(exception) + "```");
 	EXPECT_NE(output.find("Caused by: std::runtime_error: disk" + EOL), std::string::npos);
 }
 

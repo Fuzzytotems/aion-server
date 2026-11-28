@@ -94,7 +94,7 @@ runtime::Ref<PanesterraTeam> PanesterraTeam::create(PanesterraFaction value) {
 	return runtime::makeRef<PanesterraTeam>(value);
 }
 
-// Java PanesterraTeam.java:65-70
+// Java PanesterraTeam.java:64-69
 void PanesterraTeam::moveTeamMembersToOriginPosition() {
 	forEachMember([this](model::gameobjects::player::Player& player) {
 		if (player.getWorldId() == 400030000)
@@ -102,7 +102,7 @@ void PanesterraTeam::moveTeamMembersToOriginPosition() {
 	});
 }
 
-// Java PanesterraTeam.java:72-78
+// Java PanesterraTeam.java:71-77
 void PanesterraTeam::forEachMember(const std::function<void(model::gameobjects::player::Player&)>& consumer) {
 	for (int32_t playerId : teamMembers.snapshot()) {
 		runtime::Ptr<model::gameobjects::player::Player> player = world::World::getInstance().getPlayer(playerId);
@@ -111,7 +111,7 @@ void PanesterraTeam::forEachMember(const std::function<void(model::gameobjects::
 	}
 }
 
-// Java PanesterraTeam.java:80-91
+// Java PanesterraTeam.java:79-90
 void PanesterraTeam::movePlayerToOriginPosition(model::gameobjects::player::Player& player) {
 	runtime::Ptr<world::WorldPosition> targetPosition;
 	switch (faction) {
@@ -138,33 +138,34 @@ void PanesterraTeam::movePlayerToOriginPosition(model::gameobjects::player::Play
 		services::teleport::TeleportService::teleportTo(player, *targetPosition);
 }
 
-// Java PanesterraTeam.java:93-95
+// Java PanesterraTeam.java:92-94
 void PanesterraTeam::movePlayerToStartPosition(model::gameobjects::player::Player& player) {
 	if (!startPosition) // Java: TeleportService.teleportTo(player, null) dereferences it
 		throw runtime::NullPointerException("PanesterraTeam.startPosition of PEACE/BALAUR");
 	services::teleport::TeleportService::teleportTo(player, *startPosition);
 }
 
-// Java PanesterraTeam.java:97-101
+// Java PanesterraTeam.java:96-100
 void PanesterraTeam::addTeamMemberIfAbsent(int32_t playerId) {
 	if (teamMembers.contains(playerId))
 		return;
 	teamMembers.add(playerId);
 }
 
-// Java PanesterraTeam.java:103-105
+// Java PanesterraTeam.java:102-104
 bool PanesterraTeam::isTeamMember(int32_t playerId) {
 	return teamMembers.contains(playerId);
 }
 
-// Java PanesterraTeam.java:107-110, corrected (owner's decision 2026-10-19, P5-12b.md): Java's teamMembers.remove(playerId) with an int is
-// List.remove(int index), which takes a member's object id as an index; the C++ removes the id, Java's remove(Integer.valueOf(playerId))
+// Java 51d7a19cb PanesterraTeam.java:107-110, corrected (owner's decision 2026-10-19, P5-12b.md): Java's teamMembers.remove(playerId) with an
+// int is List.remove(int index), which takes a member's object id as an index; the C++ removes the id, Java's remove(Integer.valueOf(playerId)).
+// Upstream 15eaf77b6 removed the method ("bugged and unused"); the C++ keeps it with the correction (no caller on either side, P5-12b.md)
 void PanesterraTeam::removeTeamMember(int32_t playerId) {
 	if (teamMembers.contains(playerId))
 		teamMembers.remove(playerId);
 }
 
-// Java PanesterraTeam.java:124-126
+// Java PanesterraTeam.java:118-120
 int32_t PanesterraTeam::getMemberCount() {
 	return teamMembers.size();
 }

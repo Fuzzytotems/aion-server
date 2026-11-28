@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-#include "aion/gameserver/runtime/collections/ArrayList.h"
+#include "aion/gameserver/runtime/collections/ArrayDeque.h"
 #include "aion/gameserver/runtime/collections/ConcurrentHashMap.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
@@ -26,8 +26,8 @@ private:
 		const int32_t accountId{};
 		runtime::ConcurrentHashMap<model::Race, int64_t> lastCharOnlineTimeMillis{
 			AION_LOCK_CLASS(MultiClientingService::AccountSession::lastCharOnlineTimeMillis#stripe)};
-		runtime::LinkedList<runtime::Ref<MultiClientingService::Identifiers>> identifiers{
-			AION_LOCK_CLASS(MultiClientingService::AccountSession::identifiers)}; // Java: = new LinkedList<>()
+		runtime::ArrayDeque<runtime::Ref<MultiClientingService::Identifiers>> identifiers{
+			AION_LOCK_CLASS(MultiClientingService::AccountSession::identifiers)}; // Java: = new ArrayDeque<>(2)
 	protected:
 		explicit AccountSession(int32_t accountId);
 	public:

@@ -35,8 +35,8 @@ Tests: `python -m unittest discover -s tests -t .` from this directory (CTest `t
 - Region override (`XmlMerger.java:233`): for country codes 1 usa, 2 europe, 4 japan, 5 china, 6 taiwan, 7 russia,
   `<base>_<region><ext>` replaces the path only if it is a regular file (also for directory imports). Default code 99 (GSConfig).
 - File import: the root element and its attributes form the holder.
-- Directory import: `.xml` files (case-insensitive suffix) depth-first pre-order; entries at each level in ordinal order of the upper-cased
-  name (NTFS enumeration). Non-ASCII names and names differing only in case are rejected. `singleRootTag` must be true (otherwise
+- Directory import: `.xml` files (case-insensitive suffix) sorted in File.compareTo order of their paths (upstream 2cd926056; Java on
+  Windows: case-insensitive, `\` separators). Non-ASCII names and names differing only in case are rejected. `singleRootTag` must be true (otherwise
   XmlMerger writes an unbalanced document); the first file's root is the holder, later roots and their attributes are dropped, all
   children are appended. An element nested in a file with the root's tag name is rejected (XmlMerger.java:307 would drop its end tag).
 - A later import of the same holder tag replaces the earlier holder (JAXB field assignment); listed in `replacedHolders`.

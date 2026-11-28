@@ -59,6 +59,15 @@ TEST(StringUtilsTest, CaseInsensitive) {
 	EXPECT_EQ(StringUtils::replace("a.b.c", ".", "::"), "a::b::c");
 }
 
+TEST(StringUtilsTest, CompareToIgnoreCaseLikeJava) {
+	EXPECT_EQ(StringUtils::compareToIgnoreCase(u"Hello", u"hELLO"), 0);
+	EXPECT_EQ(StringUtils::compareToIgnoreCase(u"abc", u"ABD"), 'c' - 'd');
+	EXPECT_EQ(StringUtils::compareToIgnoreCase(u"ab", u"ABC"), -1) << "an equal prefix compares by length";
+	EXPECT_LT(StringUtils::compareToIgnoreCase(u"_", u"a"), 0) << "compared lower-cased: '_' (0x5F) before 'a' (0x61)";
+	EXPECT_EQ(StringUtils::compareToIgnoreCase(u"_", u"A"), '_' - 'a') << "also before 'A': its upper case differs, so 'a' is compared";
+	EXPECT_EQ(StringUtils::compareToIgnoreCase(u"Été", u"éTÉ"), 0);
+}
+
 TEST(StringUtilsTest, MalformedUtf8LikeJavaStringDecoding) {
 	const std::u16string REPL = u"\uFFFD";
 	// one replacement character per malformed subsequence (Java: String.decodeUTF8_UTF16 with malformed3/malformed4)

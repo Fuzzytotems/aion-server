@@ -11,10 +11,9 @@ namespace aion::gameserver::questEngine::handlers::models::xmlQuest::events {
 /**
  * Java com.aionemu.gameserver.questEngine.handlers.models.xmlQuest.events.OnKillEvent.
  * <p>
- * C++ notes (P4-08): `getMonsters()` returns the bound list; Java lazily stores a new empty list when none was bound. XmlQuest.register and
- * XmlQuestData.getAlternativeNpcs call getMonsters() at QuestEngine load, so after registration Java's `monster == null` test in operate is
- * dead: an event without <monster> children still runs the empty loop and `complite.operate(env)`. The port of operate (P5-06) must treat the
- * empty vector as that non-null empty list (no early return for an empty `monster`).
+ * C++ notes (P4-08): `getMonsters()` returns the bound list, empty without <monster> children (Java: List.of() for the null field). JAXB
+ * leaves the field null exactly when there are no <monster> children, so the empty vector is Java's `monster == null` in operate. Upstream
+ * 15eaf77b6 stopped getMonsters() from storing an empty list, so that test is live again: an event without <monster> does nothing.
  *
  * @author Mr. Poke, Bobobear, Pad
  */

@@ -422,6 +422,9 @@ Rules:
 2. Region override (XmlMerger.java:233): for `GSConfig::SERVER_COUNTRY_CODE` in {1 usa, 2 europe, 4 japan, 5 china, 6 taiwan, 7 russia}, use `<base>_<region><ext>` **only if it is a regular file**. Directory overrides never apply. Today only goodslists has variants.
 3. File import: the root element tag must be one of the 92 StaticData element names, otherwise error (JAXB: unexpected element). If the same tag is imported twice, the second one replaces the first (JAXB field assignment); a warning is logged.
 4. Directory import:
+   - Upstream 2cd926056 (wave 0 of the 2026-11 sync) replaced the two points below: XmlUtil.listFiles sorts the `Files.find` results in
+     `File.compareTo` order (Windows: `compareToIgnoreCase` of the path strings), and StaticDataImports does the same
+     (`commons::utils::JavaFile`). The NTFS order differed for quest_script_data, zones and global_drops/rules.
    - List `.xml` files depth-first pre-order. Directories are descended where they appear.
    - Entries at each level sorted by ordinal comparison of the uppercased UTF-16 name. This is what Java's `Files.find` sees on NTFS. **`os.scandir` (FindFirstFile) order equals this comparator for all 12 imported directories (584 files; 664 imported files and 92 imports in total).** This is re-checked on every run by `tools/oracle/tests/test_real_data.py` and by the C++ `StaticDataImportsTest` against native enumeration. All 6 goodslists region variants give identical count lines.
    - With `singleRootTag="true"`, the first file's root tag selects the holder and its root attributes are bound. Later files' root tags and attributes are skipped; their children are appended to the same holder instance.

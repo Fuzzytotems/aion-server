@@ -27,7 +27,6 @@ enum class ItemType : std::uint8_t;
 class ItemUseLimits;
 enum class LeftHandSlot : std::uint8_t;
 struct MultiReturnItem;
-class RequireSkill;
 class ReturnLocList;
 class Stigma;
 class TradeinItem;

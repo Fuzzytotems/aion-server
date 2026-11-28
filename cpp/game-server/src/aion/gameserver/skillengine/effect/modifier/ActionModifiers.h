@@ -10,8 +10,7 @@ namespace aion::gameserver::skillengine::effect::modifier {
 /**
  * Java com.aionemu.gameserver.skillengine.effect.modifier.ActionModifiers.
  * <p>
- * C++ notes (P4-08): `getActionModifiers()` returns the bound list; Java creates an empty list on first access when none was bound, which the
- * empty vector stands for.
+ * C++ notes (P4-08): `getActionModifiers()` returns the bound list, empty when none was bound (Java: List.of(), upstream 15eaf77b6).
  *
  * @author ATracer
  */

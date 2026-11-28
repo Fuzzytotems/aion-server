@@ -47,7 +47,7 @@ void ItemGroupsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlPar
 		petFood.insert_or_assign(foodType, std::move(itemIds));
 		if (foodType != FoodType::EXCLUDES && foodType != FoodType::STINKY)
 			petFoodCount += count;
-		// Java: food.clear() (the C++ lists stay, see the class comment)
+		// Java: if (!food.isEmpty()) food.clear() (the C++ lists stay, see the class comment)
 	}
 }
 

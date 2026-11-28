@@ -76,8 +76,6 @@ private:
 	runtime::Field<int32_t> activationCount{0};
 	// ChargeInfo derives ActionObserver (RefCounted, Ref-held by ObserveController, ItemEquipmentListener.java:70), no part (ChargeInfo.h)
 	runtime::Field<runtime::Ref<items::ChargeInfo>> conditioningInfo{};
-	// fieldmap.toml: StatFunction is static data or a run-time RcStatFunction (ItemEquipmentListener.java:147 adds `new StatAddFunction`)
-	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>>> currentModifiers{};
 	runtime::Field<int32_t> tuneCount{0};
 	runtime::Field<runtime::Ref<items::RandomBonusEffect>> bonusStatsEffect{};
 	runtime::Field<runtime::Ref<items::RandomBonusEffect>> fusionedItemBonusStatsEffect{};
@@ -365,12 +363,6 @@ public:
 	int32_t calculateAvailableChargeLevel(player::Player& player);
 
 	const templates::item::Improvement* getImprovement();
-
-	/** @return the live modifier list (created lazily); static data modifiers enter it through StatFunction::ofTemplate */
-	runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> getCurrentModifiers();
-
-	/** Java copies the elements into the live list (getCurrentModifiers().addAll) */
-	void setCurrentModifiers(const std::vector<runtime::Ptr<stats::calc::functions::StatFunction>>& currentModifiers);
 
 	/** @return the idian stone, null if there is none (Java checks it for null, PolishChargeCondition.java:24) */
 	runtime::Ptr<items::IdianStone> getIdianStone() const;

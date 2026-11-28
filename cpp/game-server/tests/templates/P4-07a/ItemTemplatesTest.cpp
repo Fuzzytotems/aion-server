@@ -27,7 +27,6 @@
 #include "aion/gameserver/model/templates/item/ItemAttackTypeInfo.h"
 #include "aion/gameserver/model/templates/item/ItemQualityInfo.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
-#include "aion/gameserver/model/templates/item/RequireSkill.h"
 #include "aion/gameserver/model/templates/item/ReturnLocList.bind.h"
 #include "aion/gameserver/model/templates/item/Stigma.bind.h"
 #include "aion/gameserver/model/templates/item/TradeinItem.bind.h"
@@ -388,9 +387,6 @@ TEST(ItemTemplatePartsTest, SmallAccessors) {
 	EXPECT_FLOAT_EQ(bindXml<WeaponStats>(R"(<weapon_stats min_damage="11" max_damage="20"/>)")->getMeanDamage(), 15.5f);
 	EXPECT_EQ(bindXml<AssemblyItem>(R"(<item id="3" parts="1 2 3"/>)")->getParts(), (std::vector<int32_t>{1, 2, 3}));
 	EXPECT_EQ(AssembledItem().getId(), 0);
-	RequireSkill requireSkill;
-	requireSkill.getSkillIds().push_back(5);
-	EXPECT_EQ(requireSkill.getSkillIds(), (std::vector<int32_t>{5}));
 }
 
 } // namespace

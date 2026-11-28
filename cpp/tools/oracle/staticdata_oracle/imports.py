@@ -4,11 +4,11 @@ Java references (game-server/src/com/aionemu/gameserver):
 - dataholders/loadingutils/XmlMerger.java:208-228 processImportElement: file vs directory, singleRootTag, recursiveImport
 - dataholders/loadingutils/XmlMerger.java:233-243 applyCountryOverride: <base>_<region><ext>, only if it is a regular file
 - dataholders/loadingutils/XmlMerger.java:275-318 importFile: first file keeps its root start tag, singleRootTag skips all root end tags
-- utils/xml/XmlUtil.java:114 listFiles: Files.find, depth-first pre-order, regular files whose path ends with ".xml" (case-insensitive)
+- utils/xml/XmlUtil.java:114 listFiles: Files.find, regular files whose path ends with ".xml" (case-insensitive), sorted (upstream
+  2cd926056: paths.map(Path::toFile).sorted())
 
-Directory order: Files.find returns entries in the order the file system enumerates them. On NTFS that is the ordinal order of the
-upper-cased UTF-16 names. The oracle sorts explicitly with that comparator and rejects non-ASCII names (NTFS upcase-table ordering for
-them is not modelled). The real-data test checks that os.scandir order matches on the machine that runs it.
+Directory order: File.compareTo of the paths. The oracle models Java on Windows (WinNTFileSystem.compare: String.compareToIgnoreCase of the
+path strings with '\' separators) and rejects non-ASCII names (their case mapping is not modelled).
 """
 
 from __future__ import annotations
@@ -51,26 +51,32 @@ def java_parse_boolean(value: str) -> bool:
 	return value.lower() == "true"
 
 
-def ntfs_sort_key(name: str) -> str:
+def ascii_name(name: str) -> str:
 	for ch in name:
 		if ord(ch) > 0x7E or ord(ch) < 0x20:
-			raise OracleError(f"file name {name!r} contains a non-ASCII or control character; NTFS upcase ordering is not modelled")
-	return name.upper()
+			raise OracleError(f"file name {name!r} contains a non-ASCII or control character; its case mapping is not modelled")
+	return name
+
+
+def windows_file_key(path: Path) -> str:
+	"""File.compareTo on Windows: compareToIgnoreCase compares toLowerCase(toUpperCase(c)) per character, i.e. the lower-cased ASCII path
+	with '\' separators."""
+	return str(path).replace("/", "\\").lower()
 
 
 def list_xml_files(root: Path, recursive: bool) -> list[Path]:
-	"""XmlUtil.listFiles(root, recursive) with NTFS enumeration order."""
+	"""XmlUtil.listFiles(root, recursive): the Files.find results sorted in File.compareTo order (Java on Windows)."""
 	result: list[Path] = []
 
 	def walk(directory: Path) -> None:
 		names = os.listdir(directory)
 		keys: dict[str, str] = {}
 		for name in names:
-			key = ntfs_sort_key(name)
+			key = ascii_name(name).lower()
 			if key in keys:
-				raise OracleError(f"{directory}: {keys[key]!r} and {name!r} differ only in case; order is undefined on NTFS")
+				raise OracleError(f"{directory}: {keys[key]!r} and {name!r} differ only in case; their order is the file system's")
 			keys[key] = name
-		for name in sorted(names, key=ntfs_sort_key):
+		for name in names:
 			path = directory / name
 			if path.is_symlink():
 				raise OracleError(f"{path}: symbolic links are not modelled")
@@ -84,7 +90,7 @@ def list_xml_files(root: Path, recursive: bool) -> list[Path]:
 				raise OracleError(f"{path}: neither a regular file nor a directory")
 
 	walk(root)
-	return result
+	return sorted(result, key=windows_file_key)
 
 
 def apply_country_override(path: Path, country_code: int) -> tuple[Path, bool]:
