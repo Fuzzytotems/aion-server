@@ -92,7 +92,7 @@ TEST_F(GameServerTest, ShutdownQueriesReadTheShutdownHook) {
 	ShutdownHook::setExitFunctionForTests(&noExit);
 	std::atomic<bool> release{false};
 	ShutdownHook::Operations ops;
-	ops.worldHasPlayers = [&release] {
+	ops.countdownNeeded = [&release] {
 		while (!release.load())
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		return false;

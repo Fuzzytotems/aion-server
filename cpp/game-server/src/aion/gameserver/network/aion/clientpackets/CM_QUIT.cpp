@@ -52,8 +52,7 @@ void CM_QUIT::runImpl() {
 			for (runtime::Ptr<model::account::PlayerAccountData> plAccData : con->getAccount()->getPlayerAccDataList())
 				plAccData->setCharBanInfo(dao::PlayerPunishmentsDAO::getCharBanInfo(plAccData->getPlayerCommonData()->getPlayerObjId()));
 		}
-		// java-race: CM_QUIT's leaveWorld is not synchronized with AionConnection.safeLogout, so a shutdown during CM_QUIT can run it twice (m5a-plan.md §7)
-		services::player::PlayerLeaveWorldService::leaveWorld(*player);
+		services::player::PlayerLeaveWorldService::registerLeaveWorld(*player);
 	}
 	if (stayConnected)
 		sendPacket(serverpackets::SM_QUIT_RESPONSE(charEditScreen));

@@ -15,7 +15,6 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/commons/utils/concurrent/ExecuteWrapper.h"
 #include "aion/commons/utils/concurrent/RunnableStatsManager.h"
-#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/ThreadConfig.h"
 #include "aion/gameserver/configs/network/NetworkConfig.h"
 #include "aion/gameserver/configs/network/PffConfig.h"
@@ -296,22 +295,15 @@ void AionConnection::onDisconnect() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::INSTANT});
 	if (runtime::Ptr<ConnectionAliveChecker> checker = connectionAliveChecker.get())
 		checker->stop(); // C++: null if initialized() failed before creating it
-	if (GameServer::isShuttingDownSoon()) { // client crashing during last seconds of countdown
-		safeLogout(); // instant synchronized leaveWorld to ensure completion before onServerClose
-		return;
-	}
-
 	loginserver::LoginServer::getInstance().onDisconnect(this);
 
 	runtime::Ptr<model::account::Account> acc = getAccount();
 	std::string msg = !acc ? "" : " " + acc->toString();
 	runtime::Ptr<Player> player = getActivePlayer();
-	if (player) {
+	if (player && !services::player::PlayerLeaveWorldService::isLeavingWorld(*player)) {
 		msg += " " + player->toString() + " (client crash or connection loss)";
 		player->getMoveController()->resetToLastPositionFromClient(); // avoid mapkick and bugging through walls
-		int64_t millisSinceLastClientPacket = commons::utils::currentTimeMillis() - lastClientMessageTime.get();
-		int64_t delayMs = std::max<int64_t>(0, std::chrono::milliseconds(std::chrono::seconds(10)).count() - millisSinceLastClientPacket);
-		services::player::PlayerLeaveWorldService::leaveWorldDelayed(*player, delayMs); // delayed to prevent ctrl+alt+del / close window exploit
+		services::player::PlayerLeaveWorldService::registerLeaveWorld(*player);
 	}
 
 	if (msg.empty())
@@ -339,24 +331,6 @@ int64_t AionConnection::getMaxSendStallMillis() const {
 void AionConnection::onServerClose() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::SHUTDOWN});
 	close();
-	safeLogout();
-}
-
-void AionConnection::safeLogout() {
-	SYNCHRONIZED(*this) {
-		runtime::Ptr<Player> player = getActivePlayer();
-		if (!player) // player was already saved
-			return;
-		try {
-			services::player::PlayerLeaveWorldService::leaveWorld(*player);
-		} catch (...) {
-			try {
-				log.errorCurrentException("Error saving " + player->toString());
-			} catch (...) {
-				log.errorCurrentException("Error saving player");
-			}
-		}
-	}
 }
 
 void AionConnection::encrypt(commons::utils::ByteBuffer& buf) {

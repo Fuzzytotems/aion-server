@@ -243,7 +243,7 @@ void NioServer::scheduleTimeoutCheck() {
 
 void NioServer::closeTimedOutConnections() {
 	int64_t nowMillis = utils::currentTimeMillis();
-	std::vector<std::shared_ptr<AConnectionBase>> connections = snapshotConnections();
+	std::vector<std::shared_ptr<AConnectionBase>> connections = findAllConnections();
 	for (const auto& connection : connections) {
 		try {
 			connection->closeIfTimedOut(nowMillis);
@@ -557,7 +557,7 @@ size_t NioServer::getActiveConnectionCount() const {
 	return context->activeConnections.size();
 }
 
-std::vector<std::shared_ptr<AConnectionBase>> NioServer::snapshotConnections() const {
+std::vector<std::shared_ptr<AConnectionBase>> NioServer::findAllConnections() const {
 	std::lock_guard lock(context->mutex);
 	return {context->activeConnections.begin(), context->activeConnections.end()};
 }

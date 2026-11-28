@@ -1808,6 +1808,20 @@ TEST(M5aScenario, Run) {
 
 		// Q2: the stored position is the region move target and the character is offline again
 		const std::string player = std::to_string(a.playerId);
+		// Since upstream d22a9af5b CM_QUIT registers the leave world task (PlayerLeaveWorldService.registerLeaveWorld): the character leaves the
+		// world 10 s after its last move or fight, so the logout's saves may come after SM_QUIT_RESPONSE. Wait for players.online = 0.
+		auto awaitOffline = [&](std::string_view what) {
+			const auto deadline = std::chrono::steady_clock::now() + 20s;
+			while (database.queryLong(schema, "SELECT online FROM players WHERE id = " + player).value_or(1) != 0) {
+				if (std::chrono::steady_clock::now() > deadline) {
+					ADD_FAILURE() << what << ": the character did not leave the world within 20 s";
+					return;
+				}
+				std::this_thread::sleep_for(200ms);
+			}
+			std::this_thread::sleep_for(200ms); // the task leaves PlayerLeaveWorldService's map right after the online flag is stored
+		};
+		awaitOffline("Q2");
 		const auto rows = database.queryRows(schema, "SELECT online, world_id, x, y, z, old_level, last_online FROM players WHERE id = " + player, 7);
 		ASSERT_EQ(rows.size(), 1u);
 		EXPECT_EQ(rows[0][0].value_or(""), "0") << "Q2: the character is still online";
@@ -1886,6 +1900,7 @@ TEST(M5aScenario, Run) {
 		// The character logged out seconds ago in Q4, and PlayerEnterWorldService.java:152-156 answers SM_ENTER_WORLD_CHECK(REENTRY_TIME) and
 		// returns while `now - lastOnline < CHARACTER_REENTRY_TIME * 1000`. The scenario profile sets that key to 1 second, and the login above
 		// takes less than that, so Q5 waits it out exactly as Q3 does - otherwise the relogin is refused and no SM_PLAYER_SPAWN follows.
+		awaitOffline("Q5"); // the CM_QUIT(0) of Q4 came less than 10 s after the enter world of Q3 (registerLeaveWorld)
 		std::this_thread::sleep_for(1500ms);
 		again.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
 		const std::vector<Packet> burst = collectBurst(*again.game, async);
