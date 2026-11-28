@@ -224,28 +224,47 @@ aion_gs_regscan.cli.java_tree, tools.gen, tools.oracle).
 
 | Commit | Date | Subject | Java | Data | Chunks | Notes |
 |---|---|---|---|---|---|---|
-| `d22a9af5b` | 2026-09-21 | Shutdown improvements | 187 | 0 | P5-00, P5-14, P4-15, C2 |  |
+| `d22a9af5b` | 2026-09-21 | Shutdown improvements | 187 | 0 | P5-00, P5-14, P4-15, C2 | ported (lane D) |
 | `e1a399e62` | 2026-10-03 | Client packets that are larger than the read buffer now disconnect the client | 85 | 0 |  |  |
 | `76b2f2bca` | 2026-10-03 | Packet processor keeps a queue per connection and limits its size | 216 | 0 | P4-15, P4-01 |  |
 | `d9800d686` | 2026-10-03 | Clients that stop receiving data get disconnected instead of growing their send queue forever | 92 | 0 | P4-01, P4-15 |  |
 | `31ad0571f` | 2026-10-03 | Limited the time a client has to authenticate and restored flood protector default config to true (active) | 121 | 0 | P4-15, P4-01 |  |
 | `459b35094` | 2026-10-04 | Migrated chat server from Netty 3 to 4.2 | 1,536 | 0 |  |  |
 | `01aadf926` | 2026-10-04 | Game server authentication on chat and login server rejects strangers reliably | 49 | 0 |  |  |
-| `36bdccb4d` | 2026-10-04 | Log files roll over at 100 MB and keep five old files | 0 | 0 |  |  |
-| `7840be30d` | 2026-10-04 | Logging improvements | 1,823 | 0 | P4-09, P4-14, P4-15, P4-02b |  |
+| `36bdccb4d` | 2026-10-04 | Log files roll over at 100 MB and keep five old files | 0 | 0 |  | ported (lane D) |
+| `7840be30d` | 2026-10-04 | Logging improvements | 1,823 | 0 | P4-09, P4-14, P4-15, P4-02b | ported (lane D) |
 | `81e409c5e` | 2026-10-06 | Log too short client packets once per opcode and fixed swapped packet flood filter modes 1 and 2 (#213) | 6 | 0 | P4-15 |  |
 | `bce89b2fc` | 2026-10-18 | Moved the login server to Netty and matched the login packets to the 4.8 client (#218) | 815 | 0 | P5-00 |  |
 | `a485569df` | 2026-10-18 | Multi-client limit  (#216) | 117 | 0 | P5-08, P4-01, P4-17, P5-00 |  |
 | `92da2dd62` | 2026-10-22 | Add invisible continuation mark to split message parts | 9 | 0 | P4-05 |  |
 | `55d0af937` | 2026-10-31 | Rate limit network packets that allow spamming DB queries | 1 | 0 | P4-15 |  |
-| `9d8eeb2f2` | 2026-10-31 | Stopped client text from forging log lines | 43 | 0 | P4-05, P5-15 |  |
+| `9d8eeb2f2` | 2026-10-31 | Stopped client text from forging log lines | 43 | 0 | P4-05, P5-15 | ported (lane D) |
 | `4ca531afc` | 2026-10-31 | Stopped leaking failed login and character count state | 20 | 0 |  |  |
 | `b0317f967` | 2026-10-31 | Added retail chat channel validations | 55 | 0 |  |  |
-| `b028752d0` | 2026-11-10 | Logging fixes & improvements | 247 | 0 | P5-14 |  |
-| `8912ec714` | 2026-11-10 | Startup fixes & improvements | 199 | 0 | P5-11, P4-10, P5-14 |  |
+| `b028752d0` | 2026-11-10 | Logging fixes & improvements | 247 | 0 | P5-14 | ported (lane D) |
+| `8912ec714` | 2026-11-10 | Startup fixes & improvements | 199 | 0 | P5-11, P4-10, P5-14 | ported (lane D) |
 | `17093650f` | 2026-11-14 | Fixed chat channel leak (#245) | 109 | 0 |  |  |
-| `546f96bd2` | 2026-11-18 | Speed up game server startup (#252) | 824 | 0 | T2, P4-05, P5-14, P4-09 |  |
-| `620fc69b0` | 2026-11-18 | Fixed NPE from merged startup changes (546f96b) | 4 | 0 | P4-09 |  |
+| `546f96bd2` | 2026-11-18 | Speed up game server startup (#252) | 824 | 0 | T2, P4-05, P5-14, P4-09 | ported (lane D), order only |
+| `620fc69b0` | 2026-11-18 | Fixed NPE from merged startup changes (546f96b) | 4 | 0 | P4-09 | verified, no C++ change |
+
+### Wave 1 progress: logging, startup, shutdown (lane D, branch `sync/wave1-logging`, 2026-11-27)
+
+One C++ commit per upstream commit (plus one for the gates' wait for the delayed logout); the network, login and chat commits are lane C's.
+Combined with lane C's network part on `sync/wave1` (2026-11-28). Gates on the combined branch, with wave 0's //npcskill removal
+(`48aea6a57`) in the working tree only: gs.smoke.startup, gs.scenario.m5a and gs.scenario.chat pass; gs.scenario.m5h fails only at C18,
+which reads the house script as plain text from `house_scripts` (the compressed block of the foundation's database step, 46e8d00b9).
+The other gates stop at their oracles, which refuse the Java of 68eccc7b1 (foundation note).
+
+| Commit | Ported | Kept back or different |
+|---|---|---|
+| `d22a9af5b` | `PlayerLeaveWorldService.registerLeaveWorld` with its synchronized `LeaveWorldTask` (10 s after the last move or fight), `isLeavingWorld`, `processPendingLeaveWorldTasks` after the network shutdown; `CM_QUIT`/`onDisconnect` register it, `safeLogout` gone; staff to the server selection screen at shutdown; the staff-only fast exit (`gameserver.shutdown.instant_shutdown_with_only_staff_online`); `NioServer::findAllConnections`, `GameServer::findClientConnections`, //debug, //sys | C++ `NioServer::shutdown` waits for the `onDisconnect` callbacks, so every task is registered before `processPendingLeaveWorldTasks` (Java may register late). The m5a, m5b, m5b2, m5b3 and m5c gates wait for the delayed logout after `CM_QUIT(1)` (`ScenarioDatabase::awaitAccountOffline`); the stress run's "CM_QUIT is synchronous" assumption is not adjusted. A login while the character is still leaving takes `PlayerEnterWorldService`'s "a char was online during acc login" branch, which replaces the account warehouse of the shared `Account`; checked builds terminated there (C11) until `PlayerStorage(Account&)` took its owner at construction (separate commit, `LoginSliceDatabaseFlowTest.ARelogWhileTheCharacterIsLeavingReloadsTheAccountWarehouse`) |
+| `36bdccb4d` | Every file appender rolls over (`FileAppender::RollingPolicy`: fixed window `x.%i.log`, size trigger) with `<server>.log.max_file_size` / `max_rolled_files` | An empty or invalid value keeps the default with a warning |
+| `7840be30d` | The placeholder form and the reworded texts in ~265 C++ files, with the code upstream reshaped (HTMLCache, GameTimeService, SurveyService, ThreadPoolManager shutdown lines, audit instead of info for cross-race trades and foreign broker items, ...) | The few statements the C++ lacks (ConfigurableProcessor's message, PlayerPetsDAO's mood update, NpcSkillList/DecomposeAction warnings held back by the foundation) |
+| `9d8eeb2f2` | `ChatUtil::isInvalidCharacter`, `AuditLogger` escapes control characters, public and whisper chat refuse them | |
+| `b028752d0` | Banner, `%threadAndLogger` and `THREAD_LOG`, the servers' highlight and gray colors, Discord `allowed_mentions`, `formatStartupMessage` | No start scripts ship with the C++ servers (code page, window width, `THREAD_LOG` for the launcher; DEVIATIONS.md) |
+| `8912ec714` | Background log archiving with a staging folder, the start marker after the move, `AbstractPeriodicTaskManager::startAll`, `LegionDominionIntruderUpdateTask` removed | The first periodic run is at least 50 ms after the constructor (P4-10.md) |
+| `546f96bd2` | Database after the thread pools (`initDatabase`, IDFactory's used ids there), `logStartupStats` at the end of all three servers, `isStarting`, the cleaning check | `initDatabase` runs before `DataManager`, not beside it; the JAXB loader speed-ups have no C++ counterpart (P5-14.md) |
+| `620fc69b0` | | Java-only (the reload detection of `DecomposableItemsData`'s JAXB listener); the C++ binder has no such branch |
 
 ### Wave 1, network part (lane C, 2026-11-27)
 
