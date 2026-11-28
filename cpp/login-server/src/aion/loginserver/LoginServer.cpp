@@ -192,9 +192,6 @@ void startup(const Properties& overrides) {
 	service::PlayerTransferService::getInstance();
 	playerTransferServiceStarted = true;
 
-	commons::utils::info::VersionInfo::logAll();
-	commons::utils::info::SystemInfo::logAll();
-
 	network::NetConnector::connect();
 }
 
@@ -236,7 +233,7 @@ int main(std::span<const std::string_view> args) {
 		log().warn("Unknown command line argument ignored: " + argument);
 
 	installShutdownHook();
-	log().info(Logging::formatStartupMessage("Login server", startTimeNanos));
+	Logging::logStartupStats("com.aionemu.loginserver.LoginServer", startTimeNanos);
 	waitForShutdownRequest();
 
 	shutdown();

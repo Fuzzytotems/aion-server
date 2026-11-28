@@ -435,14 +435,19 @@ public:
 				std::scoped_lock lock(dumps.mutex);
 				dumps.dumps.push_back(std::string(aion::gameserver::runtime::Watchdog::reasonName(report.reason)) + " " + report.summary);
 			});
+		if (arguments.checkMode() && !(arguments.checkIdFactory && !arguments.checkStaticData))
+			backlogProbe = aion::gameserver::runtime::Watchdog::getInstance().addProbe("M4 check: Reclaimer backlog high-water mark",
+				[](aion::gameserver::runtime::Watchdog&, const std::vector<aion::gameserver::runtime::Watchdog::ThreadSnapshot>&) { sampleBacklog(); });
+		return true;
+	}
+
+	bool continueAfterDatabase() override {
+		// upstream 546f96bd2: IDFactory's used ids are locked by initDatabase, after the runtime
 		if (arguments.checkIdFactory && !arguments.checkStaticData) {
 			writeM4Summary(arguments, elapsedMillis());
 			log().info("M4 check: IDFactory initialized, --check-id-factory ends the startup here");
 			return false;
 		}
-		if (arguments.checkMode())
-			backlogProbe = aion::gameserver::runtime::Watchdog::getInstance().addProbe("M4 check: Reclaimer backlog high-water mark",
-				[](aion::gameserver::runtime::Watchdog&, const std::vector<aion::gameserver::runtime::Watchdog::ThreadSnapshot>&) { sampleBacklog(); });
 		return true;
 	}
 

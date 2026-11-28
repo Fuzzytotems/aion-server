@@ -110,6 +110,8 @@ const commons::logging::Logger& log() {
 	return *logger;
 }
 
+std::vector<runtime::RuntimeLifecycle::UsedIdsSource> usedIdsSources();
+
 /** The kernel configuration from the loaded configs (RuntimeLifecycle::Options documents the keys); IDFactory's used ids in Java order */
 runtime::RuntimeLifecycle::Options runtimeOptions() {
 	using configs::main::GSConfig;
@@ -121,8 +123,14 @@ runtime::RuntimeLifecycle::Options runtimeOptions() {
 	options.threadPool = RuntimeConfig::threadPoolManagerConfig();
 	options.idFactory = RuntimeConfig::idFactoryConfig();
 	options.cronTimeZone = GSConfig::TIME_ZONE_ID.load();
-	// Java IDFactory.initializeUsedIds order
-	options.usedIds = {
+	options.deferUsedIds = true; // Java (upstream 546f96bd2): IDFactory.getInstance() in initDatabase, after the thread pools and the cron service
+	options.usedIds = usedIdsSources();
+	return options;
+}
+
+/** Java IDFactory.initializeUsedIds order */
+std::vector<runtime::RuntimeLifecycle::UsedIdsSource> usedIdsSources() {
+	return {
 		{"PlayerDAO", [] { return dao::PlayerDAO::getUsedIDs(); }},
 		{"InventoryDAO", [] { return dao::InventoryDAO::getUsedIDs(); }},
 		{"PlayerRegisteredItemsDAO", [] { return dao::PlayerRegisteredItemsDAO::getUsedIDs(); }},
@@ -132,7 +140,6 @@ runtime::RuntimeLifecycle::Options runtimeOptions() {
 		{"HousesDAO", [] { return dao::HousesDAO::getUsedIDs(); }},
 		{"PlayerPetsDAO", [] { return dao::PlayerPetsDAO::getUsedIDs(); }},
 	};
-	return options;
 }
 
 } // namespace
@@ -162,7 +169,11 @@ bool GameServer::main(StartupObserver& observer) {
 	// Java: JAXBUtil.preLoadContextAsync(StaticData.class) - the C++ binders need no context
 	if (!initUtilityServicesAndConfig(observer, step))
 		return false;
-
+	// Java: CompletableFuture.runAsync(GameServer::initDatabase) while DataManager.getInstance() loads the static data, then
+	// awaitDatabaseInit. C++: one after the other (docs/deviations/P5-14.md)
+	runStep(observer, step, "initDatabase()", [] { initDatabase(); });
+	if (!observer.continueAfterDatabase())
+		return false;
 	runStep(observer, step, "DataManager.getInstance()", [] { dataholders::DataManager::getInstance(); });
 
 	// Java: Stream.of(QuestEngine, AIEngine, InstanceEngine, ChatProcessor, ZoneService, GeoService).parallel().forEach(GameEngine::init)
@@ -266,19 +277,17 @@ bool GameServer::main(StartupObserver& observer) {
 
 	// System.gc();
 
-	runStep(observer, step, "VersionInfo.logAll()", [] {
-		commons::utils::info::VersionInfo::logAll(versionInfo(), configs::main::GSConfig::TIME_ZONE_ID.load());
-		commons::utils::info::SystemInfo::logAll();
-	});
-
 	runStep(observer, step, "initNioServer()", [] { nioServer.store(initNioServer(), std::memory_order_release); });
 	runStep(observer, step, "ShutdownHook", [] { ShutdownHook::getInstance().install(); }); // Java: Runtime.getRuntime().addShutdownHook(...)
-	log().info(commons::logging::Logging::formatStartupMessage("Game server", START_TIME_NANOS));
 
 	runStep(observer, step, "LoginServer.connect(nioServer)", [] { network::loginserver::LoginServer::getInstance().connect(*getNioServer()); });
 	runStep(observer, step, "ChatServer.connect(nioServer)", [] {
 		if (configs::main::GSConfig::ENABLE_CHAT_SERVER.load())
 			network::chatserver::ChatServer::getInstance().connect(*getNioServer());
+	});
+	runStep(observer, step, "Logging.logStartupStats()", [] {
+		commons::logging::Logging::logStartupStats("com.aionemu.gameserver.GameServer", START_TIME_NANOS, &versionInfo(),
+			configs::main::GSConfig::TIME_ZONE_ID.load());
 	});
 	return true;
 }
@@ -304,17 +313,18 @@ bool GameServer::initUtilityServicesAndConfig(StartupObserver& observer, int32_t
 		configs::Config::load();
 		observer.afterConfigLoad();
 	});
-	// Second should be database factory
-	runStep(observer, step, "DatabaseFactory.init()", [] {
-		commons::database::DatabaseFactory::init(commons::database::DatabaseFactory::gameServerOptions());
-		dao::PlayerDAO::setAllPlayersOffline();
-		if (configs::main::CleaningConfig::CLEANING_ENABLE.load())
-			services::DatabaseCleaningService::deletePlayersOnInactiveAccounts();
-	});
-
-	// Initialize thread pools; Initialize cron service (Java); C++: RuntimeLifecycle also starts IDFactory (Java: IDFactory.getInstance() in main)
-	runStep(observer, step, "ThreadPoolManager, CronService, IDFactory", [] { runtime::RuntimeLifecycle::start(runtimeOptions()); });
+	// Initialize thread pools; Initialize cron service (Java); C++: both through RuntimeLifecycle, which configures IDFactory (its used ids follow
+	// in initDatabase)
+	runStep(observer, step, "ThreadPoolManager, CronService", [] { runtime::RuntimeLifecycle::start(runtimeOptions()); });
 	return observer.continueAfterRuntime();
+}
+
+void GameServer::initDatabase() {
+	commons::database::DatabaseFactory::init(commons::database::DatabaseFactory::gameServerOptions());
+	dao::PlayerDAO::setAllPlayersOffline();
+	if (configs::main::CleaningConfig::CLEANING_ENABLE.load())
+		services::DatabaseCleaningService::deletePlayersOnInactiveAccounts();
+	runtime::RuntimeLifecycle::lockUsedIds(usedIdsSources()); // Java: IDFactory.getInstance(); loads all ids in use, which can take a while on a large database
 }
 
 void GameServer::runStep(StartupObserver& observer, int32_t& step, std::string_view name, const std::function<void()>& body) {
@@ -328,8 +338,7 @@ void GameServer::shutdownNioServer() {
 	if (commons::network::NioServer* server = getNioServer()) {
 		if (forceStaffClientsToServerSelectionScreen())
 			std::this_thread::sleep_for(std::chrono::milliseconds(200)); // wait for login server to accept reconnections
-		if (nioServer.exchange(nullptr, std::memory_order_acq_rel) == server) // C++: a concurrent second call does not shut it down twice
-			server->shutdown();
+		server->shutdown(); // a second call does nothing (NioServer.h)
 	}
 }
 
@@ -361,6 +370,10 @@ bool GameServer::forceStaffClientsToServerSelectionScreen() {
 
 bool GameServer::isShutdownScheduled() {
 	return ShutdownHook::getInstance().isRunning();
+}
+
+bool GameServer::isStarting() {
+	return getNioServer() == nullptr;
 }
 
 bool GameServer::isShuttingDownSoon() {

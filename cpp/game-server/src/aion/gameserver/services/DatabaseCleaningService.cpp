@@ -13,6 +13,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/CleaningConfig.h"
 #include "aion/gameserver/dao/LegionDAO.h"
 #include "aion/gameserver/dao/LegionMemberDAO.h"
@@ -48,8 +49,8 @@ std::string join(const std::vector<std::string>& elements, std::string_view deli
 // Java DatabaseCleaningService.java:30-49. Java's main thread is the thread with id 1; C++ names its main thread "main" (main.cpp:638), the
 // only thread of that name
 void DatabaseCleaningService::deletePlayersOnInactiveAccounts() {
-	if (commons::utils::concurrent::getCurrentThreadName() != "main")
-		throw runtime::IllegalStateException("DatabaseCleaningService can only be run from the main thread on server startup");
+	if (!GameServer::isStarting())
+		throw runtime::IllegalStateException("DatabaseCleaningService can only be run on server startup");
 
 	if (configs::main::CleaningConfig::MIN_ACCOUNT_INACTIVITY_DAYS.load() <= 30)
 		throw runtime::IllegalArgumentException(
