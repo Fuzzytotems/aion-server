@@ -41,12 +41,10 @@ std::shared_ptr<Channel> getChannelById(int32_t channelId);
  * @param identifier
  *          - the identifier of the requested channel, e.g. @trade_Housing_barrack1.0.AION.KOR
  * @return Channel with this identifier or creates and returns a new channel if no channel with such identifier exists.<br>
- *         Null if the identifier does not have three parts or the client requested a channel of another race.
- * @throws commons::utils::IndexOutOfBoundsException if the type has no meta part or the restrictions have less than two parts (Java:
- *           ArrayIndexOutOfBoundsException)
- * @throws commons::utils::NumberFormatException if the game server id or race id is not a number
- * @throws commons::utils::IllegalStateException if the type identifier is unknown and no channel matched (Java: NullPointerException in
- *           addChannel's switch), or if client is null (Java: NullPointerException)
+ *         Null if the identifier does not have three parts, has no channel name, an unknown type, a name longer than 64 characters, malformed
+ *         restrictions, the game server 99 or another one than the registered game server, an unknown race, if the client requested a
+ *         channel of another race, or if a new channel would exceed 256 channels (upstream b0317f967; all but the first are logged).
+ * @throws commons::utils::IllegalStateException if client is null (Java: NullPointerException)
  */
 std::shared_ptr<Channel> getOrCreate(const std::shared_ptr<ChatClient>& client, std::string_view identifier);
 

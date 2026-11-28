@@ -29,6 +29,9 @@ void BroadcastService::removeClient(const model::ChatClient& client) {
 }
 
 void BroadcastService::broadcastMessage(const model::message::Message& message) {
+	// The client may name any channel id, so require the sender to be a member.
+	if (!message.getSender()->isInChannel(*message.getChannel()))
+		return;
 	std::vector<std::shared_ptr<model::ChatClient>> recipients;
 	{
 		std::lock_guard lock(mutex);
