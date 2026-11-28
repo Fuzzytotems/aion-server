@@ -10,6 +10,7 @@ void NetworkConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	p.bind("chatserver.network.gameserver.socket_address", GAMESERVER_SOCKET_ADDRESS, "0.0.0.0:9021");
 	p.bind("chatserver.network.gameserver.password", GAMESERVER_PASSWORD, "");
 	p.bind("chatserver.network.nio.threads", NIO_READ_WRITE_THREADS, "1");
+	p.bind("chatserver.network.client.auth_timeout_seconds", CLIENT_AUTH_TIMEOUT_SECONDS, "60");
 }
 
 } // namespace aion::chatserver::configs::network

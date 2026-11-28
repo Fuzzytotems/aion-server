@@ -17,8 +17,8 @@ namespace aion::chatserver::network::aion::clientpackets {
  */
 class CM_CHANNEL_JOIN : public AbstractClientPacket {
 public:
-	CM_CHANNEL_JOIN(common::netty::ChannelBuffer channelBuffer, std::shared_ptr<netty::handler::ClientChannelHandler> clientChannelHandler, int8_t opCode) noexcept
-		: AbstractClientPacket(std::move(channelBuffer), std::move(clientChannelHandler), opCode) {}
+	CM_CHANNEL_JOIN(commons::utils::ByteBuffer buf, std::shared_ptr<AionConnection> connection, int32_t opCode)
+		: AbstractClientPacket(std::move(buf), std::move(connection), opCode) {}
 
 protected:
 	void readImpl() override;

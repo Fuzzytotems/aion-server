@@ -18,42 +18,28 @@ const commons::logging::Logger& log() {
 
 } // namespace
 
-GsConnection::GsConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server, std::shared_ptr<Processor> processor)
-	: AConnection(std::move(socket), server, 8192 * 8, 8192 * 8), processor(std::move(processor)) {
+GsConnection::GsConnection(std::shared_ptr<netty::ConnectionHandler> channel, Executor packetExecutor)
+	: NettyConnection(std::move(channel), std::move(packetExecutor)) {
 }
 
-bool GsConnection::processData(commons::utils::ByteBuffer& data) {
-	std::unique_ptr<GsClientPacket> pck = factories::GsPacketHandlerFactory::handle(data, sharedFromThis());
-	if (pck && pck->read())
-		processor->executePacket(std::move(pck));
-	return true;
+std::unique_ptr<commons::network::packet::ClientPacketBase> GsConnection::createPacket(commons::utils::ByteBuffer& data) {
+	return factories::GsPacketHandlerFactory::handle(data, std::static_pointer_cast<GsConnection>(shared_from_this()));
 }
 
-bool GsConnection::writeData(commons::utils::ByteBuffer& data) {
-	// guard is held by the caller (Java: synchronized (guard))
-	if (sendMsgQueue.empty())
-		return false;
-	std::shared_ptr<GsServerPacket> packet = std::move(sendMsgQueue.front());
-	sendMsgQueue.pop_front();
-	packet->write(this, data);
-	return true;
+void GsConnection::writePacket(const GsServerPacket& packet, commons::utils::ByteBuffer& buffer) {
+	packet.write(this, buffer);
+}
+
+void GsConnection::onConnect() {
+	log().info("Game server connected: {}", getIP());
 }
 
 void GsConnection::onDisconnect() {
 	service::GameServerService::getInstance().setOffline();
 }
 
-void GsConnection::onServerClose() {
-	close();
-}
-
 std::string GsConnection::toString() const {
-	return "Gameserver " + getIP();
-}
-
-void GsConnection::initialized() {
-	state = GameServerConnectionState::CONNECTED;
-	log().info("Gameserver connection attempt from: {}", getIP());
+	return "Game server " + getIP();
 }
 
 std::string_view toString(GsConnection::GameServerConnectionState state) noexcept {

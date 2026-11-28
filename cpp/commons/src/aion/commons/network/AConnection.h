@@ -187,6 +187,30 @@ protected:
 	/** @return The time in milliseconds the remote side has to authenticate itself, or 0 for no limit. */
 	virtual int64_t getAuthTimeoutMillis() const { return 0; }
 
+	/**
+	 * Called on the strand when data that announced a size of more than the read buffer was received, before the connection is disconnected.
+	 * Logs Java's Dispatcher warning; connections that emulate another framing (the chat and login server's Netty connections) override it.
+	 */
+	virtual void onPacketTooLarge(int32_t size, int32_t capacity) const;
+
+	/**
+	 * Called on the strand when a packet without body (announced size below 3) was received, before the connection is disconnected. Logs Java's
+	 * Dispatcher warning, see onPacketTooLarge.
+	 *
+	 * @param size the announced size (0 to 2)
+	 * @param buf the read buffer positioned after the size
+	 */
+	virtual void onEmptyPacket(int32_t size, const utils::ByteBuffer& buf) const;
+
+	/** Called on the strand after bytes were written to the socket (bytes is the number written by the last socket write). */
+	virtual void onBytesWritten(size_t bytes) noexcept { (void)bytes; }
+
+	/** Called on the strand once the socket was closed, before onDisconnect() is dispatched (e.g. to cancel own timers). */
+	virtual void onSocketClosed() noexcept {}
+
+	/** @return the strand all IO of this connection runs on, e.g. for timers of subclasses */
+	const asio::strand<asio::io_context::executor_type>& getStrand() const noexcept { return strand; }
+
 	/** @return the number of server packets waiting to be sent. The caller must hold {@link #guard}. */
 	virtual size_t getSendQueueSize() const { return 0; }
 

@@ -7,7 +7,7 @@
 #include "aion/chatserver/model/channel/Channel.h"
 #include "aion/chatserver/model/message/Message.h"
 #include "aion/chatserver/network/aion/serverpackets/SM_CHANNEL_MESSAGE.h"
-#include "aion/chatserver/network/netty/handler/ClientChannelHandler.h"
+#include "aion/chatserver/network/aion/AionConnection.h"
 #include "aion/commons/utils/Exception.h"
 
 namespace aion::chatserver::service {
@@ -43,11 +43,11 @@ void BroadcastService::broadcastMessage(const model::message::Message& message) 
 }
 
 void BroadcastService::sendMessage(const model::ChatClient& chatClient, const model::message::Message& message) {
-	std::shared_ptr<network::netty::handler::ClientChannelHandler> channelHandler = chatClient.getChannelHandler();
-	if (!channelHandler)
-		throw commons::utils::IllegalStateException("Cannot invoke \"ClientChannelHandler.sendPacket(...)\" because the return value of "
-																								"\"com.aionemu.chatserver.model.ChatClient.getChannelHandler()\" is null");
-	channelHandler->sendPacket(network::aion::serverpackets::SM_CHANNEL_MESSAGE(message));
+	std::shared_ptr<network::aion::AionConnection> connection = chatClient.getConnection();
+	if (!connection)
+		throw commons::utils::IllegalStateException("Cannot invoke \"AionConnection.sendPacket(...)\" because the return value of "
+																								"\"com.aionemu.chatserver.model.ChatClient.getConnection()\" is null");
+	connection->sendPacket(network::aion::serverpackets::SM_CHANNEL_MESSAGE(message));
 }
 
 } // namespace aion::chatserver::service

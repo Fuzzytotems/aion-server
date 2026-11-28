@@ -149,7 +149,7 @@ TEST_F(BroadcastTest, LogoutClosesTheClientAndStopsItsMessages) {
 	gs->send(FakeGameServer::buildPlayerLogout(bob.id));
 	EXPECT_TRUE(bob.client->socket.waitClosed()) << log.dump();
 	EXPECT_TRUE(log.waitFor("Player[id=" + std::to_string(bob.id) + "] logged out ")) << log.dump();
-	EXPECT_TRUE(log.waitFor("Channel disconnected IP: 127.0.0.1")) << log.dump();
+	EXPECT_TRUE(log.waitFor("Client disconnected: Player [name=Bob")) << log.dump();
 
 	alice.client->send(FakeChatClient::buildChannelMessage(channelId, "bye"));
 	EXPECT_EQ(alice.client->expectFrame("SM_CHANNEL_MESSAGE"), expectedChannelMessage(channelId, alice.id, "Alice@AION", "bye"));
@@ -171,9 +171,9 @@ TEST_F(BroadcastTest, LogoutOfAPlayerWhoseClientNeverConnectedIsLogged) {
 }
 
 TEST_F(BroadcastTest, MessageTooBigForTheSendBufferReachesNobody) {
-	// the content length is read as chars (H * 2); a declared length beyond the frame gives a zero-filled array of that length (Java readB), and
-	// the SM_CHANNEL_MESSAGE of 20000 text bytes does not fit the 16 KiB send buffer: sendPacket throws, BaseClientPacket.run logs it
-	LogCapture log({"com.aionemu.chatserver"});
+	// the content length is read as chars (H * 2); upstream e1a399e62: a declared length beyond the packet makes the packet too short, so it is
+	// not executed, and upstream 459b35094: a packet that fails to read closes the connection
+	LogCapture log({"com.aionemu"});
 	auto gs = connectGameServer();
 	Player alice = loginPlayer(*gs, "Alice", 0);
 	Player bob = loginPlayer(*gs, "Bob", 0);
@@ -181,26 +181,20 @@ TEST_F(BroadcastTest, MessageTooBigForTheSendBufferReachesNobody) {
 	int32_t channelId = alice.client->joinChannel(1, identifier);
 	bob.client->joinChannel(1, identifier);
 	alice.client->send(PacketWriter().C(0x18).H(0).C(0).D(0).D(0).D(0).D(0).D(channelId).C(0).H(10000).B(ascii16("short")).frame());
-	EXPECT_TRUE(log.waitFor("Missing byte[] for: CM_CHANNEL_MESSAGE [channelId=" + std::to_string(channelId) + ", content=null]")) << log.dump();
-	EXPECT_TRUE(log.waitFor("Running failed for packet CM_CHANNEL_MESSAGE [channelId=" + std::to_string(channelId) + ", content=[0, 0, 0",
-		EXCEPTION_LOG_TIMEOUT))
-		<< log.dump();
-	EXPECT_TRUE(alice.client->socket.expectSilence());
+	EXPECT_TRUE(alice.client->socket.waitClosed()) << log.dump();
 	EXPECT_TRUE(bob.client->socket.expectSilence());
 }
 
 TEST_F(BroadcastTest, DeclaredLengthsAbove32767CharsAreUnsigned) {
-	// Java readH is unsigned: H 0x8000 declares 65536 bytes, readB logs the missing bytes and returns zeros, and the packet still runs (its answer
-	// does not fit the send buffer)
-	LogCapture log({"com.aionemu.chatserver"});
+	// Java readUH: H 0x8000 declares 65536 bytes (not a negative length), which the packet does not have: it is too short, nothing else fails
+	LogCapture log({"com.aionemu"});
 	auto gs = connectGameServer();
 	Player alice = loginPlayer(*gs, "Alice", 0);
 	int32_t channelId = alice.client->joinChannel(1, channelIdentifier("public", uniqueName("map"), GS_ID, 0));
 	alice.client->send(PacketWriter().C(0x18).H(0).C(0).D(0).D(0).D(0).D(0).D(channelId).C(0).H(0x8000).B(ascii16("short")).frame());
-	EXPECT_TRUE(log.waitFor("Missing byte[] for: CM_CHANNEL_MESSAGE [channelId=" + std::to_string(channelId) + ", content=null]")) << log.dump();
-	EXPECT_TRUE(log.waitFor("Running failed for packet CM_CHANNEL_MESSAGE [channelId=" + std::to_string(channelId), EXCEPTION_LOG_TIMEOUT))
-		<< log.dump();
+	EXPECT_TRUE(alice.client->socket.waitClosed()) << log.dump();
 	EXPECT_FALSE(log.contains("Reading failed")) << log.dump();
+	EXPECT_FALSE(log.contains("Could not execute")) << log.dump();
 }
 
 TEST_F(BroadcastTest, ContentBytesAreLoggedAsSignedBytes) {
@@ -210,8 +204,10 @@ TEST_F(BroadcastTest, ContentBytesAreLoggedAsSignedBytes) {
 	Player alice = loginPlayer(*gs, "Alice", 0);
 	int32_t channelId = alice.client->joinChannel(1, channelIdentifier("public", uniqueName("map"), GS_ID, 0));
 	alice.client->send(PacketWriter().C(0x18).H(0).C(0).D(0).D(0).D(0).D(0).D(channelId).C(0).H(1).B({0xFF, 0x80}).C(0x7F).frame());
-	EXPECT_TRUE(log.waitFor("CM_CHANNEL_MESSAGE [channelId=" + std::to_string(channelId) + ", content=[-1, -128]] was not fully read!")) << log.dump();
 	EXPECT_EQ(alice.client->expectFrame("SM_CHANNEL_MESSAGE"), expectedChannelMessage(channelId, alice.id, "Alice@AION", u"胿"));
+	// the warning is logged once per opcode and process (BaseClientPacket), so only if no other test logged it before
+	if (log.contains("CM_CHANNEL_MESSAGE [channelId="))
+		EXPECT_TRUE(log.contains("CM_CHANNEL_MESSAGE [channelId=" + std::to_string(channelId) + ", content=[-1, -128]] was not fully read!")) << log.dump();
 }
 
 TEST_F(BroadcastTest, ChatLogWritesChannelNameSenderAndText) {

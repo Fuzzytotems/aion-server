@@ -16,8 +16,8 @@ namespace aion::chatserver::model {
 class ChatClient;
 }
 
-namespace aion::chatserver::network::netty::handler {
-class ClientChannelHandler;
+namespace aion::chatserver::network::aion {
+class AionConnection;
 }
 
 namespace aion::chatserver::service {
@@ -56,10 +56,10 @@ public:
 	 * on. Otherwise a warning is logged and nothing is sent.
 	 */
 	void registerPlayerConnection(int32_t playerId, std::span<const uint8_t> token, std::vector<uint8_t> identifier, std::string_view name,
-		std::string_view accName, const std::shared_ptr<network::netty::handler::ClientChannelHandler>& channelHandler);
+		std::string_view accName, const std::shared_ptr<network::aion::AionConnection>& connection);
 
 	/** A client requests a channel (see ChatChannels::getOrCreate): if there is one, the client joins it and gets SM_CHANNEL_RESPONSE. */
-	void registerPlayerWithChannel(const std::shared_ptr<network::netty::handler::ClientChannelHandler>& clientChannelHandler, int32_t channelRequestId,
+	void registerPlayerWithChannel(const std::shared_ptr<network::aion::AionConnection>& connection, int32_t channelRequestId,
 		std::string_view identifier);
 
 	/** The game server logged the player out: the player is removed and its client connection closed. Unknown ids are ignored. */

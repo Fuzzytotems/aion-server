@@ -17,8 +17,8 @@ class GameServerLinkTest : public ChatServerTestFixture {};
 TEST_F(GameServerLinkTest, RightPasswordAuthenticatesAndAnnouncesTheConnectAddress) {
 	LogCapture log({"com.aionemu.chatserver"});
 	connectGameServer(); // checks the SM_GS_AUTH_RESPONSE bytes
-	EXPECT_TRUE(log.waitFor("Gameserver #1 is now online")) << log.dump();
-	EXPECT_TRUE(log.contains("Gameserver connection attempt from: 127.0.0.1"));
+	EXPECT_TRUE(log.waitFor("Game server #1 is now online")) << log.dump();
+	EXPECT_TRUE(log.contains("Game server connected: 127.0.0.1"));
 }
 
 TEST_F(GameServerLinkTest, WrongPasswordIsRejectedAndTheConnectionStaysUnauthenticated) {
@@ -26,7 +26,7 @@ TEST_F(GameServerLinkTest, WrongPasswordIsRejectedAndTheConnectionStaysUnauthent
 	FakeGameServer gs(gsPort);
 	Bytes response = gs.authenticate(7, "wrong");
 	EXPECT_EQ(response, (Bytes{0x04, 0x00, 0x00, 0x01})) << hex(response); // NOT_AUTHED, no address
-	EXPECT_TRUE(log.waitFor("Gameserver #7 (IP: 127.0.0.1) tried to register with an invalid password")) << log.dump();
+	EXPECT_TRUE(log.waitFor("Game server #7 (IP: 127.0.0.1) tried to register with an invalid password")) << log.dump();
 	// like Java the chat server does not close the connection (the game server does); it stays in state CONNECTED, so a player registration is
 	// an unknown packet
 	gs.send(FakeGameServer::buildPlayerAuth(nextPlayerId(), "acc", "Nick", 0, 0));
@@ -43,7 +43,7 @@ TEST_F(GameServerLinkTest, SecondGameServerIsAlreadyRegistered) {
 	FakeGameServer second(gsPort);
 	Bytes response = second.authenticate(2, GS_PASSWORD);
 	EXPECT_EQ(response, (Bytes{0x04, 0x00, 0x00, 0x02})) << hex(response); // ALREADY_REGISTERED
-	EXPECT_TRUE(log.waitFor("Gameserver #2 is already registered")) << log.dump();
+	EXPECT_TRUE(log.waitFor("Game server #2 is already registered")) << log.dump();
 	// the registration is checked before the password: a wrong password gets ALREADY_REGISTERED as well
 	FakeGameServer third(gsPort);
 	Bytes wrongPassword = third.authenticate(3, "wrong");
@@ -60,7 +60,7 @@ TEST_F(GameServerLinkTest, DisconnectOfAnyGameServerSetsTheServiceOffline) {
 		EXPECT_EQ(rejected.authenticate(2, GS_PASSWORD), (Bytes{0x04, 0x00, 0x00, 0x02}));
 		rejected.socket.close();
 	}
-	EXPECT_TRUE(log.waitFor("Gameserver #1 is disconnected")) << log.dump();
+	EXPECT_TRUE(log.waitFor("Game server #1 disconnected")) << log.dump();
 	FakeGameServer third(gsPort);
 	Bytes response = third.authenticate(3, GS_PASSWORD);
 	EXPECT_EQ(response, (Bytes{0x0B, 0x00, 0x00, 0x00, 0x04, 0x7F, 0x00, 0x00, 0x01, 0x01, 0x28})) << hex(response);
@@ -103,14 +103,14 @@ TEST_F(GameServerLinkTest, TheTokenHashesAsManyUtf8BytesAsTheAccountNameHasChars
 	EXPECT_EQ(hex(digest), "33 E6 D7 3F EE 82 90 4C 8D 7A FB 78 DE 11 54 D1 E8 DC 2A 0E DB 08 12 0E 63 DF 5B 93 85 C2 D9 CC");
 }
 
-TEST_F(GameServerLinkTest, TruncatedPlayerAuthIsNotExecuted) {
+TEST_F(GameServerLinkTest, TruncatedPlayerAuthClosesTheConnection) {
 	// upstream e1a399e62: commons' read helpers (Java BaseClientPacket) throw on the missing raceId and accessLevel, read() logs the packet as too
-	// short and it is not executed
+	// short and it is not executed; upstream 459b35094: a packet that fails to read closes the connection
 	LogCapture log({"com.aionemu.commons.network.packet.BaseClientPacket"});
 	auto gs = connectGameServer();
 	gs->send(PacketWriter().C(0x01).D(nextPlayerId()).S("acc").S("Nick").frame()); // raceId and accessLevel missing
-	EXPECT_TRUE(log.waitFor("[001] CM_PLAYER_AUTH from Gameserver 127.0.0.1 is shorter than expected")) << log.dump();
-	EXPECT_TRUE(gs->socket.expectSilence());
+	EXPECT_TRUE(log.waitFor("[001] CM_PLAYER_AUTH from Game server 127.0.0.1 is shorter than expected")) << log.dump();
+	EXPECT_TRUE(gs->socket.waitClosed());
 }
 
 } // namespace

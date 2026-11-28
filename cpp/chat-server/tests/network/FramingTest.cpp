@@ -1,57 +1,14 @@
-// The framing of the client connections (Java: PacketFrameDecoder, LoginPacketDecoder, LoginPacketEncoder): little endian uint16 sizes that
-// include the two size bytes, in both directions.
+// The framing of the connections (Java: NettyPipeline's LengthFieldBasedFrameDecoder and PacketEncoder): little endian uint16 sizes that
+// include the two size bytes, in both directions, and packets up to the maximum packet size (8192 * 2 for the clients).
 
 #include <thread>
 
 #include <gtest/gtest.h>
 
 #include "ChatServerTestFixture.h"
-#include "aion/chatserver/network/netty/coder/LoginPacketDecoder.h"
-#include "aion/chatserver/network/netty/coder/LoginPacketEncoder.h"
-#include "aion/chatserver/network/netty/coder/PacketFrameDecoder.h"
-#include "aion/commons/utils/ByteBuffer.h"
-#include "support/FakePeers.h"
-#include "support/TestUtils.h"
 
 namespace aion::chatserver::test {
 namespace {
-
-using commons::utils::ByteBuffer;
-using network::netty::coder::LoginPacketDecoder;
-using network::netty::coder::LoginPacketEncoder;
-using network::netty::coder::PacketFrameDecoder;
-
-TEST(PacketCoderTest, EncoderWritesTheSizeOfTheWholePacketLittleEndian) {
-	ByteBuffer buf = ByteBuffer::allocate(16384);
-	buf.putShort(0); // AbstractServerPacket.write
-	for (int i = 0; i < 0x123; i++)
-		buf.put(static_cast<int8_t>(i));
-	LoginPacketEncoder::encode(buf);
-	EXPECT_EQ(buf.position(), 0);
-	EXPECT_EQ(buf.remaining(), 0x125);
-	EXPECT_EQ(static_cast<uint8_t>(buf.get(0)), 0x25);
-	EXPECT_EQ(static_cast<uint8_t>(buf.get(1)), 0x01);
-	EXPECT_EQ(static_cast<uint8_t>(buf.get(2)), 0x00);
-	EXPECT_EQ(static_cast<uint8_t>(buf.get(0x124)), 0x22);
-}
-
-TEST(PacketCoderTest, DecoderPassesFramesOn) {
-	ByteBuffer frame = ByteBuffer::allocate(3);
-	frame.put(int8_t{5});
-	frame.flip();
-	ByteBuffer decoded = LoginPacketDecoder::decode(frame);
-	EXPECT_EQ(decoded.data(), frame.data());
-	EXPECT_EQ(decoded.remaining(), 1);
-}
-
-TEST(PacketCoderTest, FrameDecoderParameters) {
-	// Java: LengthFieldBasedFrameDecoder(8192 * 2, 0, 2, -2, 2)
-	EXPECT_EQ(PacketFrameDecoder::MAX_PACKET_LENGTH, 16384);
-	EXPECT_EQ(PacketFrameDecoder::LENGTH_FIELD_OFFSET, 0);
-	EXPECT_EQ(PacketFrameDecoder::LENGTH_FIELD_LENGTH, 2);
-	EXPECT_EQ(PacketFrameDecoder::LENGTH_FIELD_ADJUSTMENT, -2);
-	EXPECT_EQ(PacketFrameDecoder::INITIAL_BYTES_TO_STRIP, 2);
-}
 
 class ClientFramingTest : public ChatServerTestFixture {};
 
@@ -78,7 +35,7 @@ TEST_F(ClientFramingTest, AFrameSplitAcrossWritesIsReassembled) {
 }
 
 TEST_F(ClientFramingTest, AFrameOfTheMaximumLengthIsAccepted) {
-	LogCapture log({"com.aionemu.chatserver"});
+	LogCapture log({"com.aionemu.commons.network.packet.BaseClientPacket"});
 	FakeChatClient client(clientPort);
 	PacketWriter ini;
 	ini.C(0x30).C(0x40).H(0).D(0).D(0).D(0);
@@ -87,16 +44,44 @@ TEST_F(ClientFramingTest, AFrameOfTheMaximumLengthIsAccepted) {
 	ASSERT_EQ(frame.size(), 16384u);
 	client.send(frame);
 	EXPECT_EQ(client.expectFrame("SM_CHAT_INI"), SM_CHAT_INI_BYTES);
-	EXPECT_TRUE(log.contains("CM_CHAT_INI [opCode=0x30] was not fully read! Last 16366 bytes")) << log.dump();
+	// logged once per opcode and process, so only if no other test sent a CM_CHAT_INI with trailing bytes before
+	if (log.contains("CM_CHAT_INI was not fully read"))
+		EXPECT_TRUE(log.contains("[048] CM_CHAT_INI was not fully read! Last 16366 bytes")) << log.dump();
 }
 
-TEST_F(ClientFramingTest, AFrameLongerThanTheMaximumClosesTheConnection) {
-	// Deviation (docs/deviations/chat-server.md): Netty discards the frame and keeps the connection, commons' framing disconnects
-	LogCapture log({"com.aionemu.commons.network"});
+TEST_F(ClientFramingTest, AFrameLongerThanTheMaximumIsAnInvalidPacket) {
+	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
 	FakeChatClient client(clientPort);
 	client.send(Bytes{0x01, 0x40, 0x30}); // declares 16385 bytes
 	EXPECT_TRUE(client.socket.waitClosed());
-	EXPECT_TRUE(log.contains("Received packet with a size of 16385 bytes")) << log.dump();
+	EXPECT_TRUE(log.waitFor("Client 127.0.0.1 sent an invalid packet, disconnecting: Adjusted frame length exceeds 16384: 16385 - discarded"))
+		<< log.dump();
+}
+
+TEST_F(ClientFramingTest, AFrameShorterThanItsSizeHeaderIsAnInvalidPacket) {
+	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	FakeChatClient client(clientPort);
+	client.send(Bytes{0x01, 0x00, 0x30});
+	EXPECT_TRUE(client.socket.waitClosed());
+	EXPECT_TRUE(log.waitFor("Client 127.0.0.1 sent an invalid packet, disconnecting: Adjusted frame length (1) is less than lengthFieldEndOffset: 2"))
+		<< log.dump();
+}
+
+TEST_F(ClientFramingTest, AFrameWithoutBodyIsAnEmptyPacket) {
+	LogCapture log({"com.aionemu.chatserver.network.netty.ConnectionHandler"});
+	FakeChatClient client(clientPort);
+	client.send(Bytes{0x02, 0x00, 0x02}); // the third byte starts the next frame
+	EXPECT_TRUE(client.socket.waitClosed());
+	EXPECT_TRUE(log.waitFor("Client 127.0.0.1 sent an empty packet, disconnecting")) << log.dump();
+}
+
+// upstream 459b35094: malformed packets disconnect
+TEST_F(ClientFramingTest, APacketShorterThanItsFieldsClosesTheConnection) {
+	LogCapture log({"com.aionemu.commons.network.packet.BaseClientPacket"});
+	FakeChatClient client(clientPort);
+	client.send(PacketWriter().C(0x30).C(0x40).H(0).frame()); // CM_CHAT_INI without its three D
+	EXPECT_TRUE(client.socket.waitClosed());
+	EXPECT_TRUE(client.socket.isClosed());
 }
 
 } // namespace

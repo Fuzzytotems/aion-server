@@ -1,18 +1,17 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
-#include "aion/chatserver/common/netty/BaseClientPacket.h"
+#include "aion/commons/network/packet/BaseClientPacket.h"
 
 namespace aion::chatserver::model {
 class ChatClient;
 }
 
-namespace aion::chatserver::network::netty::handler {
-class ClientChannelHandler;
-}
-
 namespace aion::chatserver::network::aion {
+
+class AionConnection;
 
 /**
  * Base class of the packets received from Aion clients, created by ClientPacketHandler for their connection.
@@ -21,19 +20,20 @@ namespace aion::chatserver::network::aion {
  *
  * @author ATracer
  */
-class AbstractClientPacket : public common::netty::BaseClientPacket {
+class AbstractClientPacket : public commons::network::packet::BaseClientPacket<AionConnection> {
+public:
+	/** Runs runImpl(), logging any exception ("Could not execute &lt;packet&gt; from &lt;connection&gt;"). */
+	void run() final;
+
 protected:
-	AbstractClientPacket(common::netty::ChannelBuffer channelBuffer, std::shared_ptr<netty::handler::ClientChannelHandler> clientChannelHandler,
-		int8_t opCode) noexcept
-		: BaseClientPacket(std::move(channelBuffer), opCode), clientChannelHandler(std::move(clientChannelHandler)) {}
+	/** @param buf the packet body, positioned after the opcode */
+	AbstractClientPacket(commons::utils::ByteBuffer buf, std::shared_ptr<AionConnection> connection, int32_t opCode);
 
 	/**
-	 * C++ helper for Java's clientChannelHandler.getChatClient(), which is never null for the packets of an authenticated client.
-	 * @throws commons::utils::IllegalStateException if the handler has no ChatClient (Java: NullPointerException)
+	 * C++ helper for Java's getConnection().getChatClient(), which is never null for the packets of an authenticated client.
+	 * @throws commons::utils::IllegalStateException if the connection has no ChatClient (Java: NullPointerException)
 	 */
 	std::shared_ptr<model::ChatClient> getChatClient() const;
-
-	const std::shared_ptr<netty::handler::ClientChannelHandler> clientChannelHandler;
 };
 
 } // namespace aion::chatserver::network::aion

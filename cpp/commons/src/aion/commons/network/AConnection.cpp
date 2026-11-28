@@ -91,6 +91,15 @@ void AConnectionBase::close() {
 	beginClose(false);
 }
 
+void AConnectionBase::onPacketTooLarge(int32_t size, int32_t capacity) const {
+	log().warn(fmt::format("{} announced a packet of {} bytes, which exceeds the read buffer size of {} bytes", describe(*this), size, capacity));
+}
+
+void AConnectionBase::onEmptyPacket(int32_t size, const utils::ByteBuffer& buf) const {
+	(void)size;
+	log().warn("Received empty packet without opcode from " + describe(*this) + ", content: " + utils::NetworkUtils::toHex(buf));
+}
+
 bool AConnectionBase::admitToSendQueue(size_t queuedPackets) {
 	if (queuedPackets == 0) {
 		lastWriteProgressMillis = utils::currentTimeMillis();
@@ -209,8 +218,11 @@ void AConnectionBase::onRead(const std::error_code& error, size_t bytesRead) {
 	while (rb.remaining() > 2) {
 		int32_t size = static_cast<uint16_t>(rb.getShort(rb.position()));
 		if (size > rb.capacity()) {
-			log().warn(fmt::format("{} announced a packet of {} bytes, which exceeds the read buffer size of {} bytes", describe(*this), size,
-				rb.capacity()));
+			try {
+				onPacketTooLarge(size, rb.capacity());
+			} catch (...) {
+				logCurrentException("Error logging an oversized packet of ", *this);
+			}
 			disconnect();
 			return;
 		}
@@ -245,7 +257,11 @@ bool AConnectionBase::isClosingWithPacket() const {
 bool AConnectionBase::parse(utils::ByteBuffer& buf) {
 	int32_t size = static_cast<uint16_t>(buf.getShort()) - 2; // size includes size of the read short, so we need to subtract two bytes
 	if (size <= 0) {
-		log().warn("Received empty packet without opcode from " + describe(*this) + ", content: " + utils::NetworkUtils::toHex(buf));
+		try {
+			onEmptyPacket(size + 2, buf);
+		} catch (...) {
+			logCurrentException("Error logging an empty packet of ", *this);
+		}
 		return false;
 	}
 	utils::ByteBuffer b = buf.slice();
@@ -308,8 +324,10 @@ void AConnectionBase::doWrite() {
 	// Dispatcher, which calls onDataWritten after each socket write that wrote something
 	auto noteProgress = [self = shared_from_this(), written = size_t(0)](const std::error_code& error, size_t transferred) mutable -> size_t {
 		if (transferred > written) {
+			size_t bytes = transferred - written;
 			written = transferred;
 			self->onDataWritten();
+			self->onBytesWritten(bytes);
 		}
 		return asio::transfer_all()(error, transferred);
 	};
@@ -347,6 +365,7 @@ void AConnectionBase::disconnect() {
 	socket.shutdown(asio::ip::tcp::socket::shutdown_both, ignored);
 	socket.close(ignored);
 	closeTimer.cancel();
+	onSocketClosed();
 
 	if (!registered)
 		return;

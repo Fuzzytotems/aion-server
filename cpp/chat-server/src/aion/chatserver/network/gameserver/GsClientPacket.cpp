@@ -27,8 +27,8 @@ void GsClientPacket::run() {
 	}
 }
 
-void GsClientPacket::sendPacket(std::shared_ptr<GsServerPacket> msg) const {
-	getConnection()->sendPacket(std::move(msg));
+void GsClientPacket::sendPacket(const GsServerPacket& msg) const {
+	getConnection()->sendPacket(msg);
 }
 
 } // namespace aion::chatserver::network::gameserver

@@ -33,7 +33,7 @@ GsAuthResponse GameServerService::registerGameServer(int8_t gameServerId, std::s
 }
 
 void GameServerService::setOffline() {
-	log().info("Gameserver #{} is disconnected", GAMESERVER_ID.load());
+	log().info("Game server #{} disconnected", GAMESERVER_ID.load());
 	std::lock_guard lock(mutex);
 	isOnline = false;
 }

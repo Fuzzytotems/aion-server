@@ -21,8 +21,8 @@ namespace aion::chatserver::network::aion::clientpackets {
  */
 class CM_CHANNEL_MESSAGE : public AbstractClientPacket {
 public:
-	CM_CHANNEL_MESSAGE(common::netty::ChannelBuffer channelBuffer, std::shared_ptr<netty::handler::ClientChannelHandler> clientChannelHandler, int8_t opCode) noexcept
-		: AbstractClientPacket(std::move(channelBuffer), std::move(clientChannelHandler), opCode) {}
+	CM_CHANNEL_MESSAGE(commons::utils::ByteBuffer buf, std::shared_ptr<AionConnection> connection, int32_t opCode)
+		: AbstractClientPacket(std::move(buf), std::move(connection), opCode) {}
 
 	/** @return "CM_CHANNEL_MESSAGE [channelId=&lt;id&gt;, content=[&lt;signed bytes&gt;]]" (content=null before it was read) */
 	std::string toString() const override;
